@@ -7,12 +7,13 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fantasy_camera_flutter/main.dart';
+import 'package:fantasy_camera_flutter/app/fantasy_camera_app.dart';
+import 'package:fantasy_camera_flutter/features/camera/presentation/camera_screen.dart';
 
 void main() {
   testWidgets('minimal camera app builds', (WidgetTester tester) async {
-    await tester.pumpWidget(const CameraApp());
+    await tester.pumpWidget(const FantasyCameraApp(cameraChoices: []));
 
-    expect(find.byType(CameraExampleHome), findsOneWidget);
+    expect(find.byType(CameraScreen), findsOneWidget);
   });
 }
