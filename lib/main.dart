@@ -84,6 +84,11 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _openDefaultCamera();
+      return;
+    }
+
     final CameraController? controller = _controller;
     if (controller == null || !controller.value.isInitialized) {
       return;
@@ -93,9 +98,18 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
       unawaited(_zoomSubscription?.cancel());
       _zoomSubscription = null;
       unawaited(controller.dispose());
-      _controller = null;
-    } else if (state == AppLifecycleState.resumed) {
-      _openDefaultCamera();
+      if (mounted) {
+        setState(() {
+          _controller = null;
+          _avFoundationCamera = null;
+          _zoomCapabilities = null;
+          _message = 'Starting camera...';
+        });
+      } else {
+        _controller = null;
+        _avFoundationCamera = null;
+        _zoomCapabilities = null;
+      }
     }
   }
 
