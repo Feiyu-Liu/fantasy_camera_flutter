@@ -6,6 +6,7 @@
 // tree, read text, and verify that the values of widget properties are correct.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_ui/my_ui.dart';
 
 import 'package:fantasy_camera_flutter/app/fantasy_camera_app.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_screen.dart';
@@ -13,7 +14,10 @@ import 'package:fantasy_camera_flutter/features/camera/presentation/camera_scree
 void main() {
   testWidgets('minimal camera app builds', (WidgetTester tester) async {
     await tester.pumpWidget(const FantasyCameraApp(cameraChoices: []));
+    await tester.pump();
 
     expect(find.byType(CameraScreen), findsOneWidget);
+    expect(find.byType(CameraPhotoUi), findsOneWidget);
+    expect(find.text('No camera found.'), findsOneWidget);
   });
 }

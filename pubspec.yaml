@@ -34,6 +34,8 @@ dependencies:
   camera_platform_interface: ^2.10.0
   flutter:
     sdk: flutter
+  my_ui:
+    path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/my_ui
   path_provider: ^2.0.0
   video_player: ^2.7.0
 
