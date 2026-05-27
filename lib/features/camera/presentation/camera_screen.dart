@@ -66,6 +66,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       message: _localizedMessage(cameraState.message),
       aspectRatioLabel: '4:3',
       selectedModeId: _selectedPhotoModeId,
+      zoomStops: _zoomStops(cameraState),
+      currentDisplayZoom: cameraState.rawToDisplayZoom(
+        cameraState.currentRawZoom,
+      ),
+      zoomEnabled: cameraState.hasInitializedController,
       shutterEnabled: cameraState.canShowShutter,
       shutterBusy: false,
       flashMode: _flashUiMode(cameraState),
@@ -77,6 +82,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       onFlashPressed: notifier.toggleFlash,
       onFlipCameraPressed: notifier.flipCamera,
       onShutterPressed: notifier.takePicture,
+      onZoomStopSelected: notifier.setDisplayZoom,
       onModeSelected: (String modeId) {
         setState(() {
           _selectedPhotoModeId = modeId;
@@ -176,6 +182,27 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       CameraLensDirection.front => CameraFacingUi.front,
       CameraLensDirection.external || null => CameraFacingUi.unknown,
     };
+  }
+
+  List<CameraZoomStop> _zoomStops(CameraState cameraState) {
+    return cameraState.displayZoomStops
+        .map(
+          (double factor) =>
+              CameraZoomStop(factor: factor, label: _zoomLabel(factor)),
+        )
+        .toList();
+  }
+
+  String _zoomLabel(double factor) {
+    final double normalized = (factor * 10).roundToDouble() / 10;
+    if (normalized == normalized.roundToDouble()) {
+      return '${normalized.toInt()}x';
+    }
+    final String text = normalized.toStringAsFixed(1);
+    if (normalized < 1 && text.startsWith('0')) {
+      return '${text.substring(1)}x';
+    }
+    return '${text}x';
   }
 }
 

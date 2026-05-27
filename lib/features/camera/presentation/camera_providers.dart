@@ -5,6 +5,7 @@ import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../config/app_config.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/core/app_logger.dart';
 import '../data/camera_device_repository.dart';
@@ -92,6 +93,7 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       currentRawZoom: 1.0,
       baseRawZoom: 1.0,
       displayZoomMultiplier: 1.0,
+      displayZoomStops: const <double>[1.0],
     );
   }
 
@@ -149,6 +151,29 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
           rawZoom,
         );
       }
+      state = state.copyWith(currentRawZoom: rawZoom);
+    } on CameraException catch (e) {
+      _showCameraException(e);
+    }
+  }
+
+  Future<void> setDisplayZoomImmediately(double displayZoom) async {
+    final CameraController? currentController = state.controller;
+    if (currentController == null ||
+        !currentController.value.isInitialized ||
+        state.isSwitchingCamera) {
+      return;
+    }
+
+    final double rawZoom = state
+        .displayToRawZoom(displayZoom)
+        .clamp(state.minAvailableZoom, state.maxAvailableZoom);
+
+    try {
+      await CameraPlatform.instance.setZoomLevel(
+        currentController.cameraId,
+        rawZoom,
+      );
       state = state.copyWith(currentRawZoom: rawZoom);
     } on CameraException catch (e) {
       _showCameraException(e);
@@ -242,7 +267,7 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
   Future<void> _initializeCameraController(CameraChoice choice) async {
     final CameraController cameraController = CameraController(
       choice.description,
-      ResolutionPreset.max,
+      AppConfig.cameraPreviewResolutionPreset,
       enableAudio: false,
       imageFormatGroup: ImageFormatGroup.jpeg,
     );
@@ -301,12 +326,21 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       _avFoundationCamera = platform;
       final AVFoundationZoomCapabilities capabilities = await platform
           .getZoomCapabilities(cameraController.cameraId);
+      final double displayZoomMultiplier = displayZoomMultiplierFor(
+        capabilities,
+      );
       state = state.copyWith(
         minAvailableZoom: capabilities.minZoomFactor,
         maxAvailableZoom: capabilities.maxZoomFactor,
         currentRawZoom: capabilities.currentZoomFactor,
         baseRawZoom: capabilities.currentZoomFactor,
-        displayZoomMultiplier: displayZoomMultiplierFor(capabilities),
+        displayZoomMultiplier: displayZoomMultiplier,
+        displayZoomStops: displayZoomStopsFor(
+          minRawZoom: capabilities.minZoomFactor,
+          maxRawZoom: capabilities.maxZoomFactor,
+          displayZoomMultiplier: displayZoomMultiplier,
+          capabilities: capabilities,
+        ),
       );
       _zoomSubscription = platform
           .onZoomFactorChanged(cameraController.cameraId)
@@ -320,6 +354,11 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       currentRawZoom: state.minAvailableZoom,
       baseRawZoom: state.minAvailableZoom,
       displayZoomMultiplier: 1.0,
+      displayZoomStops: displayZoomStopsFor(
+        minRawZoom: state.minAvailableZoom,
+        maxRawZoom: state.maxAvailableZoom,
+        displayZoomMultiplier: 1.0,
+      ),
     );
   }
 

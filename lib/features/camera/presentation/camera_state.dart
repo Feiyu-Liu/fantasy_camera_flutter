@@ -17,6 +17,7 @@ class CameraState {
     this.currentRawZoom = 1.0,
     this.baseRawZoom = 1.0,
     this.displayZoomMultiplier = 1.0,
+    this.displayZoomStops = const <double>[1.0],
     this.isInitializing = false,
     this.isTakingPicture = false,
     this.isSwitchingCamera = false,
@@ -34,6 +35,7 @@ class CameraState {
   final double currentRawZoom;
   final double baseRawZoom;
   final double displayZoomMultiplier;
+  final List<double> displayZoomStops;
   final bool isInitializing;
   final bool isTakingPicture;
   final bool isSwitchingCamera;
@@ -96,6 +98,7 @@ class CameraState {
     double? currentRawZoom,
     double? baseRawZoom,
     double? displayZoomMultiplier,
+    List<double>? displayZoomStops,
     bool? isInitializing,
     bool? isTakingPicture,
     bool? isSwitchingCamera,
@@ -118,6 +121,7 @@ class CameraState {
       baseRawZoom: baseRawZoom ?? this.baseRawZoom,
       displayZoomMultiplier:
           displayZoomMultiplier ?? this.displayZoomMultiplier,
+      displayZoomStops: displayZoomStops ?? this.displayZoomStops,
       isInitializing: isInitializing ?? this.isInitializing,
       isTakingPicture: isTakingPicture ?? this.isTakingPicture,
       isSwitchingCamera: isSwitchingCamera ?? this.isSwitchingCamera,
@@ -131,4 +135,53 @@ class CameraState {
 double displayZoomMultiplierFor(AVFoundationZoomCapabilities? capabilities) {
   final double multiplier = capabilities?.displayZoomFactorMultiplier ?? 1.0;
   return multiplier == 0 ? 1.0 : multiplier;
+}
+
+List<double> displayZoomStopsFor({
+  required double minRawZoom,
+  required double maxRawZoom,
+  required double displayZoomMultiplier,
+  AVFoundationZoomCapabilities? capabilities,
+}) {
+  final double multiplier = displayZoomMultiplier == 0
+      ? 1.0
+      : displayZoomMultiplier;
+  final double minDisplayZoom = _normalizeDisplayZoom(minRawZoom * multiplier);
+  final double maxDisplayZoom = _normalizeDisplayZoom(maxRawZoom * multiplier);
+  final Set<double> stops = <double>{minDisplayZoom};
+
+  if (minDisplayZoom <= 1.0 && 1.0 <= maxDisplayZoom) {
+    stops.add(1.0);
+  }
+
+  if (capabilities != null) {
+    for (final double rawZoom
+        in capabilities.virtualDeviceSwitchOverZoomFactors) {
+      stops.add(_normalizeDisplayZoom(rawZoom * multiplier));
+    }
+    for (final double rawZoom
+        in capabilities.secondaryNativeResolutionZoomFactors) {
+      stops.add(_normalizeDisplayZoom(rawZoom * multiplier));
+    }
+  }
+
+  if (stops.length == 1 && maxDisplayZoom != minDisplayZoom) {
+    stops.add(maxDisplayZoom);
+  }
+
+  final List<double> sortedStops =
+      stops
+          .where(
+            (double stop) =>
+                stop.isFinite &&
+                stop >= minDisplayZoom &&
+                stop <= maxDisplayZoom,
+          )
+          .toList()
+        ..sort();
+  return sortedStops.isEmpty ? <double>[1.0] : sortedStops;
+}
+
+double _normalizeDisplayZoom(double zoom) {
+  return (zoom * 10).roundToDouble() / 10;
 }
