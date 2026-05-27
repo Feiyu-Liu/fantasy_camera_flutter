@@ -21,7 +21,7 @@ class CameraState {
     this.isTakingPicture = false,
     this.isSwitchingCamera = false,
     this.isTogglingFlash = false,
-    this.showCaptureFlash = false,
+    this.captureOverlayTrigger = 0,
   });
 
   final CameraController? controller;
@@ -38,7 +38,7 @@ class CameraState {
   final bool isTakingPicture;
   final bool isSwitchingCamera;
   final bool isTogglingFlash;
-  final bool showCaptureFlash;
+  final int captureOverlayTrigger;
 
   bool get hasInitializedController => controller?.value.isInitialized ?? false;
 
@@ -100,7 +100,7 @@ class CameraState {
     bool? isTakingPicture,
     bool? isSwitchingCamera,
     bool? isTogglingFlash,
-    bool? showCaptureFlash,
+    int? captureOverlayTrigger,
   }) {
     return CameraState(
       controller: clearController ? null : controller ?? this.controller,
@@ -122,7 +122,8 @@ class CameraState {
       isTakingPicture: isTakingPicture ?? this.isTakingPicture,
       isSwitchingCamera: isSwitchingCamera ?? this.isSwitchingCamera,
       isTogglingFlash: isTogglingFlash ?? this.isTogglingFlash,
-      showCaptureFlash: showCaptureFlash ?? this.showCaptureFlash,
+      captureOverlayTrigger:
+          captureOverlayTrigger ?? this.captureOverlayTrigger,
     );
   }
 }

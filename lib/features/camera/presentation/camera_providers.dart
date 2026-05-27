@@ -165,7 +165,7 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     }
 
     state = state.copyWith(isTakingPicture: true);
-    _showCaptureFlash();
+    _triggerCaptureOverlay();
 
     try {
       final XFile file = await currentController.takePicture();
@@ -342,13 +342,10 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     }
   }
 
-  void _showCaptureFlash() {
-    state = state.copyWith(showCaptureFlash: true);
-    Future<void>.delayed(const Duration(milliseconds: 30), () {
-      if (!_isDisposed) {
-        state = state.copyWith(showCaptureFlash: false);
-      }
-    });
+  void _triggerCaptureOverlay() {
+    state = state.copyWith(
+      captureOverlayTrigger: state.captureOverlayTrigger + 1,
+    );
   }
 
   void _showCameraException(CameraException e) {

@@ -52,20 +52,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final CameraState cameraState = ref.watch(cameraStateProvider);
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        children: <Widget>[
-          Positioned.fill(child: _buildCameraUi(cameraState)),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: AnimatedOpacity(
-                opacity: cameraState.showCaptureFlash ? 0.85 : 0.0,
-                duration: const Duration(milliseconds: 220),
-                child: const ColoredBox(color: Colors.black),
-              ),
-            ),
-          ),
-        ],
-      ),
+      body: _buildCameraUi(cameraState),
     );
   }
 
@@ -101,6 +88,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   Widget _buildViewfinder(CameraState cameraState) {
     return _PreviewPanel(
       controller: cameraState.controller,
+      captureOverlayTrigger: cameraState.captureOverlayTrigger,
       child: _buildPreviewGestureLayer(cameraState),
     );
   }
@@ -208,15 +196,71 @@ class _CaptureProgressThumbnail extends StatelessWidget {
   }
 }
 
-class _PreviewPanel extends StatelessWidget {
-  const _PreviewPanel({required this.controller, required this.child});
+class _PreviewPanel extends StatefulWidget {
+  const _PreviewPanel({
+    required this.controller,
+    required this.captureOverlayTrigger,
+    required this.child,
+  });
 
   final CameraController? controller;
+  final int captureOverlayTrigger;
   final Widget child;
 
   @override
+  State<_PreviewPanel> createState() => _PreviewPanelState();
+}
+
+class _PreviewPanelState extends State<_PreviewPanel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _overlayController;
+  late final Animation<double> _overlayOpacity;
+  int _lastCaptureOverlayTrigger = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastCaptureOverlayTrigger = widget.captureOverlayTrigger;
+    _overlayController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _overlayOpacity = TweenSequence<double>(<TweenSequenceItem<double>>[
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 0.0,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeInQuart)),
+        weight: 30,
+      ),
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 1.0,
+          end: 0.0,
+        ).chain(CurveTween(curve: Curves.easeOutQuad)),
+        weight: 70,
+      ),
+    ]).animate(_overlayController);
+  }
+
+  @override
+  void didUpdateWidget(covariant _PreviewPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.captureOverlayTrigger != _lastCaptureOverlayTrigger) {
+      _lastCaptureOverlayTrigger = widget.captureOverlayTrigger;
+      _overlayController.forward(from: 0.0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _overlayController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final CameraController? cameraController = controller;
+    final CameraController? cameraController = widget.controller;
     final bool initialized = cameraController?.value.isInitialized ?? false;
     return ClipRect(
       child: ColoredBox(
@@ -236,7 +280,13 @@ class _PreviewPanel extends StatelessWidget {
                   ),
                 ),
               ),
-            child,
+            IgnorePointer(
+              child: FadeTransition(
+                opacity: _overlayOpacity,
+                child: const ColoredBox(color: Colors.black),
+              ),
+            ),
+            widget.child,
           ],
         ),
       ),
