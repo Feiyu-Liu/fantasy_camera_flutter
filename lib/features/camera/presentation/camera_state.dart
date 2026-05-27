@@ -48,6 +48,9 @@ class CameraState {
       !isTakingPicture &&
       !isSwitchingCamera;
 
+  bool get canShowShutter =>
+      hasInitializedController && !isInitializing && !isSwitchingCamera;
+
   bool get canToggleFlash =>
       hasInitializedController &&
       !isInitializing &&

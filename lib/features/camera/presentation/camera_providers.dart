@@ -165,11 +165,11 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     }
 
     state = state.copyWith(isTakingPicture: true);
+    _showCaptureFlash();
 
     try {
       final XFile file = await currentController.takePicture();
       state = state.copyWith(lastCapturedFile: file);
-      _showCaptureFlash();
       return file;
     } on CameraException catch (e) {
       _showCameraException(e);

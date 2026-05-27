@@ -60,7 +60,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
               child: AnimatedOpacity(
                 opacity: cameraState.showCaptureFlash ? 0.85 : 0.0,
                 duration: const Duration(milliseconds: 220),
-                child: const ColoredBox(color: Colors.white),
+                child: const ColoredBox(color: Colors.black),
               ),
             ),
           ),
@@ -79,8 +79,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       message: _localizedMessage(cameraState.message),
       aspectRatioLabel: '4:3',
       selectedModeId: _selectedPhotoModeId,
-      shutterEnabled: cameraState.canTakePicture,
-      shutterBusy: cameraState.isTakingPicture,
+      shutterEnabled: cameraState.canShowShutter,
+      shutterBusy: false,
       flashMode: _flashUiMode(cameraState),
       flashEnabled: cameraState.canToggleFlash,
       flashBusy: cameraState.isTogglingFlash,
@@ -137,6 +137,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Widget? _buildGalleryPreview(CameraState cameraState) {
+    if (cameraState.isTakingPicture) {
+      return const _CaptureProgressThumbnail();
+    }
+
     final String? path = cameraState.lastCapturedFile?.path;
     if (path == null || path.isEmpty) {
       return null;
@@ -184,6 +188,23 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       CameraLensDirection.front => CameraFacingUi.front,
       CameraLensDirection.external || null => CameraFacingUi.unknown,
     };
+  }
+}
+
+class _CaptureProgressThumbnail extends StatelessWidget {
+  const _CaptureProgressThumbnail();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Color(0xFF111111),
+      child: Center(
+        child: SizedBox.square(
+          dimension: 18,
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+        ),
+      ),
+    );
   }
 }
 
