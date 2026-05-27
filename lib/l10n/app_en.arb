@@ -1,0 +1,12 @@
+{
+  "@@locale": "en",
+  "appTitle": "Fantasy Camera",
+  "cameraNoCameraFound": "No camera found.",
+  "cameraStartingCamera": "Starting camera...",
+  "cameraErrorMessage": "Camera error: {message}",
+  "@cameraErrorMessage": {
+    "placeholders": {
+      "message": {}
+    }
+  }
+}

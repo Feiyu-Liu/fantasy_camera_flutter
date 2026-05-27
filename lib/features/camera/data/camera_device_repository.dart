@@ -69,6 +69,57 @@ class CameraDeviceRepository {
 
     return choices.isNotEmpty ? choices.first : null;
   }
+
+  CameraChoice? defaultCameraChoiceForLensDirection(
+    List<CameraChoice> choices,
+    CameraLensDirection lensDirection,
+  ) {
+    if (lensDirection == CameraLensDirection.back) {
+      return defaultStartupCameraChoice(
+        choices
+            .where(
+              (CameraChoice choice) =>
+                  choice.description.lensDirection == lensDirection,
+            )
+            .toList(),
+      );
+    }
+
+    for (final CameraChoice choice in choices) {
+      if (choice.description.lensDirection == lensDirection &&
+          choice.deviceType ==
+              AVFoundationCaptureDeviceType.builtInTrueDepthCamera) {
+        return choice;
+      }
+    }
+
+    for (final CameraChoice choice in choices) {
+      if (choice.description.lensDirection == lensDirection &&
+          choice.deviceType ==
+              AVFoundationCaptureDeviceType.builtInWideAngleCamera) {
+        return choice;
+      }
+    }
+
+    for (final CameraChoice choice in choices) {
+      if (choice.description.lensDirection == lensDirection) {
+        return choice;
+      }
+    }
+
+    return null;
+  }
+
+  CameraChoice? oppositeLensCameraChoice(
+    List<CameraChoice> choices,
+    CameraLensDirection currentLensDirection,
+  ) {
+    final CameraLensDirection targetDirection =
+        currentLensDirection == CameraLensDirection.front
+        ? CameraLensDirection.back
+        : CameraLensDirection.front;
+    return defaultCameraChoiceForLensDirection(choices, targetDirection);
+  }
 }
 
 int _compareAVFoundationCameraDevices(

@@ -312,9 +312,11 @@ class CameraController extends ValueNotifier<CameraValue> {
   /// Throws a [CameraException] if the capture fails.
   Future<XFile> takePicture() async {
     value = value.copyWith(isTakingPicture: true);
-    final XFile file = await CameraPlatform.instance.takePicture(_cameraId);
-    value = value.copyWith(isTakingPicture: false);
-    return file;
+    try {
+      return await CameraPlatform.instance.takePicture(_cameraId);
+    } finally {
+      value = value.copyWith(isTakingPicture: false);
+    }
   }
 
   /// Start streaming images from platform camera.

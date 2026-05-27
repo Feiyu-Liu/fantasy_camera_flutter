@@ -1,0 +1,12 @@
+{
+  "@@locale": "zh",
+  "appTitle": "Fantasy Camera",
+  "cameraNoCameraFound": "未找到相机。",
+  "cameraStartingCamera": "正在启动相机...",
+  "cameraErrorMessage": "相机错误：{message}",
+  "@cameraErrorMessage": {
+    "placeholders": {
+      "message": {}
+    }
+  }
+}

@@ -1,69 +1,64 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_ui/my_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/camera/camera_preview.dart';
-import '../domain/camera_choice.dart';
-import 'camera_view_model.dart';
+import 'camera_message.dart';
+import 'camera_providers.dart';
+import 'camera_state.dart';
 
-class CameraScreen extends StatefulWidget {
-  const CameraScreen({required this.cameraChoices, super.key});
-
-  final List<CameraChoice> cameraChoices;
+class CameraScreen extends ConsumerStatefulWidget {
+  const CameraScreen({super.key});
 
   @override
-  State<CameraScreen> createState() => _CameraScreenState();
+  ConsumerState<CameraScreen> createState() => _CameraScreenState();
 }
 
-class _CameraScreenState extends State<CameraScreen>
+class _CameraScreenState extends ConsumerState<CameraScreen>
     with WidgetsBindingObserver {
-  late final CameraViewModel _viewModel;
   String _selectedPhotoModeId = 'photo';
   int _pointers = 0;
 
   @override
   void initState() {
     super.initState();
-    _viewModel = CameraViewModel(cameraChoices: widget.cameraChoices);
-    _viewModel.addListener(_handleViewModelChanged);
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_viewModel.openDefaultCamera());
+      unawaited(ref.read(cameraStateProvider.notifier).openDefaultCamera());
     });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _viewModel.removeListener(_handleViewModelChanged);
-    _viewModel.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    unawaited(_viewModel.handleAppLifecycleState(state));
-  }
-
-  void _handleViewModelChanged() {
-    if (mounted) {
-      setState(() {});
-    }
+    unawaited(
+      ref.read(cameraStateProvider.notifier).handleAppLifecycleState(state),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final CameraState cameraState = ref.watch(cameraStateProvider);
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: <Widget>[
-          Positioned.fill(child: _buildCameraUi()),
+          Positioned.fill(child: _buildCameraUi(cameraState)),
           Positioned.fill(
             child: IgnorePointer(
               child: AnimatedOpacity(
-                opacity: _viewModel.showFlash ? 0.85 : 0.0,
+                opacity: cameraState.showCaptureFlash ? 0.85 : 0.0,
                 duration: const Duration(milliseconds: 220),
                 child: const ColoredBox(color: Colors.white),
               ),
@@ -74,15 +69,27 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
-  Widget _buildCameraUi() {
+  Widget _buildCameraUi(CameraState cameraState) {
+    final CameraControllerNotifier notifier = ref.read(
+      cameraStateProvider.notifier,
+    );
     return CameraPhotoUi(
-      viewfinder: _buildViewfinder(),
-      message: _message,
+      viewfinder: _buildViewfinder(cameraState),
+      galleryPreview: _buildGalleryPreview(cameraState),
+      message: _localizedMessage(cameraState.message),
       aspectRatioLabel: '4:3',
       selectedModeId: _selectedPhotoModeId,
-      shutterEnabled: _viewModel.canTakePicture,
-      shutterBusy: _viewModel.isTakingPicture,
-      onShutterPressed: _viewModel.takePicture,
+      shutterEnabled: cameraState.canTakePicture,
+      shutterBusy: cameraState.isTakingPicture,
+      flashMode: _flashUiMode(cameraState),
+      flashEnabled: cameraState.canToggleFlash,
+      flashBusy: cameraState.isTogglingFlash,
+      cameraFacing: _cameraFacingUi(cameraState.currentLensDirection),
+      flipEnabled: _canFlipCamera(cameraState),
+      flipBusy: cameraState.isSwitchingCamera,
+      onFlashPressed: notifier.toggleFlash,
+      onFlipCameraPressed: notifier.flipCamera,
+      onShutterPressed: notifier.takePicture,
       onModeSelected: (String modeId) {
         setState(() {
           _selectedPhotoModeId = modeId;
@@ -91,15 +98,15 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
-  Widget _buildViewfinder() {
+  Widget _buildViewfinder(CameraState cameraState) {
     return _PreviewPanel(
-      controller: _controller,
-      child: _buildPreviewGestureLayer(),
+      controller: cameraState.controller,
+      child: _buildPreviewGestureLayer(cameraState),
     );
   }
 
-  Widget _buildPreviewGestureLayer() {
-    final CameraController? controller = _controller;
+  Widget _buildPreviewGestureLayer(CameraState cameraState) {
+    final CameraController? controller = cameraState.controller;
     if (controller == null || !controller.value.isInitialized) {
       return const SizedBox.shrink();
     }
@@ -110,26 +117,74 @@ class _CameraScreenState extends State<CameraScreen>
       onPointerCancel: (_) => _pointers = (_pointers - 1).clamp(0, 10),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onScaleStart: (_) => _viewModel.handleScaleStart(),
+        onScaleStart: (_) =>
+            ref.read(cameraStateProvider.notifier).handleScaleStart(),
         onScaleUpdate: _handleScaleUpdate,
       ),
     );
   }
 
   Future<void> _handleScaleUpdate(ScaleUpdateDetails details) async {
-    final CameraController? controller = _controller;
+    final CameraState cameraState = ref.read(cameraStateProvider);
+    final CameraController? controller = cameraState.controller;
     if (controller == null ||
         !controller.value.isInitialized ||
         _pointers != 2) {
       return;
     }
 
-    await _viewModel.setScaledZoom(details.scale);
+    await ref.read(cameraStateProvider.notifier).setScaledZoom(details.scale);
   }
 
-  CameraController? get _controller => _viewModel.controller;
+  Widget? _buildGalleryPreview(CameraState cameraState) {
+    final String? path = cameraState.lastCapturedFile?.path;
+    if (path == null || path.isEmpty) {
+      return null;
+    }
 
-  String? get _message => _viewModel.message;
+    return Image.file(File(path), fit: BoxFit.cover);
+  }
+
+  String? _localizedMessage(CameraMessage? message) {
+    return message?.localize(context.l10n);
+  }
+
+  bool _canFlipCamera(CameraState cameraState) {
+    if (!cameraState.canFlipCamera) {
+      return false;
+    }
+    final CameraLensDirection? currentDirection =
+        cameraState.currentLensDirection;
+    if (currentDirection == null) {
+      return false;
+    }
+    final bool hasOppositeDirection = ref
+        .watch(cameraChoicesProvider)
+        .any(
+          (choice) =>
+              choice.description.lensDirection != currentDirection &&
+              (choice.description.lensDirection == CameraLensDirection.front ||
+                  choice.description.lensDirection == CameraLensDirection.back),
+        );
+    return hasOppositeDirection;
+  }
+
+  CameraFlashUiMode _flashUiMode(CameraState cameraState) {
+    if (cameraState.currentLensDirection == CameraLensDirection.front) {
+      return CameraFlashUiMode.unavailable;
+    }
+    return cameraState.flashMode == FlashMode.off
+        ? CameraFlashUiMode.off
+        : CameraFlashUiMode.on;
+  }
+
+  CameraFacingUi _cameraFacingUi(CameraLensDirection? lensDirection) {
+    return switch (lensDirection) {
+      CameraLensDirection.back => CameraFacingUi.rear,
+      CameraLensDirection.front => CameraFacingUi.front,
+      CameraLensDirection.external || null => CameraFacingUi.unknown,
+    };
+  }
 }
 
 class _PreviewPanel extends StatelessWidget {

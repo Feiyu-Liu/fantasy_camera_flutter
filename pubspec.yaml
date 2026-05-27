@@ -34,6 +34,10 @@ dependencies:
   camera_platform_interface: ^2.10.0
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  intl: any
   my_ui:
     path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/my_ui
   path_provider: ^2.0.0
@@ -52,6 +56,7 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
