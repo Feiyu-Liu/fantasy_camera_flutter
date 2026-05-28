@@ -137,6 +137,17 @@ double displayZoomMultiplierFor(AVFoundationZoomCapabilities? capabilities) {
   return multiplier == 0 ? 1.0 : multiplier;
 }
 
+double effectiveMaxRawZoomFor(AVFoundationZoomCapabilities capabilities) {
+  final double? recommendedMaxZoom = capabilities.recommendedMaxZoomFactor;
+  if (recommendedMaxZoom == null || !recommendedMaxZoom.isFinite) {
+    return capabilities.maxZoomFactor;
+  }
+  return recommendedMaxZoom.clamp(
+    capabilities.minZoomFactor,
+    capabilities.maxZoomFactor,
+  );
+}
+
 List<double> displayZoomStopsFor({
   required double minRawZoom,
   required double maxRawZoom,

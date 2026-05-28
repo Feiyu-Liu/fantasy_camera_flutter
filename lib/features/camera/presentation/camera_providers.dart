@@ -144,6 +144,7 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
           currentController.cameraId,
           rawZoom,
           animated: true,
+          rate: AppConfig.cameraZoomRampRate,
         );
       } else {
         await CameraPlatform.instance.setZoomLevel(
@@ -329,15 +330,20 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       final double displayZoomMultiplier = displayZoomMultiplierFor(
         capabilities,
       );
+      final double maxRawZoom = effectiveMaxRawZoomFor(capabilities);
+      final double currentRawZoom = capabilities.currentZoomFactor.clamp(
+        capabilities.minZoomFactor,
+        maxRawZoom,
+      );
       state = state.copyWith(
         minAvailableZoom: capabilities.minZoomFactor,
-        maxAvailableZoom: capabilities.maxZoomFactor,
-        currentRawZoom: capabilities.currentZoomFactor,
-        baseRawZoom: capabilities.currentZoomFactor,
+        maxAvailableZoom: maxRawZoom,
+        currentRawZoom: currentRawZoom,
+        baseRawZoom: currentRawZoom,
         displayZoomMultiplier: displayZoomMultiplier,
         displayZoomStops: displayZoomStopsFor(
           minRawZoom: capabilities.minZoomFactor,
-          maxRawZoom: capabilities.maxZoomFactor,
+          maxRawZoom: maxRawZoom,
           displayZoomMultiplier: displayZoomMultiplier,
           capabilities: capabilities,
         ),
@@ -345,7 +351,12 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       _zoomSubscription = platform
           .onZoomFactorChanged(cameraController.cameraId)
           .listen((AVFoundationZoomChangedEvent event) {
-            state = state.copyWith(currentRawZoom: event.zoomFactor);
+            state = state.copyWith(
+              currentRawZoom: event.zoomFactor.clamp(
+                state.minAvailableZoom,
+                state.maxAvailableZoom,
+              ),
+            );
           });
       return;
     }

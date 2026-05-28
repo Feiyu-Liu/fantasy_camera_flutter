@@ -31,6 +31,7 @@ void main() {
       capabilities: const AVFoundationZoomCapabilities(
         minZoomFactor: 1.0,
         maxZoomFactor: 6.0,
+        recommendedMaxZoomFactor: null,
         currentZoomFactor: 2.0,
         displayZoomFactorMultiplier: 0.5,
         virtualDeviceSwitchOverZoomFactors: <double>[2.0],
@@ -58,6 +59,7 @@ void main() {
       const AVFoundationZoomCapabilities(
         minZoomFactor: 1.0,
         maxZoomFactor: 4.0,
+        recommendedMaxZoomFactor: null,
         currentZoomFactor: 1.0,
         displayZoomFactorMultiplier: 0,
         virtualDeviceSwitchOverZoomFactors: <double>[],
@@ -68,5 +70,23 @@ void main() {
     );
 
     expect(multiplier, 1.0);
+  });
+
+  test('effectiveMaxRawZoomFor prefers system recommended max', () {
+    final double maxZoom = effectiveMaxRawZoomFor(
+      const AVFoundationZoomCapabilities(
+        minZoomFactor: 1.0,
+        maxZoomFactor: 90.0,
+        recommendedMaxZoomFactor: 10.0,
+        currentZoomFactor: 1.0,
+        displayZoomFactorMultiplier: 1.0,
+        virtualDeviceSwitchOverZoomFactors: <double>[],
+        secondaryNativeResolutionZoomFactors: <double>[],
+        isVirtualDevice: false,
+        constituentDevices: <AVFoundationPhysicalCameraDevice>[],
+      ),
+    );
+
+    expect(maxZoom, 10.0);
   });
 }
