@@ -1,17 +1,28 @@
 # fantasy_camera_flutter
 
-A new Flutter project.
+Flutter camera app backed by the local `camera_avfoundation` package.
 
-## Getting Started
+## Camera zoom
 
-This project is a starting point for a Flutter application.
+The app keeps camera zoom state in `cameraStateProvider`.
 
-A few resources to get you started if this is your first Flutter project:
+On iOS, the active camera's raw AVFoundation zoom capabilities are loaded with
+`AVFoundationCamera.getZoomCapabilities`. The app treats
+`recommendedMaxZoomFactor` as the effective maximum raw zoom when it is
+available, because `maxZoomFactor` maps to
+`AVCaptureDevice.maxAvailableVideoZoomFactor` and can be much higher than the
+system Camera app's zoom UI range.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Fallback behavior:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Use `recommendedMaxZoomFactor` when AVFoundation provides it.
+- Otherwise use `maxZoomFactor`.
+
+All zoom entry points clamp to the effective raw range:
+
+- pinch zoom via `setScaledZoom`
+- zoom stop selection via `setDisplayZoom`
+- immediate display zoom via `setDisplayZoomImmediately`
+
+The visible zoom labels use `displayZoomFactorMultiplier` to convert raw
+AVFoundation zoom into display zoom.
