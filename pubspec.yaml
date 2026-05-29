@@ -33,6 +33,7 @@ dependencies:
     path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter-camera/camera/packages/camera/camera_avfoundation
   camera_platform_interface: ^2.10.0
   crypto: ^3.0.7
+  dio: ^5.9.2
   flutter:
     sdk: flutter
   flutter_localizations:
@@ -53,6 +54,7 @@ dev_dependencies:
     sdk: flutter
   integration_test:
     sdk: flutter
+  supabase: ^2.10.6
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
