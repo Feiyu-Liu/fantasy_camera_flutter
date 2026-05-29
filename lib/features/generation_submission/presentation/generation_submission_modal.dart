@@ -1,0 +1,514 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:camera_platform_interface/camera_platform_interface.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../domain/generation_submission_job.dart';
+import 'generation_submission_providers.dart';
+
+Future<void> showGenerationSubmissionDebugModal(BuildContext context) {
+  return showCupertinoModalPopup<void>(
+    context: context,
+    builder: (BuildContext context) {
+      return const GenerationSubmissionDebugModal();
+    },
+  );
+}
+
+class GenerationSubmissionDebugModal extends ConsumerStatefulWidget {
+  const GenerationSubmissionDebugModal({super.key});
+
+  @override
+  ConsumerState<GenerationSubmissionDebugModal> createState() =>
+      _GenerationSubmissionDebugModalState();
+}
+
+class _GenerationSubmissionDebugModalState
+    extends ConsumerState<GenerationSubmissionDebugModal> {
+  String? _selectedJobId;
+  String? _loadingResultJobId;
+  bool _showOriginalImage = false;
+  bool _pickingGalleryImage = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<GenerationSubmissionJob> jobs = ref
+        .watch(generationSubmissionControllerProvider)
+        .jobs;
+    final GenerationSubmissionJob? selectedJob = _selectedJob(jobs);
+
+    return CupertinoPopupSurface(
+      isSurfacePainted: true,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.84,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              color: CupertinoColors.systemBackground,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                _ModalHandle(onClose: () => Navigator.of(context).pop()),
+                SizedBox(
+                  height: 118,
+                  child: ListView.separated(
+                    key: const ValueKey<String>(
+                      'generation-submission-photo-list',
+                    ),
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: jobs.length + 1,
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
+                    itemBuilder: (BuildContext context, int index) {
+                      if (index == 0) {
+                        return _GalleryPickerTile(
+                          picking: _pickingGalleryImage,
+                          onTap: _pickGalleryImage,
+                        );
+                      }
+                      final GenerationSubmissionJob job = jobs[index - 1];
+                      return _JobThumbnail(
+                        job: job,
+                        selected: selectedJob?.id == job.id,
+                        onTap: () => _selectJob(job),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _ResultPreview(
+                    job: selectedJob,
+                    loading: _loadingResultJobId == selectedJob?.id,
+                    showOriginalImage: _showOriginalImage,
+                    onToggleImage: selectedJob == null
+                        ? null
+                        : () {
+                            setState(() {
+                              _showOriginalImage = !_showOriginalImage;
+                            });
+                          },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  GenerationSubmissionJob? _selectedJob(List<GenerationSubmissionJob> jobs) {
+    if (jobs.isEmpty) {
+      return null;
+    }
+    final String? selectedJobId = _selectedJobId;
+    if (selectedJobId == null) {
+      return jobs.first;
+    }
+    for (final GenerationSubmissionJob job in jobs) {
+      if (job.id == selectedJobId) {
+        return job;
+      }
+    }
+    return jobs.first;
+  }
+
+  void _selectJob(GenerationSubmissionJob job) {
+    _debugLog(
+      'select job=${job.id} status=${job.status.name} task=${job.taskId ?? 'none'} resultCached=${job.resultUrl != null}',
+    );
+    setState(() {
+      _selectedJobId = job.id;
+      _showOriginalImage = false;
+    });
+    if (job.status == GenerationSubmissionStatus.completed) {
+      unawaited(_loadResult(job.id));
+    }
+  }
+
+  Future<void> _loadResult(String jobId) async {
+    _debugLog('load result start job=$jobId');
+    setState(() {
+      _loadingResultJobId = jobId;
+    });
+    final String? url = await ref
+        .read(generationSubmissionControllerProvider.notifier)
+        .loadResultUrl(jobId);
+    _debugLog(
+      'load result finish job=$jobId url=${url == null ? 'none' : 'available'}',
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      if (_loadingResultJobId == jobId) {
+        _loadingResultJobId = null;
+      }
+    });
+  }
+
+  Future<void> _pickGalleryImage() async {
+    if (_pickingGalleryImage) {
+      return;
+    }
+
+    _debugLog('pick gallery start');
+    setState(() {
+      _pickingGalleryImage = true;
+    });
+
+    try {
+      final XFile? file = await ref
+          .read(galleryImagePickerProvider)
+          .pickImageFromGallery();
+      if (file == null) {
+        _debugLog('pick gallery canceled');
+        return;
+      }
+      _debugLog('pick gallery success path=${file.path}');
+      await ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .submitCapturedFile(file);
+    } on Object catch (error) {
+      _debugLog('pick gallery failure error=$error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _pickingGalleryImage = false;
+        });
+      }
+    }
+  }
+
+  void _debugLog(String message) {
+    debugPrint('[GenerationSubmissionModal] $message');
+  }
+}
+
+class _ModalHandle extends StatelessWidget {
+  const _ModalHandle({required this.onClose});
+
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 10, 8),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Center(
+              child: Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: CupertinoColors.systemGrey3.resolveFrom(context),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+          ),
+          CupertinoButton(
+            key: const ValueKey<String>('generation-submission-modal-close'),
+            padding: EdgeInsets.zero,
+            minimumSize: const Size.square(32),
+            onPressed: onClose,
+            child: const Icon(CupertinoIcons.xmark_circle_fill),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GalleryPickerTile extends StatelessWidget {
+  const _GalleryPickerTile({required this.picking, required this.onTap});
+
+  final bool picking;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      key: const ValueKey<String>('generation-submission-gallery-picker'),
+      onTap: picking ? null : onTap,
+      child: Container(
+        width: 84,
+        height: 108,
+        decoration: BoxDecoration(
+          color: CupertinoColors.secondarySystemBackground.resolveFrom(context),
+          border: Border.all(
+            color: CupertinoColors.separator.resolveFrom(context),
+          ),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Center(
+          child: picking
+              ? const CupertinoActivityIndicator(
+                  key: ValueKey<String>(
+                    'generation-submission-gallery-picker-loading',
+                  ),
+                )
+              : const Icon(
+                  CupertinoIcons.plus,
+                  color: CupertinoColors.activeBlue,
+                  size: 30,
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _JobThumbnail extends StatelessWidget {
+  const _JobThumbnail({
+    required this.job,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final GenerationSubmissionJob job;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color borderColor = selected
+        ? CupertinoColors.activeBlue.resolveFrom(context)
+        : CupertinoColors.separator.resolveFrom(context);
+
+    return GestureDetector(
+      key: ValueKey<String>('generation-submission-photo-${job.id}'),
+      onTap: onTap,
+      child: Container(
+        width: 84,
+        height: 108,
+        decoration: BoxDecoration(
+          border: Border.all(color: borderColor, width: selected ? 2 : 1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            Image.file(File(job.imagePath), fit: BoxFit.cover),
+            Positioned(
+              right: 6,
+              bottom: 6,
+              child: _StatusBadge(status: job.status),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.status});
+
+  final GenerationSubmissionStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: CupertinoColors.black.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: SizedBox.square(
+        dimension: 26,
+        child: Center(child: _statusIcon()),
+      ),
+    );
+  }
+
+  Widget _statusIcon() {
+    return switch (status) {
+      GenerationSubmissionStatus.completed => const Icon(
+        CupertinoIcons.check_mark_circled_solid,
+        key: ValueKey<String>('generation-submission-status-completed'),
+        color: CupertinoColors.activeGreen,
+        size: 20,
+      ),
+      GenerationSubmissionStatus.failed => const Icon(
+        CupertinoIcons.exclamationmark_circle_fill,
+        key: ValueKey<String>('generation-submission-status-failed'),
+        color: CupertinoColors.systemRed,
+        size: 20,
+      ),
+      _ => const CupertinoActivityIndicator(
+        key: ValueKey<String>('generation-submission-status-processing'),
+        color: CupertinoColors.white,
+        radius: 8,
+      ),
+    };
+  }
+}
+
+class _ResultPreview extends StatelessWidget {
+  const _ResultPreview({
+    required this.job,
+    required this.loading,
+    required this.showOriginalImage,
+    required this.onToggleImage,
+  });
+
+  final GenerationSubmissionJob? job;
+  final bool loading;
+  final bool showOriginalImage;
+  final VoidCallback? onToggleImage;
+
+  @override
+  Widget build(BuildContext context) {
+    final GenerationSubmissionJob? job = this.job;
+    if (job == null) {
+      return const Center(
+        child: Text(
+          'Capture a photo to inspect generation results',
+          style: TextStyle(color: CupertinoColors.secondaryLabel),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: _previewContent(job),
+          ),
+          Positioned(
+            right: 12,
+            bottom: 12,
+            child: _ImageToggleButton(
+              showingOriginal: showOriginalImage,
+              onPressed: onToggleImage,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _previewContent(GenerationSubmissionJob job) {
+    if (showOriginalImage) {
+      return Image.file(
+        File(job.imagePath),
+        key: const ValueKey<String>('generation-submission-original-image'),
+        fit: BoxFit.contain,
+        errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
+          debugPrint(
+            '[GenerationSubmissionModal] original image load failure path=${job.imagePath} error=$error',
+          );
+          return const Center(
+            child: Text(
+              'Original image could not be loaded',
+              style: TextStyle(color: CupertinoColors.secondaryLabel),
+            ),
+          );
+        },
+      );
+    }
+
+    if (loading) {
+      return const Center(
+        child: CupertinoActivityIndicator(
+          key: ValueKey<String>('generation-submission-result-loading'),
+        ),
+      );
+    }
+
+    if (job.status != GenerationSubmissionStatus.completed) {
+      return Center(
+        child: Text(
+          _statusText(job.status),
+          style: const TextStyle(color: CupertinoColors.secondaryLabel),
+        ),
+      );
+    }
+
+    final String? resultUrl = job.resultUrl;
+    if (resultUrl == null) {
+      return const Center(
+        child: Text(
+          'Tap completed photo to load result',
+          style: TextStyle(color: CupertinoColors.secondaryLabel),
+        ),
+      );
+    }
+
+    return Image.network(
+      resultUrl,
+      key: const ValueKey<String>('generation-submission-result-image'),
+      fit: BoxFit.contain,
+      errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
+        debugPrint(
+          '[GenerationSubmissionModal] result image load failure url=$resultUrl error=$error',
+        );
+        return const Center(
+          child: Text(
+            'Result image could not be loaded',
+            style: TextStyle(color: CupertinoColors.secondaryLabel),
+          ),
+        );
+      },
+      loadingBuilder:
+          (BuildContext context, Widget child, ImageChunkEvent? progress) {
+            if (progress == null) {
+              return child;
+            }
+            return const Center(child: CupertinoActivityIndicator());
+          },
+    );
+  }
+
+  static String _statusText(GenerationSubmissionStatus status) {
+    return switch (status) {
+      GenerationSubmissionStatus.failed => 'Generation failed',
+      GenerationSubmissionStatus.submitted ||
+      GenerationSubmissionStatus.pollingTask => 'Waiting for generation result',
+      _ => 'Preparing generation task',
+    };
+  }
+}
+
+class _ImageToggleButton extends StatelessWidget {
+  const _ImageToggleButton({
+    required this.showingOriginal,
+    required this.onPressed,
+  });
+
+  final bool showingOriginal;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color backgroundColor = CupertinoColors.black.withValues(alpha: 0.68);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: CupertinoButton(
+        key: const ValueKey<String>('generation-submission-image-toggle'),
+        padding: EdgeInsets.zero,
+        minimumSize: const Size.square(44),
+        onPressed: onPressed,
+        child: Icon(
+          showingOriginal ? CupertinoIcons.sparkles : CupertinoIcons.photo,
+          color: CupertinoColors.white,
+          size: 22,
+        ),
+      ),
+    );
+  }
+}

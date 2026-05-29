@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../auth/domain/access_token_provider.dart';
 import '../domain/api_failure.dart';
@@ -30,6 +30,8 @@ class FantasyApiClient {
       () => _authorizedRequest<Object?>(
         () => _dio.get<Object?>(path, queryParameters: queryParameters),
       ),
+      method: 'GET',
+      path: path,
       decode: decode,
     );
   }
@@ -48,6 +50,8 @@ class FantasyApiClient {
           queryParameters: queryParameters,
         ),
       ),
+      method: 'POST',
+      path: path,
       decode: decode,
     );
   }
@@ -59,24 +63,35 @@ class FantasyApiClient {
   }) async {
     final Map<String, String> uploadHeaders = <String, String>{...headers};
     try {
+      _debugLog('PUT upload start url=$url bytes=${bytes.length}');
       await _putBytesWithHttpClient(url, bytes: bytes, headers: uploadHeaders);
+      _debugLog('PUT upload success url=$url bytes=${bytes.length}');
     } on DioException catch (error) {
+      _debugLog(_formatDioException('PUT', url, error));
       throw _failureFromDioException(error);
     } on BackendApiFailure {
       rethrow;
     } on Object catch (error) {
+      _debugLog('PUT upload failure url=$url error=$error');
       throw BackendApiFailure(code: 'network_error', message: error.toString());
     }
   }
 
   Future<T> _send<T>(
     Future<Response<Object?>> Function() request, {
+    required String method,
+    required String path,
     required JsonDecoder<T> decode,
   }) async {
     try {
+      _debugLog('$method start url=${_requestUrl(path)}');
       final Response<Object?> response = await request();
+      _debugLog(
+        '$method success url=${response.realUri} status=${response.statusCode}',
+      );
       return decode(_readEnvelopeData(response.data));
     } on DioException catch (error) {
+      _debugLog(_formatDioException(method, _requestUrl(path), error));
       throw _failureFromDioException(error);
     }
   }
@@ -120,6 +135,18 @@ class FantasyApiClient {
     }
     return envelope['data'];
   }
+
+  String _requestUrl(String path) {
+    return _dio.options.baseUrl.isEmpty ? path : '${_dio.options.baseUrl}$path';
+  }
+}
+
+void _debugLog(String message) {
+  debugPrint('[FantasyApiClient] $message');
+}
+
+String _formatDioException(String method, Object url, DioException error) {
+  return '$method failure url=${error.requestOptions.uri} fallbackUrl=$url type=${error.type.name} status=${error.response?.statusCode} message=${error.message} error=${error.error ?? 'none'} body=${error.response?.data ?? 'none'}';
 }
 
 Future<void> _putBytesWithHttpClient(
@@ -141,6 +168,9 @@ Future<void> _putBytesWithHttpClient(
       return;
     }
     final String body = await utf8.decodeStream(response);
+    _debugLog(
+      'PUT upload response failure url=$url status=${response.statusCode} body=${body.trim().isEmpty ? 'empty' : body.trim()}',
+    );
     throw BackendApiFailure(
       code: 'http_error',
       message: body.trim().isEmpty ? 'Upload failed.' : body.trim(),

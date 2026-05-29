@@ -33,9 +33,10 @@ void main() {
         .read(generationSubmissionControllerProvider)
         .jobs
         .single;
-    expect(job.status, GenerationSubmissionStatus.submitted);
+    expect(job.status, GenerationSubmissionStatus.pollingTask);
     expect(job.uploadSessionId, 'upload-1');
     expect(job.taskId, 'task-1');
+    expect(job.taskStatus, GenerationTaskStatus.pending);
     expect(reader.readPaths, <String>['/tmp/photo.jpg']);
     expect(uploadRepository.events, <String>[
       'create:image/jpeg:3',
@@ -172,10 +173,124 @@ void main() {
     expect(
       jobs.every(
         (GenerationSubmissionJob job) =>
-            job.status == GenerationSubmissionStatus.submitted,
+            job.status == GenerationSubmissionStatus.pollingTask,
       ),
       isTrue,
     );
+  });
+
+  test('polling completed task marks job completed', () async {
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..fetchTaskResponses.add(
+            _task(status: GenerationTaskStatus.processing),
+          )
+          ..fetchTaskResponses.add(
+            _task(
+              status: GenerationTaskStatus.completed,
+              resultImageObjectId: 'result-1',
+            ),
+          );
+    final ProviderContainer container = _container(
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .submitCapturedFile(XFile('/tmp/photo.jpg'));
+    await Future<void>.delayed(Duration.zero);
+
+    final GenerationSubmissionController notifier = container.read(
+      generationSubmissionControllerProvider.notifier,
+    );
+    final String jobId = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single
+        .id;
+
+    await notifier.pollTaskNowForDebug(jobId);
+
+    final GenerationSubmissionJob job = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(job.status, GenerationSubmissionStatus.completed);
+    expect(job.taskStatus, GenerationTaskStatus.completed);
+    expect(job.resultImageObjectId, 'result-1');
+    expect(taskRepository.fetchTaskIds, <String>['task-1', 'task-1']);
+  });
+
+  test('polling failed task marks job failed', () async {
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..fetchTaskResponses.add(
+            _task(
+              status: GenerationTaskStatus.failed,
+              lastErrorCode: 'provider_error',
+              lastErrorMessage: 'Provider failed',
+            ),
+          );
+    final ProviderContainer container = _container(
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .submitCapturedFile(XFile('/tmp/photo.jpg'));
+    await Future<void>.delayed(Duration.zero);
+
+    final GenerationSubmissionJob job = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(job.status, GenerationSubmissionStatus.failed);
+    expect(job.taskStatus, GenerationTaskStatus.failed);
+    expect(job.errorCode, 'provider_error');
+    expect(job.errorMessage, 'Provider failed');
+  });
+
+  test('completed job loads and caches result url', () async {
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..fetchTaskResponses.add(
+            _task(
+              status: GenerationTaskStatus.completed,
+              resultImageObjectId: 'result-1',
+            ),
+          );
+    final ProviderContainer container = _container(
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .submitCapturedFile(XFile('/tmp/photo.jpg'));
+    await Future<void>.delayed(Duration.zero);
+    final GenerationSubmissionController notifier = container.read(
+      generationSubmissionControllerProvider.notifier,
+    );
+    final String jobId = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single
+        .id;
+
+    final String? firstUrl = await notifier.loadResultUrl(jobId);
+    final String? secondUrl = await notifier.loadResultUrl(jobId);
+
+    expect(firstUrl, 'https://example.com/result-1.jpg');
+    expect(secondUrl, 'https://example.com/result-1.jpg');
+    expect(taskRepository.resultUrlTaskIds, <String>['task-1']);
+    final GenerationSubmissionJob job = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(job.resultUrl, 'https://example.com/result-1.jpg');
+    expect(job.resultUrlExpiresAt, isNotNull);
   });
 }
 
@@ -267,6 +382,9 @@ class _FakeUploadRepository implements UploadRepository {
 class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   final List<CreateGenerationTaskInput> createdInputs =
       <CreateGenerationTaskInput>[];
+  final List<String> fetchTaskIds = <String>[];
+  final List<GenerationTask> fetchTaskResponses = <GenerationTask>[];
+  final List<String> resultUrlTaskIds = <String>[];
   BackendApiFailure? createTaskFailure;
 
   @override
@@ -292,13 +410,21 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   }
 
   @override
-  Future<ResultUrl> createResultUrl(String taskId) {
-    throw UnimplementedError();
+  Future<ResultUrl> createResultUrl(String taskId) async {
+    resultUrlTaskIds.add(taskId);
+    return const ResultUrl(
+      url: 'https://example.com/result-1.jpg',
+      expiresInSeconds: 600,
+    );
   }
 
   @override
-  Future<GenerationTask> fetchTask(String taskId) {
-    throw UnimplementedError();
+  Future<GenerationTask> fetchTask(String taskId) async {
+    fetchTaskIds.add(taskId);
+    if (fetchTaskResponses.isEmpty) {
+      return _task(status: GenerationTaskStatus.pending);
+    }
+    return fetchTaskResponses.removeAt(0);
   }
 
   @override
@@ -308,3 +434,25 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
 }
 
 final DateTime _fixedExpiresAt = DateTime.parse('2026-05-29T01:00:00Z');
+
+GenerationTask _task({
+  required GenerationTaskStatus status,
+  String? resultImageObjectId,
+  String? lastErrorCode,
+  String? lastErrorMessage,
+}) {
+  return GenerationTask(
+    id: 'task-1',
+    status: status,
+    promptStyle: 'realistic',
+    captureMode: 'portrait',
+    sourceImageObjectId: 'source-1',
+    resultImageObjectId: resultImageObjectId,
+    costCredits: 2,
+    attemptCount: 1,
+    maxAttempts: 3,
+    lastErrorCode: lastErrorCode,
+    lastErrorMessage: lastErrorMessage,
+    createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+  );
+}

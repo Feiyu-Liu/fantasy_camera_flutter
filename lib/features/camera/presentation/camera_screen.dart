@@ -9,6 +9,7 @@ import 'package:my_ui/my_ui.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/camera/camera_preview.dart';
+import '../../generation_submission/presentation/generation_submission_modal.dart';
 import 'camera_message.dart';
 import 'camera_providers.dart';
 import 'camera_state.dart';
@@ -82,6 +83,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       onFlashPressed: notifier.toggleFlash,
       onFlipCameraPressed: notifier.flipCamera,
       onShutterPressed: notifier.takePicture,
+      onTrailingPressed: () => showGenerationSubmissionDebugModal(context),
       onZoomStopSelected: notifier.setDisplayZoom,
       onModeSelected: (String modeId) {
         setState(() {

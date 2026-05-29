@@ -32,6 +32,7 @@ dependencies:
   camera_avfoundation:
     path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter-camera/camera/packages/camera/camera_avfoundation
   camera_platform_interface: ^2.10.0
+  cupertino_icons: ^1.0.9
   crypto: ^3.0.7
   dio: ^5.9.2
   flutter:
@@ -39,6 +40,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^2.6.1
+  image_picker: ^1.2.1
   intl: any
   my_ui:
     path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/my_ui

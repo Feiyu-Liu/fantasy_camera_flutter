@@ -62,6 +62,35 @@ void main() {
     expect(find.byType(CameraPhotoUi), findsOneWidget);
   });
 
+  testWidgets('camera trailing button opens generation debug modal', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      FantasyCameraApp(
+        overrides: <Override>[
+          hasSupabaseConfigProvider.overrideWithValue(true),
+          authSessionProvider.overrideWith(
+            (_) => Stream<AuthSessionState>.value(
+              const AuthSessionState.signedIn(
+                AuthUser(id: 'user-1', email: 'user@example.com'),
+              ),
+            ),
+          ),
+          signedInCameraChoicesProvider.overrideWith(
+            (_) async => const <CameraChoice>[],
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.bySemanticsLabel('Switch UI'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No captured photos yet'), findsOneWidget);
+  });
+
   testWidgets('waits for camera choices before mounting camera screen', (
     WidgetTester tester,
   ) async {
