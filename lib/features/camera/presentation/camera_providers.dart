@@ -106,7 +106,8 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     final CameraController? currentController = state.controller;
     if (currentController == null ||
         !currentController.value.isInitialized ||
-        state.isSwitchingCamera) {
+        state.isSwitchingCamera ||
+        state.isFrontCamera) {
       return;
     }
 
@@ -332,10 +333,19 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
         capabilities,
       );
       final double maxRawZoom = effectiveMaxRawZoomFor(capabilities);
-      final double currentRawZoom = capabilities.currentZoomFactor.clamp(
-        capabilities.minZoomFactor,
-        maxRawZoom,
+      final double currentRawZoom = initialRawZoomFor(
+        lensDirection: state.currentLensDirection,
+        minRawZoom: capabilities.minZoomFactor,
+        maxRawZoom: maxRawZoom,
+        currentRawZoom: capabilities.currentZoomFactor,
+        displayZoomMultiplier: displayZoomMultiplier,
       );
+      if (currentRawZoom != capabilities.currentZoomFactor) {
+        await CameraPlatform.instance.setZoomLevel(
+          cameraController.cameraId,
+          currentRawZoom,
+        );
+      }
       state = state.copyWith(
         minAvailableZoom: capabilities.minZoomFactor,
         maxAvailableZoom: maxRawZoom,

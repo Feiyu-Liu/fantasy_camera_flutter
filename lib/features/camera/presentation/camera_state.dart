@@ -70,6 +70,11 @@ class CameraState {
   CameraLensDirection? get currentLensDirection =>
       selectedCameraChoice?.description.lensDirection;
 
+  bool get isFrontCamera => currentLensDirection == CameraLensDirection.front;
+
+  bool get canScaleZoom =>
+      hasInitializedController && !isInitializing && !isSwitchingCamera;
+
   double rawToDisplayZoom(double rawZoom) {
     return rawZoom * displayZoomMultiplier;
   }
@@ -148,6 +153,19 @@ double effectiveMaxRawZoomFor(AVFoundationZoomCapabilities capabilities) {
   );
 }
 
+double initialRawZoomFor({
+  required CameraLensDirection? lensDirection,
+  required double minRawZoom,
+  required double maxRawZoom,
+  required double currentRawZoom,
+  required double displayZoomMultiplier,
+}) {
+  if (lensDirection == CameraLensDirection.back) {
+    return (1.0 / displayZoomMultiplier).clamp(minRawZoom, maxRawZoom);
+  }
+  return currentRawZoom.clamp(minRawZoom, maxRawZoom);
+}
+
 List<double> displayZoomStopsFor({
   required double minRawZoom,
   required double maxRawZoom,
@@ -176,7 +194,9 @@ List<double> displayZoomStopsFor({
     }
   }
 
-  if (stops.length == 1 && maxDisplayZoom != minDisplayZoom) {
+  if (capabilities == null &&
+      stops.length == 1 &&
+      maxDisplayZoom != minDisplayZoom) {
     stops.add(maxDisplayZoom);
   }
 

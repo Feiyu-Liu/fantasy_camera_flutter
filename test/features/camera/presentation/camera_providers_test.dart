@@ -1,4 +1,6 @@
 import 'package:camera_avfoundation/camera_avfoundation.dart';
+import 'package:camera_platform_interface/camera_platform_interface.dart';
+import 'package:fantasy_camera_flutter/features/camera/domain/camera_choice.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_message.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_providers.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_state.dart';
@@ -52,6 +54,72 @@ void main() {
     );
 
     expect(stops, <double>[1.0, 4.0]);
+  });
+
+  test(
+    'displayZoomStopsFor does not expose hardware max as AVFoundation stop',
+    () {
+      final List<double> stops = displayZoomStopsFor(
+        minRawZoom: 1.0,
+        maxRawZoom: 189.0,
+        displayZoomMultiplier: 1.0,
+        capabilities: const AVFoundationZoomCapabilities(
+          minZoomFactor: 1.0,
+          maxZoomFactor: 189.0,
+          recommendedMaxZoomFactor: null,
+          currentZoomFactor: 1.0,
+          displayZoomFactorMultiplier: 1.0,
+          virtualDeviceSwitchOverZoomFactors: <double>[],
+          secondaryNativeResolutionZoomFactors: <double>[],
+          isVirtualDevice: false,
+          constituentDevices: <AVFoundationPhysicalCameraDevice>[],
+        ),
+      );
+
+      expect(stops, <double>[1.0]);
+    },
+  );
+
+  test('CameraState identifies front camera zoom policy', () {
+    const CameraState state = CameraState(
+      selectedCameraChoice: CameraChoice(
+        description: CameraDescription(
+          name: 'front',
+          lensDirection: CameraLensDirection.front,
+          sensorOrientation: 0,
+        ),
+        label: 'Front Camera',
+        isVirtualDevice: false,
+        deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+      ),
+    );
+
+    expect(state.isFrontCamera, isTrue);
+    expect(state.canScaleZoom, isFalse);
+  });
+
+  test('initialRawZoomFor defaults rear camera to display 1x', () {
+    final double rawZoom = initialRawZoomFor(
+      lensDirection: CameraLensDirection.back,
+      minRawZoom: 1.0,
+      maxRawZoom: 10.0,
+      currentRawZoom: 1.0,
+      displayZoomMultiplier: 0.5,
+    );
+
+    expect(rawZoom, 2.0);
+  });
+
+  test('initialRawZoomFor keeps front camera current zoom', () {
+    final double rawZoom = initialRawZoomFor(
+      lensDirection: CameraLensDirection.front,
+      minRawZoom: 1.0,
+      maxRawZoom: 189.0,
+      currentRawZoom: 1.0,
+      displayZoomMultiplier: 1.0,
+    );
+
+    expect(rawZoom, 1.0);
   });
 
   test('displayZoomMultiplierFor falls back when multiplier is zero', () {

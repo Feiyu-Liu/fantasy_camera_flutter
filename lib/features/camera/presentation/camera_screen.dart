@@ -70,7 +70,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       currentDisplayZoom: cameraState.rawToDisplayZoom(
         cameraState.currentRawZoom,
       ),
-      zoomEnabled: cameraState.hasInitializedController,
+      zoomEnabled: cameraState.canScaleZoom,
       shutterEnabled: cameraState.canShowShutter,
       shutterBusy: false,
       flashMode: _flashUiMode(cameraState),
@@ -123,6 +123,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final CameraController? controller = cameraState.controller;
     if (controller == null ||
         !controller.value.isInitialized ||
+        cameraState.isFrontCamera ||
         _pointers != 2) {
       return;
     }
@@ -185,6 +186,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   List<CameraZoomStop> _zoomStops(CameraState cameraState) {
+    if (cameraState.isFrontCamera && cameraState.displayZoomStops.length <= 1) {
+      return const <CameraZoomStop>[];
+    }
     return cameraState.displayZoomStops
         .map(
           (double factor) =>
