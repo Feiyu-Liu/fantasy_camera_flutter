@@ -145,6 +145,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   String? _localizedMessage(CameraMessage? message) {
+    if (message is CameraStartingMessage) {
+      return null;
+    }
     return message?.localize(context.l10n);
   }
 
@@ -300,16 +303,7 @@ class _PreviewPanelState extends State<_PreviewPanel>
           fit: StackFit.expand,
           children: <Widget>[
             if (initialized)
-              _CoveredCameraPreview(controller: cameraController!)
-            else
-              const Center(
-                child: SizedBox.square(
-                  dimension: 24,
-                  child: CupertinoActivityIndicator(
-                    color: CupertinoColors.white,
-                  ),
-                ),
-              ),
+              _CoveredCameraPreview(controller: cameraController!),
             IgnorePointer(
               child: FadeTransition(
                 opacity: _overlayOpacity,
