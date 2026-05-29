@@ -15,7 +15,7 @@ import 'camera_state.dart';
 
 final cameraChoicesProvider = Provider<List<CameraChoice>>((Ref ref) {
   return const <CameraChoice>[];
-});
+}, dependencies: const <ProviderOrFamily>[]);
 
 final cameraDeviceRepositoryProvider = Provider<CameraDeviceRepository>((
   Ref ref,
@@ -26,6 +26,7 @@ final cameraDeviceRepositoryProvider = Provider<CameraDeviceRepository>((
 final cameraStateProvider =
     NotifierProvider.autoDispose<CameraControllerNotifier, CameraState>(
       CameraControllerNotifier.new,
+      dependencies: <ProviderOrFamily>[cameraChoicesProvider],
     );
 
 class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {

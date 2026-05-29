@@ -158,6 +158,9 @@ class AuthController extends Notifier<AuthControllerState> {
 
   String _messageFor(Object error) {
     if (error is AuthException) {
+      if (error.code == 'invalid_credentials') {
+        return 'Email or password is incorrect. If this is a new account, create it first and confirm the email if required.';
+      }
       return error.message;
     }
     return 'Authentication failed. Please try again.';
@@ -167,16 +170,5 @@ class AuthController extends Notifier<AuthControllerState> {
 final signedInCameraChoicesProvider = FutureProvider<List<CameraChoice>>((
   Ref ref,
 ) async {
-  final AuthSessionState sessionState = await ref.watch(
-    authSessionProvider.future,
-  );
-  if (!sessionState.isSignedIn) {
-    return const <CameraChoice>[];
-  }
-  try {
-    return await ref.watch(cameraDeviceRepositoryProvider).loadCameraChoices();
-  } on Object catch (error, stackTrace) {
-    logAppError('camera_choices_load_failed', error, stackTrace);
-    return const <CameraChoice>[];
-  }
+  return ref.watch(cameraDeviceRepositoryProvider).loadCameraChoices();
 });

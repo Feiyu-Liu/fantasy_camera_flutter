@@ -43,12 +43,18 @@ class _SignedInCameraEntry extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final choices = ref.watch(signedInCameraChoicesProvider);
-    final cameraChoices = choices.valueOrNull ?? const [];
-    return ProviderScope(
-      overrides: <Override>[
-        cameraChoicesProvider.overrideWithValue(cameraChoices),
-      ],
-      child: const CameraScreen(),
+    return choices.when(
+      data: (cameraChoices) {
+        return ProviderScope(
+          overrides: <Override>[
+            cameraChoicesProvider.overrideWithValue(cameraChoices),
+          ],
+          child: const CameraScreen(),
+        );
+      },
+      loading: () => const _AuthLoadingPage(),
+      error: (_, _) =>
+          const AuthPage(sessionMessage: 'Camera devices could not be loaded.'),
     );
   }
 }
