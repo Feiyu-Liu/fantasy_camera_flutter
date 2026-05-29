@@ -459,16 +459,16 @@ class CameraController extends ValueNotifier<CameraValue> {
 
   /// Locks the capture orientation.
   ///
-  /// If [orientation] is omitted, the current device orientation is used.
-  Future<void> lockCaptureOrientation() async {
+  /// If [orientation] is omitted, portrait-up is used.
+  Future<void> lockCaptureOrientation([
+    DeviceOrientation orientation = DeviceOrientation.portraitUp,
+  ]) async {
     await CameraPlatform.instance.lockCaptureOrientation(
       _cameraId,
-      value.deviceOrientation,
+      orientation,
     );
     value = value.copyWith(
-      lockedCaptureOrientation: Optional<DeviceOrientation>.of(
-        value.deviceOrientation,
-      ),
+      lockedCaptureOrientation: Optional<DeviceOrientation>.of(orientation),
     );
   }
 

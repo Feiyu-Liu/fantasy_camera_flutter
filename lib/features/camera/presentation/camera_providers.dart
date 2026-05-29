@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -281,6 +282,9 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
 
     try {
       await cameraController.initialize();
+      await cameraController.lockCaptureOrientation(
+        DeviceOrientation.portraitUp,
+      );
       final List<double> zoomRange = await Future.wait(<Future<double>>[
         CameraPlatform.instance.getMinZoomLevel(cameraController.cameraId),
         CameraPlatform.instance.getMaxZoomLevel(cameraController.cameraId),
