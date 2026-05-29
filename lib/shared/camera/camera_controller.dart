@@ -467,6 +467,9 @@ class CameraController extends ValueNotifier<CameraValue> {
       _cameraId,
       orientation,
     );
+    if (_isDisposed) {
+      return;
+    }
     value = value.copyWith(
       lockedCaptureOrientation: Optional<DeviceOrientation>.of(orientation),
     );

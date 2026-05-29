@@ -34,6 +34,7 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
   AVFoundationCamera? _avFoundationCamera;
   StreamSubscription<AVFoundationZoomChangedEvent>? _zoomSubscription;
   bool _isDisposed = false;
+  int _controllerGeneration = 0;
 
   List<CameraChoice> get _cameraChoices => ref.read(cameraChoicesProvider);
 
@@ -264,6 +265,9 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     );
 
     await _disposeCurrentController();
+    if (_isDisposed) {
+      return;
+    }
     state = state.copyWith(clearController: true);
     await _initializeCameraController(choice);
   }
@@ -278,23 +282,39 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
 
     cameraController.addListener(_syncControllerValue);
 
+    final int generation = _controllerGeneration;
     state = state.copyWith(controller: cameraController);
 
     try {
       await cameraController.initialize();
+      if (!_isCurrentController(cameraController, generation)) {
+        return;
+      }
       await cameraController.lockCaptureOrientation(
         DeviceOrientation.portraitUp,
       );
+      if (!_isCurrentController(cameraController, generation)) {
+        return;
+      }
       final List<double> zoomRange = await Future.wait(<Future<double>>[
         CameraPlatform.instance.getMinZoomLevel(cameraController.cameraId),
         CameraPlatform.instance.getMaxZoomLevel(cameraController.cameraId),
       ]);
+      if (!_isCurrentController(cameraController, generation)) {
+        return;
+      }
       state = state.copyWith(
         minAvailableZoom: zoomRange[0],
         maxAvailableZoom: zoomRange[1],
       );
-      await _configureAVFoundationZoom(cameraController);
-      await _restoreFlashMode(cameraController);
+      await _configureAVFoundationZoom(cameraController, generation);
+      if (!_isCurrentController(cameraController, generation)) {
+        return;
+      }
+      await _restoreFlashMode(cameraController, generation);
+      if (!_isCurrentController(cameraController, generation)) {
+        return;
+      }
       state = state.copyWith(
         clearMessage: true,
         isInitializing: false,
@@ -306,7 +326,10 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     }
   }
 
-  Future<void> _restoreFlashMode(CameraController cameraController) async {
+  Future<void> _restoreFlashMode(
+    CameraController cameraController,
+    int generation,
+  ) async {
     final FlashMode desiredFlashMode =
         state.selectedCameraChoice?.description.lensDirection ==
             CameraLensDirection.front
@@ -314,8 +337,14 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
         : state.flashMode;
     try {
       await cameraController.setFlashMode(desiredFlashMode);
+      if (!_isCurrentController(cameraController, generation)) {
+        return;
+      }
       state = state.copyWith(flashMode: desiredFlashMode);
     } on CameraException catch (e) {
+      if (!_isCurrentController(cameraController, generation)) {
+        return;
+      }
       logAppError(e.code, e.description);
       state = state.copyWith(flashMode: FlashMode.off);
     }
@@ -323,6 +352,7 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
 
   Future<void> _configureAVFoundationZoom(
     CameraController cameraController,
+    int generation,
   ) async {
     await _zoomSubscription?.cancel();
     _zoomSubscription = null;
@@ -333,6 +363,9 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       _avFoundationCamera = platform;
       final AVFoundationZoomCapabilities capabilities = await platform
           .getZoomCapabilities(cameraController.cameraId);
+      if (!_isCurrentController(cameraController, generation)) {
+        return;
+      }
       final double displayZoomMultiplier = displayZoomMultiplierFor(
         capabilities,
       );
@@ -349,6 +382,9 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
           cameraController.cameraId,
           currentRawZoom,
         );
+        if (!_isCurrentController(cameraController, generation)) {
+          return;
+        }
       }
       state = state.copyWith(
         minAvailableZoom: capabilities.minZoomFactor,
@@ -366,6 +402,9 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       _zoomSubscription = platform
           .onZoomFactorChanged(cameraController.cameraId)
           .listen((AVFoundationZoomChangedEvent event) {
+            if (!_isCurrentController(cameraController, generation)) {
+              return;
+            }
             state = state.copyWith(
               currentRawZoom: event.zoomFactor.clamp(
                 state.minAvailableZoom,
@@ -376,6 +415,9 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       return;
     }
 
+    if (!_isCurrentController(cameraController, generation)) {
+      return;
+    }
     state = state.copyWith(
       currentRawZoom: state.minAvailableZoom,
       baseRawZoom: state.minAvailableZoom,
@@ -429,6 +471,7 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
 
   Future<void> _disposeCurrentController() async {
     final CameraController? currentController = state.controller;
+    _controllerGeneration += 1;
     await _zoomSubscription?.cancel();
     _zoomSubscription = null;
     _avFoundationCamera = null;
@@ -439,5 +482,11 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
 
     currentController.removeListener(_syncControllerValue);
     await currentController.dispose();
+  }
+
+  bool _isCurrentController(CameraController cameraController, int generation) {
+    return !_isDisposed &&
+        _controllerGeneration == generation &&
+        state.controller == cameraController;
   }
 }
