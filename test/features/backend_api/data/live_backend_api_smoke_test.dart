@@ -48,14 +48,15 @@ void main() {
         dio: buildFantasyApiDio(AppConfig.workerApiBaseUrl),
         accessTokenProvider: _StaticAccessTokenProvider(accessToken),
       );
-      final AppConfigRepository appConfigRepository = AppConfigRepository(
+      final AppConfigRepository appConfigRepository = WorkerAppConfigRepository(
         client,
       );
-      final CreditsRepository creditsRepository = CreditsRepository(client);
-      final UploadRepository uploadRepository = UploadRepository(client);
-      final GenerationTaskRepository taskRepository = GenerationTaskRepository(
+      final CreditsRepository creditsRepository = WorkerCreditsRepository(
         client,
       );
+      final UploadRepository uploadRepository = WorkerUploadRepository(client);
+      final GenerationTaskRepository taskRepository =
+          WorkerGenerationTaskRepository(client);
 
       final appInputContract = await appConfigRepository
           .fetchAppInputContract();

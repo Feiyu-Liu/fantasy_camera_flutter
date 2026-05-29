@@ -9,11 +9,16 @@ import '../domain/generation_task.dart';
 import '../domain/json_value.dart';
 import '../domain/upload_session.dart';
 
-class AppConfigRepository {
-  const AppConfigRepository(this._client);
+abstract interface class AppConfigRepository {
+  Future<AppInputContract> fetchAppInputContract({String? contractKey});
+}
+
+class WorkerAppConfigRepository implements AppConfigRepository {
+  const WorkerAppConfigRepository(this._client);
 
   final FantasyApiClient _client;
 
+  @override
   Future<AppInputContract> fetchAppInputContract({String? contractKey}) {
     return _client.get<AppInputContract>(
       '/v1/app-config',
@@ -27,11 +32,16 @@ class AppConfigRepository {
   }
 }
 
-class CreditsRepository {
-  const CreditsRepository(this._client);
+abstract interface class CreditsRepository {
+  Future<CreditBalance> fetchBalance();
+}
+
+class WorkerCreditsRepository implements CreditsRepository {
+  const WorkerCreditsRepository(this._client);
 
   final FantasyApiClient _client;
 
+  @override
   Future<CreditBalance> fetchBalance() {
     return _client.get<CreditBalance>(
       '/v1/credits/balance',
@@ -40,11 +50,26 @@ class CreditsRepository {
   }
 }
 
-class UploadRepository {
-  const UploadRepository(this._client);
+abstract interface class UploadRepository {
+  Future<UploadSession> createUpload({
+    required String contentType,
+    required Uint8List bytes,
+  });
+
+  Future<void> uploadBytes({
+    required UploadSession uploadSession,
+    required Uint8List bytes,
+  });
+
+  Future<JsonObject> completeUpload(String uploadSessionId);
+}
+
+class WorkerUploadRepository implements UploadRepository {
+  const WorkerUploadRepository(this._client);
 
   final FantasyApiClient _client;
 
+  @override
   Future<UploadSession> createUpload({
     required String contentType,
     required Uint8List bytes,
@@ -60,6 +85,7 @@ class UploadRepository {
     );
   }
 
+  @override
   Future<void> uploadBytes({
     required UploadSession uploadSession,
     required Uint8List bytes,
@@ -71,6 +97,7 @@ class UploadRepository {
     );
   }
 
+  @override
   Future<JsonObject> completeUpload(String uploadSessionId) {
     return _client.post<JsonObject>(
       '/v1/uploads/$uploadSessionId/complete',
@@ -87,11 +114,24 @@ class UploadRepository {
   }
 }
 
-class GenerationTaskRepository {
-  const GenerationTaskRepository(this._client);
+abstract interface class GenerationTaskRepository {
+  Future<CreatedGenerationTask> createTask(CreateGenerationTaskInput input);
+
+  Future<GenerationTask> fetchTask(String taskId);
+
+  Future<List<GenerationTask>> listTasks({int limit = 20});
+
+  Future<GenerationTask> cancelTask(String taskId);
+
+  Future<ResultUrl> createResultUrl(String taskId);
+}
+
+class WorkerGenerationTaskRepository implements GenerationTaskRepository {
+  const WorkerGenerationTaskRepository(this._client);
 
   final FantasyApiClient _client;
 
+  @override
   Future<CreatedGenerationTask> createTask(CreateGenerationTaskInput input) {
     return _client.post<CreatedGenerationTask>(
       '/v1/generation-tasks',
@@ -102,6 +142,7 @@ class GenerationTaskRepository {
     );
   }
 
+  @override
   Future<GenerationTask> fetchTask(String taskId) {
     return _client.get<GenerationTask>(
       '/v1/generation-tasks/$taskId',
@@ -109,6 +150,7 @@ class GenerationTaskRepository {
     );
   }
 
+  @override
   Future<List<GenerationTask>> listTasks({int limit = 20}) {
     return _client.get<List<GenerationTask>>(
       '/v1/generation-tasks',
@@ -122,6 +164,7 @@ class GenerationTaskRepository {
     );
   }
 
+  @override
   Future<GenerationTask> cancelTask(String taskId) {
     return _client.post<GenerationTask>(
       '/v1/generation-tasks/$taskId/cancel',
@@ -129,6 +172,7 @@ class GenerationTaskRepository {
     );
   }
 
+  @override
   Future<ResultUrl> createResultUrl(String taskId) {
     return _client.post<ResultUrl>(
       '/v1/generation-tasks/$taskId/result-url',
@@ -137,11 +181,16 @@ class GenerationTaskRepository {
   }
 }
 
-class FeedbackRepository {
-  const FeedbackRepository(this._client);
+abstract interface class FeedbackRepository {
+  Future<FeedbackSubmission> submitFeedback(FeedbackInput input);
+}
+
+class WorkerFeedbackRepository implements FeedbackRepository {
+  const WorkerFeedbackRepository(this._client);
 
   final FantasyApiClient _client;
 
+  @override
   Future<FeedbackSubmission> submitFeedback(FeedbackInput input) {
     return _client.post<FeedbackSubmission>(
       '/v1/feedback',

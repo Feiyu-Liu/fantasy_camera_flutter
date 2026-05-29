@@ -27,7 +27,7 @@ void main() {
         },
         'requestId': 'req-1',
       });
-      final CreditsRepository repository = CreditsRepository(
+      final CreditsRepository repository = WorkerCreditsRepository(
         _client(adapter, tokenProvider: _FakeAccessTokenProvider()),
       );
 
@@ -60,7 +60,7 @@ void main() {
         'requestId': 'req-2',
       });
       final _FakeAccessTokenProvider tokenProvider = _FakeAccessTokenProvider();
-      final CreditsRepository repository = CreditsRepository(
+      final CreditsRepository repository = WorkerCreditsRepository(
         _client(adapter, tokenProvider: tokenProvider),
       );
 
@@ -89,7 +89,7 @@ void main() {
         },
         'requestId': 'req-error',
       }, statusCode: 409);
-      final CreditsRepository repository = CreditsRepository(
+      final CreditsRepository repository = WorkerCreditsRepository(
         _client(adapter, tokenProvider: _FakeAccessTokenProvider()),
       );
 
@@ -147,10 +147,10 @@ void main() {
         adapter,
         tokenProvider: _FakeAccessTokenProvider(),
       );
-      final appConfig = await AppConfigRepository(
+      final appConfig = await WorkerAppConfigRepository(
         client,
       ).fetchAppInputContract();
-      final task = await GenerationTaskRepository(client).createTask(
+      final task = await WorkerGenerationTaskRepository(client).createTask(
         const CreateGenerationTaskInput(
           uploadSessionId: 'upload-1',
           promptStyle: 'realistic',
@@ -193,7 +193,7 @@ void main() {
         'requestId': 'req-complete',
       });
 
-      final UploadRepository repository = UploadRepository(
+      final UploadRepository repository = WorkerUploadRepository(
         _client(adapter, tokenProvider: _FakeAccessTokenProvider()),
       );
       final Uint8List bytes = Uint8List.fromList(<int>[1, 2, 3]);
@@ -244,11 +244,11 @@ void main() {
         adapter,
         tokenProvider: _FakeAccessTokenProvider(),
       );
-      final tasks = await GenerationTaskRepository(client).listTasks();
-      final result = await GenerationTaskRepository(
+      final tasks = await WorkerGenerationTaskRepository(client).listTasks();
+      final result = await WorkerGenerationTaskRepository(
         client,
       ).createResultUrl('task-1');
-      final feedback = await FeedbackRepository(client).submitFeedback(
+      final feedback = await WorkerFeedbackRepository(client).submitFeedback(
         const FeedbackInput(
           taskId: 'task-1',
           rating: FeedbackRating.negative,

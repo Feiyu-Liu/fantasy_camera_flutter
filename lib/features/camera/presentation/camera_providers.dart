@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/app_config.dart';
+import '../../../features/generation_submission/presentation/generation_submission_providers.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/core/app_logger.dart';
 import '../data/camera_device_repository.dart';
@@ -200,6 +201,11 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     try {
       final XFile file = await currentController.takePicture();
       state = state.copyWith(lastCapturedFile: file);
+      unawaited(
+        ref
+            .read(generationSubmissionControllerProvider.notifier)
+            .submitCapturedFile(file),
+      );
       return file;
     } on CameraException catch (e) {
       _showCameraException(e);
