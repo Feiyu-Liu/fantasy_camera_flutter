@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_ui/my_ui.dart';
 
@@ -50,9 +50,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   @override
   Widget build(BuildContext context) {
     final CameraState cameraState = ref.watch(cameraStateProvider);
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: _buildCameraUi(cameraState),
+    return CupertinoPageScaffold(
+      backgroundColor: CupertinoColors.black,
+      child: _buildCameraUi(cameraState),
     );
   }
 
@@ -216,7 +216,7 @@ class _CaptureProgressThumbnail extends StatelessWidget {
       child: Center(
         child: SizedBox.square(
           dimension: 18,
-          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+          child: CupertinoActivityIndicator(color: CupertinoColors.white),
         ),
       ),
     );
@@ -291,7 +291,7 @@ class _PreviewPanelState extends State<_PreviewPanel>
     final bool initialized = cameraController?.value.isInitialized ?? false;
     return ClipRect(
       child: ColoredBox(
-        color: Colors.black,
+        color: CupertinoColors.black,
         child: Stack(
           fit: StackFit.expand,
           children: <Widget>[
@@ -301,16 +301,15 @@ class _PreviewPanelState extends State<_PreviewPanel>
               const Center(
                 child: SizedBox.square(
                   dimension: 24,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
+                  child: CupertinoActivityIndicator(
+                    color: CupertinoColors.white,
                   ),
                 ),
               ),
             IgnorePointer(
               child: FadeTransition(
                 opacity: _overlayOpacity,
-                child: const ColoredBox(color: Colors.black),
+                child: const ColoredBox(color: CupertinoColors.black),
               ),
             ),
             widget.child,
