@@ -51,6 +51,8 @@ final cameraStateProvider =
 class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
   AVFoundationCamera? _avFoundationCamera;
   StreamSubscription<AVFoundationZoomChangedEvent>? _zoomSubscription;
+  StreamSubscription<AVFoundationPhotoCaptureWillCaptureEvent>?
+  _photoCaptureSubscription;
   bool _isDisposed = false;
   int _controllerGeneration = 0;
 
@@ -213,7 +215,9 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     }
 
     state = state.copyWith(isTakingPicture: true);
-    _triggerCaptureOverlay();
+    if (_avFoundationCamera == null) {
+      _triggerCaptureOverlay();
+    }
 
     try {
       final DeviceOrientation captureOrientation = await ref
@@ -392,6 +396,8 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
   ) async {
     await _zoomSubscription?.cancel();
     _zoomSubscription = null;
+    await _photoCaptureSubscription?.cancel();
+    _photoCaptureSubscription = null;
     _avFoundationCamera = null;
 
     final CameraPlatform platform = CameraPlatform.instance;
@@ -447,6 +453,14 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
                 state.maxAvailableZoom,
               ),
             );
+          });
+      _photoCaptureSubscription = platform
+          .onPhotoCaptureWillCapture(cameraController.cameraId)
+          .listen((AVFoundationPhotoCaptureWillCaptureEvent event) {
+            if (!_isCurrentController(cameraController, generation)) {
+              return;
+            }
+            _triggerCaptureOverlay();
           });
       return;
     }
@@ -510,6 +524,8 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     _controllerGeneration += 1;
     await _zoomSubscription?.cancel();
     _zoomSubscription = null;
+    await _photoCaptureSubscription?.cancel();
+    _photoCaptureSubscription = null;
     _avFoundationCamera = null;
 
     if (currentController == null) {

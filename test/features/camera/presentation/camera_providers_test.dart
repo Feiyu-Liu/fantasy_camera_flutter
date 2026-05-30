@@ -1,14 +1,38 @@
+import 'dart:async';
+
 import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
+import 'package:fantasy_camera_flutter/features/camera/data/capture_orientation_reader.dart';
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_choice.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_message.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_providers.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_state.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  late CameraPlatform originalPlatform;
+
+  setUp(() {
+    originalPlatform = CameraPlatform.instance;
+  });
+
+  tearDown(() {
+    CameraPlatform.instance = originalPlatform;
+  });
+
   test('openDefaultCamera reports no camera when choices are empty', () async {
     final ProviderContainer container = ProviderContainer(
       overrides: <Override>[cameraChoicesProvider.overrideWithValue(const [])],
@@ -157,4 +181,295 @@ void main() {
 
     expect(maxZoom, 10.0);
   });
+
+  test(
+    'AVFoundation photo capture event triggers overlay after native will-capture',
+    () async {
+      final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+      CameraPlatform.instance = camera;
+      final ProviderContainer container = _container(
+        choices: const <CameraChoice>[
+          CameraChoice(
+            description: CameraDescription(
+              name: 'back',
+              lensDirection: CameraLensDirection.back,
+              sensorOrientation: 0,
+            ),
+            label: 'Back Camera',
+            isVirtualDevice: false,
+            deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final ProviderSubscription<CameraState> subscription = container.listen(
+        cameraStateProvider,
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
+
+      final CameraControllerNotifier notifier = container.read(
+        cameraStateProvider.notifier,
+      );
+      await notifier.openDefaultCamera();
+
+      expect(container.read(cameraStateProvider).captureOverlayTrigger, 0);
+
+      final Future<XFile?> takePictureFuture = notifier.takePicture();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(container.read(cameraStateProvider).captureOverlayTrigger, 0);
+
+      camera.emitPhotoCaptureWillCapture();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(container.read(cameraStateProvider).captureOverlayTrigger, 1);
+
+      camera.completeTakePicture();
+      await takePictureFuture;
+    },
+  );
+}
+
+ProviderContainer _container({required List<CameraChoice> choices}) {
+  return ProviderContainer(
+    overrides: <Override>[
+      cameraChoicesProvider.overrideWithValue(choices),
+      captureOrientationReaderProvider.overrideWithValue(
+        const _FakeCaptureOrientationReader(),
+      ),
+      photoLibrarySaverProvider.overrideWithValue(
+        const _FakePhotoLibrarySaver(),
+      ),
+      generationImageProcessorProvider.overrideWithValue(
+        const _FakeGenerationImageProcessor(),
+      ),
+      uploadRepositoryProvider.overrideWithValue(const _FakeUploadRepository()),
+      generationTaskRepositoryProvider.overrideWithValue(
+        const _FakeGenerationTaskRepository(),
+      ),
+    ],
+  );
+}
+
+class _FakeAVFoundationCamera extends AVFoundationCamera {
+  final StreamController<DeviceOrientationChangedEvent>
+  _deviceOrientationController =
+      StreamController<DeviceOrientationChangedEvent>.broadcast();
+  final StreamController<CameraInitializedEvent> _initializedController =
+      StreamController<CameraInitializedEvent>.broadcast();
+  final StreamController<AVFoundationPhotoCaptureWillCaptureEvent>
+  _photoCaptureController =
+      StreamController<AVFoundationPhotoCaptureWillCaptureEvent>.broadcast();
+  final Completer<XFile> _takePictureCompleter = Completer<XFile>();
+
+  static const int _cameraId = 0;
+
+  @override
+  Future<int> createCameraWithSettings(
+    CameraDescription cameraDescription,
+    MediaSettings? mediaSettings,
+  ) async {
+    return _cameraId;
+  }
+
+  @override
+  Future<void> initializeCamera(
+    int cameraId, {
+    ImageFormatGroup imageFormatGroup = ImageFormatGroup.unknown,
+  }) async {
+    _initializedController.add(
+      CameraInitializedEvent(
+        cameraId,
+        1920,
+        1080,
+        ExposureMode.auto,
+        true,
+        FocusMode.auto,
+        true,
+      ),
+    );
+  }
+
+  @override
+  Stream<CameraInitializedEvent> onCameraInitialized(int cameraId) {
+    return _initializedController.stream.where(
+      (CameraInitializedEvent event) => event.cameraId == cameraId,
+    );
+  }
+
+  @override
+  Stream<DeviceOrientationChangedEvent> onDeviceOrientationChanged() {
+    return _deviceOrientationController.stream;
+  }
+
+  @override
+  Future<void> lockCaptureOrientation(
+    int cameraId,
+    DeviceOrientation orientation,
+  ) async {}
+
+  @override
+  Future<void> setImageFileFormat(int cameraId, ImageFileFormat format) async {}
+
+  @override
+  Future<double> getMinZoomLevel(int cameraId) async => 1.0;
+
+  @override
+  Future<double> getMaxZoomLevel(int cameraId) async => 4.0;
+
+  @override
+  Future<AVFoundationZoomCapabilities> getZoomCapabilities(int cameraId) async {
+    return const AVFoundationZoomCapabilities(
+      minZoomFactor: 1.0,
+      maxZoomFactor: 4.0,
+      recommendedMaxZoomFactor: 4.0,
+      currentZoomFactor: 1.0,
+      displayZoomFactorMultiplier: 1.0,
+      virtualDeviceSwitchOverZoomFactors: <double>[],
+      secondaryNativeResolutionZoomFactors: <double>[],
+      isVirtualDevice: false,
+      constituentDevices: <AVFoundationPhysicalCameraDevice>[],
+    );
+  }
+
+  @override
+  Future<void> setFlashMode(int cameraId, FlashMode mode) async {}
+
+  @override
+  Future<void> setPhotoCaptureOrientation(
+    DeviceOrientation orientation,
+  ) async {}
+
+  @override
+  Future<XFile> takePicture(int cameraId) {
+    return _takePictureCompleter.future;
+  }
+
+  @override
+  Stream<AVFoundationPhotoCaptureWillCaptureEvent> onPhotoCaptureWillCapture(
+    int cameraId,
+  ) {
+    return _photoCaptureController.stream.where(
+      (AVFoundationPhotoCaptureWillCaptureEvent event) =>
+          event.cameraId == cameraId,
+    );
+  }
+
+  void emitPhotoCaptureWillCapture() {
+    _photoCaptureController.add(
+      AVFoundationPhotoCaptureWillCaptureEvent(_cameraId),
+    );
+  }
+
+  void completeTakePicture() {
+    _takePictureCompleter.complete(XFile('/tmp/captured.heic'));
+  }
+
+  @override
+  Future<void> dispose(int cameraId) async {
+    await _deviceOrientationController.close();
+    await _initializedController.close();
+    await _photoCaptureController.close();
+  }
+}
+
+class _FakeCaptureOrientationReader implements CaptureOrientationReader {
+  const _FakeCaptureOrientationReader();
+
+  @override
+  Future<DeviceOrientation> readCaptureOrientation({
+    required DeviceOrientation fallback,
+  }) async {
+    return fallback;
+  }
+
+  @override
+  Stream<DeviceOrientation> watchCaptureOrientation({
+    required DeviceOrientation initialOrientation,
+  }) {
+    return Stream<DeviceOrientation>.value(initialOrientation);
+  }
+}
+
+class _FakePhotoLibrarySaver implements PhotoLibrarySaver {
+  const _FakePhotoLibrarySaver();
+
+  @override
+  Future<void> saveImage(String path, {required String album}) async {}
+}
+
+class _FakeGenerationImageProcessor implements GenerationImageProcessor {
+  const _FakeGenerationImageProcessor();
+
+  @override
+  Future<PreparedUploadImage> prepareUploadImage({
+    required String jobId,
+    required String sourcePath,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<ProcessedResultImage> processResultImage({
+    required String jobId,
+    required String resultUrl,
+    required Map<String, Object> sourceExif,
+  }) {
+    throw UnimplementedError();
+  }
+}
+
+class _FakeUploadRepository implements UploadRepository {
+  const _FakeUploadRepository();
+
+  @override
+  Future<UploadSession> createUpload({
+    required String contentType,
+    required Uint8List bytes,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> uploadBytes({
+    required UploadSession uploadSession,
+    required Uint8List bytes,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<JsonObject> completeUpload(String uploadSessionId) {
+    throw UnimplementedError();
+  }
+}
+
+class _FakeGenerationTaskRepository implements GenerationTaskRepository {
+  const _FakeGenerationTaskRepository();
+
+  @override
+  Future<CreatedGenerationTask> createTask(CreateGenerationTaskInput input) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<GenerationTask> fetchTask(String taskId) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<GenerationTask>> listTasks({int limit = 20}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<GenerationTask> cancelTask(String taskId) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<ResultUrl> createResultUrl(String taskId) {
+    throw UnimplementedError();
+  }
 }
