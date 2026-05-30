@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -338,6 +339,38 @@ class CameraController extends ValueNotifier<CameraValue> {
     try {
       return await CameraPlatform.instance.takePicture(_cameraId);
     } finally {
+      value = value.copyWith(isTakingPicture: false);
+    }
+  }
+
+  Future<XFile> takePictureWithCaptureOrientation(
+    DeviceOrientation captureOrientation, {
+    DeviceOrientation restoreOrientation = DeviceOrientation.portraitUp,
+  }) async {
+    value = value.copyWith(isTakingPicture: true);
+    final CameraPlatform platform = CameraPlatform.instance;
+    final AVFoundationCamera? avFoundationCamera =
+        platform is AVFoundationCamera ? platform : null;
+    try {
+      if (avFoundationCamera != null) {
+        await avFoundationCamera.setPhotoCaptureOrientation(captureOrientation);
+      } else {
+        await platform.lockCaptureOrientation(_cameraId, captureOrientation);
+      }
+      return await platform.takePicture(_cameraId);
+    } finally {
+      if (avFoundationCamera != null) {
+        await avFoundationCamera.setPhotoCaptureOrientation(restoreOrientation);
+      } else {
+        await platform.lockCaptureOrientation(_cameraId, restoreOrientation);
+      }
+      if (!_isDisposed) {
+        value = value.copyWith(
+          lockedCaptureOrientation: Optional<DeviceOrientation>.of(
+            restoreOrientation,
+          ),
+        );
+      }
       value = value.copyWith(isTakingPicture: false);
     }
   }

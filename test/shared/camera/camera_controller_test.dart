@@ -65,6 +65,40 @@ void main() {
       DeviceOrientation.portraitDown,
     );
   });
+
+  test(
+    'takePictureWithCaptureOrientation restores portrait capture lock',
+    () async {
+      final CameraController controller = CameraController(
+        const CameraDescription(
+          name: 'back',
+          lensDirection: CameraLensDirection.back,
+          sensorOrientation: 90,
+        ),
+        ResolutionPreset.high,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.initialize();
+      await controller.lockCaptureOrientation();
+
+      final XFile file = await controller.takePictureWithCaptureOrientation(
+        DeviceOrientation.landscapeLeft,
+      );
+
+      expect(file.path, '/tmp/captured.heic');
+      expect(fakePlatform.events, <String>[
+        'lock:portraitUp',
+        'lock:landscapeLeft',
+        'takePicture',
+        'lock:portraitUp',
+      ]);
+      expect(
+        controller.value.lockedCaptureOrientation,
+        DeviceOrientation.portraitUp,
+      );
+    },
+  );
 }
 
 class _FakeCameraPlatform extends CameraPlatform {
@@ -76,6 +110,7 @@ class _FakeCameraPlatform extends CameraPlatform {
 
   DeviceOrientation? lockedOrientation;
   int? lockedCameraId;
+  final List<String> events = <String>[];
 
   void emitDeviceOrientation(DeviceOrientation orientation) {
     _deviceOrientationController.add(
@@ -128,6 +163,13 @@ class _FakeCameraPlatform extends CameraPlatform {
   ) async {
     lockedCameraId = cameraId;
     lockedOrientation = orientation;
+    events.add('lock:${orientation.name}');
+  }
+
+  @override
+  Future<XFile> takePicture(int cameraId) async {
+    events.add('takePicture');
+    return XFile('/tmp/captured.heic');
   }
 
   @override

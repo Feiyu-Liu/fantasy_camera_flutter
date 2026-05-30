@@ -11,6 +11,7 @@ import '../../../features/generation_submission/presentation/generation_submissi
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/core/app_logger.dart';
 import '../data/camera_device_repository.dart';
+import '../data/capture_orientation_reader.dart';
 import '../domain/camera_choice.dart';
 import 'camera_message.dart';
 import 'camera_state.dart';
@@ -24,6 +25,22 @@ final cameraDeviceRepositoryProvider = Provider<CameraDeviceRepository>((
 ) {
   return const CameraDeviceRepository();
 });
+
+final captureOrientationReaderProvider = Provider<CaptureOrientationReader>((
+  Ref ref,
+) {
+  return NativeCaptureOrientationReader();
+});
+
+final captureOrientationProvider =
+    StreamProvider.autoDispose<DeviceOrientation>((Ref ref) {
+      final CaptureOrientationReader reader = ref.watch(
+        captureOrientationReaderProvider,
+      );
+      return reader.watchCaptureOrientation(
+        initialOrientation: DeviceOrientation.portraitUp,
+      );
+    }, dependencies: <ProviderOrFamily>[captureOrientationReaderProvider]);
 
 final cameraStateProvider =
     NotifierProvider.autoDispose<CameraControllerNotifier, CameraState>(
@@ -199,7 +216,16 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     _triggerCaptureOverlay();
 
     try {
-      final XFile file = await currentController.takePicture();
+      final DeviceOrientation captureOrientation = await ref
+          .read(captureOrientationReaderProvider)
+          .readCaptureOrientation(
+            fallback: currentController.value.deviceOrientation,
+          );
+      final XFile file = await currentController
+          .takePictureWithCaptureOrientation(
+            captureOrientation,
+            restoreOrientation: DeviceOrientation.portraitUp,
+          );
       state = state.copyWith(lastCapturedFile: file);
       ref
           .read(generationSubmissionControllerProvider.notifier)
@@ -300,7 +326,9 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       if (!_isCurrentController(cameraController, generation)) {
         return;
       }
-      await cameraController.setImageFileFormat(AppConfig.cameraImageFileFormat);
+      await cameraController.setImageFileFormat(
+        AppConfig.cameraImageFileFormat,
+      );
       if (!_isCurrentController(cameraController, generation)) {
         return;
       }

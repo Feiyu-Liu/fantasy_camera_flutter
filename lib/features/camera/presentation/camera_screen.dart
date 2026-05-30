@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_ui/my_ui.dart';
 
@@ -10,6 +11,7 @@ import '../../../l10n/l10n.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/camera/camera_preview.dart';
 import '../../generation_submission/presentation/generation_submission_modal.dart';
+import '../data/capture_orientation_reader.dart';
 import 'camera_message.dart';
 import 'camera_providers.dart';
 import 'camera_state.dart';
@@ -25,6 +27,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     with WidgetsBindingObserver {
   String _selectedPhotoModeId = 'photo';
   int _pointers = 0;
+  DeviceOrientation? _lastCaptureOrientation;
+  double _controlsRotationTurns = 0;
 
   @override
   void initState() {
@@ -61,10 +65,17 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final CameraControllerNotifier notifier = ref.read(
       cameraStateProvider.notifier,
     );
+    final DeviceOrientation captureOrientation =
+        ref.watch(captureOrientationProvider).valueOrNull ??
+        DeviceOrientation.portraitUp;
+    final double controlsRotationTurns = _resolveControlsRotationTurns(
+      captureOrientation,
+    );
     return CameraPhotoUi(
       viewfinder: _buildViewfinder(cameraState),
       galleryPreview: _buildGalleryPreview(cameraState),
       message: _localizedMessage(cameraState.message),
+      controlsRotationTurns: controlsRotationTurns,
       aspectRatioLabel: '4:3',
       selectedModeId: _selectedPhotoModeId,
       zoomStops: _zoomStops(cameraState),
@@ -91,6 +102,18 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         });
       },
     );
+  }
+
+  double _resolveControlsRotationTurns(DeviceOrientation orientation) {
+    if (_lastCaptureOrientation == orientation) {
+      return _controlsRotationTurns;
+    }
+    _lastCaptureOrientation = orientation;
+    _controlsRotationTurns = shortestQuarterTurnsToTarget(
+      current: _controlsRotationTurns,
+      target: captureOrientationTurns(orientation),
+    );
+    return _controlsRotationTurns;
   }
 
   Widget _buildViewfinder(CameraState cameraState) {
