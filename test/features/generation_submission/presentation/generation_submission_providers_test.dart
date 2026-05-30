@@ -8,6 +8,7 @@ import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.da
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,14 +16,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('submits captured file through the upload and task pipeline', () async {
-    final _FakeCapturedFileReader reader = _FakeCapturedFileReader();
     final _FakeGenerationImageProcessor imageProcessor =
         _FakeGenerationImageProcessor();
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
     final _FakeGenerationTaskRepository taskRepository =
         _FakeGenerationTaskRepository();
     final ProviderContainer container = _container(
-      reader: reader,
       imageProcessor: imageProcessor,
       uploadRepository: uploadRepository,
       taskRepository: taskRepository,
@@ -51,7 +50,6 @@ void main() {
     expect(job.uploadSessionId, 'upload-1');
     expect(job.taskId, 'task-1');
     expect(job.taskStatus, GenerationTaskStatus.pending);
-    expect(reader.readPaths, isEmpty);
     expect(imageProcessor.preparedSourcePaths, <String>['/tmp/photo.jpg']);
     expect(job.uploadImagePath, '/tmp/photo.jpg.cleaned.jpg');
     expect(job.uploadImageSizeBytes, 4);
@@ -441,7 +439,6 @@ void main() {
 }
 
 ProviderContainer _container({
-  _FakeCapturedFileReader? reader,
   _FakePhotoLibrarySaver? photoLibrarySaver,
   _FakeGenerationImageProcessor? imageProcessor,
   _FakeUploadRepository? uploadRepository,
@@ -449,9 +446,6 @@ ProviderContainer _container({
 }) {
   return ProviderContainer(
     overrides: <Override>[
-      capturedFileReaderProvider.overrideWithValue(
-        reader ?? _FakeCapturedFileReader(),
-      ),
       photoLibrarySaverProvider.overrideWithValue(
         photoLibrarySaver ?? _FakePhotoLibrarySaver(),
       ),
@@ -524,16 +518,6 @@ class _FakePhotoLibrarySaver implements PhotoLibrarySaver {
     if (failure != null) {
       throw failure;
     }
-  }
-}
-
-class _FakeCapturedFileReader implements CapturedFileReader {
-  final List<String> readPaths = <String>[];
-
-  @override
-  Future<Uint8List> readAsBytes(XFile file) async {
-    readPaths.add(file.path);
-    return Uint8List.fromList(<int>[1, 2, 3]);
   }
 }
 

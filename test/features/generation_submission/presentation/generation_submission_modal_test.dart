@@ -7,7 +7,9 @@ import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.da
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_submission_service.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_modal.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
@@ -375,9 +377,6 @@ class _ModalHost extends StatelessWidget {
   Widget build(BuildContext context) {
     return ProviderScope(
       overrides: <Override>[
-        capturedFileReaderProvider.overrideWithValue(
-          const _FakeCapturedFileReader(),
-        ),
         generationImageProcessorProvider.overrideWithValue(
           const _FakeGenerationImageProcessor(),
         ),
@@ -390,9 +389,21 @@ class _ModalHost extends StatelessWidget {
         generationTaskRepositoryProvider.overrideWithValue(
           taskRepository ?? _FakeGenerationTaskRepository(),
         ),
-        generationSubmissionControllerProvider.overrideWith(
-          _SeededGenerationSubmissionController.new,
-        ),
+        generationSubmissionServiceProvider.overrideWith((Ref ref) {
+          final GenerationSubmissionService service =
+              GenerationSubmissionService(
+                initialState: GenerationSubmissionState(
+                  jobs: ref.read(_seedJobsProvider),
+                ),
+                uploadRepository: uploadRepository ?? _FakeUploadRepository(),
+                generationTaskRepository:
+                    taskRepository ?? _FakeGenerationTaskRepository(),
+                photoLibrarySaver: const _FakePhotoLibrarySaver(),
+                imageProcessor: const _FakeGenerationImageProcessor(),
+              );
+          ref.onDispose(service.dispose);
+          return service;
+        }),
         _seedJobsProvider.overrideWithValue(jobs),
       ],
       child: CupertinoApp(
@@ -407,15 +418,6 @@ class _ModalHost extends StatelessWidget {
 final _seedJobsProvider = Provider<List<GenerationSubmissionJob>>((_) {
   return const <GenerationSubmissionJob>[];
 });
-
-class _SeededGenerationSubmissionController
-    extends GenerationSubmissionController {
-  @override
-  GenerationSubmissionState build() {
-    super.build();
-    return GenerationSubmissionState(jobs: ref.read(_seedJobsProvider));
-  }
-}
 
 class _FakeGenerationImageProcessor implements GenerationImageProcessor {
   const _FakeGenerationImageProcessor();
@@ -445,15 +447,6 @@ class _FakeGenerationImageProcessor implements GenerationImageProcessor {
   }
 }
 
-class _FakeCapturedFileReader implements CapturedFileReader {
-  const _FakeCapturedFileReader();
-
-  @override
-  Future<Uint8List> readAsBytes(XFile file) async {
-    return Uint8List.fromList(<int>[1]);
-  }
-}
-
 class _FakeGalleryImagePicker implements GalleryImagePicker {
   _FakeGalleryImagePicker(this.result);
 
@@ -465,6 +458,13 @@ class _FakeGalleryImagePicker implements GalleryImagePicker {
     pickCount += 1;
     return result;
   }
+}
+
+class _FakePhotoLibrarySaver implements PhotoLibrarySaver {
+  const _FakePhotoLibrarySaver();
+
+  @override
+  Future<void> saveImage(String path, {required String album}) async {}
 }
 
 class _FakeUploadRepository implements UploadRepository {
