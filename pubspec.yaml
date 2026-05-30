@@ -37,6 +37,7 @@ dependencies:
   dio: ^5.9.2
   flutter:
     sdk: flutter
+  flutter_image_compress: ^2.4.0
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^2.6.1
@@ -45,6 +46,7 @@ dependencies:
   intl: any
   my_ui:
     path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/my_ui
+  native_exif: ^0.8.0
   path_provider: ^2.0.0
   sign_in_with_apple: ^8.0.0
   supabase_flutter: ^2.12.4

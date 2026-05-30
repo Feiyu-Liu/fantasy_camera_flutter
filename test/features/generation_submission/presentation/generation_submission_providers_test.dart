@@ -7,6 +7,7 @@ import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_ta
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,11 +16,14 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('submits captured file through the upload and task pipeline', () async {
     final _FakeCapturedFileReader reader = _FakeCapturedFileReader();
+    final _FakeGenerationImageProcessor imageProcessor =
+        _FakeGenerationImageProcessor();
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
     final _FakeGenerationTaskRepository taskRepository =
         _FakeGenerationTaskRepository();
     final ProviderContainer container = _container(
       reader: reader,
+      imageProcessor: imageProcessor,
       uploadRepository: uploadRepository,
       taskRepository: taskRepository,
     );
@@ -47,10 +51,16 @@ void main() {
     expect(job.uploadSessionId, 'upload-1');
     expect(job.taskId, 'task-1');
     expect(job.taskStatus, GenerationTaskStatus.pending);
-    expect(reader.readPaths, <String>['/tmp/photo.jpg']);
+    expect(reader.readPaths, isEmpty);
+    expect(imageProcessor.preparedSourcePaths, <String>['/tmp/photo.jpg']);
+    expect(job.uploadImagePath, '/tmp/photo.jpg.cleaned.jpg');
+    expect(job.uploadImageSizeBytes, 4);
+    expect(job.sourceExif, <String, Object>{
+      'DateTimeOriginal': '2026:05:29 00:00:00',
+    });
     expect(uploadRepository.events, <String>[
-      'create:image/jpeg:3',
-      'upload:upload-1:3',
+      'create:image/jpeg:4',
+      'upload:upload-1:4',
       'complete:upload-1',
     ]);
     expect(taskRepository.createdInputs.single.promptStyle, 'realistic');
@@ -169,7 +179,7 @@ void main() {
         .single;
     expect(job.status, GenerationSubmissionStatus.failed);
     expect(job.errorCode, 'conflict');
-    expect(uploadRepository.events, <String>['create:image/jpeg:3']);
+    expect(uploadRepository.events, <String>['create:image/jpeg:4']);
     expect(taskRepository.createdInputs, isEmpty);
   });
 
@@ -200,8 +210,8 @@ void main() {
     expect(job.uploadSessionId, 'upload-1');
     expect(job.errorCode, 'http_error');
     expect(uploadRepository.events, <String>[
-      'create:image/jpeg:3',
-      'upload:upload-1:3',
+      'create:image/jpeg:4',
+      'upload:upload-1:4',
     ]);
     expect(taskRepository.createdInputs, isEmpty);
   });
@@ -233,8 +243,8 @@ void main() {
     expect(job.uploadSessionId, 'upload-1');
     expect(job.errorCode, 'task_create_failed');
     expect(uploadRepository.events, <String>[
-      'create:image/jpeg:3',
-      'upload:upload-1:3',
+      'create:image/jpeg:4',
+      'upload:upload-1:4',
       'complete:upload-1',
     ]);
   });
@@ -268,7 +278,10 @@ void main() {
     );
   });
 
-  test('polling completed task marks job completed', () async {
+  test('polling completed task processes and saves result image', () async {
+    final _FakePhotoLibrarySaver photoLibrarySaver = _FakePhotoLibrarySaver();
+    final _FakeGenerationImageProcessor imageProcessor =
+        _FakeGenerationImageProcessor();
     final _FakeGenerationTaskRepository taskRepository =
         _FakeGenerationTaskRepository()
           ..fetchTaskResponses.add(
@@ -281,6 +294,8 @@ void main() {
             ),
           );
     final ProviderContainer container = _container(
+      photoLibrarySaver: photoLibrarySaver,
+      imageProcessor: imageProcessor,
       taskRepository: taskRepository,
     );
     addTearDown(container.dispose);
@@ -305,10 +320,52 @@ void main() {
         .read(generationSubmissionControllerProvider)
         .jobs
         .single;
-    expect(job.status, GenerationSubmissionStatus.completed);
+    expect(job.status, GenerationSubmissionStatus.resultSaved);
     expect(job.taskStatus, GenerationTaskStatus.completed);
     expect(job.resultImageObjectId, 'result-1');
+    expect(job.resultUrl, 'https://example.com/result-1.jpg');
+    expect(job.processedResultPath, '/tmp/photo.jpg.cleaned.jpg.result.heic');
+    expect(imageProcessor.processedResultUrls, <String>[
+      'https://example.com/result-1.jpg',
+    ]);
+    expect(imageProcessor.processedSourceExif.single, <String, Object>{
+      'DateTimeOriginal': '2026:05:29 00:00:00',
+    });
+    expect(photoLibrarySaver.events, <String>[
+      'save:/tmp/photo.jpg:TesserCam',
+      'save:/tmp/photo.jpg.cleaned.jpg.result.heic:TesserCam',
+    ]);
     expect(taskRepository.fetchTaskIds, <String>['task-1', 'task-1']);
+  });
+
+  test('result processing failure marks postprocess failure status', () async {
+    final _FakeGenerationImageProcessor imageProcessor =
+        _FakeGenerationImageProcessor()
+          ..processFailure = StateError('heif unsupported');
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..fetchTaskResponses.add(
+            _task(status: GenerationTaskStatus.completed),
+          );
+    final ProviderContainer container = _container(
+      imageProcessor: imageProcessor,
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .submitCapturedFile(XFile('/tmp/photo.jpg'));
+    await Future<void>.delayed(Duration.zero);
+
+    final GenerationSubmissionJob job = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(job.status, GenerationSubmissionStatus.resultProcessingFailed);
+    expect(job.taskStatus, GenerationTaskStatus.completed);
+    expect(job.resultSaveErrorCode, 'result_processing_failed');
+    expect(job.resultSaveErrorMessage, contains('heif unsupported'));
   });
 
   test('polling failed task marks job failed', () async {
@@ -341,7 +398,7 @@ void main() {
     expect(job.errorMessage, 'Provider failed');
   });
 
-  test('completed job loads and caches result url', () async {
+  test('completed job keeps cached result url after auto processing', () async {
     final _FakeGenerationTaskRepository taskRepository =
         _FakeGenerationTaskRepository()
           ..fetchTaskResponses.add(
@@ -386,6 +443,7 @@ void main() {
 ProviderContainer _container({
   _FakeCapturedFileReader? reader,
   _FakePhotoLibrarySaver? photoLibrarySaver,
+  _FakeGenerationImageProcessor? imageProcessor,
   _FakeUploadRepository? uploadRepository,
   _FakeGenerationTaskRepository? taskRepository,
 }) {
@@ -397,6 +455,9 @@ ProviderContainer _container({
       photoLibrarySaverProvider.overrideWithValue(
         photoLibrarySaver ?? _FakePhotoLibrarySaver(),
       ),
+      generationImageProcessorProvider.overrideWithValue(
+        imageProcessor ?? _FakeGenerationImageProcessor(),
+      ),
       uploadRepositoryProvider.overrideWithValue(
         uploadRepository ?? _FakeUploadRepository(),
       ),
@@ -405,6 +466,51 @@ ProviderContainer _container({
       ),
     ],
   );
+}
+
+class _FakeGenerationImageProcessor implements GenerationImageProcessor {
+  final List<String> preparedSourcePaths = <String>[];
+  final List<String> processedResultUrls = <String>[];
+  final List<Map<String, Object>> processedSourceExif = <Map<String, Object>>[];
+  Object? prepareFailure;
+  Object? processFailure;
+
+  @override
+  Future<PreparedUploadImage> prepareUploadImage({
+    required String jobId,
+    required String sourcePath,
+  }) async {
+    preparedSourcePaths.add(sourcePath);
+    final Object? failure = prepareFailure;
+    if (failure != null) {
+      throw failure;
+    }
+    return PreparedUploadImage(
+      path: '$sourcePath.cleaned.jpg',
+      bytes: Uint8List.fromList(<int>[1, 2, 3, 4]),
+      sourceExif: const <String, Object>{
+        'DateTimeOriginal': '2026:05:29 00:00:00',
+      },
+    );
+  }
+
+  @override
+  Future<ProcessedResultImage> processResultImage({
+    required String jobId,
+    required String resultUrl,
+    required Map<String, Object> sourceExif,
+  }) async {
+    processedResultUrls.add(resultUrl);
+    processedSourceExif.add(sourceExif);
+    final Object? failure = processFailure;
+    if (failure != null) {
+      throw failure;
+    }
+    return ProcessedResultImage(
+      path: '/tmp/photo.jpg.cleaned.jpg.result.heic',
+      bytes: Uint8List.fromList(<int>[9, 8, 7]),
+    );
+  }
 }
 
 class _FakePhotoLibrarySaver implements PhotoLibrarySaver {
@@ -455,7 +561,7 @@ class _FakeUploadRepository implements UploadRepository {
       expiresAt: _fixedExpiresAt,
       requiredHeaders: <String, String>{
         'content-type': 'image/jpeg',
-        'content-length': '3',
+        'content-length': '${bytes.length}',
         'x-amz-checksum-sha256': 'checksum',
       },
       url: 'https://example.com/upload',

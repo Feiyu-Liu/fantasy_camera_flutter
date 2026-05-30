@@ -3,6 +3,7 @@ import '../../backend_api/domain/generation_task.dart';
 enum GenerationSubmissionStatus {
   awaitingConfirmation,
   queued,
+  preparingUploadImage,
   readingFile,
   creatingUpload,
   uploading,
@@ -11,6 +12,9 @@ enum GenerationSubmissionStatus {
   submitted,
   pollingTask,
   completed,
+  processingResultImage,
+  resultSaved,
+  resultProcessingFailed,
   failed,
 }
 
@@ -27,6 +31,12 @@ class GenerationSubmissionJob {
     this.resultImageObjectId,
     this.resultUrl,
     this.resultUrlExpiresAt,
+    this.uploadImagePath,
+    this.uploadImageSizeBytes,
+    this.sourceExif,
+    this.processedResultPath,
+    this.resultSaveErrorCode,
+    this.resultSaveErrorMessage,
     this.errorCode,
     this.errorMessage,
   });
@@ -42,11 +52,19 @@ class GenerationSubmissionJob {
   final String? resultImageObjectId;
   final String? resultUrl;
   final DateTime? resultUrlExpiresAt;
+  final String? uploadImagePath;
+  final int? uploadImageSizeBytes;
+  final Map<String, Object>? sourceExif;
+  final String? processedResultPath;
+  final String? resultSaveErrorCode;
+  final String? resultSaveErrorMessage;
   final String? errorCode;
   final String? errorMessage;
 
   bool get isTerminal =>
       status == GenerationSubmissionStatus.completed ||
+      status == GenerationSubmissionStatus.resultSaved ||
+      status == GenerationSubmissionStatus.resultProcessingFailed ||
       status == GenerationSubmissionStatus.failed;
 
   bool get hasFreshResultUrl {
@@ -66,9 +84,16 @@ class GenerationSubmissionJob {
     String? resultImageObjectId,
     String? resultUrl,
     DateTime? resultUrlExpiresAt,
+    String? uploadImagePath,
+    int? uploadImageSizeBytes,
+    Map<String, Object>? sourceExif,
+    String? processedResultPath,
+    String? resultSaveErrorCode,
+    String? resultSaveErrorMessage,
     String? errorCode,
     String? errorMessage,
     bool clearError = false,
+    bool clearResultSaveError = false,
   }) {
     return GenerationSubmissionJob(
       id: id,
@@ -82,6 +107,16 @@ class GenerationSubmissionJob {
       resultImageObjectId: resultImageObjectId ?? this.resultImageObjectId,
       resultUrl: resultUrl ?? this.resultUrl,
       resultUrlExpiresAt: resultUrlExpiresAt ?? this.resultUrlExpiresAt,
+      uploadImagePath: uploadImagePath ?? this.uploadImagePath,
+      uploadImageSizeBytes: uploadImageSizeBytes ?? this.uploadImageSizeBytes,
+      sourceExif: sourceExif ?? this.sourceExif,
+      processedResultPath: processedResultPath ?? this.processedResultPath,
+      resultSaveErrorCode: clearResultSaveError
+          ? null
+          : resultSaveErrorCode ?? this.resultSaveErrorCode,
+      resultSaveErrorMessage: clearResultSaveError
+          ? null
+          : resultSaveErrorMessage ?? this.resultSaveErrorMessage,
       errorCode: clearError ? null : errorCode ?? this.errorCode,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
     );

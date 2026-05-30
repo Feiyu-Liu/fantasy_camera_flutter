@@ -26,6 +26,16 @@ class AppConfig {
   // iOS AVFoundation 切换变焦档位时的动画变焦速度。
   static const double cameraZoomRampRate = 10.0;
 
+  static const String generationPhotoAlbumName = 'TesserCam';
+
+  static const int generationUploadImageMaxSide = 2048;
+
+  static const int generationUploadJpegQuality = 90;
+
+  static const int generationResultHeifQuality = 90;
+
+  static const bool generationUploadKeepExif = false;
+
   static bool get hasSupabaseConfig =>
       supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty;
 }

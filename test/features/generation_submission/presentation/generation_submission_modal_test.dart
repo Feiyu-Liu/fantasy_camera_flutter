@@ -7,6 +7,7 @@ import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.da
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_modal.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
@@ -230,6 +231,52 @@ void main() {
     );
   });
 
+  testWidgets('saved result photo shows processed local image', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-result');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'saved',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+
+    await tester.pumpWidget(_ModalHost(jobs: jobs));
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-processed-result-image'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('result processing failure shows error message', (
+    WidgetTester tester,
+  ) async {
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'failed-result',
+        status: GenerationSubmissionStatus.resultProcessingFailed,
+        resultSaveErrorMessage: 'HEIF conversion failed',
+      ),
+    ];
+
+    await tester.pumpWidget(_ModalHost(jobs: jobs));
+
+    expect(find.text('HEIF conversion failed'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-status-result-processing-failed',
+        ),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('tapping gallery picker queues selected image for confirmation', (
     WidgetTester tester,
   ) async {
@@ -331,6 +378,9 @@ class _ModalHost extends StatelessWidget {
         capturedFileReaderProvider.overrideWithValue(
           const _FakeCapturedFileReader(),
         ),
+        generationImageProcessorProvider.overrideWithValue(
+          const _FakeGenerationImageProcessor(),
+        ),
         galleryImagePickerProvider.overrideWithValue(
           imagePicker ?? _FakeGalleryImagePicker(null),
         ),
@@ -364,6 +414,34 @@ class _SeededGenerationSubmissionController
   GenerationSubmissionState build() {
     super.build();
     return GenerationSubmissionState(jobs: ref.read(_seedJobsProvider));
+  }
+}
+
+class _FakeGenerationImageProcessor implements GenerationImageProcessor {
+  const _FakeGenerationImageProcessor();
+
+  @override
+  Future<PreparedUploadImage> prepareUploadImage({
+    required String jobId,
+    required String sourcePath,
+  }) async {
+    return PreparedUploadImage(
+      path: '$sourcePath.cleaned.jpg',
+      bytes: Uint8List.fromList(<int>[1]),
+      sourceExif: const <String, Object>{},
+    );
+  }
+
+  @override
+  Future<ProcessedResultImage> processResultImage({
+    required String jobId,
+    required String resultUrl,
+    required Map<String, Object> sourceExif,
+  }) async {
+    return ProcessedResultImage(
+      path: '/tmp/result.heic',
+      bytes: Uint8List.fromList(<int>[1]),
+    );
   }
 }
 
@@ -482,6 +560,8 @@ GenerationSubmissionJob _job({
   required String id,
   required GenerationSubmissionStatus status,
   String? taskId,
+  String? processedResultPath,
+  String? resultSaveErrorMessage,
 }) {
   final DateTime now = DateTime.parse('2026-05-29T00:00:00Z');
   final File imageFile = _writeImageFile(id);
@@ -490,6 +570,8 @@ GenerationSubmissionJob _job({
     imagePath: imageFile.path,
     status: status,
     taskId: taskId ?? 'task-$id',
+    processedResultPath: processedResultPath,
+    resultSaveErrorMessage: resultSaveErrorMessage,
     createdAt: now,
     updatedAt: now,
   );

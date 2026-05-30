@@ -88,7 +88,12 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Switch UI'));
     await tester.pumpAndSettle();
 
-    expect(find.text('No captured photos yet'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-gallery-picker'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('waits for camera choices before mounting camera screen', (

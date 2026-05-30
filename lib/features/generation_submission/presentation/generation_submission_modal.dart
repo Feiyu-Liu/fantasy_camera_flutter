@@ -136,7 +136,8 @@ class _GenerationSubmissionDebugModalState
       _selectedJobId = job.id;
       _showOriginalImage = false;
     });
-    if (job.status == GenerationSubmissionStatus.completed) {
+    if (job.status == GenerationSubmissionStatus.completed ||
+        job.status == GenerationSubmissionStatus.resultProcessingFailed) {
       unawaited(_loadResult(job.id));
     }
   }
@@ -390,6 +391,20 @@ class _StatusBadge extends StatelessWidget {
         color: CupertinoColors.white,
         size: 20,
       ),
+      GenerationSubmissionStatus.resultSaved => const Icon(
+        CupertinoIcons.check_mark_circled_solid,
+        key: ValueKey<String>('generation-submission-status-result-saved'),
+        color: CupertinoColors.activeGreen,
+        size: 20,
+      ),
+      GenerationSubmissionStatus.resultProcessingFailed => const Icon(
+        CupertinoIcons.exclamationmark_circle_fill,
+        key: ValueKey<String>(
+          'generation-submission-status-result-processing-failed',
+        ),
+        color: CupertinoColors.systemRed,
+        size: 20,
+      ),
       GenerationSubmissionStatus.completed => const Icon(
         CupertinoIcons.check_mark_circled_solid,
         key: ValueKey<String>('generation-submission-status-completed'),
@@ -549,12 +564,53 @@ class _ResultPreview extends StatelessWidget {
       );
     }
 
-    if (job.status != GenerationSubmissionStatus.completed) {
+    if (job.status == GenerationSubmissionStatus.processingResultImage) {
+      return const Center(
+        child: CupertinoActivityIndicator(
+          key: ValueKey<String>('generation-submission-result-processing'),
+        ),
+      );
+    }
+
+    if (job.status == GenerationSubmissionStatus.resultProcessingFailed) {
+      return Center(
+        child: Text(
+          job.resultSaveErrorMessage ?? 'Result processing failed',
+          style: const TextStyle(color: CupertinoColors.secondaryLabel),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    if (job.status != GenerationSubmissionStatus.completed &&
+        job.status != GenerationSubmissionStatus.resultSaved) {
       return Center(
         child: Text(
           _statusText(job.status),
           style: const TextStyle(color: CupertinoColors.secondaryLabel),
         ),
+      );
+    }
+
+    final String? processedResultPath = job.processedResultPath;
+    if (processedResultPath != null) {
+      return Image.file(
+        File(processedResultPath),
+        key: const ValueKey<String>(
+          'generation-submission-processed-result-image',
+        ),
+        fit: BoxFit.contain,
+        errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
+          debugPrint(
+            '[GenerationSubmissionModal] processed result image load failure path=$processedResultPath error=$error',
+          );
+          return const Center(
+            child: Text(
+              'Processed result image could not be loaded',
+              style: TextStyle(color: CupertinoColors.secondaryLabel),
+            ),
+          );
+        },
       );
     }
 
@@ -598,6 +654,13 @@ class _ResultPreview extends StatelessWidget {
       GenerationSubmissionStatus.failed => 'Generation failed',
       GenerationSubmissionStatus.awaitingConfirmation =>
         'Waiting for confirmation',
+      GenerationSubmissionStatus.preparingUploadImage =>
+        'Preparing upload image',
+      GenerationSubmissionStatus.processingResultImage =>
+        'Processing result image',
+      GenerationSubmissionStatus.resultSaved => 'Result saved',
+      GenerationSubmissionStatus.resultProcessingFailed =>
+        'Result processing failed',
       GenerationSubmissionStatus.submitted ||
       GenerationSubmissionStatus.pollingTask => 'Waiting for generation result',
       _ => 'Preparing generation task',
