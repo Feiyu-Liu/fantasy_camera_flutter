@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gal/gal.dart';
 import 'package:image_picker/image_picker.dart' hide XFile;
 
 import '../../backend_api/data/backend_repositories.dart';
@@ -20,12 +21,20 @@ final galleryImagePickerProvider = Provider<GalleryImagePicker>((Ref ref) {
   return ImagePickerGalleryImagePicker(ImagePicker());
 }, dependencies: const <ProviderOrFamily>[]);
 
+final photoLibrarySaverProvider = Provider<PhotoLibrarySaver>((Ref ref) {
+  return const GalPhotoLibrarySaver();
+}, dependencies: const <ProviderOrFamily>[]);
+
 abstract interface class CapturedFileReader {
   Future<Uint8List> readAsBytes(XFile file);
 }
 
 abstract interface class GalleryImagePicker {
   Future<XFile?> pickImageFromGallery();
+}
+
+abstract interface class PhotoLibrarySaver {
+  Future<void> saveImage(String path, {required String album});
 }
 
 class XFileCapturedFileReader implements CapturedFileReader {
@@ -51,11 +60,21 @@ class ImagePickerGalleryImagePicker implements GalleryImagePicker {
   }
 }
 
+class GalPhotoLibrarySaver implements PhotoLibrarySaver {
+  const GalPhotoLibrarySaver();
+
+  @override
+  Future<void> saveImage(String path, {required String album}) {
+    return Gal.putImage(path, album: album);
+  }
+}
+
 final generationSubmissionControllerProvider =
     NotifierProvider<GenerationSubmissionController, GenerationSubmissionState>(
       GenerationSubmissionController.new,
       dependencies: <ProviderOrFamily>[
         capturedFileReaderProvider,
+        photoLibrarySaverProvider,
         uploadRepositoryProvider,
         generationTaskRepositoryProvider,
       ],
@@ -65,6 +84,7 @@ class GenerationSubmissionController
     extends Notifier<GenerationSubmissionState> {
   static const int _maxJobs = 20;
   static const Duration _taskPollInterval = Duration(seconds: 3);
+  static const String _photoLibraryAlbumName = 'TesserCam';
   int _nextJobId = 0;
   final Map<String, Timer> _pollingTimers = <String, Timer>{};
 
@@ -76,31 +96,124 @@ class GenerationSubmissionController
   CapturedFileReader get _capturedFileReader =>
       ref.read(capturedFileReaderProvider);
 
+  PhotoLibrarySaver get _photoLibrarySaver =>
+      ref.read(photoLibrarySaverProvider);
+
   @override
   GenerationSubmissionState build() {
     ref.onDispose(_cancelAllPolling);
     return const GenerationSubmissionState();
   }
 
+  String queueCapturedFile(XFile file) {
+    final GenerationSubmissionJob job = _createAwaitingConfirmationJob(file);
+    _debugLog('queue captured job=${job.id} path=${file.path}');
+    _upsertJob(job);
+    unawaited(_saveCapturedFileToPhotoLibrary(job.id, file.path));
+    return job.id;
+  }
+
+  String queueGalleryFile(XFile file) {
+    final GenerationSubmissionJob job = _createAwaitingConfirmationJob(file);
+    _debugLog('queue gallery job=${job.id} path=${file.path}');
+    _upsertJob(job);
+    return job.id;
+  }
+
   Future<void> submitCapturedFile(XFile file) async {
+    final String jobId = queueGalleryFile(file);
+    await confirmJob(jobId);
+  }
+
+  Future<void> confirmJob(String jobId) async {
+    final GenerationSubmissionJob? job = _findJob(jobId);
+    if (job == null) {
+      _debugLog('confirm skipped job=$jobId reason=missing-job');
+      return;
+    }
+    if (job.status != GenerationSubmissionStatus.awaitingConfirmation) {
+      _debugLog('confirm skipped job=$jobId reason=status-${job.status.name}');
+      return;
+    }
+
+    _debugLog('confirm job=$jobId path=${job.imagePath}');
+    await _submitJob(job);
+  }
+
+  void cancelJob(String jobId) {
+    final GenerationSubmissionJob? job = _findJob(jobId);
+    if (job == null) {
+      _debugLog('cancel skipped job=$jobId reason=missing-job');
+      return;
+    }
+    if (job.status != GenerationSubmissionStatus.awaitingConfirmation) {
+      _debugLog('cancel skipped job=$jobId reason=status-${job.status.name}');
+      return;
+    }
+    _debugLog('cancel job=$jobId');
+    _stopTaskPolling(jobId);
+    state = GenerationSubmissionState(
+      jobs: state.jobs
+          .where((GenerationSubmissionJob current) => current.id != jobId)
+          .toList(growable: false),
+    );
+  }
+
+  GenerationSubmissionJob _createAwaitingConfirmationJob(XFile file) {
     final DateTime now = DateTime.now();
     final String jobId = 'local-${now.microsecondsSinceEpoch}-${_nextJobId++}';
-    String stage = 'queued';
-    _debugLog('submit start job=$jobId path=${file.path}');
-    final GenerationSubmissionJob job = GenerationSubmissionJob(
+    return GenerationSubmissionJob(
       id: jobId,
       imagePath: file.path,
-      status: GenerationSubmissionStatus.queued,
+      status: GenerationSubmissionStatus.awaitingConfirmation,
       createdAt: now,
       updatedAt: now,
     );
-    _upsertJob(job);
+  }
+
+  Future<void> _saveCapturedFileToPhotoLibrary(
+    String jobId,
+    String imagePath,
+  ) async {
+    try {
+      _debugLog(
+        'photo library save start job=$jobId path=$imagePath album=$_photoLibraryAlbumName',
+      );
+      await _photoLibrarySaver.saveImage(
+        imagePath,
+        album: _photoLibraryAlbumName,
+      );
+      _debugLog(
+        'photo library save success job=$jobId album=$_photoLibraryAlbumName',
+      );
+    } on Object catch (error) {
+      _debugLog('photo library save failure job=$jobId error=$error');
+      _updateJob(jobId, (GenerationSubmissionJob current) {
+        if (current.status != GenerationSubmissionStatus.awaitingConfirmation) {
+          return current;
+        }
+        return current.copyWith(
+          errorCode: 'photo_library_save_failed',
+          errorMessage: error.toString(),
+          updatedAt: DateTime.now(),
+        );
+      });
+    }
+  }
+
+  Future<void> _submitJob(GenerationSubmissionJob job) async {
+    final String jobId = job.id;
+    String stage = 'queued';
+    _debugLog('submit start job=$jobId path=${job.imagePath}');
+    _markStatus(jobId, GenerationSubmissionStatus.queued, clearError: true);
 
     try {
       stage = 'readingFile';
       _markStatus(jobId, GenerationSubmissionStatus.readingFile);
       _debugLog('read file start job=$jobId');
-      final Uint8List bytes = await _capturedFileReader.readAsBytes(file);
+      final Uint8List bytes = await _capturedFileReader.readAsBytes(
+        XFile(job.imagePath),
+      );
       _debugLog('read file success job=$jobId bytes=${bytes.length}');
 
       stage = 'creatingUpload';
@@ -374,11 +487,18 @@ class GenerationSubmissionController
     }
   }
 
-  void _markStatus(String jobId, GenerationSubmissionStatus status) {
+  void _markStatus(
+    String jobId,
+    GenerationSubmissionStatus status, {
+    bool clearError = false,
+  }) {
     _updateJob(
       jobId,
-      (GenerationSubmissionJob job) =>
-          job.copyWith(status: status, updatedAt: DateTime.now()),
+      (GenerationSubmissionJob job) => job.copyWith(
+        status: status,
+        updatedAt: DateTime.now(),
+        clearError: clearError,
+      ),
     );
   }
 

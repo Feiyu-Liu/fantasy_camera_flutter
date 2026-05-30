@@ -19,6 +19,10 @@ void main() {
     WidgetTester tester,
   ) async {
     final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'awaiting',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+      ),
       _job(id: 'processing', status: GenerationSubmissionStatus.pollingTask),
       _job(id: 'completed', status: GenerationSubmissionStatus.completed),
       _job(id: 'failed', status: GenerationSubmissionStatus.failed),
@@ -38,6 +42,24 @@ void main() {
     );
     expect(
       find.byKey(
+        const ValueKey<String>('generation-submission-status-awaiting'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-confirm-awaiting'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-cancel-awaiting'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
         const ValueKey<String>('generation-submission-status-processing'),
       ),
       findsOneWidget,
@@ -52,6 +74,83 @@ void main() {
       find.byKey(const ValueKey<String>('generation-submission-status-failed')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('confirming awaiting photo starts generation', (
+    WidgetTester tester,
+  ) async {
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository();
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'awaiting',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      _ModalHost(
+        jobs: jobs,
+        uploadRepository: uploadRepository,
+        taskRepository: taskRepository,
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('generation-submission-confirm-awaiting'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(uploadRepository.createUploadCount, 1);
+    expect(taskRepository.createTaskCount, 1);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-status-processing'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('canceling awaiting photo removes it from the list', (
+    WidgetTester tester,
+  ) async {
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository();
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'awaiting',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      _ModalHost(
+        jobs: jobs,
+        uploadRepository: uploadRepository,
+        taskRepository: taskRepository,
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('generation-submission-cancel-awaiting'),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-photo-awaiting'),
+      ),
+      findsNothing,
+    );
+    expect(uploadRepository.createUploadCount, 0);
+    expect(taskRepository.createTaskCount, 0);
   });
 
   testWidgets('modal shows gallery picker when no jobs exist', (
@@ -131,20 +230,23 @@ void main() {
     );
   });
 
-  testWidgets('tapping gallery picker submits selected image', (
+  testWidgets('tapping gallery picker queues selected image for confirmation', (
     WidgetTester tester,
   ) async {
     final File imageFile = _writeImageFile('gallery-picked');
     final _FakeGalleryImagePicker imagePicker = _FakeGalleryImagePicker(
       XFile(imageFile.path),
     );
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository();
 
     await tester.pumpWidget(
       _ModalHost(
         jobs: const <GenerationSubmissionJob>[],
         imagePicker: imagePicker,
-        uploadRepository: _FakeUploadRepository(),
-        taskRepository: _FakeGenerationTaskRepository(),
+        uploadRepository: uploadRepository,
+        taskRepository: taskRepository,
       ),
     );
 
@@ -163,10 +265,18 @@ void main() {
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-status-processing'),
+        const ValueKey<String>('generation-submission-status-awaiting'),
       ),
       findsOneWidget,
     );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-status-processing'),
+      ),
+      findsNothing,
+    );
+    expect(uploadRepository.createUploadCount, 0);
+    expect(taskRepository.createTaskCount, 0);
   });
 
   testWidgets('canceling gallery picker does not submit image', (
@@ -218,6 +328,9 @@ class _ModalHost extends StatelessWidget {
   Widget build(BuildContext context) {
     return ProviderScope(
       overrides: <Override>[
+        capturedFileReaderProvider.overrideWithValue(
+          const _FakeCapturedFileReader(),
+        ),
         galleryImagePickerProvider.overrideWithValue(
           imagePicker ?? _FakeGalleryImagePicker(null),
         ),
@@ -254,6 +367,15 @@ class _SeededGenerationSubmissionController
   }
 }
 
+class _FakeCapturedFileReader implements CapturedFileReader {
+  const _FakeCapturedFileReader();
+
+  @override
+  Future<Uint8List> readAsBytes(XFile file) async {
+    return Uint8List.fromList(<int>[1]);
+  }
+}
+
 class _FakeGalleryImagePicker implements GalleryImagePicker {
   _FakeGalleryImagePicker(this.result);
 
@@ -268,11 +390,14 @@ class _FakeGalleryImagePicker implements GalleryImagePicker {
 }
 
 class _FakeUploadRepository implements UploadRepository {
+  int createUploadCount = 0;
+
   @override
   Future<UploadSession> createUpload({
     required String contentType,
     required Uint8List bytes,
   }) async {
+    createUploadCount += 1;
     return UploadSession(
       uploadSessionId: 'upload-1',
       sourceImageObjectId: 'source-1',
@@ -303,11 +428,13 @@ class _FakeUploadRepository implements UploadRepository {
 
 class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   final List<String> resultUrlTaskIds = <String>[];
+  int createTaskCount = 0;
 
   @override
   Future<CreatedGenerationTask> createTask(
     CreateGenerationTaskInput input,
   ) async {
+    createTaskCount += 1;
     return const CreatedGenerationTask(
       taskId: 'task-1',
       status: GenerationTaskStatus.pending,

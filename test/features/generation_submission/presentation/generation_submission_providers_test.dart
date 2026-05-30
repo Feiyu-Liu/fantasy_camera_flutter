@@ -25,9 +25,19 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    await container
-        .read(generationSubmissionControllerProvider.notifier)
-        .submitCapturedFile(XFile('/tmp/photo.jpg'));
+    final GenerationSubmissionController notifier = container.read(
+      generationSubmissionControllerProvider.notifier,
+    );
+    final String jobId = notifier.queueGalleryFile(XFile('/tmp/photo.jpg'));
+
+    expect(
+      container.read(generationSubmissionControllerProvider).jobs.single.status,
+      GenerationSubmissionStatus.awaitingConfirmation,
+    );
+    expect(uploadRepository.events, isEmpty);
+    expect(taskRepository.createdInputs, isEmpty);
+
+    await notifier.confirmJob(jobId);
 
     final GenerationSubmissionJob job = container
         .read(generationSubmissionControllerProvider)
@@ -54,6 +64,85 @@ void main() {
       },
     );
   });
+
+  test('queues captured file and saves it to the TesserCam album', () async {
+    final _FakePhotoLibrarySaver photoLibrarySaver = _FakePhotoLibrarySaver();
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository();
+    final ProviderContainer container = _container(
+      photoLibrarySaver: photoLibrarySaver,
+      uploadRepository: uploadRepository,
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    container
+        .read(generationSubmissionControllerProvider.notifier)
+        .queueCapturedFile(XFile('/tmp/photo.jpg'));
+    await Future<void>.delayed(Duration.zero);
+
+    final GenerationSubmissionJob job = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(job.status, GenerationSubmissionStatus.awaitingConfirmation);
+    expect(photoLibrarySaver.events, <String>['save:/tmp/photo.jpg:TesserCam']);
+    expect(uploadRepository.events, isEmpty);
+    expect(taskRepository.createdInputs, isEmpty);
+  });
+
+  test(
+    'keeps captured file awaiting confirmation when album save fails',
+    () async {
+      final _FakePhotoLibrarySaver photoLibrarySaver = _FakePhotoLibrarySaver()
+        ..failure = StateError('photos denied');
+      final ProviderContainer container = _container(
+        photoLibrarySaver: photoLibrarySaver,
+      );
+      addTearDown(container.dispose);
+
+      container
+          .read(generationSubmissionControllerProvider.notifier)
+          .queueCapturedFile(XFile('/tmp/photo.jpg'));
+      await Future<void>.delayed(Duration.zero);
+
+      final GenerationSubmissionJob job = container
+          .read(generationSubmissionControllerProvider)
+          .jobs
+          .single;
+      expect(job.status, GenerationSubmissionStatus.awaitingConfirmation);
+      expect(job.errorCode, 'photo_library_save_failed');
+      expect(job.errorMessage, contains('photos denied'));
+    },
+  );
+
+  test(
+    'canceling awaiting confirmation job removes it without submitting',
+    () async {
+      final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+      final _FakeGenerationTaskRepository taskRepository =
+          _FakeGenerationTaskRepository();
+      final ProviderContainer container = _container(
+        uploadRepository: uploadRepository,
+        taskRepository: taskRepository,
+      );
+      addTearDown(container.dispose);
+      final GenerationSubmissionController notifier = container.read(
+        generationSubmissionControllerProvider.notifier,
+      );
+
+      final String jobId = notifier.queueGalleryFile(XFile('/tmp/photo.jpg'));
+      notifier.cancelJob(jobId);
+
+      expect(
+        container.read(generationSubmissionControllerProvider).jobs,
+        isEmpty,
+      );
+      expect(uploadRepository.events, isEmpty);
+      expect(taskRepository.createdInputs, isEmpty);
+    },
+  );
 
   test('marks job failed when upload creation fails', () async {
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository()
@@ -296,6 +385,7 @@ void main() {
 
 ProviderContainer _container({
   _FakeCapturedFileReader? reader,
+  _FakePhotoLibrarySaver? photoLibrarySaver,
   _FakeUploadRepository? uploadRepository,
   _FakeGenerationTaskRepository? taskRepository,
 }) {
@@ -303,6 +393,9 @@ ProviderContainer _container({
     overrides: <Override>[
       capturedFileReaderProvider.overrideWithValue(
         reader ?? _FakeCapturedFileReader(),
+      ),
+      photoLibrarySaverProvider.overrideWithValue(
+        photoLibrarySaver ?? _FakePhotoLibrarySaver(),
       ),
       uploadRepositoryProvider.overrideWithValue(
         uploadRepository ?? _FakeUploadRepository(),
@@ -312,6 +405,20 @@ ProviderContainer _container({
       ),
     ],
   );
+}
+
+class _FakePhotoLibrarySaver implements PhotoLibrarySaver {
+  final List<String> events = <String>[];
+  Object? failure;
+
+  @override
+  Future<void> saveImage(String path, {required String album}) async {
+    events.add('save:$path:$album');
+    final Object? failure = this.failure;
+    if (failure != null) {
+      throw failure;
+    }
+  }
 }
 
 class _FakeCapturedFileReader implements CapturedFileReader {

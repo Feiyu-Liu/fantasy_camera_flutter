@@ -75,6 +75,16 @@ class _GenerationSubmissionDebugModalState
                         job: job,
                         selected: selectedJob?.id == job.id,
                         onTap: () => _selectJob(job),
+                        onConfirm:
+                            job.status ==
+                                GenerationSubmissionStatus.awaitingConfirmation
+                            ? () => _confirmJob(job)
+                            : null,
+                        onCancel:
+                            job.status ==
+                                GenerationSubmissionStatus.awaitingConfirmation
+                            ? () => _cancelJob(job)
+                            : null,
                       );
                     },
                   ),
@@ -131,6 +141,29 @@ class _GenerationSubmissionDebugModalState
     }
   }
 
+  Future<void> _confirmJob(GenerationSubmissionJob job) async {
+    _debugLog('confirm job=${job.id}');
+    setState(() {
+      _selectedJobId = job.id;
+      _showOriginalImage = false;
+    });
+    await ref
+        .read(generationSubmissionControllerProvider.notifier)
+        .confirmJob(job.id);
+  }
+
+  void _cancelJob(GenerationSubmissionJob job) {
+    _debugLog('cancel job=${job.id}');
+    ref.read(generationSubmissionControllerProvider.notifier).cancelJob(job.id);
+    if (_selectedJobId == job.id) {
+      setState(() {
+        _selectedJobId = null;
+        _loadingResultJobId = null;
+        _showOriginalImage = false;
+      });
+    }
+  }
+
   Future<void> _loadResult(String jobId) async {
     _debugLog('load result start job=$jobId');
     setState(() {
@@ -171,9 +204,9 @@ class _GenerationSubmissionDebugModalState
         return;
       }
       _debugLog('pick gallery success path=${file.path}');
-      await ref
+      ref
           .read(generationSubmissionControllerProvider.notifier)
-          .submitCapturedFile(file);
+          .queueGalleryFile(file);
     } on Object catch (error) {
       _debugLog('pick gallery failure error=$error');
     } finally {
@@ -270,11 +303,15 @@ class _JobThumbnail extends StatelessWidget {
     required this.job,
     required this.selected,
     required this.onTap,
+    required this.onConfirm,
+    required this.onCancel,
   });
 
   final GenerationSubmissionJob job;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onConfirm;
+  final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -299,9 +336,26 @@ class _JobThumbnail extends StatelessWidget {
             Image.file(File(job.imagePath), fit: BoxFit.cover),
             Positioned(
               right: 6,
-              bottom: 6,
+              top: job.status == GenerationSubmissionStatus.awaitingConfirmation
+                  ? 6
+                  : null,
+              bottom:
+                  job.status == GenerationSubmissionStatus.awaitingConfirmation
+                  ? null
+                  : 6,
               child: _StatusBadge(status: job.status),
             ),
+            if (job.status == GenerationSubmissionStatus.awaitingConfirmation)
+              Positioned(
+                left: 6,
+                right: 6,
+                bottom: 6,
+                child: _ConfirmationActions(
+                  jobId: job.id,
+                  onConfirm: onConfirm,
+                  onCancel: onCancel,
+                ),
+              ),
           ],
         ),
       ),
@@ -330,6 +384,12 @@ class _StatusBadge extends StatelessWidget {
 
   Widget _statusIcon() {
     return switch (status) {
+      GenerationSubmissionStatus.awaitingConfirmation => const Icon(
+        CupertinoIcons.question_circle_fill,
+        key: ValueKey<String>('generation-submission-status-awaiting'),
+        color: CupertinoColors.white,
+        size: 20,
+      ),
       GenerationSubmissionStatus.completed => const Icon(
         CupertinoIcons.check_mark_circled_solid,
         key: ValueKey<String>('generation-submission-status-completed'),
@@ -348,6 +408,69 @@ class _StatusBadge extends StatelessWidget {
         radius: 8,
       ),
     };
+  }
+}
+
+class _ConfirmationActions extends StatelessWidget {
+  const _ConfirmationActions({
+    required this.jobId,
+    required this.onConfirm,
+    required this.onCancel,
+  });
+
+  final String jobId;
+  final VoidCallback? onConfirm;
+  final VoidCallback? onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: <Widget>[
+        _ThumbnailActionButton(
+          key: ValueKey<String>('generation-submission-cancel-$jobId'),
+          color: CupertinoColors.systemRed,
+          icon: CupertinoIcons.xmark,
+          onPressed: onCancel,
+        ),
+        _ThumbnailActionButton(
+          key: ValueKey<String>('generation-submission-confirm-$jobId'),
+          color: CupertinoColors.activeGreen,
+          icon: CupertinoIcons.check_mark,
+          onPressed: onConfirm,
+        ),
+      ],
+    );
+  }
+}
+
+class _ThumbnailActionButton extends StatelessWidget {
+  const _ThumbnailActionButton({
+    super.key,
+    required this.color,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final Color color;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.88),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: SizedBox.square(
+          dimension: 28,
+          child: Icon(icon, color: CupertinoColors.white, size: 17),
+        ),
+      ),
+    );
   }
 }
 
@@ -473,6 +596,8 @@ class _ResultPreview extends StatelessWidget {
   static String _statusText(GenerationSubmissionStatus status) {
     return switch (status) {
       GenerationSubmissionStatus.failed => 'Generation failed',
+      GenerationSubmissionStatus.awaitingConfirmation =>
+        'Waiting for confirmation',
       GenerationSubmissionStatus.submitted ||
       GenerationSubmissionStatus.pollingTask => 'Waiting for generation result',
       _ => 'Preparing generation task',

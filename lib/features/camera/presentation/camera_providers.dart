@@ -201,11 +201,9 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     try {
       final XFile file = await currentController.takePicture();
       state = state.copyWith(lastCapturedFile: file);
-      unawaited(
-        ref
-            .read(generationSubmissionControllerProvider.notifier)
-            .submitCapturedFile(file),
-      );
+      ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .queueCapturedFile(file);
       return file;
     } on CameraException catch (e) {
       _showCameraException(e);
@@ -283,7 +281,7 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       choice.description,
       AppConfig.cameraPreviewResolutionPreset,
       enableAudio: false,
-      imageFormatGroup: ImageFormatGroup.jpeg,
+      imageFormatGroup: AppConfig.cameraImageFormatGroup,
     );
 
     cameraController.addListener(_syncControllerValue);
@@ -299,6 +297,10 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       await cameraController.lockCaptureOrientation(
         DeviceOrientation.portraitUp,
       );
+      if (!_isCurrentController(cameraController, generation)) {
+        return;
+      }
+      await cameraController.setImageFileFormat(AppConfig.cameraImageFileFormat);
       if (!_isCurrentController(cameraController, generation)) {
         return;
       }

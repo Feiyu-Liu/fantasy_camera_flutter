@@ -30,6 +30,8 @@
 	<string>Can I use the camera please? Only for demo purpose of the app</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Only for demo purpose of the app</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save captured photos to the TesserCam album for generation debugging.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Select photos from your library for generation debugging.</string>
 	<key>UIApplicationSceneManifest</key>

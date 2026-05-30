@@ -1,6 +1,7 @@
 import '../../backend_api/domain/generation_task.dart';
 
 enum GenerationSubmissionStatus {
+  awaitingConfirmation,
   queued,
   readingFile,
   creatingUpload,
