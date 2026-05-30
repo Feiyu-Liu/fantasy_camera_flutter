@@ -325,18 +325,16 @@ packages:
   flutter_image_compress:
     dependency: "direct main"
     description:
-      name: flutter_image_compress
-      sha256: "51d23be39efc2185e72e290042a0da41aed70b14ef97db362a6b5368d0523b27"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
+      path: "/Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter_image_compress/flutter_image_compress/packages/flutter_image_compress"
+      relative: false
+    source: path
     version: "2.4.0"
   flutter_image_compress_common:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: flutter_image_compress_common
-      sha256: c5c5d50c15e97dd7dc72ff96bd7077b9f791932f2076c5c5b6c43f2c88607bfb
-      url: "https://pub.flutter-io.cn"
-    source: hosted
+      path: "/Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter_image_compress/flutter_image_compress/packages/flutter_image_compress_common"
+      relative: false
+    source: path
     version: "1.0.6"
   flutter_image_compress_macos:
     dependency: transitive
