@@ -7,6 +7,7 @@ import '../../../config/app_config.dart';
 import '../../backend_api/data/backend_repositories.dart';
 import '../../backend_api/domain/api_failure.dart';
 import '../../backend_api/domain/generation_task.dart';
+import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/domain/upload_session.dart';
 import '../data/generation_image_processor.dart';
 import '../data/generation_submission_adapters.dart';
@@ -39,16 +40,28 @@ class GenerationSubmissionService extends ChangeNotifier {
 
   GenerationSubmissionState get state => _state;
 
-  String queueCapturedFile(XFile file) {
-    final GenerationSubmissionJob job = _createAwaitingConfirmationJob(file);
+  String queueCapturedFile(
+    XFile file, {
+    PromptSelectionSnapshot? promptSelection,
+  }) {
+    final GenerationSubmissionJob job = _createAwaitingConfirmationJob(
+      file,
+      promptSelection: promptSelection,
+    );
     _debugLog('queue captured job=${job.id} path=${file.path}');
     _upsertJob(job);
     unawaited(_saveCapturedFileToPhotoLibrary(job.id, file.path));
     return job.id;
   }
 
-  String queueGalleryFile(XFile file) {
-    final GenerationSubmissionJob job = _createAwaitingConfirmationJob(file);
+  String queueGalleryFile(
+    XFile file, {
+    PromptSelectionSnapshot? promptSelection,
+  }) {
+    final GenerationSubmissionJob job = _createAwaitingConfirmationJob(
+      file,
+      promptSelection: promptSelection,
+    );
     _debugLog('queue gallery job=${job.id} path=${file.path}');
     _upsertJob(job);
     return job.id;
@@ -122,7 +135,10 @@ class GenerationSubmissionService extends ChangeNotifier {
     super.dispose();
   }
 
-  GenerationSubmissionJob _createAwaitingConfirmationJob(XFile file) {
+  GenerationSubmissionJob _createAwaitingConfirmationJob(
+    XFile file, {
+    PromptSelectionSnapshot? promptSelection,
+  }) {
     final DateTime now = DateTime.now();
     final String jobId = 'local-${now.microsecondsSinceEpoch}-${_nextJobId++}';
     return GenerationSubmissionJob(
@@ -131,6 +147,7 @@ class GenerationSubmissionService extends ChangeNotifier {
       status: GenerationSubmissionStatus.awaitingConfirmation,
       createdAt: now,
       updatedAt: now,
+      promptSelection: promptSelection ?? PromptSelectionSnapshot.fallback,
     );
   }
 
@@ -237,20 +254,19 @@ class GenerationSubmissionService extends ChangeNotifier {
 
       stage = 'creatingTask';
       _markStatus(jobId, GenerationSubmissionStatus.creatingTask);
-      _debugLog('create task start job=$jobId');
+      final PromptSelectionSnapshot promptSelection =
+          job.promptSelection ?? PromptSelectionSnapshot.fallback;
+      _debugLog(
+        'create task start job=$jobId prompt=${promptSelection.promptStyle}/${promptSelection.captureMode} switches=${promptSelection.switches}',
+      );
       final CreatedGenerationTask createdTask = await _generationTaskRepository
           .createTask(
             CreateGenerationTaskInput(
               uploadSessionId: uploadSession.uploadSessionId,
-              promptStyle: 'realistic',
-              captureMode: 'portrait',
-              userInput: const <String, Object?>{
-                'switches': <String, Object?>{
-                  'recompose': false,
-                  'beautifyFace': false,
-                  'cleanFrame': false,
-                },
-              },
+              promptStyle: promptSelection.promptStyle,
+              captureMode: promptSelection.captureMode,
+              appInputContractId: promptSelection.appInputContractId,
+              userInput: promptSelection.userInput,
             ),
           );
       _debugLog(

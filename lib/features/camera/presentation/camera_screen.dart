@@ -11,6 +11,7 @@ import '../../../l10n/l10n.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/camera/camera_preview.dart';
 import '../../generation_submission/presentation/generation_submission_modal.dart';
+import '../../generation_submission/presentation/generation_submission_providers.dart';
 import '../data/capture_orientation_reader.dart';
 import 'camera_message.dart';
 import 'camera_providers.dart';
@@ -117,10 +118,25 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Widget _buildViewfinder(CameraState cameraState) {
+    final PromptSelectionState promptSelection = ref.watch(
+      promptSelectionControllerProvider,
+    );
     return _PreviewPanel(
       controller: cameraState.controller,
       captureOverlayTrigger: cameraState.captureOverlayTrigger,
-      child: _buildPreviewGestureLayer(cameraState),
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          _buildPreviewGestureLayer(cameraState),
+          _PromptSwitchOverlay(
+            promptSelection: promptSelection,
+            rotationTurns: _controlsRotationTurns,
+            onToggle: ref
+                .read(promptSelectionControllerProvider.notifier)
+                .toggleSwitch,
+          ),
+        ],
+      ),
     );
   }
 
@@ -235,6 +251,127 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       return '${text.substring(1)}x';
     }
     return '${text}x';
+  }
+}
+
+class _PromptSwitchOverlay extends StatelessWidget {
+  const _PromptSwitchOverlay({
+    required this.promptSelection,
+    required this.rotationTurns,
+    required this.onToggle,
+  });
+
+  final PromptSelectionState promptSelection;
+  final double rotationTurns;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    if (promptSelection.switches.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+          child: SizedBox(
+            height: 40,
+            child: ListView.separated(
+              key: const ValueKey<String>('camera-prompt-switch-list'),
+              scrollDirection: Axis.horizontal,
+              itemCount: promptSelection.switches.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (BuildContext context, int index) {
+                final switchDefinition = promptSelection.switches[index];
+                final bool selected =
+                    promptSelection.values[switchDefinition.id] ?? false;
+                return _PromptSwitchChip(
+                  id: switchDefinition.id,
+                  title: switchDefinition.title,
+                  selected: selected,
+                  rotationTurns: rotationTurns,
+                  onToggle: onToggle,
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PromptSwitchChip extends StatelessWidget {
+  const _PromptSwitchChip({
+    required this.id,
+    required this.title,
+    required this.selected,
+    required this.rotationTurns,
+    required this.onToggle,
+  });
+
+  final String id;
+  final String title;
+  final bool selected;
+  final double rotationTurns;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color backgroundColor = selected
+        ? CupertinoColors.activeBlue.withValues(alpha: 0.86)
+        : CupertinoColors.black.withValues(alpha: 0.48);
+    final Color borderColor = selected
+        ? CupertinoColors.white.withValues(alpha: 0.58)
+        : CupertinoColors.white.withValues(alpha: 0.24);
+
+    return AnimatedRotation(
+      turns: rotationTurns,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      child: CupertinoButton(
+        key: ValueKey<String>('camera-prompt-switch-$id'),
+        padding: EdgeInsets.zero,
+        minimumSize: const Size(0, 0),
+        onPressed: () => onToggle(id),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            border: Border.all(color: borderColor),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  selected
+                      ? CupertinoIcons.check_mark_circled_solid
+                      : CupertinoIcons.circle,
+                  size: 15,
+                  color: CupertinoColors.white,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: CupertinoColors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

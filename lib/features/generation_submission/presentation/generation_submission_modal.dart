@@ -5,6 +5,7 @@ import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../backend_api/domain/prompt_config.dart';
 import '../domain/generation_submission_job.dart';
 import 'generation_submission_providers.dart';
 
@@ -205,9 +206,12 @@ class _GenerationSubmissionDebugModalState
         return;
       }
       _debugLog('pick gallery success path=${file.path}');
+      final PromptSelectionSnapshot promptSelection = ref
+          .read(promptSelectionControllerProvider)
+          .snapshot;
       ref
           .read(generationSubmissionControllerProvider.notifier)
-          .queueGalleryFile(file);
+          .queueGalleryFile(file, promptSelection: promptSelection);
     } on Object catch (error) {
       _debugLog('pick gallery failure error=$error');
     } finally {
@@ -357,7 +361,53 @@ class _JobThumbnail extends StatelessWidget {
                   onCancel: onCancel,
                 ),
               ),
+            Positioned(
+              left: 6,
+              right: 6,
+              top: 6,
+              child: _PromptSnapshotBadge(job: job),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PromptSnapshotBadge extends StatelessWidget {
+  const _PromptSnapshotBadge({required this.job});
+
+  final GenerationSubmissionJob job;
+
+  @override
+  Widget build(BuildContext context) {
+    final PromptSelectionSnapshot selection =
+        job.promptSelection ?? PromptSelectionSnapshot.fallback;
+    final int activeCount = selection.switches.values
+        .where((bool selected) => selected)
+        .length;
+    final String label = activeCount == 0 ? '默认' : '开 $activeCount';
+
+    return Align(
+      alignment: Alignment.topLeft,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: CupertinoColors.black.withValues(alpha: 0.58),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          child: Text(
+            label,
+            key: ValueKey<String>('generation-submission-prompt-${job.id}'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: CupertinoColors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
       ),
     );

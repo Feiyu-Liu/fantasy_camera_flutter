@@ -1,4 +1,5 @@
 import '../../backend_api/domain/generation_task.dart';
+import '../../backend_api/domain/prompt_config.dart';
 
 enum GenerationSubmissionStatus {
   awaitingConfirmation,
@@ -26,6 +27,7 @@ class GenerationSubmissionJob {
     required this.createdAt,
     required this.updatedAt,
     this.uploadSessionId,
+    this.promptSelection,
     this.taskId,
     this.taskStatus,
     this.resultImageObjectId,
@@ -47,6 +49,7 @@ class GenerationSubmissionJob {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? uploadSessionId;
+  final PromptSelectionSnapshot? promptSelection;
   final String? taskId;
   final GenerationTaskStatus? taskStatus;
   final String? resultImageObjectId;
@@ -79,6 +82,7 @@ class GenerationSubmissionJob {
     GenerationSubmissionStatus? status,
     DateTime? updatedAt,
     String? uploadSessionId,
+    PromptSelectionSnapshot? promptSelection,
     String? taskId,
     GenerationTaskStatus? taskStatus,
     String? resultImageObjectId,
@@ -102,6 +106,7 @@ class GenerationSubmissionJob {
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       uploadSessionId: uploadSessionId ?? this.uploadSessionId,
+      promptSelection: promptSelection ?? this.promptSelection,
       taskId: taskId ?? this.taskId,
       taskStatus: taskStatus ?? this.taskStatus,
       resultImageObjectId: resultImageObjectId ?? this.resultImageObjectId,

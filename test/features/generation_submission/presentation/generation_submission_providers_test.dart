@@ -5,6 +5,7 @@ import 'package:fantasy_camera_flutter/features/backend_api/data/backend_reposit
 import 'package:fantasy_camera_flutter/features/backend_api/domain/api_failure.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/prompt_config.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
@@ -69,8 +70,51 @@ void main() {
         'recompose': false,
         'beautifyFace': false,
         'cleanFrame': false,
+        'backgroundBlur': false,
       },
     );
+  });
+
+  test('uses queued prompt snapshot when confirming a job', () async {
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository();
+    final ProviderContainer container = _container(
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    const PromptSelectionSnapshot snapshot = PromptSelectionSnapshot(
+      promptStyle: 'realistic',
+      captureMode: 'portrait',
+      appInputContractId: 'contract-1',
+      switches: <String, bool>{
+        'recompose': true,
+        'beautifyFace': false,
+        'cleanFrame': true,
+        'backgroundBlur': false,
+      },
+    );
+    final GenerationSubmissionController notifier = container.read(
+      generationSubmissionControllerProvider.notifier,
+    );
+    final String jobId = notifier.queueGalleryFile(
+      XFile('/tmp/photo.jpg'),
+      promptSelection: snapshot,
+    );
+
+    container.read(promptSelectionControllerProvider.notifier).toggleSwitch(
+      'beautifyFace',
+    );
+    await notifier.confirmJob(jobId);
+
+    final CreateGenerationTaskInput input = taskRepository.createdInputs.single;
+    expect(input.appInputContractId, 'contract-1');
+    expect(input.userInput['switches'], <String, Object?>{
+      'recompose': true,
+      'beautifyFace': false,
+      'cleanFrame': true,
+      'backgroundBlur': false,
+    });
   });
 
   test('queues captured file and saves it to the TesserCam album', () async {

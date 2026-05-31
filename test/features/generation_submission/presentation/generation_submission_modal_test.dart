@@ -5,6 +5,7 @@ import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/prompt_config.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_submission_service.dart';
@@ -46,6 +47,12 @@ void main() {
     expect(
       find.byKey(
         const ValueKey<String>('generation-submission-status-awaiting'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-prompt-awaiting'),
       ),
       findsOneWidget,
     );
@@ -570,6 +577,16 @@ GenerationSubmissionJob _job({
     imagePath: imageFile.path,
     status: status,
     taskId: taskId ?? 'task-$id',
+    promptSelection: const PromptSelectionSnapshot(
+      promptStyle: 'realistic',
+      captureMode: 'portrait',
+      switches: <String, bool>{
+        'recompose': true,
+        'beautifyFace': false,
+        'cleanFrame': false,
+        'backgroundBlur': false,
+      },
+    ),
     processedResultPath: processedResultPath,
     resultSaveErrorMessage: resultSaveErrorMessage,
     createdAt: now,

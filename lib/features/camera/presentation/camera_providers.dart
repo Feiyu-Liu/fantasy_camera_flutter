@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/app_config.dart';
+import '../../../features/backend_api/domain/prompt_config.dart';
 import '../../../features/generation_submission/presentation/generation_submission_providers.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/core/app_logger.dart';
@@ -45,7 +46,11 @@ final captureOrientationProvider =
 final cameraStateProvider =
     NotifierProvider.autoDispose<CameraControllerNotifier, CameraState>(
       CameraControllerNotifier.new,
-      dependencies: <ProviderOrFamily>[cameraChoicesProvider],
+      dependencies: <ProviderOrFamily>[
+        cameraChoicesProvider,
+        generationSubmissionControllerProvider,
+        promptSelectionControllerProvider,
+      ],
     );
 
 class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
@@ -231,9 +236,12 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
             restoreOrientation: DeviceOrientation.portraitUp,
           );
       state = state.copyWith(lastCapturedFile: file);
+      final PromptSelectionSnapshot promptSelection = ref
+          .read(promptSelectionControllerProvider)
+          .snapshot;
       ref
           .read(generationSubmissionControllerProvider.notifier)
-          .queueCapturedFile(file);
+          .queueCapturedFile(file, promptSelection: promptSelection);
       return file;
     } on CameraException catch (e) {
       _showCameraException(e);
