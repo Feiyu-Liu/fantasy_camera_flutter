@@ -1,13 +1,8 @@
-import 'dart:async';
-
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart' hide XFile;
 
-import '../../backend_api/domain/api_failure.dart';
-import '../../backend_api/domain/app_input_contract.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
 import '../application/generation_submission_service.dart';
@@ -70,7 +65,7 @@ final generationSubmissionControllerProvider =
 final promptSelectionControllerProvider =
     NotifierProvider<PromptSelectionController, PromptSelectionState>(
       PromptSelectionController.new,
-      dependencies: <ProviderOrFamily>[appConfigRepositoryProvider],
+      dependencies: const <ProviderOrFamily>[],
     );
 
 class PromptSelectionState {
@@ -149,12 +144,21 @@ class PromptSelectionState {
 }
 
 class PromptSelectionController extends Notifier<PromptSelectionState> {
-  int _reloadGeneration = 0;
-
   @override
   PromptSelectionState build() {
-    unawaited(reloadContract());
-    return PromptSelectionState.fallback();
+    final PromptStyleDefinition style = defaultPromptStyleDefinition(
+      fallbackPromptStyles,
+    );
+    final PromptCaptureModeDefinition captureMode =
+        defaultPromptCaptureModeDefinition(style);
+    return _stateForRoute(
+      styles: fallbackPromptStyles,
+      promptStyleId: style.id,
+      captureModeId: captureMode.id,
+      routeSwitchValues: const <String, Map<String, bool>>{},
+      appInputContractId: null,
+      isFallback: true,
+    );
   }
 
   void toggleSwitch(String switchId) {
@@ -195,43 +199,6 @@ class PromptSelectionController extends Notifier<PromptSelectionState> {
       return;
     }
     _selectRoute(style.id, captureMode.id);
-  }
-
-  Future<void> reloadContract() async {
-    final int generation = ++_reloadGeneration;
-    try {
-      final AppInputContract contract = await ref
-          .read(appConfigRepositoryProvider)
-          .fetchAppInputContract();
-      if (generation != _reloadGeneration) {
-        return;
-      }
-      final List<PromptStyleDefinition> styles = promptStylesFromConfig(
-        contract.config,
-      );
-      final PromptStyleDefinition style =
-          promptStyleDefinitionById(styles, state.selectedPromptStyleId) ??
-          defaultPromptStyleDefinition(styles);
-      final PromptCaptureModeDefinition captureMode =
-          promptCaptureModeDefinitionById(style, state.selectedCaptureModeId) ??
-          defaultPromptCaptureModeDefinition(style);
-      state = _stateForRoute(
-        styles: styles,
-        promptStyleId: style.id,
-        captureModeId: captureMode.id,
-        routeSwitchValues: state.routeSwitchValues,
-        appInputContractId: contract.id,
-        isFallback: false,
-      );
-    } on Object catch (error) {
-      if (generation != _reloadGeneration) {
-        return;
-      }
-      if (error is! BackendApiConfigurationException) {
-        debugPrint('[PromptSelection] app-config load failure error=$error');
-      }
-      state = PromptSelectionState.fallback();
-    }
   }
 
   void _selectRoute(String promptStyleId, String captureModeId) {

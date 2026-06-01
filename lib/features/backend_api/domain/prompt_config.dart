@@ -30,6 +30,11 @@ const List<PromptStyleDefinition> fallbackPromptStyles =
             title: 'Portrait',
             switches: fallbackPromptSwitches,
           ),
+          PromptCaptureModeDefinition(
+            id: 'general',
+            title: 'General',
+            switches: <PromptSwitchDefinition>[],
+          ),
         ],
       ),
     ];
