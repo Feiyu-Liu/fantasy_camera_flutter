@@ -5,12 +5,15 @@ import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:my_ui/my_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/camera/camera_preview.dart';
+import '../../backend_api/domain/credit_balance.dart';
 import '../../backend_api/domain/prompt_config.dart';
+import '../../backend_api/presentation/backend_api_providers.dart';
 import '../../generation_submission/presentation/generation_submission_modal.dart';
 import '../../generation_submission/presentation/generation_submission_providers.dart';
 import '../data/capture_orientation_reader.dart';
@@ -69,6 +72,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final PromptSelectionState promptSelection = ref.watch(
       promptSelectionControllerProvider,
     );
+    final AsyncValue<CreditBalance> creditBalance = ref.watch(
+      creditBalanceProvider,
+    );
     final DeviceOrientation captureOrientation =
         ref.watch(captureOrientationProvider).valueOrNull ??
         DeviceOrientation.portraitUp;
@@ -78,6 +84,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     return CameraPhotoUi(
       viewfinder: _buildViewfinder(cameraState),
       galleryPreview: _buildGalleryPreview(cameraState),
+      trailingContent: _CreditsBalanceBadge(creditBalance: creditBalance),
       message: _localizedMessage(cameraState.message),
       controlsRotationTurns: controlsRotationTurns,
       aspectRatioLabel: '4:3',
@@ -99,7 +106,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       onFlashPressed: notifier.toggleFlash,
       onFlipCameraPressed: notifier.flipCamera,
       onShutterPressed: notifier.takePicture,
-      onTrailingPressed: () => showGenerationSubmissionDebugModal(context),
+      onGalleryPressed: () => showGenerationSubmissionDebugModal(context),
       onZoomStopSelected: notifier.setDisplayZoom,
       onModeSelected: ref
           .read(promptSelectionControllerProvider.notifier)
@@ -273,6 +280,66 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
           return CameraUiMode(id: mode.id, label: mode.title.toUpperCase());
         })
         .toList(growable: false);
+  }
+}
+
+class _CreditsBalanceBadge extends StatelessWidget {
+  const _CreditsBalanceBadge({required this.creditBalance});
+
+  final AsyncValue<CreditBalance> creditBalance;
+
+  @override
+  Widget build(BuildContext context) {
+    final String value = creditBalance.when(
+      data: (CreditBalance balance) => balance.balance.toString(),
+      error: (_, _) => '--',
+      loading: () => '...',
+    );
+
+    return Center(
+      child: Semantics(
+        label: '积分 $value',
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 160),
+          child: Row(
+            key: ValueKey<String>(value),
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              const _CreditCoinIcon(),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  textScaler: TextScaler.noScaling,
+                  style: const TextStyle(
+                    color: CupertinoColors.black,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CreditCoinIcon extends StatelessWidget {
+  const _CreditCoinIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Icon(
+      LucideIcons.tickets,
+      color: CupertinoColors.black,
+      size: 17,
+    );
   }
 }
 

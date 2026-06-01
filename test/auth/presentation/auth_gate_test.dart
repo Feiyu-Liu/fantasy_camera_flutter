@@ -4,9 +4,11 @@ import 'dart:typed_data';
 import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -62,6 +64,9 @@ void main() {
           signedInCameraChoicesProvider.overrideWith(
             (_) async => const <CameraChoice>[],
           ),
+          creditsRepositoryProvider.overrideWithValue(
+            const _FakeCreditsRepository(),
+          ),
         ],
       ),
     );
@@ -71,7 +76,7 @@ void main() {
     expect(find.byType(CameraPhotoUi), findsOneWidget);
   });
 
-  testWidgets('camera trailing button opens generation debug modal', (
+  testWidgets('camera gallery thumbnail opens generation debug modal', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -87,6 +92,9 @@ void main() {
           ),
           signedInCameraChoicesProvider.overrideWith(
             (_) async => const <CameraChoice>[],
+          ),
+          creditsRepositoryProvider.overrideWithValue(
+            const _FakeCreditsRepository(),
           ),
           generationSubmissionServiceProvider.overrideWith((Ref ref) {
             final GenerationSubmissionService service =
@@ -105,8 +113,13 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    await tester.pump();
 
-    await tester.tap(find.bySemanticsLabel('Switch UI'));
+    expect(find.text('7'), findsOneWidget);
+    expect(find.textContaining('积分'), findsNothing);
+    expect(find.bySemanticsLabel('Switch UI'), findsNothing);
+
+    await tester.tap(find.byType(CameraPhotoGalleryButton));
     await tester.pumpAndSettle();
 
     expect(
@@ -136,6 +149,9 @@ void main() {
           ),
           signedInCameraChoicesProvider.overrideWith(
             (_) => cameraChoicesCompleter.future,
+          ),
+          creditsRepositoryProvider.overrideWithValue(
+            const _FakeCreditsRepository(),
           ),
         ],
       ),
@@ -168,6 +184,9 @@ void main() {
           signedInCameraChoicesProvider.overrideWith(
             (_) => cameraChoicesCompleter.future,
           ),
+          creditsRepositoryProvider.overrideWithValue(
+            const _FakeCreditsRepository(),
+          ),
         ],
       ),
     );
@@ -195,6 +214,9 @@ void main() {
           authSessionProvider.overrideWith((_) => authStates.stream),
           cameraDeviceRepositoryProvider.overrideWithValue(
             cameraDeviceRepository,
+          ),
+          creditsRepositoryProvider.overrideWithValue(
+            const _FakeCreditsRepository(),
           ),
         ],
       ),
@@ -275,6 +297,21 @@ class _FakeGenerationImageProcessor implements GenerationImageProcessor {
     required Map<String, Object> sourceExif,
   }) {
     throw UnimplementedError();
+  }
+}
+
+class _FakeCreditsRepository implements CreditsRepository {
+  const _FakeCreditsRepository();
+
+  @override
+  Future<CreditBalance> fetchBalance() async {
+    return CreditBalance(
+      balance: 7,
+      reservedBalance: 0,
+      lifetimeEarned: 7,
+      lifetimeSpent: 0,
+      updatedAt: DateTime.parse('2026-05-29T00:00:00Z'),
+    );
   }
 }
 

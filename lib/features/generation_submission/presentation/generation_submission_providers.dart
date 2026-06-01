@@ -59,7 +59,10 @@ final generationSubmissionServiceProvider =
 final generationSubmissionControllerProvider =
     NotifierProvider<GenerationSubmissionController, GenerationSubmissionState>(
       GenerationSubmissionController.new,
-      dependencies: <ProviderOrFamily>[generationSubmissionServiceProvider],
+      dependencies: <ProviderOrFamily>[
+        generationSubmissionServiceProvider,
+        creditBalanceProvider,
+      ],
     );
 
 final promptSelectionControllerProvider =
@@ -278,6 +281,7 @@ class GenerationSubmissionController
     extends Notifier<GenerationSubmissionState> {
   GenerationSubmissionService get _service =>
       ref.read(generationSubmissionServiceProvider);
+  final Set<String> _observedCreatedTaskJobIds = <String>{};
 
   @override
   GenerationSubmissionState build() {
@@ -286,12 +290,16 @@ class GenerationSubmissionController
     );
 
     void syncState() {
-      state = service.state;
+      final GenerationSubmissionState nextState = service.state;
+      _refreshCreditBalanceAfterTaskCreation(nextState);
+      state = nextState;
     }
 
     service.addListener(syncState);
     ref.onDispose(() => service.removeListener(syncState));
-    return service.state;
+    final GenerationSubmissionState initialState = service.state;
+    _refreshCreditBalanceAfterTaskCreation(initialState);
+    return initialState;
   }
 
   String queueCapturedFile(
@@ -326,5 +334,17 @@ class GenerationSubmissionController
 
   Future<void> pollTaskNowForDebug(String jobId) {
     return _service.pollTaskNowForDebug(jobId);
+  }
+
+  void _refreshCreditBalanceAfterTaskCreation(
+    GenerationSubmissionState nextState,
+  ) {
+    for (final GenerationSubmissionJob job in nextState.jobs) {
+      if (job.taskId == null || _observedCreatedTaskJobIds.contains(job.id)) {
+        continue;
+      }
+      _observedCreatedTaskJobIds.add(job.id);
+      ref.invalidate(creditBalanceProvider);
+    }
   }
 }

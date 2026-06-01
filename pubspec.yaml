@@ -44,6 +44,7 @@ dependencies:
   gal: ^2.3.2
   image_picker: ^1.2.1
   intl: any
+  lucide_icons_flutter: ^3.1.14+2
   my_ui:
     path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/my_ui
   native_device_orientation: ^2.1.0
