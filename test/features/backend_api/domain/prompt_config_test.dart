@@ -3,6 +3,23 @@ import 'package:fantasy_camera_flutter/features/backend_api/domain/prompt_config
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('parses prompt styles and capture modes', () {
+    final List<PromptStyleDefinition> styles = promptStylesFromConfig(_config);
+
+    expect(styles.map((PromptStyleDefinition style) => style.id), <String>[
+      'realistic',
+      'abstract',
+    ]);
+    expect(styles.first.title, 'Realistic');
+    expect(
+      styles.first.captureModes.map(
+        (PromptCaptureModeDefinition captureMode) => captureMode.id,
+      ),
+      <String>['portrait', 'general'],
+    );
+    expect(styles.last.captureModes.single.id, 'general');
+  });
+
   test('parses prompt switches for the realistic portrait route', () {
     final List<PromptSwitchDefinition> switches = promptSwitchesForRoute(
       _config,
@@ -16,6 +33,16 @@ void main() {
     );
     expect(switches.first.title, '重构图');
     expect(switches.first.defaultValue, isTrue);
+  });
+
+  test('returns empty switches for routes without switches', () {
+    final List<PromptSwitchDefinition> switches = promptSwitchesForRoute(
+      _config,
+      promptStyle: 'abstract',
+      captureMode: 'general',
+    );
+
+    expect(switches, isEmpty);
   });
 
   test('falls back when config does not contain the current route', () {
@@ -53,6 +80,22 @@ const JsonObject _config = <String, Object?>{
               'defaultValue': false,
             },
           ],
+        },
+        <String, Object?>{
+          'id': 'general',
+          'title': 'General',
+          'switches': <Object?>[],
+        },
+      ],
+    },
+    <String, Object?>{
+      'id': 'abstract',
+      'title': 'Abstract',
+      'captureModes': <Object?>[
+        <String, Object?>{
+          'id': 'general',
+          'title': 'General',
+          'switches': <Object?>[],
         },
       ],
     },

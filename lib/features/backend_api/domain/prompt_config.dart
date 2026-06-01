@@ -3,29 +3,100 @@ import 'json_value.dart';
 const String defaultPromptStyle = 'realistic';
 const String defaultCaptureMode = 'portrait';
 
-const List<PromptSwitchDefinition> fallbackPromptSwitches =
-    <PromptSwitchDefinition>[
-      PromptSwitchDefinition(
-        id: 'recompose',
-        title: '重构图',
-        defaultValue: false,
-      ),
-      PromptSwitchDefinition(
-        id: 'beautifyFace',
-        title: '人物优化',
-        defaultValue: false,
-      ),
-      PromptSwitchDefinition(
-        id: 'cleanFrame',
-        title: '画面净化',
-        defaultValue: false,
-      ),
-      PromptSwitchDefinition(
-        id: 'backgroundBlur',
-        title: '背景虚化',
-        defaultValue: false,
+const List<PromptSwitchDefinition>
+fallbackPromptSwitches = <PromptSwitchDefinition>[
+  PromptSwitchDefinition(id: 'recompose', title: '重构图', defaultValue: false),
+  PromptSwitchDefinition(
+    id: 'beautifyFace',
+    title: '人物优化',
+    defaultValue: false,
+  ),
+  PromptSwitchDefinition(id: 'cleanFrame', title: '画面净化', defaultValue: false),
+  PromptSwitchDefinition(
+    id: 'backgroundBlur',
+    title: '背景虚化',
+    defaultValue: false,
+  ),
+];
+
+const List<PromptStyleDefinition> fallbackPromptStyles =
+    <PromptStyleDefinition>[
+      PromptStyleDefinition(
+        id: defaultPromptStyle,
+        title: 'Realistic',
+        captureModes: <PromptCaptureModeDefinition>[
+          PromptCaptureModeDefinition(
+            id: defaultCaptureMode,
+            title: 'Portrait',
+            switches: fallbackPromptSwitches,
+          ),
+        ],
       ),
     ];
+
+class PromptStyleDefinition {
+  const PromptStyleDefinition({
+    required this.id,
+    required this.title,
+    required this.captureModes,
+  });
+
+  final String id;
+  final String title;
+  final List<PromptCaptureModeDefinition> captureModes;
+
+  factory PromptStyleDefinition.fromJson(JsonObject json) {
+    final Object? rawCaptureModes = json['captureModes'];
+    if (rawCaptureModes is! List) {
+      throw const FormatException('Expected list field "captureModes".');
+    }
+    final List<PromptCaptureModeDefinition> captureModes = rawCaptureModes
+        .map(_tryJsonObject)
+        .whereType<JsonObject>()
+        .map(PromptCaptureModeDefinition.fromJson)
+        .where(
+          (PromptCaptureModeDefinition captureMode) =>
+              captureMode.id.isNotEmpty,
+        )
+        .toList(growable: false);
+    if (captureModes.isEmpty) {
+      throw const FormatException('Expected at least one capture mode.');
+    }
+    return PromptStyleDefinition(
+      id: _readString(json, 'id'),
+      title: _readString(json, 'title'),
+      captureModes: captureModes,
+    );
+  }
+}
+
+class PromptCaptureModeDefinition {
+  const PromptCaptureModeDefinition({
+    required this.id,
+    required this.title,
+    required this.switches,
+  });
+
+  final String id;
+  final String title;
+  final List<PromptSwitchDefinition> switches;
+
+  factory PromptCaptureModeDefinition.fromJson(JsonObject json) {
+    final Object? rawSwitches = json['switches'];
+    final List<PromptSwitchDefinition> switches = rawSwitches is List
+        ? rawSwitches
+              .map(_tryJsonObject)
+              .whereType<JsonObject>()
+              .map(PromptSwitchDefinition.fromJson)
+              .toList(growable: false)
+        : const <PromptSwitchDefinition>[];
+    return PromptCaptureModeDefinition(
+      id: _readString(json, 'id'),
+      title: _readString(json, 'title'),
+      switches: switches,
+    );
+  }
+}
 
 class PromptSwitchDefinition {
   const PromptSwitchDefinition({
@@ -92,44 +163,107 @@ class PromptSelectionSnapshot {
   }
 }
 
+List<PromptStyleDefinition> promptStylesFromConfig(JsonObject config) {
+  final Object? rawModes = config['modes'];
+  if (rawModes is! List) {
+    return fallbackPromptStyles;
+  }
+
+  final List<PromptStyleDefinition> styles = rawModes
+      .map(_tryJsonObject)
+      .whereType<JsonObject>()
+      .map((JsonObject json) {
+        try {
+          return PromptStyleDefinition.fromJson(json);
+        } on FormatException {
+          return null;
+        }
+      })
+      .whereType<PromptStyleDefinition>()
+      .toList(growable: false);
+
+  return styles.isEmpty ? fallbackPromptStyles : styles;
+}
+
 List<PromptSwitchDefinition> promptSwitchesForRoute(
   JsonObject config, {
   String promptStyle = defaultPromptStyle,
   String captureMode = defaultCaptureMode,
 }) {
-  final Object? rawModes = config['modes'];
-  if (rawModes is! List) {
+  return promptSwitchesForDefinitions(
+    promptStylesFromConfig(config),
+    promptStyle: promptStyle,
+    captureMode: captureMode,
+  );
+}
+
+List<PromptSwitchDefinition> promptSwitchesForDefinitions(
+  List<PromptStyleDefinition> styles, {
+  required String promptStyle,
+  required String captureMode,
+}) {
+  final PromptStyleDefinition? style = promptStyleDefinitionById(
+    styles,
+    promptStyle,
+  );
+  final PromptCaptureModeDefinition? mode = style == null
+      ? null
+      : promptCaptureModeDefinitionById(style, captureMode);
+  return mode?.switches ?? fallbackPromptSwitches;
+}
+
+PromptStyleDefinition? promptStyleDefinitionById(
+  List<PromptStyleDefinition> styles,
+  String styleId,
+) {
+  for (final PromptStyleDefinition style in styles) {
+    if (style.id == styleId) {
+      return style;
+    }
+  }
+  return null;
+}
+
+PromptCaptureModeDefinition? promptCaptureModeDefinitionById(
+  PromptStyleDefinition style,
+  String captureModeId,
+) {
+  for (final PromptCaptureModeDefinition captureMode in style.captureModes) {
+    if (captureMode.id == captureModeId) {
+      return captureMode;
+    }
+  }
+  return null;
+}
+
+PromptStyleDefinition defaultPromptStyleDefinition(
+  List<PromptStyleDefinition> styles,
+) {
+  return promptStyleDefinitionById(styles, defaultPromptStyle) ?? styles.first;
+}
+
+PromptCaptureModeDefinition defaultPromptCaptureModeDefinition(
+  PromptStyleDefinition style,
+) {
+  return promptCaptureModeDefinitionById(style, defaultCaptureMode) ??
+      style.captureModes.first;
+}
+
+@Deprecated('Use promptStylesFromConfig and promptSwitchesForDefinitions.')
+List<PromptSwitchDefinition> legacyPromptSwitchesForRoute(
+  JsonObject config, {
+  String promptStyle = defaultPromptStyle,
+  String captureMode = defaultCaptureMode,
+}) {
+  final List<PromptSwitchDefinition> switches = promptSwitchesForRoute(
+    config,
+    promptStyle: promptStyle,
+    captureMode: captureMode,
+  );
+  if (switches.isEmpty) {
     return fallbackPromptSwitches;
   }
-
-  for (final Object? rawMode in rawModes) {
-    final JsonObject? mode = _tryJsonObject(rawMode);
-    if (mode == null || mode['id'] != promptStyle) {
-      continue;
-    }
-    final Object? rawCaptureModes = mode['captureModes'];
-    if (rawCaptureModes is! List) {
-      return fallbackPromptSwitches;
-    }
-    for (final Object? rawCaptureMode in rawCaptureModes) {
-      final JsonObject? capture = _tryJsonObject(rawCaptureMode);
-      if (capture == null || capture['id'] != captureMode) {
-        continue;
-      }
-      final Object? rawSwitches = capture['switches'];
-      if (rawSwitches is! List) {
-        return fallbackPromptSwitches;
-      }
-      final List<PromptSwitchDefinition> switches = rawSwitches
-          .map(_tryJsonObject)
-          .whereType<JsonObject>()
-          .map(PromptSwitchDefinition.fromJson)
-          .toList(growable: false);
-      return switches.isEmpty ? fallbackPromptSwitches : switches;
-    }
-  }
-
-  return fallbackPromptSwitches;
+  return switches;
 }
 
 Map<String, bool> defaultSwitchValuesFor(

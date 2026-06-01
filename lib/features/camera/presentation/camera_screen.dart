@@ -10,6 +10,7 @@ import 'package:my_ui/my_ui.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/camera/camera_preview.dart';
+import '../../backend_api/domain/prompt_config.dart';
 import '../../generation_submission/presentation/generation_submission_modal.dart';
 import '../../generation_submission/presentation/generation_submission_providers.dart';
 import '../data/capture_orientation_reader.dart';
@@ -26,7 +27,6 @@ class CameraScreen extends ConsumerStatefulWidget {
 
 class _CameraScreenState extends ConsumerState<CameraScreen>
     with WidgetsBindingObserver {
-  String _selectedPhotoModeId = 'photo';
   int _pointers = 0;
   DeviceOrientation? _lastCaptureOrientation;
   double _controlsRotationTurns = 0;
@@ -66,6 +66,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final CameraControllerNotifier notifier = ref.read(
       cameraStateProvider.notifier,
     );
+    final PromptSelectionState promptSelection = ref.watch(
+      promptSelectionControllerProvider,
+    );
     final DeviceOrientation captureOrientation =
         ref.watch(captureOrientationProvider).valueOrNull ??
         DeviceOrientation.portraitUp;
@@ -78,7 +81,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       message: _localizedMessage(cameraState.message),
       controlsRotationTurns: controlsRotationTurns,
       aspectRatioLabel: '4:3',
-      selectedModeId: _selectedPhotoModeId,
+      modes: _cameraModesForPrompt(promptSelection),
+      selectedModeId: promptSelection.selectedCaptureModeId,
       zoomStops: _zoomStops(cameraState),
       currentDisplayZoom: cameraState.rawToDisplayZoom(
         cameraState.currentRawZoom,
@@ -97,11 +101,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       onShutterPressed: notifier.takePicture,
       onTrailingPressed: () => showGenerationSubmissionDebugModal(context),
       onZoomStopSelected: notifier.setDisplayZoom,
-      onModeSelected: (String modeId) {
-        setState(() {
-          _selectedPhotoModeId = modeId;
-        });
-      },
+      onModeSelected: ref
+          .read(promptSelectionControllerProvider.notifier)
+          .selectCaptureMode,
     );
   }
 
@@ -128,6 +130,13 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         fit: StackFit.expand,
         children: <Widget>[
           _buildPreviewGestureLayer(cameraState),
+          _PromptStyleOverlay(
+            promptSelection: promptSelection,
+            rotationTurns: _controlsRotationTurns,
+            onSelect: ref
+                .read(promptSelectionControllerProvider.notifier)
+                .selectPromptStyle,
+          ),
           _PromptSwitchOverlay(
             promptSelection: promptSelection,
             rotationTurns: _controlsRotationTurns,
@@ -252,6 +261,68 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     }
     return '${text}x';
   }
+
+  List<CameraUiMode> _cameraModesForPrompt(
+    PromptSelectionState promptSelection,
+  ) {
+    if (promptSelection.captureModes.isEmpty) {
+      return CameraPhotoUi.defaultModes;
+    }
+    return promptSelection.captureModes
+        .map((PromptCaptureModeDefinition mode) {
+          return CameraUiMode(id: mode.id, label: mode.title.toUpperCase());
+        })
+        .toList(growable: false);
+  }
+}
+
+class _PromptStyleOverlay extends StatelessWidget {
+  const _PromptStyleOverlay({
+    required this.promptSelection,
+    required this.rotationTurns,
+    required this.onSelect,
+  });
+
+  final PromptSelectionState promptSelection;
+  final double rotationTurns;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    if (promptSelection.styles.length <= 1) {
+      return const SizedBox.shrink();
+    }
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+          child: SizedBox(
+            height: 40,
+            child: ListView.separated(
+              key: const ValueKey<String>('camera-prompt-style-list'),
+              scrollDirection: Axis.horizontal,
+              itemCount: promptSelection.styles.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (BuildContext context, int index) {
+                final PromptStyleDefinition style =
+                    promptSelection.styles[index];
+                return _PromptPillChip(
+                  id: style.id,
+                  title: style.title,
+                  selected: style.id == promptSelection.selectedPromptStyleId,
+                  rotationTurns: rotationTurns,
+                  onPressed: onSelect,
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _PromptSwitchOverlay extends StatelessWidget {
@@ -276,7 +347,12 @@ class _PromptSwitchOverlay extends StatelessWidget {
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+          padding: EdgeInsets.fromLTRB(
+            10,
+            promptSelection.styles.length > 1 ? 58 : 10,
+            10,
+            0,
+          ),
           child: SizedBox(
             height: 40,
             child: ListView.separated(
@@ -288,12 +364,12 @@ class _PromptSwitchOverlay extends StatelessWidget {
                 final switchDefinition = promptSelection.switches[index];
                 final bool selected =
                     promptSelection.values[switchDefinition.id] ?? false;
-                return _PromptSwitchChip(
+                return _PromptPillChip(
                   id: switchDefinition.id,
                   title: switchDefinition.title,
                   selected: selected,
                   rotationTurns: rotationTurns,
-                  onToggle: onToggle,
+                  onPressed: onToggle,
                 );
               },
             ),
@@ -304,20 +380,20 @@ class _PromptSwitchOverlay extends StatelessWidget {
   }
 }
 
-class _PromptSwitchChip extends StatelessWidget {
-  const _PromptSwitchChip({
+class _PromptPillChip extends StatelessWidget {
+  const _PromptPillChip({
     required this.id,
     required this.title,
     required this.selected,
     required this.rotationTurns,
-    required this.onToggle,
+    required this.onPressed,
   });
 
   final String id;
   final String title;
   final bool selected;
   final double rotationTurns;
-  final ValueChanged<String> onToggle;
+  final ValueChanged<String> onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -333,10 +409,10 @@ class _PromptSwitchChip extends StatelessWidget {
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       child: CupertinoButton(
-        key: ValueKey<String>('camera-prompt-switch-$id'),
+        key: ValueKey<String>('camera-prompt-chip-$id'),
         padding: EdgeInsets.zero,
         minimumSize: const Size(0, 0),
-        onPressed: () => onToggle(id),
+        onPressed: () => onPressed(id),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: backgroundColor,

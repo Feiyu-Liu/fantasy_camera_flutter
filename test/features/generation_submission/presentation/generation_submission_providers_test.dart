@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/api_failure.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/app_input_contract.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/prompt_config.dart';
@@ -16,6 +17,65 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('loads prompt styles and switches capture modes', () async {
+    final ProviderContainer container = _container(
+      appConfigRepository: _FakeAppConfigRepository(),
+    );
+    addTearDown(container.dispose);
+
+    final PromptSelectionController notifier = container.read(
+      promptSelectionControllerProvider.notifier,
+    );
+    await notifier.reloadContract();
+    PromptSelectionState state = container.read(
+      promptSelectionControllerProvider,
+    );
+    expect(
+      state.styles.map((PromptStyleDefinition style) => style.id),
+      <String>['realistic', 'abstract'],
+    );
+    expect(state.selectedPromptStyleId, 'realistic');
+    expect(state.selectedCaptureModeId, 'portrait');
+    expect(
+      state.switches.map((PromptSwitchDefinition switchDefinition) {
+        return switchDefinition.id;
+      }),
+      <String>['recompose', 'beautifyFace'],
+    );
+
+    notifier.selectCaptureMode('general');
+    state = container.read(promptSelectionControllerProvider);
+    expect(state.selectedCaptureModeId, 'general');
+    expect(state.switches, isEmpty);
+    expect(state.snapshot.captureMode, 'general');
+
+    notifier.selectPromptStyle('abstract');
+    state = container.read(promptSelectionControllerProvider);
+    expect(state.selectedPromptStyleId, 'abstract');
+    expect(state.selectedCaptureModeId, 'general');
+    expect(state.snapshot.promptStyle, 'abstract');
+  });
+
+  test('keeps switch values per prompt route', () async {
+    final ProviderContainer container = _container(
+      appConfigRepository: _FakeAppConfigRepository(),
+    );
+    addTearDown(container.dispose);
+
+    final PromptSelectionController notifier = container.read(
+      promptSelectionControllerProvider.notifier,
+    );
+    await notifier.reloadContract();
+    notifier.toggleSwitch('recompose');
+    notifier.selectCaptureMode('general');
+    notifier.selectCaptureMode('portrait');
+
+    final PromptSelectionState state = container.read(
+      promptSelectionControllerProvider,
+    );
+    expect(state.values['recompose'], isFalse);
+  });
+
   test('submits captured file through the upload and task pipeline', () async {
     final _FakeGenerationImageProcessor imageProcessor =
         _FakeGenerationImageProcessor();
@@ -102,9 +162,9 @@ void main() {
       promptSelection: snapshot,
     );
 
-    container.read(promptSelectionControllerProvider.notifier).toggleSwitch(
-      'beautifyFace',
-    );
+    container
+        .read(promptSelectionControllerProvider.notifier)
+        .toggleSwitch('beautifyFace');
     await notifier.confirmJob(jobId);
 
     final CreateGenerationTaskInput input = taskRepository.createdInputs.single;
@@ -485,6 +545,7 @@ void main() {
 ProviderContainer _container({
   _FakePhotoLibrarySaver? photoLibrarySaver,
   _FakeGenerationImageProcessor? imageProcessor,
+  _FakeAppConfigRepository? appConfigRepository,
   _FakeUploadRepository? uploadRepository,
   _FakeGenerationTaskRepository? taskRepository,
 }) {
@@ -496,6 +557,9 @@ ProviderContainer _container({
       generationImageProcessorProvider.overrideWithValue(
         imageProcessor ?? _FakeGenerationImageProcessor(),
       ),
+      appConfigRepositoryProvider.overrideWithValue(
+        appConfigRepository ?? _FakeAppConfigRepository(),
+      ),
       uploadRepositoryProvider.overrideWithValue(
         uploadRepository ?? _FakeUploadRepository(),
       ),
@@ -504,6 +568,20 @@ ProviderContainer _container({
       ),
     ],
   );
+}
+
+class _FakeAppConfigRepository implements AppConfigRepository {
+  @override
+  Future<AppInputContract> fetchAppInputContract({String? contractKey}) async {
+    return const AppInputContract(
+      id: 'contract-1',
+      contractKey: 'ios-mvp',
+      version: 'test-v1',
+      config: _promptConfig,
+      costRules: <String, Object?>{},
+      publicMetadata: <String, Object?>{},
+    );
+  }
 }
 
 class _FakeGenerationImageProcessor implements GenerationImageProcessor {
@@ -675,6 +753,49 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
 }
 
 final DateTime _fixedExpiresAt = DateTime.parse('2026-05-29T01:00:00Z');
+
+const JsonObject _promptConfig = <String, Object?>{
+  'modes': <Object?>[
+    <String, Object?>{
+      'id': 'realistic',
+      'title': 'Realistic',
+      'captureModes': <Object?>[
+        <String, Object?>{
+          'id': 'portrait',
+          'title': 'Portrait',
+          'switches': <Object?>[
+            <String, Object?>{
+              'id': 'recompose',
+              'title': '重构图',
+              'defaultValue': true,
+            },
+            <String, Object?>{
+              'id': 'beautifyFace',
+              'title': '人物优化',
+              'defaultValue': false,
+            },
+          ],
+        },
+        <String, Object?>{
+          'id': 'general',
+          'title': 'General',
+          'switches': <Object?>[],
+        },
+      ],
+    },
+    <String, Object?>{
+      'id': 'abstract',
+      'title': 'Abstract',
+      'captureModes': <Object?>[
+        <String, Object?>{
+          'id': 'general',
+          'title': 'General',
+          'switches': <Object?>[],
+        },
+      ],
+    },
+  ],
+};
 
 GenerationTask _task({
   required GenerationTaskStatus status,
