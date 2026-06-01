@@ -1,3 +1,4 @@
+import '../../../config/app_config.dart';
 import 'json_value.dart';
 
 enum GenerationTaskStatus {
@@ -50,11 +51,15 @@ class CreateGenerationTaskInput {
   final String? appInputContractId;
 
   JsonObject toJson() {
+    final JsonObject requestUserInput = <String, Object?>{
+      'promptConfigVersion': AppConfig.promptConfigVersion,
+      ...userInput,
+    };
     return <String, Object?>{
       'uploadSessionId': uploadSessionId,
       'promptStyle': promptStyle,
       'captureMode': captureMode,
-      if (userInput.isNotEmpty) 'userInput': userInput,
+      'userInput': requestUserInput,
       if (appInputContractId != null) 'appInputContractId': appInputContractId,
     };
   }

@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fantasy_camera_flutter/auth/domain/access_token_provider.dart';
+import 'package:fantasy_camera_flutter/config/app_config.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/checksum.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/fantasy_api_client.dart';
@@ -166,6 +167,38 @@ void main() {
       expect(task.taskId, 'task-1');
       expect(task.status, GenerationTaskStatus.pending);
       expect(adapter.requests.last.bodyAsJson['promptStyle'], 'realistic');
+      expect(adapter.requests.last.bodyAsJson['userInput'], <String, Object?>{
+        'promptConfigVersion': AppConfig.promptConfigVersion,
+        'switches': <String, Object?>{'cleanFrame': true},
+      });
+    });
+
+    test('generation task request always includes prompt config version', () {
+      expect(
+        const CreateGenerationTaskInput(
+          uploadSessionId: 'upload-1',
+          promptStyle: 'realistic',
+          captureMode: 'portrait',
+        ).toJson()['userInput'],
+        <String, Object?>{'promptConfigVersion': AppConfig.promptConfigVersion},
+      );
+    });
+
+    test('generation task request preserves explicit user input switches', () {
+      expect(
+        const CreateGenerationTaskInput(
+          uploadSessionId: 'upload-1',
+          promptStyle: 'realistic',
+          captureMode: 'portrait',
+          userInput: <String, Object?>{
+            'switches': <String, Object?>{'cleanFrame': true},
+          },
+        ).toJson()['userInput'],
+        <String, Object?>{
+          'promptConfigVersion': AppConfig.promptConfigVersion,
+          'switches': <String, Object?>{'cleanFrame': true},
+        },
+      );
     });
 
     test('upload repository creates and completes upload', () async {
