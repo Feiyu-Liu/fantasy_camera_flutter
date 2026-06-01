@@ -32,16 +32,23 @@ dependencies:
   camera_avfoundation:
     path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter-camera/camera/packages/camera/camera_avfoundation
   camera_platform_interface: ^2.10.0
+  cupertino_icons: ^1.0.9
   crypto: ^3.0.7
   dio: ^5.9.2
   flutter:
     sdk: flutter
+  flutter_image_compress: ^2.4.0
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^2.6.1
+  gal: ^2.3.2
+  image_picker: ^1.2.1
   intl: any
+  lucide_icons_flutter: ^3.1.14+2
   my_ui:
     path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/my_ui
+  native_device_orientation: ^2.1.0
+  native_exif: ^0.8.0
   path_provider: ^2.0.0
   sign_in_with_apple: ^8.0.0
   supabase_flutter: ^2.12.4
@@ -56,12 +63,21 @@ dev_dependencies:
     sdk: flutter
   supabase: ^2.10.6
 
+dependency_overrides:
+  flutter_image_compress:
+    path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter_image_compress/flutter_image_compress/packages/flutter_image_compress
+  flutter_image_compress_common:
+    path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter_image_compress/flutter_image_compress/packages/flutter_image_compress_common
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
 flutter:
   generate: true
+  assets:
+    - test/fixtures/image_pipeline/raw.HEIC
+    - test/fixtures/image_pipeline/res.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

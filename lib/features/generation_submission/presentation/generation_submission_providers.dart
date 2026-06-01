@@ -1,186 +1,350 @@
-import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:camera_platform_interface/camera_platform_interface.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart' hide XFile;
 
-import '../../backend_api/data/backend_repositories.dart';
-import '../../backend_api/domain/api_failure.dart';
-import '../../backend_api/domain/generation_task.dart';
-import '../../backend_api/domain/upload_session.dart';
+import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
+import '../application/generation_submission_service.dart';
+import '../data/generation_image_processor.dart';
+import '../data/generation_submission_adapters.dart';
 import '../domain/generation_submission_job.dart';
 
-final capturedFileReaderProvider = Provider<CapturedFileReader>((Ref ref) {
-  return const XFileCapturedFileReader();
+final galleryImagePickerProvider = Provider<GalleryImagePicker>((Ref ref) {
+  return ImagePickerGalleryImagePicker(ImagePicker());
 }, dependencies: const <ProviderOrFamily>[]);
 
-abstract interface class CapturedFileReader {
-  Future<Uint8List> readAsBytes(XFile file);
-}
+final photoLibrarySaverProvider = Provider<PhotoLibrarySaver>((Ref ref) {
+  return const GalPhotoLibrarySaver();
+}, dependencies: const <ProviderOrFamily>[]);
 
-class XFileCapturedFileReader implements CapturedFileReader {
-  const XFileCapturedFileReader();
+final resultDownloadDioProvider = Provider<Dio>((Ref ref) {
+  return Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 60),
+      sendTimeout: const Duration(seconds: 30),
+    ),
+  );
+});
 
-  @override
-  Future<Uint8List> readAsBytes(XFile file) {
-    return file.readAsBytes();
-  }
-}
+final generationImageProcessorProvider = Provider<GenerationImageProcessor>((
+  Ref ref,
+) {
+  return FlutterGenerationImageProcessor(
+    dio: ref.watch(resultDownloadDioProvider),
+  );
+}, dependencies: <ProviderOrFamily>[resultDownloadDioProvider]);
+
+final generationSubmissionServiceProvider =
+    Provider<GenerationSubmissionService>(
+      (Ref ref) {
+        final GenerationSubmissionService service = GenerationSubmissionService(
+          uploadRepository: ref.watch(uploadRepositoryProvider),
+          generationTaskRepository: ref.watch(generationTaskRepositoryProvider),
+          photoLibrarySaver: ref.watch(photoLibrarySaverProvider),
+          imageProcessor: ref.watch(generationImageProcessorProvider),
+        );
+        ref.onDispose(service.dispose);
+        return service;
+      },
+      dependencies: <ProviderOrFamily>[
+        uploadRepositoryProvider,
+        generationTaskRepositoryProvider,
+        photoLibrarySaverProvider,
+        generationImageProcessorProvider,
+      ],
+    );
 
 final generationSubmissionControllerProvider =
     NotifierProvider<GenerationSubmissionController, GenerationSubmissionState>(
       GenerationSubmissionController.new,
       dependencies: <ProviderOrFamily>[
-        capturedFileReaderProvider,
-        uploadRepositoryProvider,
-        generationTaskRepositoryProvider,
+        generationSubmissionServiceProvider,
+        creditBalanceProvider,
       ],
     );
 
-class GenerationSubmissionController
-    extends Notifier<GenerationSubmissionState> {
-  static const int _maxJobs = 20;
-  int _nextJobId = 0;
-
-  UploadRepository get _uploadRepository => ref.read(uploadRepositoryProvider);
-
-  GenerationTaskRepository get _generationTaskRepository =>
-      ref.read(generationTaskRepositoryProvider);
-
-  CapturedFileReader get _capturedFileReader =>
-      ref.read(capturedFileReaderProvider);
-
-  @override
-  GenerationSubmissionState build() {
-    return const GenerationSubmissionState();
-  }
-
-  Future<void> submitCapturedFile(XFile file) async {
-    final DateTime now = DateTime.now();
-    final String jobId = 'local-${now.microsecondsSinceEpoch}-${_nextJobId++}';
-    final GenerationSubmissionJob job = GenerationSubmissionJob(
-      id: jobId,
-      imagePath: file.path,
-      status: GenerationSubmissionStatus.queued,
-      createdAt: now,
-      updatedAt: now,
+final promptSelectionControllerProvider =
+    NotifierProvider<PromptSelectionController, PromptSelectionState>(
+      PromptSelectionController.new,
+      dependencies: const <ProviderOrFamily>[],
     );
-    _upsertJob(job);
 
-    try {
-      _markStatus(jobId, GenerationSubmissionStatus.readingFile);
-      final Uint8List bytes = await _capturedFileReader.readAsBytes(file);
+class PromptSelectionState {
+  const PromptSelectionState({
+    required this.styles,
+    required this.selectedPromptStyleId,
+    required this.selectedCaptureModeId,
+    required this.switches,
+    required this.values,
+    this.routeSwitchValues = const <String, Map<String, bool>>{},
+    this.appInputContractId,
+    this.isFallback = false,
+  });
 
-      _markStatus(jobId, GenerationSubmissionStatus.creatingUpload);
-      final UploadSession uploadSession = await _uploadRepository.createUpload(
-        contentType: 'image/jpeg',
-        bytes: bytes,
-      );
-      _updateJob(
-        jobId,
-        (GenerationSubmissionJob current) => current.copyWith(
-          uploadSessionId: uploadSession.uploadSessionId,
-          updatedAt: DateTime.now(),
-        ),
-      );
-
-      _markStatus(jobId, GenerationSubmissionStatus.uploading);
-      await _uploadRepository.uploadBytes(
-        uploadSession: uploadSession,
-        bytes: bytes,
-      );
-
-      _markStatus(jobId, GenerationSubmissionStatus.completingUpload);
-      await _uploadRepository.completeUpload(uploadSession.uploadSessionId);
-
-      _markStatus(jobId, GenerationSubmissionStatus.creatingTask);
-      final CreatedGenerationTask createdTask = await _generationTaskRepository
-          .createTask(
-            CreateGenerationTaskInput(
-              uploadSessionId: uploadSession.uploadSessionId,
-              promptStyle: 'realistic',
-              captureMode: 'portrait',
-              userInput: const <String, Object?>{
-                'switches': <String, Object?>{
-                  'recompose': false,
-                  'beautifyFace': false,
-                  'cleanFrame': false,
-                },
-              },
-            ),
-          );
-
-      _updateJob(
-        jobId,
-        (GenerationSubmissionJob current) => current.copyWith(
-          status: GenerationSubmissionStatus.submitted,
-          taskId: createdTask.taskId,
-          updatedAt: DateTime.now(),
-          clearError: true,
-        ),
-      );
-    } on BackendApiFailure catch (error) {
-      _failJob(
-        jobId: jobId,
-        errorCode: error.code,
-        errorMessage: error.message,
-      );
-    } on Object catch (error) {
-      _failJob(
-        jobId: jobId,
-        errorCode: 'local_error',
-        errorMessage: error.toString(),
-      );
-    }
-  }
-
-  void _markStatus(String jobId, GenerationSubmissionStatus status) {
-    _updateJob(
-      jobId,
-      (GenerationSubmissionJob job) =>
-          job.copyWith(status: status, updatedAt: DateTime.now()),
+  factory PromptSelectionState.fallback() {
+    return PromptSelectionState(
+      styles: fallbackPromptStyles,
+      selectedPromptStyleId: defaultPromptStyle,
+      selectedCaptureModeId: defaultCaptureMode,
+      switches: fallbackPromptSwitches,
+      values: defaultSwitchValuesFor(fallbackPromptSwitches),
+      isFallback: true,
     );
   }
 
-  void _failJob({
-    required String jobId,
-    required String errorCode,
-    required String errorMessage,
+  final List<PromptStyleDefinition> styles;
+  final String selectedPromptStyleId;
+  final String selectedCaptureModeId;
+  final List<PromptSwitchDefinition> switches;
+  final Map<String, bool> values;
+  final Map<String, Map<String, bool>> routeSwitchValues;
+  final String? appInputContractId;
+  final bool isFallback;
+
+  PromptStyleDefinition? get selectedPromptStyle {
+    return promptStyleDefinitionById(styles, selectedPromptStyleId);
+  }
+
+  List<PromptCaptureModeDefinition> get captureModes {
+    return selectedPromptStyle?.captureModes ??
+        const <PromptCaptureModeDefinition>[];
+  }
+
+  PromptSelectionSnapshot get snapshot {
+    return PromptSelectionSnapshot(
+      promptStyle: selectedPromptStyleId,
+      captureMode: selectedCaptureModeId,
+      switches: values,
+      appInputContractId: appInputContractId,
+    );
+  }
+
+  PromptSelectionState copyWith({
+    List<PromptStyleDefinition>? styles,
+    String? selectedPromptStyleId,
+    String? selectedCaptureModeId,
+    List<PromptSwitchDefinition>? switches,
+    Map<String, bool>? values,
+    Map<String, Map<String, bool>>? routeSwitchValues,
+    String? appInputContractId,
+    bool? isFallback,
   }) {
-    _updateJob(
-      jobId,
-      (GenerationSubmissionJob job) => job.copyWith(
-        status: GenerationSubmissionStatus.failed,
-        errorCode: errorCode,
-        errorMessage: errorMessage,
-        updatedAt: DateTime.now(),
+    return PromptSelectionState(
+      styles: styles ?? this.styles,
+      selectedPromptStyleId:
+          selectedPromptStyleId ?? this.selectedPromptStyleId,
+      selectedCaptureModeId:
+          selectedCaptureModeId ?? this.selectedCaptureModeId,
+      switches: switches ?? this.switches,
+      values: values ?? this.values,
+      routeSwitchValues: routeSwitchValues ?? this.routeSwitchValues,
+      appInputContractId: appInputContractId ?? this.appInputContractId,
+      isFallback: isFallback ?? this.isFallback,
+    );
+  }
+}
+
+class PromptSelectionController extends Notifier<PromptSelectionState> {
+  @override
+  PromptSelectionState build() {
+    final PromptStyleDefinition style = defaultPromptStyleDefinition(
+      fallbackPromptStyles,
+    );
+    final PromptCaptureModeDefinition captureMode =
+        defaultPromptCaptureModeDefinition(style);
+    return _stateForRoute(
+      styles: fallbackPromptStyles,
+      promptStyleId: style.id,
+      captureModeId: captureMode.id,
+      routeSwitchValues: const <String, Map<String, bool>>{},
+      appInputContractId: null,
+      isFallback: true,
+    );
+  }
+
+  void toggleSwitch(String switchId) {
+    final Map<String, bool> nextValues = <String, bool>{...state.values};
+    nextValues[switchId] = !(nextValues[switchId] ?? false);
+    state = state.copyWith(
+      values: nextValues,
+      routeSwitchValues: _cacheValuesForRoute(
+        state.routeSwitchValues,
+        state.selectedPromptStyleId,
+        state.selectedCaptureModeId,
+        nextValues,
       ),
     );
   }
 
-  void _upsertJob(GenerationSubmissionJob job) {
-    final List<GenerationSubmissionJob> nextJobs = <GenerationSubmissionJob>[
-      job,
-      ...state.jobs.where((GenerationSubmissionJob current) {
-        return current.id != job.id;
-      }),
-    ];
-    state = GenerationSubmissionState(
-      jobs: nextJobs.take(_maxJobs).toList(growable: false),
+  void selectPromptStyle(String promptStyleId) {
+    final PromptStyleDefinition? style = promptStyleDefinitionById(
+      state.styles,
+      promptStyleId,
+    );
+    if (style == null || style.id == state.selectedPromptStyleId) {
+      return;
+    }
+    final PromptCaptureModeDefinition captureMode =
+        defaultPromptCaptureModeDefinition(style);
+    _selectRoute(style.id, captureMode.id);
+  }
+
+  void selectCaptureMode(String captureModeId) {
+    final PromptStyleDefinition? style = state.selectedPromptStyle;
+    if (style == null) {
+      return;
+    }
+    final PromptCaptureModeDefinition? captureMode =
+        promptCaptureModeDefinitionById(style, captureModeId);
+    if (captureMode == null || captureMode.id == state.selectedCaptureModeId) {
+      return;
+    }
+    _selectRoute(style.id, captureMode.id);
+  }
+
+  void _selectRoute(String promptStyleId, String captureModeId) {
+    final Map<String, Map<String, bool>> cache = _cacheValuesForRoute(
+      state.routeSwitchValues,
+      state.selectedPromptStyleId,
+      state.selectedCaptureModeId,
+      state.values,
+    );
+    state = _stateForRoute(
+      styles: state.styles,
+      promptStyleId: promptStyleId,
+      captureModeId: captureModeId,
+      routeSwitchValues: cache,
+      appInputContractId: state.appInputContractId,
+      isFallback: state.isFallback,
     );
   }
 
-  void _updateJob(
-    String jobId,
-    GenerationSubmissionJob Function(GenerationSubmissionJob job) update,
-  ) {
-    state = GenerationSubmissionState(
-      jobs: state.jobs
-          .map((GenerationSubmissionJob job) {
-            return job.id == jobId ? update(job) : job;
-          })
-          .toList(growable: false),
+  PromptSelectionState _stateForRoute({
+    required List<PromptStyleDefinition> styles,
+    required String promptStyleId,
+    required String captureModeId,
+    required Map<String, Map<String, bool>> routeSwitchValues,
+    required String? appInputContractId,
+    required bool isFallback,
+  }) {
+    final List<PromptSwitchDefinition> switches = promptSwitchesForDefinitions(
+      styles,
+      promptStyle: promptStyleId,
+      captureMode: captureModeId,
     );
+    final Map<String, bool> defaults = defaultSwitchValuesFor(switches);
+    final Map<String, bool> cached =
+        routeSwitchValues[_promptRouteKey(promptStyleId, captureModeId)] ??
+        const <String, bool>{};
+    final Map<String, bool> values = <String, bool>{
+      ...defaults,
+      for (final MapEntry<String, bool> entry in cached.entries)
+        if (defaults.containsKey(entry.key)) entry.key: entry.value,
+    };
+    return PromptSelectionState(
+      styles: styles,
+      selectedPromptStyleId: promptStyleId,
+      selectedCaptureModeId: captureModeId,
+      switches: switches,
+      values: values,
+      routeSwitchValues: _cacheValuesForRoute(
+        routeSwitchValues,
+        promptStyleId,
+        captureModeId,
+        values,
+      ),
+      appInputContractId: appInputContractId,
+      isFallback: isFallback,
+    );
+  }
+}
+
+String _promptRouteKey(String promptStyleId, String captureModeId) {
+  return '$promptStyleId/$captureModeId';
+}
+
+Map<String, Map<String, bool>> _cacheValuesForRoute(
+  Map<String, Map<String, bool>> routeSwitchValues,
+  String promptStyleId,
+  String captureModeId,
+  Map<String, bool> values,
+) {
+  return <String, Map<String, bool>>{
+    ...routeSwitchValues,
+    _promptRouteKey(promptStyleId, captureModeId): <String, bool>{...values},
+  };
+}
+
+class GenerationSubmissionController
+    extends Notifier<GenerationSubmissionState> {
+  GenerationSubmissionService get _service =>
+      ref.read(generationSubmissionServiceProvider);
+  final Set<String> _observedCreatedTaskJobIds = <String>{};
+
+  @override
+  GenerationSubmissionState build() {
+    final GenerationSubmissionService service = ref.watch(
+      generationSubmissionServiceProvider,
+    );
+
+    void syncState() {
+      final GenerationSubmissionState nextState = service.state;
+      _refreshCreditBalanceAfterTaskCreation(nextState);
+      state = nextState;
+    }
+
+    service.addListener(syncState);
+    ref.onDispose(() => service.removeListener(syncState));
+    final GenerationSubmissionState initialState = service.state;
+    _refreshCreditBalanceAfterTaskCreation(initialState);
+    return initialState;
+  }
+
+  String queueCapturedFile(
+    XFile file, {
+    PromptSelectionSnapshot? promptSelection,
+  }) {
+    return _service.queueCapturedFile(file, promptSelection: promptSelection);
+  }
+
+  String queueGalleryFile(
+    XFile file, {
+    PromptSelectionSnapshot? promptSelection,
+  }) {
+    return _service.queueGalleryFile(file, promptSelection: promptSelection);
+  }
+
+  Future<void> submitCapturedFile(XFile file) {
+    return _service.submitCapturedFile(file);
+  }
+
+  Future<void> confirmJob(String jobId) {
+    return _service.confirmJob(jobId);
+  }
+
+  void cancelJob(String jobId) {
+    _service.cancelJob(jobId);
+  }
+
+  Future<String?> loadResultUrl(String jobId) {
+    return _service.loadResultUrl(jobId);
+  }
+
+  Future<void> pollTaskNowForDebug(String jobId) {
+    return _service.pollTaskNowForDebug(jobId);
+  }
+
+  void _refreshCreditBalanceAfterTaskCreation(
+    GenerationSubmissionState nextState,
+  ) {
+    for (final GenerationSubmissionJob job in nextState.jobs) {
+      if (job.taskId == null || _observedCreatedTaskJobIds.contains(job.id)) {
+        continue;
+      }
+      _observedCreatedTaskJobIds.add(job.id);
+      ref.invalidate(creditBalanceProvider);
+    }
   }
 }

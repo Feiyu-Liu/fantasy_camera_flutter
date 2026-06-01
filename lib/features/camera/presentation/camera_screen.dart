@@ -3,12 +3,20 @@ import 'dart:io';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:my_ui/my_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/camera/camera_preview.dart';
+import '../../backend_api/domain/credit_balance.dart';
+import '../../backend_api/domain/prompt_config.dart';
+import '../../backend_api/presentation/backend_api_providers.dart';
+import '../../generation_submission/presentation/generation_submission_modal.dart';
+import '../../generation_submission/presentation/generation_submission_providers.dart';
+import '../data/capture_orientation_reader.dart';
 import 'camera_message.dart';
 import 'camera_providers.dart';
 import 'camera_state.dart';
@@ -22,8 +30,9 @@ class CameraScreen extends ConsumerStatefulWidget {
 
 class _CameraScreenState extends ConsumerState<CameraScreen>
     with WidgetsBindingObserver {
-  String _selectedPhotoModeId = 'photo';
   int _pointers = 0;
+  DeviceOrientation? _lastCaptureOrientation;
+  double _controlsRotationTurns = 0;
 
   @override
   void initState() {
@@ -60,12 +69,27 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final CameraControllerNotifier notifier = ref.read(
       cameraStateProvider.notifier,
     );
+    final PromptSelectionState promptSelection = ref.watch(
+      promptSelectionControllerProvider,
+    );
+    final AsyncValue<CreditBalance> creditBalance = ref.watch(
+      creditBalanceProvider,
+    );
+    final DeviceOrientation captureOrientation =
+        ref.watch(captureOrientationProvider).valueOrNull ??
+        DeviceOrientation.portraitUp;
+    final double controlsRotationTurns = _resolveControlsRotationTurns(
+      captureOrientation,
+    );
     return CameraPhotoUi(
       viewfinder: _buildViewfinder(cameraState),
       galleryPreview: _buildGalleryPreview(cameraState),
+      trailingContent: _CreditsBalanceBadge(creditBalance: creditBalance),
       message: _localizedMessage(cameraState.message),
+      controlsRotationTurns: controlsRotationTurns,
       aspectRatioLabel: '4:3',
-      selectedModeId: _selectedPhotoModeId,
+      modes: _cameraModesForPrompt(promptSelection),
+      selectedModeId: promptSelection.selectedCaptureModeId,
       zoomStops: _zoomStops(cameraState),
       currentDisplayZoom: cameraState.rawToDisplayZoom(
         cameraState.currentRawZoom,
@@ -82,20 +106,53 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       onFlashPressed: notifier.toggleFlash,
       onFlipCameraPressed: notifier.flipCamera,
       onShutterPressed: notifier.takePicture,
+      onGalleryPressed: () => showGenerationSubmissionDebugModal(context),
       onZoomStopSelected: notifier.setDisplayZoom,
-      onModeSelected: (String modeId) {
-        setState(() {
-          _selectedPhotoModeId = modeId;
-        });
-      },
+      onModeSelected: ref
+          .read(promptSelectionControllerProvider.notifier)
+          .selectCaptureMode,
     );
   }
 
+  double _resolveControlsRotationTurns(DeviceOrientation orientation) {
+    if (_lastCaptureOrientation == orientation) {
+      return _controlsRotationTurns;
+    }
+    _lastCaptureOrientation = orientation;
+    _controlsRotationTurns = shortestQuarterTurnsToTarget(
+      current: _controlsRotationTurns,
+      target: captureOrientationTurns(orientation),
+    );
+    return _controlsRotationTurns;
+  }
+
   Widget _buildViewfinder(CameraState cameraState) {
+    final PromptSelectionState promptSelection = ref.watch(
+      promptSelectionControllerProvider,
+    );
     return _PreviewPanel(
       controller: cameraState.controller,
       captureOverlayTrigger: cameraState.captureOverlayTrigger,
-      child: _buildPreviewGestureLayer(cameraState),
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          _buildPreviewGestureLayer(cameraState),
+          _PromptStyleOverlay(
+            promptSelection: promptSelection,
+            rotationTurns: _controlsRotationTurns,
+            onSelect: ref
+                .read(promptSelectionControllerProvider.notifier)
+                .selectPromptStyle,
+          ),
+          _PromptSwitchOverlay(
+            promptSelection: promptSelection,
+            rotationTurns: _controlsRotationTurns,
+            onToggle: ref
+                .read(promptSelectionControllerProvider.notifier)
+                .toggleSwitch,
+          ),
+        ],
+      ),
     );
   }
 
@@ -210,6 +267,254 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       return '${text.substring(1)}x';
     }
     return '${text}x';
+  }
+
+  List<CameraUiMode> _cameraModesForPrompt(
+    PromptSelectionState promptSelection,
+  ) {
+    if (promptSelection.captureModes.isEmpty) {
+      return CameraPhotoUi.defaultModes;
+    }
+    return promptSelection.captureModes
+        .map((PromptCaptureModeDefinition mode) {
+          return CameraUiMode(id: mode.id, label: mode.title.toUpperCase());
+        })
+        .toList(growable: false);
+  }
+}
+
+class _CreditsBalanceBadge extends StatelessWidget {
+  const _CreditsBalanceBadge({required this.creditBalance});
+
+  final AsyncValue<CreditBalance> creditBalance;
+
+  @override
+  Widget build(BuildContext context) {
+    final String value = creditBalance.when(
+      data: (CreditBalance balance) => balance.balance.toString(),
+      error: (_, _) => '--',
+      loading: () => '...',
+    );
+
+    return Center(
+      child: Semantics(
+        label: '积分 $value',
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 160),
+          child: Row(
+            key: ValueKey<String>(value),
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              const _CreditCoinIcon(),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  textScaler: TextScaler.noScaling,
+                  style: const TextStyle(
+                    color: CupertinoColors.black,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CreditCoinIcon extends StatelessWidget {
+  const _CreditCoinIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Icon(
+      LucideIcons.tickets,
+      color: CupertinoColors.black,
+      size: 17,
+    );
+  }
+}
+
+class _PromptStyleOverlay extends StatelessWidget {
+  const _PromptStyleOverlay({
+    required this.promptSelection,
+    required this.rotationTurns,
+    required this.onSelect,
+  });
+
+  final PromptSelectionState promptSelection;
+  final double rotationTurns;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    if (promptSelection.styles.length <= 1) {
+      return const SizedBox.shrink();
+    }
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+          child: SizedBox(
+            height: 40,
+            child: ListView.separated(
+              key: const ValueKey<String>('camera-prompt-style-list'),
+              scrollDirection: Axis.horizontal,
+              itemCount: promptSelection.styles.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (BuildContext context, int index) {
+                final PromptStyleDefinition style =
+                    promptSelection.styles[index];
+                return _PromptPillChip(
+                  id: style.id,
+                  title: style.title,
+                  selected: style.id == promptSelection.selectedPromptStyleId,
+                  rotationTurns: rotationTurns,
+                  onPressed: onSelect,
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PromptSwitchOverlay extends StatelessWidget {
+  const _PromptSwitchOverlay({
+    required this.promptSelection,
+    required this.rotationTurns,
+    required this.onToggle,
+  });
+
+  final PromptSelectionState promptSelection;
+  final double rotationTurns;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    if (promptSelection.switches.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            10,
+            promptSelection.styles.length > 1 ? 58 : 10,
+            10,
+            0,
+          ),
+          child: SizedBox(
+            height: 40,
+            child: ListView.separated(
+              key: const ValueKey<String>('camera-prompt-switch-list'),
+              scrollDirection: Axis.horizontal,
+              itemCount: promptSelection.switches.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (BuildContext context, int index) {
+                final switchDefinition = promptSelection.switches[index];
+                final bool selected =
+                    promptSelection.values[switchDefinition.id] ?? false;
+                return _PromptPillChip(
+                  id: switchDefinition.id,
+                  title: switchDefinition.title,
+                  selected: selected,
+                  rotationTurns: rotationTurns,
+                  onPressed: onToggle,
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PromptPillChip extends StatelessWidget {
+  const _PromptPillChip({
+    required this.id,
+    required this.title,
+    required this.selected,
+    required this.rotationTurns,
+    required this.onPressed,
+  });
+
+  final String id;
+  final String title;
+  final bool selected;
+  final double rotationTurns;
+  final ValueChanged<String> onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color backgroundColor = selected
+        ? CupertinoColors.activeBlue.withValues(alpha: 0.86)
+        : CupertinoColors.black.withValues(alpha: 0.48);
+    final Color borderColor = selected
+        ? CupertinoColors.white.withValues(alpha: 0.58)
+        : CupertinoColors.white.withValues(alpha: 0.24);
+
+    return AnimatedRotation(
+      turns: rotationTurns,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      child: CupertinoButton(
+        key: ValueKey<String>('camera-prompt-chip-$id'),
+        padding: EdgeInsets.zero,
+        minimumSize: const Size(0, 0),
+        onPressed: () => onPressed(id),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            border: Border.all(color: borderColor),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  selected
+                      ? CupertinoIcons.check_mark_circled_solid
+                      : CupertinoIcons.circle,
+                  size: 15,
+                  color: CupertinoColors.white,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: CupertinoColors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

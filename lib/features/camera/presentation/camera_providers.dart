@@ -7,10 +7,12 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/app_config.dart';
+import '../../../features/backend_api/domain/prompt_config.dart';
 import '../../../features/generation_submission/presentation/generation_submission_providers.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/core/app_logger.dart';
 import '../data/camera_device_repository.dart';
+import '../data/capture_orientation_reader.dart';
 import '../domain/camera_choice.dart';
 import 'camera_message.dart';
 import 'camera_state.dart';
@@ -25,15 +27,37 @@ final cameraDeviceRepositoryProvider = Provider<CameraDeviceRepository>((
   return const CameraDeviceRepository();
 });
 
+final captureOrientationReaderProvider = Provider<CaptureOrientationReader>((
+  Ref ref,
+) {
+  return NativeCaptureOrientationReader();
+});
+
+final captureOrientationProvider =
+    StreamProvider.autoDispose<DeviceOrientation>((Ref ref) {
+      final CaptureOrientationReader reader = ref.watch(
+        captureOrientationReaderProvider,
+      );
+      return reader.watchCaptureOrientation(
+        initialOrientation: DeviceOrientation.portraitUp,
+      );
+    }, dependencies: <ProviderOrFamily>[captureOrientationReaderProvider]);
+
 final cameraStateProvider =
     NotifierProvider.autoDispose<CameraControllerNotifier, CameraState>(
       CameraControllerNotifier.new,
-      dependencies: <ProviderOrFamily>[cameraChoicesProvider],
+      dependencies: <ProviderOrFamily>[
+        cameraChoicesProvider,
+        generationSubmissionControllerProvider,
+        promptSelectionControllerProvider,
+      ],
     );
 
 class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
   AVFoundationCamera? _avFoundationCamera;
   StreamSubscription<AVFoundationZoomChangedEvent>? _zoomSubscription;
+  StreamSubscription<AVFoundationPhotoCaptureWillCaptureEvent>?
+  _photoCaptureSubscription;
   bool _isDisposed = false;
   int _controllerGeneration = 0;
 
@@ -196,16 +220,28 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     }
 
     state = state.copyWith(isTakingPicture: true);
-    _triggerCaptureOverlay();
+    if (_avFoundationCamera == null) {
+      _triggerCaptureOverlay();
+    }
 
     try {
-      final XFile file = await currentController.takePicture();
+      final DeviceOrientation captureOrientation = await ref
+          .read(captureOrientationReaderProvider)
+          .readCaptureOrientation(
+            fallback: currentController.value.deviceOrientation,
+          );
+      final XFile file = await currentController
+          .takePictureWithCaptureOrientation(
+            captureOrientation,
+            restoreOrientation: DeviceOrientation.portraitUp,
+          );
       state = state.copyWith(lastCapturedFile: file);
-      unawaited(
-        ref
-            .read(generationSubmissionControllerProvider.notifier)
-            .submitCapturedFile(file),
-      );
+      final PromptSelectionSnapshot promptSelection = ref
+          .read(promptSelectionControllerProvider)
+          .snapshot;
+      ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .queueCapturedFile(file, promptSelection: promptSelection);
       return file;
     } on CameraException catch (e) {
       _showCameraException(e);
@@ -283,7 +319,7 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       choice.description,
       AppConfig.cameraPreviewResolutionPreset,
       enableAudio: false,
-      imageFormatGroup: ImageFormatGroup.jpeg,
+      imageFormatGroup: AppConfig.cameraImageFormatGroup,
     );
 
     cameraController.addListener(_syncControllerValue);
@@ -298,6 +334,12 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       }
       await cameraController.lockCaptureOrientation(
         DeviceOrientation.portraitUp,
+      );
+      if (!_isCurrentController(cameraController, generation)) {
+        return;
+      }
+      await cameraController.setImageFileFormat(
+        AppConfig.cameraImageFileFormat,
       );
       if (!_isCurrentController(cameraController, generation)) {
         return;
@@ -362,6 +404,8 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
   ) async {
     await _zoomSubscription?.cancel();
     _zoomSubscription = null;
+    await _photoCaptureSubscription?.cancel();
+    _photoCaptureSubscription = null;
     _avFoundationCamera = null;
 
     final CameraPlatform platform = CameraPlatform.instance;
@@ -417,6 +461,14 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
                 state.maxAvailableZoom,
               ),
             );
+          });
+      _photoCaptureSubscription = platform
+          .onPhotoCaptureWillCapture(cameraController.cameraId)
+          .listen((AVFoundationPhotoCaptureWillCaptureEvent event) {
+            if (!_isCurrentController(cameraController, generation)) {
+              return;
+            }
+            _triggerCaptureOverlay();
           });
       return;
     }
@@ -480,6 +532,8 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     _controllerGeneration += 1;
     await _zoomSubscription?.cancel();
     _zoomSubscription = null;
+    await _photoCaptureSubscription?.cancel();
+    _photoCaptureSubscription = null;
     _avFoundationCamera = null;
 
     if (currentController == null) {
