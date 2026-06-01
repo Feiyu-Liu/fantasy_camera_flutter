@@ -74,6 +74,14 @@ void main() {
     await tester.pump();
 
     expect(find.byType(CameraPhotoUi), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('camera-prompt-option-recompose')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('camera-prompt-switch-list')),
+      findsNothing,
+    );
   });
 
   testWidgets('camera gallery thumbnail opens generation debug modal', (

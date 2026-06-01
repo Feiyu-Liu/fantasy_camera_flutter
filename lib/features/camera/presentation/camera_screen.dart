@@ -90,6 +90,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       aspectRatioLabel: '4:3',
       modes: _cameraModesForPrompt(promptSelection),
       selectedModeId: promptSelection.selectedCaptureModeId,
+      modeExtensions: _cameraModeExtensionsForPrompt(
+        promptSelection,
+        controlsRotationTurns,
+      ),
       zoomStops: _zoomStops(cameraState),
       currentDisplayZoom: cameraState.rawToDisplayZoom(
         cameraState.currentRawZoom,
@@ -143,13 +147,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
             onSelect: ref
                 .read(promptSelectionControllerProvider.notifier)
                 .selectPromptStyle,
-          ),
-          _PromptSwitchOverlay(
-            promptSelection: promptSelection,
-            rotationTurns: _controlsRotationTurns,
-            onToggle: ref
-                .read(promptSelectionControllerProvider.notifier)
-                .toggleSwitch,
           ),
         ],
       ),
@@ -275,12 +272,61 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     if (promptSelection.captureModes.isEmpty) {
       return CameraPhotoUi.defaultModes;
     }
-    return promptSelection.captureModes
+    final List<PromptCaptureModeDefinition> sortedModes =
+        <PromptCaptureModeDefinition>[...promptSelection.captureModes]
+          ..sort(_compareCaptureModesForCameraUi);
+    return sortedModes
         .map((PromptCaptureModeDefinition mode) {
           return CameraUiMode(id: mode.id, label: mode.title.toUpperCase());
         })
         .toList(growable: false);
   }
+
+  Map<String, List<Widget>> _cameraModeExtensionsForPrompt(
+    PromptSelectionState promptSelection,
+    double controlsRotationTurns,
+  ) {
+    if (promptSelection.switches.isEmpty) {
+      return const <String, List<Widget>>{};
+    }
+    final PromptSelectionController promptController = ref.read(
+      promptSelectionControllerProvider.notifier,
+    );
+    return <String, List<Widget>>{
+      defaultCaptureMode: <Widget>[
+        for (int index = 0; index < promptSelection.switches.length; index++)
+          _PromptOptionSquareButton(
+            key: ValueKey<String>(
+              'camera-prompt-option-${promptSelection.switches[index].id}',
+            ),
+            definition: promptSelection.switches[index],
+            selected:
+                promptSelection.values[promptSelection.switches[index].id] ??
+                false,
+            rotationTurns: controlsRotationTurns,
+            animationIndex: index,
+            onPressed: promptController.toggleSwitch,
+          ),
+      ],
+    };
+  }
+}
+
+int _compareCaptureModesForCameraUi(
+  PromptCaptureModeDefinition first,
+  PromptCaptureModeDefinition second,
+) {
+  return _captureModeSortRank(
+    first.id,
+  ).compareTo(_captureModeSortRank(second.id));
+}
+
+int _captureModeSortRank(String id) {
+  return switch (id) {
+    'general' => 0,
+    defaultCaptureMode => 1,
+    _ => 2,
+  };
 }
 
 class _CreditsBalanceBadge extends StatelessWidget {
@@ -343,6 +389,126 @@ class _CreditCoinIcon extends StatelessWidget {
   }
 }
 
+class _PromptOptionSquareButton extends StatelessWidget {
+  const _PromptOptionSquareButton({
+    required this.definition,
+    required this.selected,
+    required this.rotationTurns,
+    required this.animationIndex,
+    required this.onPressed,
+    super.key,
+  });
+
+  final PromptSwitchDefinition definition;
+  final bool selected;
+  final double rotationTurns;
+  final int animationIndex;
+  final ValueChanged<String> onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: reduceMotion
+          ? Duration.zero
+          : Duration(milliseconds: 180 + animationIndex * 36),
+      curve: Curves.easeOutCubic,
+      builder: (BuildContext context, double value, Widget? child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset((1 - value) * -10, 0),
+            child: child,
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(left: 6),
+        child: AnimatedRotation(
+          turns: rotationTurns,
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          child: Semantics(
+            button: true,
+            selected: selected,
+            label: definition.title,
+            child: CupertinoButton(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(56, 56),
+              onPressed: () => onPressed(definition.id),
+              child: AnimatedContainer(
+                duration: reduceMotion
+                    ? Duration.zero
+                    : const Duration(milliseconds: 160),
+                curve: Curves.easeOutCubic,
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? CupertinoColors.black
+                      : CupertinoColors.white,
+                  border: Border.all(
+                    color: CupertinoColors.black.withValues(
+                      alpha: selected ? 1 : 0.72,
+                    ),
+                    width: 1,
+                  ),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Stack(
+                  children: <Widget>[
+                    Positioned(
+                      left: 6,
+                      top: 5,
+                      right: 6,
+                      child: Text(
+                        definition.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textScaler: TextScaler.noScaling,
+                        style: TextStyle(
+                          color: selected
+                              ? CupertinoColors.white
+                              : CupertinoColors.black,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: Icon(
+                        _promptOptionIcon(definition.id),
+                        color: selected
+                            ? CupertinoColors.white
+                            : CupertinoColors.black,
+                        size: 22,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+IconData _promptOptionIcon(String id) {
+  return switch (id) {
+    'recompose' => LucideIcons.wandSparkles,
+    'beautifyFace' => LucideIcons.userRoundCheck,
+    'cleanFrame' => LucideIcons.sparkles,
+    'backgroundBlur' => LucideIcons.aperture,
+    _ => LucideIcons.slidersHorizontal,
+  };
+}
+
 class _PromptStyleOverlay extends StatelessWidget {
   const _PromptStyleOverlay({
     required this.promptSelection,
@@ -382,61 +548,6 @@ class _PromptStyleOverlay extends StatelessWidget {
                   selected: style.id == promptSelection.selectedPromptStyleId,
                   rotationTurns: rotationTurns,
                   onPressed: onSelect,
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PromptSwitchOverlay extends StatelessWidget {
-  const _PromptSwitchOverlay({
-    required this.promptSelection,
-    required this.rotationTurns,
-    required this.onToggle,
-  });
-
-  final PromptSelectionState promptSelection;
-  final double rotationTurns;
-  final ValueChanged<String> onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    if (promptSelection.switches.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Align(
-      alignment: Alignment.topCenter,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            10,
-            promptSelection.styles.length > 1 ? 58 : 10,
-            10,
-            0,
-          ),
-          child: SizedBox(
-            height: 40,
-            child: ListView.separated(
-              key: const ValueKey<String>('camera-prompt-switch-list'),
-              scrollDirection: Axis.horizontal,
-              itemCount: promptSelection.switches.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (BuildContext context, int index) {
-                final switchDefinition = promptSelection.switches[index];
-                final bool selected =
-                    promptSelection.values[switchDefinition.id] ?? false;
-                return _PromptPillChip(
-                  id: switchDefinition.id,
-                  title: switchDefinition.title,
-                  selected: selected,
-                  rotationTurns: rotationTurns,
-                  onPressed: onToggle,
                 );
               },
             ),
