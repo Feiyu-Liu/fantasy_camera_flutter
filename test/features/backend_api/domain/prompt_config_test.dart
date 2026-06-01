@@ -8,7 +8,6 @@ void main() {
 
     expect(styles.map((PromptStyleDefinition style) => style.id), <String>[
       'realistic',
-      'abstract',
     ]);
     expect(styles.first.title, 'Realistic');
     expect(
@@ -17,7 +16,6 @@ void main() {
       ),
       <String>['portrait', 'general'],
     );
-    expect(styles.last.captureModes.single.id, 'general');
   });
 
   test('parses prompt switches for the realistic portrait route', () {
@@ -35,14 +33,27 @@ void main() {
     expect(switches.first.defaultValue, isTrue);
   });
 
-  test('returns empty switches for routes without switches', () {
+  test('filters out non-realistic modes from remote config', () {
+    final List<PromptStyleDefinition> styles = promptStylesFromConfig(_config);
+    expect(
+      promptStyleDefinitionById(styles, 'abstract'),
+      isNull,
+    );
+  });
+
+  test('returns fallback switches for unsupported routes', () {
     final List<PromptSwitchDefinition> switches = promptSwitchesForRoute(
       _config,
       promptStyle: 'abstract',
       captureMode: 'general',
     );
 
-    expect(switches, isEmpty);
+    expect(
+      switches.map((PromptSwitchDefinition switchDefinition) {
+        return switchDefinition.id;
+      }),
+      <String>['recompose', 'beautifyFace', 'cleanFrame', 'backgroundBlur'],
+    );
   });
 
   test('falls back when config does not contain the current route', () {

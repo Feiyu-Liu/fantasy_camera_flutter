@@ -185,6 +185,7 @@ List<PromptStyleDefinition> promptStylesFromConfig(JsonObject config) {
         }
       })
       .whereType<PromptStyleDefinition>()
+      .where((PromptStyleDefinition style) => style.id == defaultPromptStyle)
       .toList(growable: false);
 
   return styles.isEmpty ? fallbackPromptStyles : styles;
