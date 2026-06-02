@@ -153,15 +153,26 @@ class FlutterGenerationImageProcessor implements GenerationImageProcessor {
       'result image file ready job=$jobId path=${resultFile.path} bytes=$resultBytes',
     );
 
+    final Map<String, Object> resultExif = sanitizeResultExifForWrite(
+      sourceExif,
+    );
+    final Object? removedOrientation = _firstExifValue(
+      sourceExif,
+      _resultExifOrientationKeys,
+    );
+    _debugLog(
+      'result exif sanitized job=$jobId sourceKeys=${sourceExif.length} resultKeys=${resultExif.length} removedOrientation=$removedOrientation',
+    );
+
     final bool exifWritten = await _measure(
       label: 'write result exif',
       jobId: jobId,
-      action: () => _tryWriteExif(resultFile.path, sourceExif),
+      action: () => _tryWriteExif(resultFile.path, resultExif),
     );
 
     final Uint8List bytes = await resultFile.readAsBytes();
     _debugLog(
-      'process result success job=$jobId output=${resultFile.path} bytes=${bytes.length} exifKeys=${sourceExif.length} exifWritten=$exifWritten',
+      'process result success job=$jobId output=${resultFile.path} bytes=${bytes.length} sourceExifKeys=${sourceExif.length} resultExifKeys=${resultExif.length} exifWritten=$exifWritten',
     );
     return ProcessedResultImage(path: resultFile.path, bytes: bytes);
   }
@@ -357,6 +368,30 @@ class FlutterGenerationImageProcessor implements GenerationImageProcessor {
 
 void _debugLog(String message) {
   debugPrint('[GenerationImageProcessor] $message');
+}
+
+const List<String> _resultExifOrientationKeys = <String>['Orientation'];
+
+@visibleForTesting
+Map<String, Object> sanitizeResultExifForWrite(Map<String, Object> sourceExif) {
+  if (sourceExif.isEmpty) {
+    return const <String, Object>{};
+  }
+  final Map<String, Object> resultExif = Map<String, Object>.of(sourceExif);
+  for (final String key in _resultExifOrientationKeys) {
+    resultExif.remove(key);
+  }
+  return resultExif;
+}
+
+Object? _firstExifValue(Map<String, Object> exif, List<String> keys) {
+  for (final String key in keys) {
+    final Object? value = exif[key];
+    if (value != null) {
+      return value;
+    }
+  }
+  return null;
 }
 
 class _TargetImageSize {
