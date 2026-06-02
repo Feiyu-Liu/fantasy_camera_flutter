@@ -28,6 +28,11 @@ import 'package:fantasy_camera_flutter/features/generation_submission/data/gener
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 
 void main() {
+  Future<void> usePortraitSurface(WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+  }
+
   testWidgets('shows auth page when signed out', (WidgetTester tester) async {
     await tester.pumpWidget(
       FantasyCameraApp(
@@ -50,6 +55,7 @@ void main() {
   testWidgets('shows camera screen when signed in', (
     WidgetTester tester,
   ) async {
+    await usePortraitSurface(tester);
     await tester.pumpWidget(
       FantasyCameraApp(
         overrides: <Override>[
@@ -87,6 +93,7 @@ void main() {
   testWidgets('camera gallery thumbnail opens generation debug modal', (
     WidgetTester tester,
   ) async {
+    await usePortraitSurface(tester);
     await tester.pumpWidget(
       FantasyCameraApp(
         overrides: <Override>[
@@ -175,6 +182,7 @@ void main() {
   testWidgets('mounts camera screen after camera choices load', (
     WidgetTester tester,
   ) async {
+    await usePortraitSurface(tester);
     final Completer<List<CameraChoice>> cameraChoicesCompleter =
         Completer<List<CameraChoice>>();
 
@@ -209,6 +217,7 @@ void main() {
   testWidgets('loads camera choices after auth restores to signed in', (
     WidgetTester tester,
   ) async {
+    await usePortraitSurface(tester);
     final StreamController<AuthSessionState> authStates =
         StreamController<AuthSessionState>();
     addTearDown(authStates.close);

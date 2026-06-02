@@ -90,10 +90,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       aspectRatioLabel: '4:3',
       modes: _cameraModesForPrompt(promptSelection),
       selectedModeId: promptSelection.selectedCaptureModeId,
-      modeExtensions: _cameraModeExtensionsForPrompt(
-        promptSelection,
-        controlsRotationTurns,
-      ),
+      modeExtensions: _cameraModeExtensionsForPrompt(promptSelection),
       zoomStops: _zoomStops(cameraState),
       currentDisplayZoom: cameraState.rawToDisplayZoom(
         cameraState.currentRawZoom,
@@ -269,7 +266,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   Map<String, List<Widget>> _cameraModeExtensionsForPrompt(
     PromptSelectionState promptSelection,
-    double controlsRotationTurns,
   ) {
     if (promptSelection.switches.isEmpty) {
       return const <String, List<Widget>>{};
@@ -288,7 +284,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
             selected:
                 promptSelection.values[promptSelection.switches[index].id] ??
                 false,
-            rotationTurns: controlsRotationTurns,
             animationIndex: index,
             onPressed: promptController.toggleSwitch,
           ),
@@ -378,7 +373,6 @@ class _PromptOptionBarButton extends StatelessWidget {
   const _PromptOptionBarButton({
     required this.definition,
     required this.selected,
-    required this.rotationTurns,
     required this.animationIndex,
     required this.onPressed,
     super.key,
@@ -386,7 +380,6 @@ class _PromptOptionBarButton extends StatelessWidget {
 
   final PromptSwitchDefinition definition;
   final bool selected;
-  final double rotationTurns;
   final int animationIndex;
   final ValueChanged<String> onPressed;
 
@@ -410,64 +403,57 @@ class _PromptOptionBarButton extends StatelessWidget {
       },
       child: Padding(
         padding: const EdgeInsets.only(left: 6),
-        child: AnimatedRotation(
-          turns: rotationTurns,
-          duration: reduceMotion
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          child: Semantics(
-            button: true,
-            selected: selected,
-            label: definition.title,
-            child: CupertinoButton(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(0, 0),
-              onPressed: () => onPressed(definition.id),
-              child: AnimatedContainer(
-                duration: reduceMotion
-                    ? Duration.zero
-                    : const Duration(milliseconds: 160),
-                curve: Curves.easeOutCubic,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: selected
-                      ? const Color(0xFFEAC45B)
-                      : CupertinoColors.white,
-                  border: Border.all(
-                    color: CupertinoColors.black.withValues(
-                      alpha: selected ? 1 : 0.72,
-                    ),
-                    width: 1,
+        child: Semantics(
+          button: true,
+          selected: selected,
+          label: definition.title,
+          child: CupertinoButton(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(0, 0),
+            onPressed: () => onPressed(definition.id),
+            child: AnimatedContainer(
+              duration: reduceMotion
+                  ? Duration.zero
+                  : const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
+              height: 34,
+              decoration: BoxDecoration(
+                color: selected
+                    ? const Color(0xFFEAC45B)
+                    : CupertinoColors.white,
+                border: Border.all(
+                  color: CupertinoColors.black.withValues(
+                    alpha: selected ? 1 : 0.72,
                   ),
-                  borderRadius: BorderRadius.zero,
+                  width: 1,
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Text(
-                        definition.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textScaler: TextScaler.noScaling,
-                        style: const TextStyle(
-                          color: CupertinoColors.black,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          height: 1,
-                        ),
-                      ),
-                      const SizedBox(width: 7),
-                      Icon(
-                        _promptOptionIcon(definition.id),
+                borderRadius: BorderRadius.zero,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Text(
+                      definition.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textScaler: TextScaler.noScaling,
+                      style: const TextStyle(
                         color: CupertinoColors.black,
-                        size: 15,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 7),
+                    Icon(
+                      _promptOptionIcon(definition.id),
+                      color: CupertinoColors.black,
+                      size: 15,
+                    ),
+                  ],
                 ),
               ),
             ),
