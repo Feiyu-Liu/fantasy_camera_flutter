@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:my_ui/my_ui.dart';
 
+import '../../../config/app_config.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/camera/camera_preview.dart';
@@ -82,6 +83,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       captureOrientation,
     );
     return CameraPhotoUi(
+      theme: const CameraPhotoUiTheme(
+        dividerWidth: AppConfig.cameraUiDividerWidth,
+      ),
       viewfinder: _buildViewfinder(cameraState),
       galleryPreview: _buildGalleryPreview(cameraState),
       trailingContent: _CreditsBalanceBadge(creditBalance: creditBalance),
@@ -410,11 +414,14 @@ class _PromptOptionBarButton extends StatelessWidget {
           child: CupertinoButton(
             padding: EdgeInsets.zero,
             minimumSize: const Size(0, 0),
-            onPressed: () => onPressed(definition.id),
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              onPressed(definition.id);
+            },
             child: AnimatedContainer(
               duration: reduceMotion
                   ? Duration.zero
-                  : const Duration(milliseconds: 160),
+                  : const Duration(milliseconds: 90),
               curve: Curves.easeOutCubic,
               height: 34,
               decoration: BoxDecoration(
@@ -425,7 +432,7 @@ class _PromptOptionBarButton extends StatelessWidget {
                   color: CupertinoColors.black.withValues(
                     alpha: selected ? 1 : 0.72,
                   ),
-                  width: 1,
+                  width: AppConfig.cameraUiDividerWidth,
                 ),
                 borderRadius: BorderRadius.zero,
               ),
@@ -443,7 +450,7 @@ class _PromptOptionBarButton extends StatelessWidget {
                       style: const TextStyle(
                         color: CupertinoColors.black,
                         fontSize: 11,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w500,
                         height: 1,
                       ),
                     ),

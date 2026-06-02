@@ -45,6 +45,9 @@ class AppConfig {
   // iOS AVFoundation 切换变焦档位时的动画变焦速度。
   static const double cameraZoomRampRate = 10.0;
 
+  // 相机 UI 中分割线和细边框的统一线宽。
+  static const double cameraUiDividerWidth = 0.5;
+
   // 拍摄原图和最终生成图保存到系统相册时使用的相册名。
   static const String generationPhotoAlbumName = 'TesserCam';
 
