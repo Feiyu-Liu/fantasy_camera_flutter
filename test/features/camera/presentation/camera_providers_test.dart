@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
+import 'package:fantasy_camera_flutter/config/app_config.dart';
 import 'package:fantasy_camera_flutter/features/camera/data/capture_orientation_reader.dart';
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_choice.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
@@ -180,6 +181,21 @@ void main() {
     );
 
     expect(maxZoom, 10.0);
+  });
+
+  test('CameraPhotoDynamicRange maps to capture file formats', () {
+    expect(
+      CameraPhotoDynamicRange.sdr.imageFileFormat,
+      ImageFileFormat.sdrHeif,
+    );
+    expect(CameraPhotoDynamicRange.hdr.imageFileFormat, ImageFileFormat.heif);
+  });
+
+  test('AppConfig exposes the configured photo dynamic range format', () {
+    expect(
+      AppConfig.cameraImageFileFormat,
+      AppConfig.cameraPhotoDynamicRange.imageFileFormat,
+    );
   });
 
   test(
