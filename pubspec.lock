@@ -131,10 +131,9 @@ packages:
   camera_platform_interface:
     dependency: "direct main"
     description:
-      name: camera_platform_interface
-      sha256: "7ac852d77699acee79f0d438b793feee26721841e50973576419ff5c6d95e9b7"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
+      path: "/Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter-camera/camera/packages/camera/camera_platform_interface"
+      relative: false
+    source: path
     version: "2.13.0"
   characters:
     dependency: transitive

@@ -64,6 +64,8 @@ dev_dependencies:
   supabase: ^2.10.6
 
 dependency_overrides:
+  camera_platform_interface:
+    path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter-camera/camera/packages/camera/camera_platform_interface
   flutter_image_compress:
     path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter_image_compress/flutter_image_compress/packages/flutter_image_compress
   flutter_image_compress_common:
