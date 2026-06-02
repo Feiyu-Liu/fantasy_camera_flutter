@@ -131,25 +131,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Widget _buildViewfinder(CameraState cameraState) {
-    final PromptSelectionState promptSelection = ref.watch(
-      promptSelectionControllerProvider,
-    );
     return _PreviewPanel(
       controller: cameraState.controller,
       captureOverlayTrigger: cameraState.captureOverlayTrigger,
-      child: Stack(
-        fit: StackFit.expand,
-        children: <Widget>[
-          _buildPreviewGestureLayer(cameraState),
-          _PromptStyleOverlay(
-            promptSelection: promptSelection,
-            rotationTurns: _controlsRotationTurns,
-            onSelect: ref
-                .read(promptSelectionControllerProvider.notifier)
-                .selectPromptStyle,
-          ),
-        ],
-      ),
+      child: _buildPreviewGestureLayer(cameraState),
     );
   }
 
@@ -295,7 +280,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     return <String, List<Widget>>{
       defaultCaptureMode: <Widget>[
         for (int index = 0; index < promptSelection.switches.length; index++)
-          _PromptOptionSquareButton(
+          _PromptOptionBarButton(
             key: ValueKey<String>(
               'camera-prompt-option-${promptSelection.switches[index].id}',
             ),
@@ -389,8 +374,8 @@ class _CreditCoinIcon extends StatelessWidget {
   }
 }
 
-class _PromptOptionSquareButton extends StatelessWidget {
-  const _PromptOptionSquareButton({
+class _PromptOptionBarButton extends StatelessWidget {
+  const _PromptOptionBarButton({
     required this.definition,
     required this.selected,
     required this.rotationTurns,
@@ -437,18 +422,17 @@ class _PromptOptionSquareButton extends StatelessWidget {
             label: definition.title,
             child: CupertinoButton(
               padding: EdgeInsets.zero,
-              minimumSize: const Size(56, 56),
+              minimumSize: const Size(0, 0),
               onPressed: () => onPressed(definition.id),
               child: AnimatedContainer(
                 duration: reduceMotion
                     ? Duration.zero
                     : const Duration(milliseconds: 160),
                 curve: Curves.easeOutCubic,
-                width: 56,
-                height: 56,
+                height: 34,
                 decoration: BoxDecoration(
                   color: selected
-                      ? CupertinoColors.black
+                      ? const Color(0xFFEAC45B)
                       : CupertinoColors.white,
                   border: Border.all(
                     color: CupertinoColors.black.withValues(
@@ -456,39 +440,34 @@ class _PromptOptionSquareButton extends StatelessWidget {
                     ),
                     width: 1,
                   ),
-                  borderRadius: BorderRadius.circular(7),
+                  borderRadius: BorderRadius.zero,
                 ),
-                child: Stack(
-                  children: <Widget>[
-                    Positioned(
-                      left: 6,
-                      top: 5,
-                      right: 6,
-                      child: Text(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Text(
                         definition.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textScaler: TextScaler.noScaling,
-                        style: TextStyle(
-                          color: selected
-                              ? CupertinoColors.white
-                              : CupertinoColors.black,
-                          fontSize: 9.5,
+                        style: const TextStyle(
+                          color: CupertinoColors.black,
+                          fontSize: 11,
                           fontWeight: FontWeight.w900,
                           height: 1,
                         ),
                       ),
-                    ),
-                    Center(
-                      child: Icon(
+                      const SizedBox(width: 7),
+                      Icon(
                         _promptOptionIcon(definition.id),
-                        color: selected
-                            ? CupertinoColors.white
-                            : CupertinoColors.black,
-                        size: 22,
+                        color: CupertinoColors.black,
+                        size: 15,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -507,126 +486,6 @@ IconData _promptOptionIcon(String id) {
     'backgroundBlur' => LucideIcons.aperture,
     _ => LucideIcons.slidersHorizontal,
   };
-}
-
-class _PromptStyleOverlay extends StatelessWidget {
-  const _PromptStyleOverlay({
-    required this.promptSelection,
-    required this.rotationTurns,
-    required this.onSelect,
-  });
-
-  final PromptSelectionState promptSelection;
-  final double rotationTurns;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    if (promptSelection.styles.length <= 1) {
-      return const SizedBox.shrink();
-    }
-
-    return Align(
-      alignment: Alignment.topCenter,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
-          child: SizedBox(
-            height: 40,
-            child: ListView.separated(
-              key: const ValueKey<String>('camera-prompt-style-list'),
-              scrollDirection: Axis.horizontal,
-              itemCount: promptSelection.styles.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (BuildContext context, int index) {
-                final PromptStyleDefinition style =
-                    promptSelection.styles[index];
-                return _PromptPillChip(
-                  id: style.id,
-                  title: style.title,
-                  selected: style.id == promptSelection.selectedPromptStyleId,
-                  rotationTurns: rotationTurns,
-                  onPressed: onSelect,
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PromptPillChip extends StatelessWidget {
-  const _PromptPillChip({
-    required this.id,
-    required this.title,
-    required this.selected,
-    required this.rotationTurns,
-    required this.onPressed,
-  });
-
-  final String id;
-  final String title;
-  final bool selected;
-  final double rotationTurns;
-  final ValueChanged<String> onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color backgroundColor = selected
-        ? CupertinoColors.activeBlue.withValues(alpha: 0.86)
-        : CupertinoColors.black.withValues(alpha: 0.48);
-    final Color borderColor = selected
-        ? CupertinoColors.white.withValues(alpha: 0.58)
-        : CupertinoColors.white.withValues(alpha: 0.24);
-
-    return AnimatedRotation(
-      turns: rotationTurns,
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      child: CupertinoButton(
-        key: ValueKey<String>('camera-prompt-chip-$id'),
-        padding: EdgeInsets.zero,
-        minimumSize: const Size(0, 0),
-        onPressed: () => onPressed(id),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            border: Border.all(color: borderColor),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Icon(
-                  selected
-                      ? CupertinoIcons.check_mark_circled_solid
-                      : CupertinoIcons.circle,
-                  size: 15,
-                  color: CupertinoColors.white,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: CupertinoColors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _CaptureProgressThumbnail extends StatelessWidget {
