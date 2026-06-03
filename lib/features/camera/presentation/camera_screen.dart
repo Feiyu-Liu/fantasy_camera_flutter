@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
@@ -32,6 +33,8 @@ class CameraScreen extends ConsumerStatefulWidget {
 class _CameraScreenState extends ConsumerState<CameraScreen>
     with WidgetsBindingObserver {
   int _pointers = 0;
+  Offset? _focusIndicatorPosition;
+  int _focusIndicatorTrigger = 0;
   DeviceOrientation? _lastCaptureOrientation;
   double _controlsRotationTurns = 0;
 
@@ -135,6 +138,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     return _PreviewPanel(
       controller: cameraState.controller,
       captureOverlayTrigger: cameraState.captureOverlayTrigger,
+      focusIndicatorPosition: _focusIndicatorPosition,
+      focusIndicatorTrigger: _focusIndicatorTrigger,
       child: _buildPreviewGestureLayer(cameraState),
     );
   }
@@ -145,17 +150,54 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       return const SizedBox.shrink();
     }
 
-    return Listener(
-      onPointerDown: (_) => _pointers++,
-      onPointerUp: (_) => _pointers = (_pointers - 1).clamp(0, 10),
-      onPointerCancel: (_) => _pointers = (_pointers - 1).clamp(0, 10),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onScaleStart: (_) =>
-            ref.read(cameraStateProvider.notifier).handleScaleStart(),
-        onScaleUpdate: _handleScaleUpdate,
-      ),
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        return Listener(
+          onPointerDown: (_) => _pointers++,
+          onPointerUp: (_) => _pointers = (_pointers - 1).clamp(0, 10),
+          onPointerCancel: (_) => _pointers = (_pointers - 1).clamp(0, 10),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onScaleStart: (_) =>
+                ref.read(cameraStateProvider.notifier).handleScaleStart(),
+            onScaleUpdate: _handleScaleUpdate,
+            onTapDown: (TapDownDetails details) =>
+                _handlePreviewTapDown(details, constraints.biggest, controller),
+          ),
+        );
+      },
     );
+  }
+
+  Future<void> _handlePreviewTapDown(
+    TapDownDetails details,
+    Size panelSize,
+    CameraController controller,
+  ) async {
+    if (_pointers > 1) {
+      return;
+    }
+
+    if (panelSize.isEmpty) {
+      return;
+    }
+
+    final Offset localPosition = details.localPosition;
+    setState(() {
+      _focusIndicatorPosition = localPosition;
+      _focusIndicatorTrigger += 1;
+    });
+
+    final Point<double>? focusPoint = cameraPreviewPointForTap(
+      tapPosition: localPosition,
+      containerSize: panelSize,
+      previewSize: controller.value.previewSize,
+    );
+    if (focusPoint == null) {
+      return;
+    }
+
+    await ref.read(cameraStateProvider.notifier).focusAndExposeAt(focusPoint);
   }
 
   Future<void> _handleScaleUpdate(ScaleUpdateDetails details) async {
@@ -449,7 +491,7 @@ class _PromptOptionBarButton extends StatelessWidget {
                       textScaler: TextScaler.noScaling,
                       style: const TextStyle(
                         color: CupertinoColors.black,
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.w500,
                         height: 1,
                       ),
@@ -502,11 +544,15 @@ class _PreviewPanel extends StatefulWidget {
   const _PreviewPanel({
     required this.controller,
     required this.captureOverlayTrigger,
+    required this.focusIndicatorPosition,
+    required this.focusIndicatorTrigger,
     required this.child,
   });
 
   final CameraController? controller;
   final int captureOverlayTrigger;
+  final Offset? focusIndicatorPosition;
+  final int focusIndicatorTrigger;
   final Widget child;
 
   @override
@@ -514,10 +560,14 @@ class _PreviewPanel extends StatefulWidget {
 }
 
 class _PreviewPanelState extends State<_PreviewPanel>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _overlayController;
+  late final AnimationController _focusController;
   late final Animation<double> _overlayOpacity;
+  late final Animation<double> _focusOpacity;
+  late final Animation<double> _focusScale;
   int _lastCaptureOverlayTrigger = 0;
+  int _lastFocusIndicatorTrigger = 0;
 
   @override
   void initState() {
@@ -526,6 +576,10 @@ class _PreviewPanelState extends State<_PreviewPanel>
     _overlayController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
+    );
+    _focusController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 760),
     );
     _overlayOpacity = TweenSequence<double>(<TweenSequenceItem<double>>[
       TweenSequenceItem<double>(
@@ -543,6 +597,27 @@ class _PreviewPanelState extends State<_PreviewPanel>
         weight: 70,
       ),
     ]).animate(_overlayController);
+    _focusOpacity = TweenSequence<double>(<TweenSequenceItem<double>>[
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 0.0,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 18,
+      ),
+      TweenSequenceItem<double>(tween: ConstantTween<double>(1.0), weight: 34),
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 1.0,
+          end: 0.0,
+        ).chain(CurveTween(curve: Curves.easeOutQuad)),
+        weight: 48,
+      ),
+    ]).animate(_focusController);
+    _focusScale = Tween<double>(
+      begin: 1.18,
+      end: 1.0,
+    ).chain(CurveTween(curve: Curves.easeOutBack)).animate(_focusController);
   }
 
   @override
@@ -552,11 +627,16 @@ class _PreviewPanelState extends State<_PreviewPanel>
       _lastCaptureOverlayTrigger = widget.captureOverlayTrigger;
       _overlayController.forward(from: 0.0);
     }
+    if (widget.focusIndicatorTrigger != _lastFocusIndicatorTrigger) {
+      _lastFocusIndicatorTrigger = widget.focusIndicatorTrigger;
+      _focusController.forward(from: 0.0);
+    }
   }
 
   @override
   void dispose() {
     _overlayController.dispose();
+    _focusController.dispose();
     super.dispose();
   }
 
@@ -578,8 +658,79 @@ class _PreviewPanelState extends State<_PreviewPanel>
                 child: const ColoredBox(color: CupertinoColors.black),
               ),
             ),
+            if (widget.focusIndicatorPosition != null)
+              _FocusIndicator(
+                position: widget.focusIndicatorPosition!,
+                opacity: _focusOpacity,
+                scale: _focusScale,
+              ),
             widget.child,
           ],
+        ),
+      ),
+    );
+  }
+}
+
+@visibleForTesting
+Point<double>? cameraPreviewPointForTap({
+  required Offset tapPosition,
+  required Size containerSize,
+  required Size? previewSize,
+}) {
+  if (containerSize.isEmpty || previewSize == null || previewSize.isEmpty) {
+    return null;
+  }
+
+  final double cameraAspectRatio = previewSize.width / previewSize.height;
+  final Size previewChildSize = Size(1 / cameraAspectRatio, 1);
+  final double scale = max(
+    containerSize.width / previewChildSize.width,
+    containerSize.height / previewChildSize.height,
+  );
+  final Size fittedPreviewSize = previewChildSize * scale;
+  final Offset previewOffset = Offset(
+    (containerSize.width - fittedPreviewSize.width) / 2,
+    (containerSize.height - fittedPreviewSize.height) / 2,
+  );
+  final Offset previewPosition = tapPosition - previewOffset;
+  return Point<double>(
+    (previewPosition.dx / fittedPreviewSize.width).clamp(0.0, 1.0),
+    (previewPosition.dy / fittedPreviewSize.height).clamp(0.0, 1.0),
+  );
+}
+
+class _FocusIndicator extends StatelessWidget {
+  const _FocusIndicator({
+    required this.position,
+    required this.opacity,
+    required this.scale,
+  });
+
+  static const double _size = 68;
+
+  final Offset position;
+  final Animation<double> opacity;
+  final Animation<double> scale;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: position.dx - _size / 2,
+      top: position.dy - _size / 2,
+      width: _size,
+      height: _size,
+      child: IgnorePointer(
+        child: FadeTransition(
+          opacity: opacity,
+          child: ScaleTransition(
+            scale: scale,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFF3D36A), width: 1.8),
+              ),
+            ),
+          ),
         ),
       ),
     );

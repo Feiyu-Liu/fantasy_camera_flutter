@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:fantasy_camera_flutter/shared/camera/camera_controller.dart';
@@ -99,6 +100,26 @@ void main() {
       );
     },
   );
+
+  test('setFocusAndExposurePoint forwards supported points', () async {
+    final CameraController controller = CameraController(
+      const CameraDescription(
+        name: 'back',
+        lensDirection: CameraLensDirection.back,
+        sensorOrientation: 90,
+      ),
+      ResolutionPreset.high,
+    );
+    fakePlatform.focusPointSupported = true;
+    fakePlatform.exposurePointSupported = true;
+    addTearDown(controller.dispose);
+
+    await controller.initialize();
+    await controller.setFocusAndExposurePoint(const Point<double>(0.25, 0.75));
+
+    expect(fakePlatform.focusPoint, const Point<double>(0.25, 0.75));
+    expect(fakePlatform.exposurePoint, const Point<double>(0.25, 0.75));
+  });
 }
 
 class _FakeCameraPlatform extends CameraPlatform {
@@ -110,6 +131,10 @@ class _FakeCameraPlatform extends CameraPlatform {
 
   DeviceOrientation? lockedOrientation;
   int? lockedCameraId;
+  Point<double>? focusPoint;
+  Point<double>? exposurePoint;
+  bool focusPointSupported = false;
+  bool exposurePointSupported = false;
   final List<String> events = <String>[];
 
   void emitDeviceOrientation(DeviceOrientation orientation) {
@@ -133,14 +158,14 @@ class _FakeCameraPlatform extends CameraPlatform {
   }) async {
     scheduleMicrotask(() {
       _initializedController.add(
-        const CameraInitializedEvent(
+        CameraInitializedEvent(
           7,
           1920,
           1080,
           ExposureMode.auto,
-          false,
+          exposurePointSupported,
           FocusMode.auto,
-          false,
+          focusPointSupported,
         ),
       );
     });
@@ -170,6 +195,16 @@ class _FakeCameraPlatform extends CameraPlatform {
   Future<XFile> takePicture(int cameraId) async {
     events.add('takePicture');
     return XFile('/tmp/captured.heic');
+  }
+
+  @override
+  Future<void> setFocusPoint(int cameraId, Point<double>? point) async {
+    focusPoint = point;
+  }
+
+  @override
+  Future<void> setExposurePoint(int cameraId, Point<double>? point) async {
+    exposurePoint = point;
   }
 
   @override

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
@@ -15,6 +16,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/data/gener
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_message.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_providers.dart';
+import 'package:fantasy_camera_flutter/features/camera/presentation/camera_screen.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_state.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -217,7 +219,10 @@ void main() {
           ),
         ],
       );
-      addTearDown(container.dispose);
+      addTearDown(() async {
+        container.dispose();
+        await Future<void>.delayed(Duration.zero);
+      });
       final ProviderSubscription<CameraState> subscription = container.listen(
         cameraStateProvider,
         (_, _) {},
@@ -245,6 +250,71 @@ void main() {
       await takePictureFuture;
     },
   );
+
+  test(
+    'focusAndExposeAt forwards supported focus and exposure point',
+    () async {
+      final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+      CameraPlatform.instance = camera;
+      final ProviderContainer container = _container(
+        choices: const <CameraChoice>[
+          CameraChoice(
+            description: CameraDescription(
+              name: 'back',
+              lensDirection: CameraLensDirection.back,
+              sensorOrientation: 0,
+            ),
+            label: 'Back Camera',
+            isVirtualDevice: false,
+            deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+          ),
+        ],
+      );
+      addTearDown(() async {
+        container.dispose();
+        await Future<void>.delayed(Duration.zero);
+      });
+
+      final CameraControllerNotifier notifier = container.read(
+        cameraStateProvider.notifier,
+      );
+      await notifier.openDefaultCamera();
+
+      await notifier.focusAndExposeAt(const Point<double>(0.2, 0.8));
+
+      expect(camera.focusPoint, const Point<double>(0.2, 0.8));
+      expect(camera.exposurePoint, const Point<double>(0.2, 0.8));
+    },
+  );
+
+  test('cameraPreviewPointForTap accounts for covered preview crop', () {
+    final Point<double>? center = cameraPreviewPointForTap(
+      tapPosition: const Offset(50, 100),
+      containerSize: const Size(100, 200),
+      previewSize: const Size(1920, 1080),
+    );
+
+    expect(center?.x, closeTo(0.5, 0.001));
+    expect(center?.y, closeTo(0.5, 0.001));
+
+    final Point<double>? leftEdge = cameraPreviewPointForTap(
+      tapPosition: Offset.zero,
+      containerSize: const Size(100, 200),
+      previewSize: const Size(1920, 1080),
+    );
+
+    expect(leftEdge?.x, closeTo(0.056, 0.001));
+    expect(leftEdge?.y, closeTo(0, 0.001));
+
+    final Point<double>? croppedTop = cameraPreviewPointForTap(
+      tapPosition: Offset.zero,
+      containerSize: const Size(200, 100),
+      previewSize: const Size(1920, 1080),
+    );
+
+    expect(croppedTop?.x, closeTo(0, 0.001));
+    expect(croppedTop?.y, closeTo(0.359, 0.001));
+  });
 }
 
 ProviderContainer _container({required List<CameraChoice> choices}) {
@@ -278,6 +348,8 @@ class _FakeAVFoundationCamera extends AVFoundationCamera {
   _photoCaptureController =
       StreamController<AVFoundationPhotoCaptureWillCaptureEvent>.broadcast();
   final Completer<XFile> _takePictureCompleter = Completer<XFile>();
+  Point<double>? focusPoint;
+  Point<double>? exposurePoint;
 
   static const int _cameraId = 0;
 
@@ -351,6 +423,16 @@ class _FakeAVFoundationCamera extends AVFoundationCamera {
 
   @override
   Future<void> setFlashMode(int cameraId, FlashMode mode) async {}
+
+  @override
+  Future<void> setFocusPoint(int cameraId, Point<double>? point) async {
+    focusPoint = point;
+  }
+
+  @override
+  Future<void> setExposurePoint(int cameraId, Point<double>? point) async {
+    exposurePoint = point;
+  }
 
   @override
   Future<void> setPhotoCaptureOrientation(
