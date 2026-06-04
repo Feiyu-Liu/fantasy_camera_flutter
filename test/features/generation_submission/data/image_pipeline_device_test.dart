@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
 import 'package:native_exif/native_exif.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -69,14 +70,18 @@ void main() {
         '[DeviceImagePipelineTest] jpeg returned=${jpegResult?.path} bytes=${await File(jpegPath).length()}',
       );
 
-      await _writeExif(jpegPath, rawExif);
+      final Map<String, Object> resultExifForWrite = sanitizeResultExifForWrite(
+        rawExif,
+      );
+      await _writeExif(jpegPath, resultExifForWrite);
       final Map<String, Object> jpegExif = await _readExif(jpegPath);
       debugPrint(
-        '[DeviceImagePipelineTest] jpeg exif after write keys=${jpegExif.length} DateTimeOriginal=${jpegExif['DateTimeOriginal']} Make=${jpegExif['Make']} Model=${jpegExif['Model']}',
+        '[DeviceImagePipelineTest] jpeg exif after write keys=${jpegExif.length} DateTimeOriginal=${jpegExif['DateTimeOriginal']} Make=${jpegExif['Make']} Model=${jpegExif['Model']} Orientation=${jpegExif['Orientation']}',
       );
       expect(jpegExif['DateTimeOriginal'], rawExif['DateTimeOriginal']);
       expect(jpegExif['Make'], rawExif['Make']);
       expect(jpegExif['Model'], rawExif['Model']);
+      expect(jpegExif['Orientation'], isNot(rawExif['Orientation']));
 
       expect(
         heicExists && heicBytes > 0,

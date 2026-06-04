@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:my_ui/my_ui.dart';
 
+import '../../../config/app_config.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/camera/camera_preview.dart';
@@ -31,6 +33,8 @@ class CameraScreen extends ConsumerStatefulWidget {
 class _CameraScreenState extends ConsumerState<CameraScreen>
     with WidgetsBindingObserver {
   int _pointers = 0;
+  Offset? _focusIndicatorPosition;
+  int _focusIndicatorTrigger = 0;
   DeviceOrientation? _lastCaptureOrientation;
   double _controlsRotationTurns = 0;
 
@@ -82,6 +86,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       captureOrientation,
     );
     return CameraPhotoUi(
+      theme: const CameraPhotoUiTheme(
+        dividerWidth: AppConfig.cameraUiDividerWidth,
+      ),
       viewfinder: _buildViewfinder(cameraState),
       galleryPreview: _buildGalleryPreview(cameraState),
       trailingContent: _CreditsBalanceBadge(creditBalance: creditBalance),
@@ -90,10 +97,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       aspectRatioLabel: '4:3',
       modes: _cameraModesForPrompt(promptSelection),
       selectedModeId: promptSelection.selectedCaptureModeId,
-      modeExtensions: _cameraModeExtensionsForPrompt(
-        promptSelection,
-        controlsRotationTurns,
-      ),
+      modeExtensions: _cameraModeExtensionsForPrompt(promptSelection),
       zoomStops: _zoomStops(cameraState),
       currentDisplayZoom: cameraState.rawToDisplayZoom(
         cameraState.currentRawZoom,
@@ -131,25 +135,12 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Widget _buildViewfinder(CameraState cameraState) {
-    final PromptSelectionState promptSelection = ref.watch(
-      promptSelectionControllerProvider,
-    );
     return _PreviewPanel(
       controller: cameraState.controller,
       captureOverlayTrigger: cameraState.captureOverlayTrigger,
-      child: Stack(
-        fit: StackFit.expand,
-        children: <Widget>[
-          _buildPreviewGestureLayer(cameraState),
-          _PromptStyleOverlay(
-            promptSelection: promptSelection,
-            rotationTurns: _controlsRotationTurns,
-            onSelect: ref
-                .read(promptSelectionControllerProvider.notifier)
-                .selectPromptStyle,
-          ),
-        ],
-      ),
+      focusIndicatorPosition: _focusIndicatorPosition,
+      focusIndicatorTrigger: _focusIndicatorTrigger,
+      child: _buildPreviewGestureLayer(cameraState),
     );
   }
 
@@ -159,17 +150,54 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       return const SizedBox.shrink();
     }
 
-    return Listener(
-      onPointerDown: (_) => _pointers++,
-      onPointerUp: (_) => _pointers = (_pointers - 1).clamp(0, 10),
-      onPointerCancel: (_) => _pointers = (_pointers - 1).clamp(0, 10),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onScaleStart: (_) =>
-            ref.read(cameraStateProvider.notifier).handleScaleStart(),
-        onScaleUpdate: _handleScaleUpdate,
-      ),
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        return Listener(
+          onPointerDown: (_) => _pointers++,
+          onPointerUp: (_) => _pointers = (_pointers - 1).clamp(0, 10),
+          onPointerCancel: (_) => _pointers = (_pointers - 1).clamp(0, 10),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onScaleStart: (_) =>
+                ref.read(cameraStateProvider.notifier).handleScaleStart(),
+            onScaleUpdate: _handleScaleUpdate,
+            onTapDown: (TapDownDetails details) =>
+                _handlePreviewTapDown(details, constraints.biggest, controller),
+          ),
+        );
+      },
     );
+  }
+
+  Future<void> _handlePreviewTapDown(
+    TapDownDetails details,
+    Size panelSize,
+    CameraController controller,
+  ) async {
+    if (_pointers > 1) {
+      return;
+    }
+
+    if (panelSize.isEmpty) {
+      return;
+    }
+
+    final Offset localPosition = details.localPosition;
+    setState(() {
+      _focusIndicatorPosition = localPosition;
+      _focusIndicatorTrigger += 1;
+    });
+
+    final Point<double>? focusPoint = cameraPreviewPointForTap(
+      tapPosition: localPosition,
+      containerSize: panelSize,
+      previewSize: controller.value.previewSize,
+    );
+    if (focusPoint == null) {
+      return;
+    }
+
+    await ref.read(cameraStateProvider.notifier).focusAndExposeAt(focusPoint);
   }
 
   Future<void> _handleScaleUpdate(ScaleUpdateDetails details) async {
@@ -284,7 +312,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   Map<String, List<Widget>> _cameraModeExtensionsForPrompt(
     PromptSelectionState promptSelection,
-    double controlsRotationTurns,
   ) {
     if (promptSelection.switches.isEmpty) {
       return const <String, List<Widget>>{};
@@ -295,7 +322,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     return <String, List<Widget>>{
       defaultCaptureMode: <Widget>[
         for (int index = 0; index < promptSelection.switches.length; index++)
-          _PromptOptionSquareButton(
+          _PromptOptionBarButton(
             key: ValueKey<String>(
               'camera-prompt-option-${promptSelection.switches[index].id}',
             ),
@@ -303,7 +330,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
             selected:
                 promptSelection.values[promptSelection.switches[index].id] ??
                 false,
-            rotationTurns: controlsRotationTurns,
             animationIndex: index,
             onPressed: promptController.toggleSwitch,
           ),
@@ -389,11 +415,10 @@ class _CreditCoinIcon extends StatelessWidget {
   }
 }
 
-class _PromptOptionSquareButton extends StatelessWidget {
-  const _PromptOptionSquareButton({
+class _PromptOptionBarButton extends StatelessWidget {
+  const _PromptOptionBarButton({
     required this.definition,
     required this.selected,
-    required this.rotationTurns,
     required this.animationIndex,
     required this.onPressed,
     super.key,
@@ -401,7 +426,6 @@ class _PromptOptionSquareButton extends StatelessWidget {
 
   final PromptSwitchDefinition definition;
   final bool selected;
-  final double rotationTurns;
   final int animationIndex;
   final ValueChanged<String> onPressed;
 
@@ -425,68 +449,58 @@ class _PromptOptionSquareButton extends StatelessWidget {
       },
       child: Padding(
         padding: const EdgeInsets.only(left: 6),
-        child: AnimatedRotation(
-          turns: rotationTurns,
-          duration: reduceMotion
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          child: Semantics(
-            button: true,
-            selected: selected,
-            label: definition.title,
-            child: CupertinoButton(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(56, 56),
-              onPressed: () => onPressed(definition.id),
-              child: AnimatedContainer(
-                duration: reduceMotion
-                    ? Duration.zero
-                    : const Duration(milliseconds: 160),
-                curve: Curves.easeOutCubic,
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: selected
-                      ? CupertinoColors.black
-                      : CupertinoColors.white,
-                  border: Border.all(
-                    color: CupertinoColors.black.withValues(
-                      alpha: selected ? 1 : 0.72,
-                    ),
-                    width: 1,
+        child: Semantics(
+          button: true,
+          selected: selected,
+          label: definition.title,
+          child: CupertinoButton(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(0, 0),
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              onPressed(definition.id);
+            },
+            child: AnimatedContainer(
+              duration: reduceMotion
+                  ? Duration.zero
+                  : const Duration(milliseconds: 90),
+              curve: Curves.easeOutCubic,
+              height: 34,
+              decoration: BoxDecoration(
+                color: selected
+                    ? const Color(0xFFEAC45B)
+                    : CupertinoColors.white,
+                border: Border.all(
+                  color: CupertinoColors.black.withValues(
+                    alpha: selected ? 1 : 0.72,
                   ),
-                  borderRadius: BorderRadius.circular(7),
+                  width: AppConfig.cameraUiDividerWidth,
                 ),
-                child: Stack(
+                borderRadius: BorderRadius.zero,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
-                    Positioned(
-                      left: 6,
-                      top: 5,
-                      right: 6,
-                      child: Text(
-                        definition.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textScaler: TextScaler.noScaling,
-                        style: TextStyle(
-                          color: selected
-                              ? CupertinoColors.white
-                              : CupertinoColors.black,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w900,
-                          height: 1,
-                        ),
+                    Text(
+                      definition.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textScaler: TextScaler.noScaling,
+                      style: const TextStyle(
+                        color: CupertinoColors.black,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        height: 1,
                       ),
                     ),
-                    Center(
-                      child: Icon(
-                        _promptOptionIcon(definition.id),
-                        color: selected
-                            ? CupertinoColors.white
-                            : CupertinoColors.black,
-                        size: 22,
-                      ),
+                    const SizedBox(width: 7),
+                    Icon(
+                      _promptOptionIcon(definition.id),
+                      color: CupertinoColors.black,
+                      size: 15,
                     ),
                   ],
                 ),
@@ -507,126 +521,6 @@ IconData _promptOptionIcon(String id) {
     'backgroundBlur' => LucideIcons.aperture,
     _ => LucideIcons.slidersHorizontal,
   };
-}
-
-class _PromptStyleOverlay extends StatelessWidget {
-  const _PromptStyleOverlay({
-    required this.promptSelection,
-    required this.rotationTurns,
-    required this.onSelect,
-  });
-
-  final PromptSelectionState promptSelection;
-  final double rotationTurns;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    if (promptSelection.styles.length <= 1) {
-      return const SizedBox.shrink();
-    }
-
-    return Align(
-      alignment: Alignment.topCenter,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
-          child: SizedBox(
-            height: 40,
-            child: ListView.separated(
-              key: const ValueKey<String>('camera-prompt-style-list'),
-              scrollDirection: Axis.horizontal,
-              itemCount: promptSelection.styles.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (BuildContext context, int index) {
-                final PromptStyleDefinition style =
-                    promptSelection.styles[index];
-                return _PromptPillChip(
-                  id: style.id,
-                  title: style.title,
-                  selected: style.id == promptSelection.selectedPromptStyleId,
-                  rotationTurns: rotationTurns,
-                  onPressed: onSelect,
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PromptPillChip extends StatelessWidget {
-  const _PromptPillChip({
-    required this.id,
-    required this.title,
-    required this.selected,
-    required this.rotationTurns,
-    required this.onPressed,
-  });
-
-  final String id;
-  final String title;
-  final bool selected;
-  final double rotationTurns;
-  final ValueChanged<String> onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color backgroundColor = selected
-        ? CupertinoColors.activeBlue.withValues(alpha: 0.86)
-        : CupertinoColors.black.withValues(alpha: 0.48);
-    final Color borderColor = selected
-        ? CupertinoColors.white.withValues(alpha: 0.58)
-        : CupertinoColors.white.withValues(alpha: 0.24);
-
-    return AnimatedRotation(
-      turns: rotationTurns,
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      child: CupertinoButton(
-        key: ValueKey<String>('camera-prompt-chip-$id'),
-        padding: EdgeInsets.zero,
-        minimumSize: const Size(0, 0),
-        onPressed: () => onPressed(id),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            border: Border.all(color: borderColor),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Icon(
-                  selected
-                      ? CupertinoIcons.check_mark_circled_solid
-                      : CupertinoIcons.circle,
-                  size: 15,
-                  color: CupertinoColors.white,
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: CupertinoColors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _CaptureProgressThumbnail extends StatelessWidget {
@@ -650,11 +544,15 @@ class _PreviewPanel extends StatefulWidget {
   const _PreviewPanel({
     required this.controller,
     required this.captureOverlayTrigger,
+    required this.focusIndicatorPosition,
+    required this.focusIndicatorTrigger,
     required this.child,
   });
 
   final CameraController? controller;
   final int captureOverlayTrigger;
+  final Offset? focusIndicatorPosition;
+  final int focusIndicatorTrigger;
   final Widget child;
 
   @override
@@ -662,10 +560,14 @@ class _PreviewPanel extends StatefulWidget {
 }
 
 class _PreviewPanelState extends State<_PreviewPanel>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _overlayController;
+  late final AnimationController _focusController;
   late final Animation<double> _overlayOpacity;
+  late final Animation<double> _focusOpacity;
+  late final Animation<double> _focusScale;
   int _lastCaptureOverlayTrigger = 0;
+  int _lastFocusIndicatorTrigger = 0;
 
   @override
   void initState() {
@@ -674,6 +576,10 @@ class _PreviewPanelState extends State<_PreviewPanel>
     _overlayController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
+    );
+    _focusController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 760),
     );
     _overlayOpacity = TweenSequence<double>(<TweenSequenceItem<double>>[
       TweenSequenceItem<double>(
@@ -691,6 +597,27 @@ class _PreviewPanelState extends State<_PreviewPanel>
         weight: 70,
       ),
     ]).animate(_overlayController);
+    _focusOpacity = TweenSequence<double>(<TweenSequenceItem<double>>[
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 0.0,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 18,
+      ),
+      TweenSequenceItem<double>(tween: ConstantTween<double>(1.0), weight: 34),
+      TweenSequenceItem<double>(
+        tween: Tween<double>(
+          begin: 1.0,
+          end: 0.0,
+        ).chain(CurveTween(curve: Curves.easeOutQuad)),
+        weight: 48,
+      ),
+    ]).animate(_focusController);
+    _focusScale = Tween<double>(
+      begin: 1.18,
+      end: 1.0,
+    ).chain(CurveTween(curve: Curves.easeOutBack)).animate(_focusController);
   }
 
   @override
@@ -700,11 +627,16 @@ class _PreviewPanelState extends State<_PreviewPanel>
       _lastCaptureOverlayTrigger = widget.captureOverlayTrigger;
       _overlayController.forward(from: 0.0);
     }
+    if (widget.focusIndicatorTrigger != _lastFocusIndicatorTrigger) {
+      _lastFocusIndicatorTrigger = widget.focusIndicatorTrigger;
+      _focusController.forward(from: 0.0);
+    }
   }
 
   @override
   void dispose() {
     _overlayController.dispose();
+    _focusController.dispose();
     super.dispose();
   }
 
@@ -726,8 +658,79 @@ class _PreviewPanelState extends State<_PreviewPanel>
                 child: const ColoredBox(color: CupertinoColors.black),
               ),
             ),
+            if (widget.focusIndicatorPosition != null)
+              _FocusIndicator(
+                position: widget.focusIndicatorPosition!,
+                opacity: _focusOpacity,
+                scale: _focusScale,
+              ),
             widget.child,
           ],
+        ),
+      ),
+    );
+  }
+}
+
+@visibleForTesting
+Point<double>? cameraPreviewPointForTap({
+  required Offset tapPosition,
+  required Size containerSize,
+  required Size? previewSize,
+}) {
+  if (containerSize.isEmpty || previewSize == null || previewSize.isEmpty) {
+    return null;
+  }
+
+  final double cameraAspectRatio = previewSize.width / previewSize.height;
+  final Size previewChildSize = Size(1 / cameraAspectRatio, 1);
+  final double scale = max(
+    containerSize.width / previewChildSize.width,
+    containerSize.height / previewChildSize.height,
+  );
+  final Size fittedPreviewSize = previewChildSize * scale;
+  final Offset previewOffset = Offset(
+    (containerSize.width - fittedPreviewSize.width) / 2,
+    (containerSize.height - fittedPreviewSize.height) / 2,
+  );
+  final Offset previewPosition = tapPosition - previewOffset;
+  return Point<double>(
+    (previewPosition.dx / fittedPreviewSize.width).clamp(0.0, 1.0),
+    (previewPosition.dy / fittedPreviewSize.height).clamp(0.0, 1.0),
+  );
+}
+
+class _FocusIndicator extends StatelessWidget {
+  const _FocusIndicator({
+    required this.position,
+    required this.opacity,
+    required this.scale,
+  });
+
+  static const double _size = 68;
+
+  final Offset position;
+  final Animation<double> opacity;
+  final Animation<double> scale;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: position.dx - _size / 2,
+      top: position.dy - _size / 2,
+      width: _size,
+      height: _size,
+      child: IgnorePointer(
+        child: FadeTransition(
+          opacity: opacity,
+          child: ScaleTransition(
+            scale: scale,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFF3D36A), width: 1.8),
+              ),
+            ),
+          ),
         ),
       ),
     );

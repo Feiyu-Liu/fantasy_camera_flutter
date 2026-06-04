@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
+import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/api_failure.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
@@ -8,9 +9,14 @@ import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.da
 import 'package:fantasy_camera_flutter/features/backend_api/domain/prompt_config.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_submission_service.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_repository.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_original_file_store.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -86,7 +92,9 @@ void main() {
     final GenerationSubmissionController notifier = container.read(
       generationSubmissionControllerProvider.notifier,
     );
-    final String jobId = notifier.queueGalleryFile(XFile('/tmp/photo.jpg'));
+    final String jobId = await notifier.queueGalleryFile(
+      XFile('/tmp/photo.jpg'),
+    );
 
     expect(
       container.read(generationSubmissionControllerProvider).jobs.single.status,
@@ -151,7 +159,7 @@ void main() {
     final GenerationSubmissionController notifier = container.read(
       generationSubmissionControllerProvider.notifier,
     );
-    final String jobId = notifier.queueGalleryFile(
+    final String jobId = await notifier.queueGalleryFile(
       XFile('/tmp/photo.jpg'),
       promptSelection: snapshot,
     );
@@ -171,55 +179,63 @@ void main() {
     });
   });
 
-  test('queues captured file and saves it to the TesserCam album', () async {
-    final _FakePhotoLibrarySaver photoLibrarySaver = _FakePhotoLibrarySaver();
+  test('queues captured file into private original cache', () async {
+    final _FakeGenerationOriginalFileStore originalFileStore =
+        _FakeGenerationOriginalFileStore();
+    final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
+        _FakePhotoLibraryAssetStore();
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
     final _FakeGenerationTaskRepository taskRepository =
         _FakeGenerationTaskRepository();
     final ProviderContainer container = _container(
-      photoLibrarySaver: photoLibrarySaver,
+      originalFileStore: originalFileStore,
+      photoLibraryAssetStore: photoLibraryAssetStore,
       uploadRepository: uploadRepository,
       taskRepository: taskRepository,
     );
     addTearDown(container.dispose);
 
-    container
+    await container
         .read(generationSubmissionControllerProvider.notifier)
         .queueCapturedFile(XFile('/tmp/photo.jpg'));
-    await Future<void>.delayed(Duration.zero);
 
     final GenerationSubmissionJob job = container
         .read(generationSubmissionControllerProvider)
         .jobs
         .single;
     expect(job.status, GenerationSubmissionStatus.awaitingConfirmation);
-    expect(photoLibrarySaver.events, <String>['save:/tmp/photo.jpg:TesserCam']);
+    expect(job.imagePath, startsWith('/resolved/originals/'));
+    expect(
+      originalFileStore.storedRelativePaths.single,
+      startsWith('originals/'),
+    );
+    expect(photoLibraryAssetStore.events, isEmpty);
     expect(uploadRepository.events, isEmpty);
     expect(taskRepository.createdInputs, isEmpty);
   });
 
   test(
-    'keeps captured file awaiting confirmation when album save fails',
+    'queues captured file without saving original to photo library',
     () async {
-      final _FakePhotoLibrarySaver photoLibrarySaver = _FakePhotoLibrarySaver()
-        ..failure = StateError('photos denied');
+      final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
+          _FakePhotoLibraryAssetStore()..failure = StateError('photos denied');
       final ProviderContainer container = _container(
-        photoLibrarySaver: photoLibrarySaver,
+        photoLibraryAssetStore: photoLibraryAssetStore,
       );
       addTearDown(container.dispose);
 
-      container
+      await container
           .read(generationSubmissionControllerProvider.notifier)
           .queueCapturedFile(XFile('/tmp/photo.jpg'));
-      await Future<void>.delayed(Duration.zero);
 
       final GenerationSubmissionJob job = container
           .read(generationSubmissionControllerProvider)
           .jobs
           .single;
       expect(job.status, GenerationSubmissionStatus.awaitingConfirmation);
-      expect(job.errorCode, 'photo_library_save_failed');
-      expect(job.errorMessage, contains('photos denied'));
+      expect(job.errorCode, isNull);
+      expect(job.errorMessage, isNull);
+      expect(photoLibraryAssetStore.events, isEmpty);
     },
   );
 
@@ -238,8 +254,10 @@ void main() {
         generationSubmissionControllerProvider.notifier,
       );
 
-      final String jobId = notifier.queueGalleryFile(XFile('/tmp/photo.jpg'));
-      notifier.cancelJob(jobId);
+      final String jobId = await notifier.queueGalleryFile(
+        XFile('/tmp/photo.jpg'),
+      );
+      await notifier.cancelJob(jobId);
 
       expect(
         container.read(generationSubmissionControllerProvider).jobs,
@@ -247,6 +265,60 @@ void main() {
       );
       expect(uploadRepository.events, isEmpty);
       expect(taskRepository.createdInputs, isEmpty);
+    },
+  );
+
+  test(
+    'resolves gallery original from asset id after service restart',
+    () async {
+      final GenerationRecordDatabase database =
+          GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      final GenerationRecordRepository repository = GenerationRecordRepository(
+        database,
+      );
+      final _FakeGenerationOriginalFileStore originalFileStore =
+          _FakeGenerationOriginalFileStore();
+      final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
+          _FakePhotoLibraryAssetStore();
+      final GenerationSubmissionService firstService =
+          GenerationSubmissionService(
+            uploadRepository: _FakeUploadRepository(),
+            generationTaskRepository: _FakeGenerationTaskRepository(),
+            generationRecordRepository: repository,
+            originalFileStore: originalFileStore,
+            photoLibraryAssetStore: photoLibraryAssetStore,
+            imageProcessor: _FakeGenerationImageProcessor(),
+          );
+      addTearDown(firstService.dispose);
+
+      final String recordId = await firstService.queueGalleryFile(
+        XFile('/tmp/gallery-picker-cache.jpg'),
+        originalAssetId: 'asset-gallery-1',
+      );
+      final GenerationRecord? record = await repository.findById(recordId);
+      expect(record?.originalAssetId, 'asset-gallery-1');
+      expect(record?.originalLocalPath, isNull);
+
+      final GenerationSubmissionService restartedService =
+          GenerationSubmissionService(
+            uploadRepository: _FakeUploadRepository(),
+            generationTaskRepository: _FakeGenerationTaskRepository(),
+            generationRecordRepository: repository,
+            originalFileStore: originalFileStore,
+            photoLibraryAssetStore: photoLibraryAssetStore,
+            imageProcessor: _FakeGenerationImageProcessor(),
+          );
+      addTearDown(restartedService.dispose);
+
+      final GenerationSubmissionState state = await restartedService
+          .stateForRecords(await repository.listRecords());
+
+      expect(state.jobs.single.imagePath, '/photos/asset-gallery-1.heic');
+      expect(photoLibraryAssetStore.resolvedAssetIds, <String>[
+        'asset-gallery-1',
+      ]);
     },
   );
 
@@ -363,7 +435,7 @@ void main() {
     expect(jobs, hasLength(2));
     expect(
       jobs.map((GenerationSubmissionJob job) => job.imagePath).toSet(),
-      <String>{'/tmp/first.jpg', '/tmp/second.jpg'},
+      everyElement(startsWith('/resolved/originals/')),
     );
     expect(
       jobs.every(
@@ -375,7 +447,8 @@ void main() {
   });
 
   test('polling completed task processes and saves result image', () async {
-    final _FakePhotoLibrarySaver photoLibrarySaver = _FakePhotoLibrarySaver();
+    final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
+        _FakePhotoLibraryAssetStore();
     final _FakeGenerationImageProcessor imageProcessor =
         _FakeGenerationImageProcessor();
     final _FakeGenerationTaskRepository taskRepository =
@@ -390,7 +463,7 @@ void main() {
             ),
           );
     final ProviderContainer container = _container(
-      photoLibrarySaver: photoLibrarySaver,
+      photoLibraryAssetStore: photoLibraryAssetStore,
       imageProcessor: imageProcessor,
       taskRepository: taskRepository,
     );
@@ -420,17 +493,28 @@ void main() {
     expect(job.taskStatus, GenerationTaskStatus.completed);
     expect(job.resultImageObjectId, 'result-1');
     expect(job.resultUrl, 'https://example.com/result-1.jpg');
-    expect(job.processedResultPath, '/tmp/photo.jpg.cleaned.jpg.result.heic');
+    expect(job.processedResultPath, '/photos/asset-result-1.heic');
     expect(imageProcessor.processedResultUrls, <String>[
       'https://example.com/result-1.jpg',
     ]);
     expect(imageProcessor.processedSourceExif.single, <String, Object>{
       'DateTimeOriginal': '2026:05:29 00:00:00',
     });
-    expect(photoLibrarySaver.events, <String>[
-      'save:/tmp/photo.jpg:TesserCam',
-      'save:/tmp/photo.jpg.cleaned.jpg.result.heic:TesserCam',
-    ]);
+    expect(photoLibraryAssetStore.events, hasLength(1));
+    expect(
+      photoLibraryAssetStore.events.single,
+      predicate<String>(
+        (String value) =>
+            value ==
+            'save:/tmp/photo.jpg.cleaned.jpg.result.heic:TesserCam:TesserCam-$jobId.heic',
+      ),
+    );
+    expect(photoLibraryAssetStore.resolvedAssetIds, <String>['asset-result-1']);
+    final GenerationRecord? record = await container
+        .read(generationRecordRepositoryProvider)
+        .findById(jobId);
+    expect(record?.resultAssetId, 'asset-result-1');
+    expect(record?.resultLocalCachePath, isNull);
     expect(taskRepository.fetchTaskIds, <String>['task-1', 'task-1']);
   });
 
@@ -452,12 +536,11 @@ void main() {
     await container
         .read(generationSubmissionControllerProvider.notifier)
         .submitCapturedFile(XFile('/tmp/photo.jpg'));
-    await Future<void>.delayed(Duration.zero);
 
-    final GenerationSubmissionJob job = container
-        .read(generationSubmissionControllerProvider)
-        .jobs
-        .single;
+    final GenerationSubmissionJob job = await _waitForSingleJobStatus(
+      container,
+      GenerationSubmissionStatus.resultProcessingFailed,
+    );
     expect(job.status, GenerationSubmissionStatus.resultProcessingFailed);
     expect(job.taskStatus, GenerationTaskStatus.completed);
     expect(job.resultSaveErrorCode, 'result_processing_failed');
@@ -482,12 +565,11 @@ void main() {
     await container
         .read(generationSubmissionControllerProvider.notifier)
         .submitCapturedFile(XFile('/tmp/photo.jpg'));
-    await Future<void>.delayed(Duration.zero);
 
-    final GenerationSubmissionJob job = container
-        .read(generationSubmissionControllerProvider)
-        .jobs
-        .single;
+    final GenerationSubmissionJob job = await _waitForSingleJobStatus(
+      container,
+      GenerationSubmissionStatus.failed,
+    );
     expect(job.status, GenerationSubmissionStatus.failed);
     expect(job.taskStatus, GenerationTaskStatus.failed);
     expect(job.errorCode, 'provider_error');
@@ -536,16 +618,40 @@ void main() {
   });
 }
 
+Future<GenerationSubmissionJob> _waitForSingleJobStatus(
+  ProviderContainer container,
+  GenerationSubmissionStatus status,
+) async {
+  final DateTime deadline = DateTime.now().add(const Duration(seconds: 3));
+  while (DateTime.now().isBefore(deadline)) {
+    final List<GenerationSubmissionJob> jobs = container
+        .read(generationSubmissionControllerProvider)
+        .jobs;
+    if (jobs.length == 1 && jobs.single.status == status) {
+      return jobs.single;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  return container.read(generationSubmissionControllerProvider).jobs.single;
+}
+
 ProviderContainer _container({
-  _FakePhotoLibrarySaver? photoLibrarySaver,
+  _FakePhotoLibraryAssetStore? photoLibraryAssetStore,
   _FakeGenerationImageProcessor? imageProcessor,
   _FakeUploadRepository? uploadRepository,
   _FakeGenerationTaskRepository? taskRepository,
+  _FakeGenerationOriginalFileStore? originalFileStore,
 }) {
+  final GenerationRecordDatabase database =
+      GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
   return ProviderContainer(
     overrides: <Override>[
-      photoLibrarySaverProvider.overrideWithValue(
-        photoLibrarySaver ?? _FakePhotoLibrarySaver(),
+      generationRecordDatabaseProvider.overrideWithValue(database),
+      generationOriginalFileStoreProvider.overrideWithValue(
+        originalFileStore ?? _FakeGenerationOriginalFileStore(),
+      ),
+      photoLibraryAssetStoreProvider.overrideWithValue(
+        photoLibraryAssetStore ?? _FakePhotoLibraryAssetStore(),
       ),
       generationImageProcessorProvider.overrideWithValue(
         imageProcessor ?? _FakeGenerationImageProcessor(),
@@ -558,6 +664,47 @@ ProviderContainer _container({
       ),
     ],
   );
+}
+
+class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
+  final List<String> storedPaths = <String>[];
+  final List<String> storedRelativePaths = <String>[];
+  final List<String> deletedPaths = <String>[];
+  Object? storeFailure;
+
+  @override
+  Future<StoredOriginalFile> storeCameraOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime capturedAt,
+  }) async {
+    final Object? failure = storeFailure;
+    if (failure != null) {
+      throw failure;
+    }
+    final String storedPath = 'originals/2026/06/04/$recordId.heic';
+    storedPaths.add('$sourcePath->$storedPath');
+    storedRelativePaths.add(storedPath);
+    return StoredOriginalFile(path: storedPath, format: 'heic');
+  }
+
+  @override
+  Future<String> resolveOriginalPath(String path) async {
+    if (path.startsWith('/')) {
+      return path;
+    }
+    return '/resolved/$path';
+  }
+
+  @override
+  Future<bool> originalExists(String path) async {
+    return true;
+  }
+
+  @override
+  Future<void> deleteOriginal(String path) async {
+    deletedPaths.add(path);
+  }
 }
 
 class _FakeGenerationImageProcessor implements GenerationImageProcessor {
@@ -605,17 +752,30 @@ class _FakeGenerationImageProcessor implements GenerationImageProcessor {
   }
 }
 
-class _FakePhotoLibrarySaver implements PhotoLibrarySaver {
+class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   final List<String> events = <String>[];
+  final List<String> resolvedAssetIds = <String>[];
   Object? failure;
+  String assetId = 'asset-result-1';
 
   @override
-  Future<void> saveImage(String path, {required String album}) async {
-    events.add('save:$path:$album');
+  Future<SavedPhotoLibraryImage> saveImage(
+    String path, {
+    required String album,
+    required String fileName,
+  }) async {
+    events.add('save:$path:$album:$fileName');
     final Object? failure = this.failure;
     if (failure != null) {
       throw failure;
     }
+    return SavedPhotoLibraryImage(assetId: assetId);
+  }
+
+  @override
+  Future<String?> resolveImagePath(String assetId) async {
+    resolvedAssetIds.add(assetId);
+    return '/photos/$assetId.heic';
   }
 }
 

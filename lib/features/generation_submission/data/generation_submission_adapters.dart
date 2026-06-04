@@ -1,13 +1,34 @@
+import 'dart:io';
+
 import 'package:camera_platform_interface/camera_platform_interface.dart';
-import 'package:gal/gal.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart' hide XFile;
 
 abstract interface class GalleryImagePicker {
-  Future<XFile?> pickImageFromGallery();
+  Future<PickedGalleryImage?> pickImageFromGallery();
 }
 
-abstract interface class PhotoLibrarySaver {
-  Future<void> saveImage(String path, {required String album});
+class PickedGalleryImage {
+  const PickedGalleryImage({required this.file, this.assetId});
+
+  final XFile file;
+  final String? assetId;
+}
+
+class SavedPhotoLibraryImage {
+  const SavedPhotoLibraryImage({required this.assetId});
+
+  final String assetId;
+}
+
+abstract interface class PhotoLibraryAssetStore {
+  Future<SavedPhotoLibraryImage> saveImage(
+    String path, {
+    required String album,
+    required String fileName,
+  });
+
+  Future<String?> resolveImagePath(String assetId);
 }
 
 class ImagePickerGalleryImagePicker implements GalleryImagePicker {
@@ -16,19 +37,81 @@ class ImagePickerGalleryImagePicker implements GalleryImagePicker {
   final ImagePicker _imagePicker;
 
   @override
-  Future<XFile?> pickImageFromGallery() {
-    return _imagePicker.pickImage(
+  Future<PickedGalleryImage?> pickImageFromGallery() async {
+    final XFile? file = await _imagePicker.pickImage(
       source: ImageSource.gallery,
       requestFullMetadata: true,
+    );
+    if (file == null) {
+      return null;
+    }
+    return PickedGalleryImage(file: file);
+  }
+}
+
+class PlatformGalleryImagePicker implements GalleryImagePicker {
+  const PlatformGalleryImagePicker({required ImagePicker fallbackImagePicker})
+    : _fallbackImagePicker = fallbackImagePicker;
+
+  static const MethodChannel _channel = MethodChannel(
+    'fantasy_camera/photo_library_assets',
+  );
+
+  final ImagePicker _fallbackImagePicker;
+
+  @override
+  Future<PickedGalleryImage?> pickImageFromGallery() async {
+    if (!Platform.isIOS) {
+      return ImagePickerGalleryImagePicker(
+        _fallbackImagePicker,
+      ).pickImageFromGallery();
+    }
+
+    final Map<Object?, Object?>? result = await _channel
+        .invokeMethod<Map<Object?, Object?>>('pickImage');
+    if (result == null) {
+      return null;
+    }
+    final Object? path = result['path'];
+    if (path is! String || path.isEmpty) {
+      return null;
+    }
+    final Object? assetId = result['assetId'];
+    return PickedGalleryImage(
+      file: XFile(path),
+      assetId: assetId is String && assetId.isNotEmpty ? assetId : null,
     );
   }
 }
 
-class GalPhotoLibrarySaver implements PhotoLibrarySaver {
-  const GalPhotoLibrarySaver();
+class MethodChannelPhotoLibraryAssetStore implements PhotoLibraryAssetStore {
+  const MethodChannelPhotoLibraryAssetStore();
+
+  static const MethodChannel _channel = MethodChannel(
+    'fantasy_camera/photo_library_assets',
+  );
 
   @override
-  Future<void> saveImage(String path, {required String album}) {
-    return Gal.putImage(path, album: album);
+  Future<SavedPhotoLibraryImage> saveImage(
+    String path, {
+    required String album,
+    required String fileName,
+  }) async {
+    final String? assetId = await _channel.invokeMethod<String>('saveImage', {
+      'path': path,
+      'album': album,
+      'fileName': fileName,
+    });
+    if (assetId == null || assetId.isEmpty) {
+      throw StateError('Photo library save did not return an asset id.');
+    }
+    return SavedPhotoLibraryImage(assetId: assetId);
+  }
+
+  @override
+  Future<String?> resolveImagePath(String assetId) {
+    return _channel.invokeMethod<String>('resolveImagePath', {
+      'assetId': assetId,
+    });
   }
 }

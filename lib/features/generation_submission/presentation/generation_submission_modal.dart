@@ -6,6 +6,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../backend_api/domain/prompt_config.dart';
+import '../data/generation_submission_adapters.dart';
 import '../domain/generation_submission_job.dart';
 import 'generation_submission_providers.dart';
 
@@ -84,7 +85,7 @@ class _GenerationSubmissionDebugModalState
                         onCancel:
                             job.status ==
                                 GenerationSubmissionStatus.awaitingConfirmation
-                            ? () => _cancelJob(job)
+                            ? () => unawaited(_cancelJob(job))
                             : null,
                       );
                     },
@@ -154,10 +155,15 @@ class _GenerationSubmissionDebugModalState
         .confirmJob(job.id);
   }
 
-  void _cancelJob(GenerationSubmissionJob job) {
+  Future<void> _cancelJob(GenerationSubmissionJob job) async {
     _debugLog('cancel job=${job.id}');
-    ref.read(generationSubmissionControllerProvider.notifier).cancelJob(job.id);
+    await ref
+        .read(generationSubmissionControllerProvider.notifier)
+        .cancelJob(job.id);
     if (_selectedJobId == job.id) {
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _selectedJobId = null;
         _loadingResultJobId = null;
@@ -198,20 +204,25 @@ class _GenerationSubmissionDebugModalState
     });
 
     try {
-      final XFile? file = await ref
+      final PickedGalleryImage? pickedImage = await ref
           .read(galleryImagePickerProvider)
           .pickImageFromGallery();
-      if (file == null) {
+      if (pickedImage == null) {
         _debugLog('pick gallery canceled');
         return;
       }
+      final XFile file = pickedImage.file;
       _debugLog('pick gallery success path=${file.path}');
       final PromptSelectionSnapshot promptSelection = ref
           .read(promptSelectionControllerProvider)
           .snapshot;
-      ref
+      await ref
           .read(generationSubmissionControllerProvider.notifier)
-          .queueGalleryFile(file, promptSelection: promptSelection);
+          .queueGalleryFile(
+            file,
+            originalAssetId: pickedImage.assetId,
+            promptSelection: promptSelection,
+          );
     } on Object catch (error) {
       _debugLog('pick gallery failure error=$error');
     } finally {
@@ -338,7 +349,7 @@ class _JobThumbnail extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            Image.file(File(job.imagePath), fit: BoxFit.cover),
+            _ThumbnailImage(path: job.imagePath),
             Positioned(
               right: 6,
               top: job.status == GenerationSubmissionStatus.awaitingConfirmation
@@ -368,6 +379,47 @@ class _JobThumbnail extends StatelessWidget {
               child: _PromptSnapshotBadge(job: job),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ThumbnailImage extends StatelessWidget {
+  const _ThumbnailImage({required this.path});
+
+  final String path;
+
+  @override
+  Widget build(BuildContext context) {
+    if (path.isEmpty) {
+      return const _MissingOriginalImagePlaceholder();
+    }
+    return Image.file(
+      File(path),
+      fit: BoxFit.cover,
+      errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
+        debugPrint(
+          '[GenerationSubmissionModal] thumbnail image load failure path=$path error=$error',
+        );
+        return const _MissingOriginalImagePlaceholder();
+      },
+    );
+  }
+}
+
+class _MissingOriginalImagePlaceholder extends StatelessWidget {
+  const _MissingOriginalImagePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: CupertinoColors.systemGrey6.resolveFrom(context),
+      child: Center(
+        child: Icon(
+          CupertinoIcons.photo,
+          color: CupertinoColors.secondaryLabel.resolveFrom(context),
+          size: 30,
         ),
       ),
     );

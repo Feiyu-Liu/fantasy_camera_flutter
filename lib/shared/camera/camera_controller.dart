@@ -4,6 +4,7 @@
 
 import 'dart:async';
 import 'dart:collection';
+import 'dart:math';
 
 import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
@@ -24,6 +25,8 @@ class CameraValue {
     required this.flashMode,
     required this.exposureMode,
     required this.focusMode,
+    required this.exposurePointSupported,
+    required this.focusPointSupported,
     required this.deviceOrientation,
     required this.description,
     this.lockedCaptureOrientation,
@@ -43,6 +46,8 @@ class CameraValue {
         flashMode: FlashMode.auto,
         exposureMode: ExposureMode.auto,
         focusMode: FocusMode.auto,
+        exposurePointSupported: false,
+        focusPointSupported: false,
         deviceOrientation: DeviceOrientation.portraitUp,
         isPreviewPaused: false,
         description: description,
@@ -82,6 +87,12 @@ class CameraValue {
 
   /// The focus mode the camera is currently set to.
   final FocusMode focusMode;
+
+  /// Whether exposure point selection is supported.
+  final bool exposurePointSupported;
+
+  /// Whether focus point selection is supported.
+  final bool focusPointSupported;
 
   /// The current device UI orientation.
   final DeviceOrientation deviceOrientation;
@@ -131,6 +142,9 @@ class CameraValue {
       flashMode: flashMode ?? this.flashMode,
       exposureMode: exposureMode ?? this.exposureMode,
       focusMode: focusMode ?? this.focusMode,
+      exposurePointSupported:
+          exposurePointSupported ?? this.exposurePointSupported,
+      focusPointSupported: focusPointSupported ?? this.focusPointSupported,
       deviceOrientation: deviceOrientation ?? this.deviceOrientation,
       lockedCaptureOrientation: lockedCaptureOrientation == null
           ? this.lockedCaptureOrientation
@@ -156,6 +170,8 @@ class CameraValue {
         'flashMode: $flashMode, '
         'exposureMode: $exposureMode, '
         'focusMode: $focusMode, '
+        'exposurePointSupported: $exposurePointSupported, '
+        'focusPointSupported: $focusPointSupported, '
         'deviceOrientation: $deviceOrientation, '
         'lockedCaptureOrientation: $lockedCaptureOrientation, '
         'recordingOrientation: $recordingOrientation, '
@@ -465,6 +481,11 @@ class CameraController extends ValueNotifier<CameraValue> {
     value = value.copyWith(exposureMode: mode);
   }
 
+  /// Sets the exposure point for automatically determining exposure values.
+  Future<void> setExposurePoint(Point<double>? point) async {
+    await CameraPlatform.instance.setExposurePoint(_cameraId, point);
+  }
+
   /// Sets the exposure offset for the selected camera.
   Future<double> setExposureOffset(double offset) async {
     // Check if offset is in range
@@ -520,6 +541,19 @@ class CameraController extends ValueNotifier<CameraValue> {
   Future<void> setFocusMode(FocusMode mode) async {
     await CameraPlatform.instance.setFocusMode(_cameraId, mode);
     value = value.copyWith(focusMode: mode);
+  }
+
+  /// Sets the focus point for automatically determining focus values.
+  Future<void> setFocusPoint(Point<double>? point) async {
+    await CameraPlatform.instance.setFocusPoint(_cameraId, point);
+  }
+
+  /// Sets both focus and exposure points for a tap-to-focus interaction.
+  Future<void> setFocusAndExposurePoint(Point<double> point) async {
+    await Future.wait(<Future<void>>[
+      if (value.focusPointSupported) setFocusPoint(point),
+      if (value.exposurePointSupported) setExposurePoint(point),
+    ]);
   }
 
   /// Sets the output format for taking pictures.

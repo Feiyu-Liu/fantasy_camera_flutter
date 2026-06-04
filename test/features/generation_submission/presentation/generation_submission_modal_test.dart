@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
+import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
@@ -9,9 +11,14 @@ import 'package:fantasy_camera_flutter/features/backend_api/domain/prompt_config
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_submission_service.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_repository.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_original_file_store.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_record.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_modal.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:flutter/cupertino.dart';
@@ -32,7 +39,7 @@ void main() {
       _job(id: 'failed', status: GenerationSubmissionStatus.failed),
     ];
 
-    await tester.pumpWidget(_ModalHost(jobs: jobs));
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
 
     expect(
       find.byKey(const ValueKey<String>('generation-submission-photo-list')),
@@ -99,7 +106,8 @@ void main() {
       ),
     ];
 
-    await tester.pumpWidget(
+    await _pumpModalHost(
+      tester,
       _ModalHost(
         jobs: jobs,
         uploadRepository: uploadRepository,
@@ -138,7 +146,8 @@ void main() {
       ),
     ];
 
-    await tester.pumpWidget(
+    await _pumpModalHost(
+      tester,
       _ModalHost(
         jobs: jobs,
         uploadRepository: uploadRepository,
@@ -151,6 +160,7 @@ void main() {
         const ValueKey<String>('generation-submission-cancel-awaiting'),
       ),
     );
+    await tester.pump();
     await tester.pump();
 
     expect(
@@ -166,7 +176,8 @@ void main() {
   testWidgets('modal shows gallery picker when no jobs exist', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(
+    await _pumpModalHost(
+      tester,
       const _ModalHost(jobs: <GenerationSubmissionJob>[]),
     );
 
@@ -177,6 +188,24 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('No captured photos yet'), findsNothing);
+  });
+
+  testWidgets('modal shows thumbnail fallback when original file is missing', (
+    WidgetTester tester,
+  ) async {
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'missing',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+        imagePath: '/tmp/does-not-exist.heic',
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byIcon(CupertinoIcons.photo), findsOneWidget);
   });
 
   testWidgets('tapping completed photo loads result image', (
@@ -193,7 +222,8 @@ void main() {
       ),
     ];
 
-    await tester.pumpWidget(
+    await _pumpModalHost(
+      tester,
       _ModalHost(jobs: jobs, taskRepository: taskRepository),
     );
 
@@ -252,7 +282,7 @@ void main() {
       ),
     ];
 
-    await tester.pumpWidget(_ModalHost(jobs: jobs));
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
 
     expect(
       find.byKey(
@@ -273,7 +303,7 @@ void main() {
       ),
     ];
 
-    await tester.pumpWidget(_ModalHost(jobs: jobs));
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
 
     expect(find.text('HEIF conversion failed'), findsOneWidget);
     expect(
@@ -297,7 +327,8 @@ void main() {
     final _FakeGenerationTaskRepository taskRepository =
         _FakeGenerationTaskRepository();
 
-    await tester.pumpWidget(
+    await _pumpModalHost(
+      tester,
       _ModalHost(
         jobs: const <GenerationSubmissionJob>[],
         imagePicker: imagePicker,
@@ -340,7 +371,8 @@ void main() {
   ) async {
     final _FakeGalleryImagePicker imagePicker = _FakeGalleryImagePicker(null);
 
-    await tester.pumpWidget(
+    await _pumpModalHost(
+      tester,
       _ModalHost(
         jobs: const <GenerationSubmissionJob>[],
         imagePicker: imagePicker,
@@ -367,7 +399,20 @@ void main() {
   });
 }
 
-class _ModalHost extends StatelessWidget {
+Future<void> _pumpModalHost(WidgetTester tester, _ModalHost host) async {
+  addTearDown(() async {
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await tester.pump();
+  });
+  await tester.pumpWidget(host);
+  await tester.pump();
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 1));
+  await tester.pump();
+}
+
+class _ModalHost extends StatefulWidget {
   const _ModalHost({
     required this.jobs,
     this.imagePicker,
@@ -381,50 +426,358 @@ class _ModalHost extends StatelessWidget {
   final _FakeGenerationTaskRepository? taskRepository;
 
   @override
+  State<_ModalHost> createState() => _ModalHostState();
+}
+
+class _ModalHostState extends State<_ModalHost> {
+  late final GenerationRecordDatabase _database =
+      GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+  late final StreamController<List<GenerationRecord>> _recordsController =
+      StreamController<List<GenerationRecord>>.broadcast();
+  late final _NotifyingGenerationRecordRepository _recordRepository =
+      _NotifyingGenerationRecordRepository(_database, _recordsController);
+  late final Future<List<GenerationRecord>> _seedFuture = _seedRecords();
+
+  Future<List<GenerationRecord>> _seedRecords() async {
+    await _seedJobs(widget.jobs, _recordRepository);
+    return _recordRepository.listRecords();
+  }
+
+  @override
+  void dispose() {
+    _recordsController.close();
+    _database.close();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ProviderScope(
       overrides: <Override>[
+        generationRecordDatabaseProvider.overrideWithValue(_database),
+        generationRecordsProvider.overrideWith((Ref ref) {
+          return (() async* {
+            yield await _seedFuture;
+            yield* _recordsController.stream;
+          })();
+        }),
         generationImageProcessorProvider.overrideWithValue(
           const _FakeGenerationImageProcessor(),
         ),
+        generationOriginalFileStoreProvider.overrideWithValue(
+          const _FakeGenerationOriginalFileStore(),
+        ),
         galleryImagePickerProvider.overrideWithValue(
-          imagePicker ?? _FakeGalleryImagePicker(null),
+          widget.imagePicker ?? _FakeGalleryImagePicker(null),
         ),
         uploadRepositoryProvider.overrideWithValue(
-          uploadRepository ?? _FakeUploadRepository(),
+          widget.uploadRepository ?? _FakeUploadRepository(),
         ),
         generationTaskRepositoryProvider.overrideWithValue(
-          taskRepository ?? _FakeGenerationTaskRepository(),
+          widget.taskRepository ?? _FakeGenerationTaskRepository(),
         ),
         generationSubmissionServiceProvider.overrideWith((Ref ref) {
           final GenerationSubmissionService service =
               GenerationSubmissionService(
-                initialState: GenerationSubmissionState(
-                  jobs: ref.read(_seedJobsProvider),
-                ),
-                uploadRepository: uploadRepository ?? _FakeUploadRepository(),
+                uploadRepository:
+                    widget.uploadRepository ?? _FakeUploadRepository(),
                 generationTaskRepository:
-                    taskRepository ?? _FakeGenerationTaskRepository(),
-                photoLibrarySaver: const _FakePhotoLibrarySaver(),
+                    widget.taskRepository ?? _FakeGenerationTaskRepository(),
+                generationRecordRepository: _recordRepository,
+                originalFileStore: const _FakeGenerationOriginalFileStore(),
+                photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
                 imageProcessor: const _FakeGenerationImageProcessor(),
               );
           ref.onDispose(service.dispose);
           return service;
         }),
-        _seedJobsProvider.overrideWithValue(jobs),
       ],
       child: CupertinoApp(
         home: CupertinoPageScaffold(
-          child: const GenerationSubmissionDebugModal(),
+          child: _SeededModal(seedFuture: _seedFuture),
         ),
       ),
     );
   }
 }
 
-final _seedJobsProvider = Provider<List<GenerationSubmissionJob>>((_) {
-  return const <GenerationSubmissionJob>[];
-});
+class _SeededModal extends StatefulWidget {
+  const _SeededModal({required this.seedFuture});
+
+  final Future<List<GenerationRecord>> seedFuture;
+
+  @override
+  State<_SeededModal> createState() => _SeededModalState();
+}
+
+class _SeededModalState extends State<_SeededModal> {
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<GenerationRecord>>(
+      future: widget.seedFuture,
+      builder:
+          (
+            BuildContext context,
+            AsyncSnapshot<List<GenerationRecord>> snapshot,
+          ) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const SizedBox.shrink();
+            }
+            return const GenerationSubmissionDebugModal();
+          },
+    );
+  }
+}
+
+class _NotifyingGenerationRecordRepository extends GenerationRecordRepository {
+  _NotifyingGenerationRecordRepository(super.database, this._recordsController);
+
+  final StreamController<List<GenerationRecord>> _recordsController;
+
+  Future<void> _emitRecords() async {
+    if (!_recordsController.isClosed) {
+      _recordsController.add(await listRecords());
+    }
+  }
+
+  @override
+  Future<void> createCameraRecord({
+    required String recordId,
+    required String originalLocalPath,
+    required DateTime createdAt,
+    DateTime? originalCapturedAt,
+    String? originalFormat,
+    int? originalWidth,
+    int? originalHeight,
+    String? promptStyle,
+    String? captureMode,
+    String? appInputContractId,
+    String? userInputJson,
+    String? displaySnapshotJson,
+  }) async {
+    await super.createCameraRecord(
+      recordId: recordId,
+      originalLocalPath: originalLocalPath,
+      createdAt: createdAt,
+      originalCapturedAt: originalCapturedAt,
+      originalFormat: originalFormat,
+      originalWidth: originalWidth,
+      originalHeight: originalHeight,
+      promptStyle: promptStyle,
+      captureMode: captureMode,
+      appInputContractId: appInputContractId,
+      userInputJson: userInputJson,
+      displaySnapshotJson: displaySnapshotJson,
+    );
+    await _emitRecords();
+  }
+
+  @override
+  Future<void> createGalleryRecord({
+    required String recordId,
+    required DateTime createdAt,
+    String? originalAssetId,
+    DateTime? originalCapturedAt,
+    String? originalFormat,
+    int? originalWidth,
+    int? originalHeight,
+    String? promptStyle,
+    String? captureMode,
+    String? appInputContractId,
+    String? userInputJson,
+    String? displaySnapshotJson,
+  }) async {
+    await super.createGalleryRecord(
+      recordId: recordId,
+      createdAt: createdAt,
+      originalAssetId: originalAssetId,
+      originalCapturedAt: originalCapturedAt,
+      originalFormat: originalFormat,
+      originalWidth: originalWidth,
+      originalHeight: originalHeight,
+      promptStyle: promptStyle,
+      captureMode: captureMode,
+      appInputContractId: appInputContractId,
+      userInputJson: userInputJson,
+      displaySnapshotJson: displaySnapshotJson,
+    );
+    await _emitRecords();
+  }
+
+  @override
+  Future<void> updatePipelineStatus({
+    required String recordId,
+    required GenerationRecordPipelineStatus status,
+    required DateTime updatedAt,
+    String? errorCode,
+    String? errorMessage,
+    bool clearError = false,
+  }) async {
+    await super.updatePipelineStatus(
+      recordId: recordId,
+      status: status,
+      updatedAt: updatedAt,
+      errorCode: errorCode,
+      errorMessage: errorMessage,
+      clearError: clearError,
+    );
+    await _emitRecords();
+  }
+
+  @override
+  Future<void> updateUploadFields({
+    required String recordId,
+    required DateTime updatedAt,
+    String? uploadSessionId,
+    String? sourceImageObjectId,
+    String? uploadContentType,
+    int? uploadSizeBytes,
+    String? uploadSha256,
+  }) async {
+    await super.updateUploadFields(
+      recordId: recordId,
+      updatedAt: updatedAt,
+      uploadSessionId: uploadSessionId,
+      sourceImageObjectId: sourceImageObjectId,
+      uploadContentType: uploadContentType,
+      uploadSizeBytes: uploadSizeBytes,
+      uploadSha256: uploadSha256,
+    );
+    await _emitRecords();
+  }
+
+  @override
+  Future<void> updateTaskFields({
+    required String recordId,
+    required DateTime updatedAt,
+    String? taskId,
+    String? taskStatus,
+    String? resultImageObjectId,
+  }) async {
+    await super.updateTaskFields(
+      recordId: recordId,
+      updatedAt: updatedAt,
+      taskId: taskId,
+      taskStatus: taskStatus,
+      resultImageObjectId: resultImageObjectId,
+    );
+    await _emitRecords();
+  }
+
+  @override
+  Future<void> updateResultFields({
+    required String recordId,
+    required DateTime updatedAt,
+    GenerationRecordResultAvailability? resultAvailability,
+    String? resultImageObjectId,
+    String? resultLocalCachePath,
+    String? resultAssetId,
+    DateTime? resultSavedAt,
+    int? resultSizeBytes,
+    String? resultSha256,
+    GenerationRecordHashStatus? resultHashStatus,
+    String? resultHashError,
+  }) async {
+    await super.updateResultFields(
+      recordId: recordId,
+      updatedAt: updatedAt,
+      resultAvailability: resultAvailability,
+      resultImageObjectId: resultImageObjectId,
+      resultLocalCachePath: resultLocalCachePath,
+      resultAssetId: resultAssetId,
+      resultSavedAt: resultSavedAt,
+      resultSizeBytes: resultSizeBytes,
+      resultSha256: resultSha256,
+      resultHashStatus: resultHashStatus,
+      resultHashError: resultHashError,
+    );
+    await _emitRecords();
+  }
+
+  @override
+  Future<void> deleteRecord(String recordId) async {
+    await super.deleteRecord(recordId);
+    await _emitRecords();
+  }
+}
+
+Future<void> _seedJobs(
+  List<GenerationSubmissionJob> jobs,
+  GenerationRecordRepository repository,
+) async {
+  for (final GenerationSubmissionJob job in jobs) {
+    await repository.createCameraRecord(
+      recordId: job.id,
+      originalLocalPath: job.imagePath,
+      createdAt: job.createdAt,
+      promptStyle:
+          job.promptSelection?.promptStyle ??
+          PromptSelectionSnapshot.fallback.promptStyle,
+      captureMode:
+          job.promptSelection?.captureMode ??
+          PromptSelectionSnapshot.fallback.captureMode,
+    );
+    await repository.updatePipelineStatus(
+      recordId: job.id,
+      status: _recordStatusForJob(job.status),
+      updatedAt: job.updatedAt,
+      errorCode: job.errorCode,
+      errorMessage: job.errorMessage ?? job.resultSaveErrorMessage,
+    );
+    await repository.updateTaskFields(
+      recordId: job.id,
+      updatedAt: job.updatedAt,
+      taskId: job.taskId,
+      taskStatus: job.taskStatus?.wireValue,
+      resultImageObjectId: job.resultImageObjectId,
+    );
+    if (job.processedResultPath != null) {
+      await repository.updateResultFields(
+        recordId: job.id,
+        updatedAt: job.updatedAt,
+        resultAvailability:
+            GenerationRecordResultAvailability.savedToPhotoLibrary,
+        resultLocalCachePath: job.processedResultPath,
+      );
+    }
+  }
+}
+
+GenerationRecordPipelineStatus _recordStatusForJob(
+  GenerationSubmissionStatus status,
+) {
+  return switch (status) {
+    GenerationSubmissionStatus.awaitingConfirmation =>
+      GenerationRecordPipelineStatus.awaitingConfirmation,
+    GenerationSubmissionStatus.queued =>
+      GenerationRecordPipelineStatus.awaitingRetry,
+    GenerationSubmissionStatus.preparingUploadImage =>
+      GenerationRecordPipelineStatus.preparingUploadImage,
+    GenerationSubmissionStatus.readingFile ||
+    GenerationSubmissionStatus.creatingUpload =>
+      GenerationRecordPipelineStatus.creatingUpload,
+    GenerationSubmissionStatus.uploading =>
+      GenerationRecordPipelineStatus.uploading,
+    GenerationSubmissionStatus.completingUpload =>
+      GenerationRecordPipelineStatus.completingUpload,
+    GenerationSubmissionStatus.creatingTask =>
+      GenerationRecordPipelineStatus.creatingTask,
+    GenerationSubmissionStatus.submitted =>
+      GenerationRecordPipelineStatus.submitted,
+    GenerationSubmissionStatus.pollingTask =>
+      GenerationRecordPipelineStatus.pollingTask,
+    GenerationSubmissionStatus.completed =>
+      GenerationRecordPipelineStatus.completed,
+    GenerationSubmissionStatus.processingResultImage =>
+      GenerationRecordPipelineStatus.processingResultImage,
+    GenerationSubmissionStatus.resultSaved =>
+      GenerationRecordPipelineStatus.resultSaved,
+    GenerationSubmissionStatus.resultProcessingFailed =>
+      GenerationRecordPipelineStatus.resultSaveFailed,
+    GenerationSubmissionStatus.failed =>
+      GenerationRecordPipelineStatus.generationFailed,
+  };
+}
 
 class _FakeGenerationImageProcessor implements GenerationImageProcessor {
   const _FakeGenerationImageProcessor();
@@ -461,17 +814,58 @@ class _FakeGalleryImagePicker implements GalleryImagePicker {
   int pickCount = 0;
 
   @override
-  Future<XFile?> pickImageFromGallery() async {
+  Future<PickedGalleryImage?> pickImageFromGallery() async {
     pickCount += 1;
-    return result;
+    final XFile? result = this.result;
+    if (result == null) {
+      return null;
+    }
+    return PickedGalleryImage(file: result, assetId: 'asset-gallery-1');
   }
 }
 
-class _FakePhotoLibrarySaver implements PhotoLibrarySaver {
-  const _FakePhotoLibrarySaver();
+class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
+  const _FakePhotoLibraryAssetStore();
 
   @override
-  Future<void> saveImage(String path, {required String album}) async {}
+  Future<SavedPhotoLibraryImage> saveImage(
+    String path, {
+    required String album,
+    required String fileName,
+  }) async {
+    return const SavedPhotoLibraryImage(assetId: 'asset-result-1');
+  }
+
+  @override
+  Future<String?> resolveImagePath(String assetId) async {
+    return null;
+  }
+}
+
+class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
+  const _FakeGenerationOriginalFileStore();
+
+  @override
+  Future<void> deleteOriginal(String path) async {}
+
+  @override
+  Future<String> resolveOriginalPath(String path) async {
+    return path;
+  }
+
+  @override
+  Future<bool> originalExists(String path) async {
+    return true;
+  }
+
+  @override
+  Future<StoredOriginalFile> storeCameraOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime capturedAt,
+  }) async {
+    return StoredOriginalFile(path: sourcePath, format: 'jpg');
+  }
 }
 
 class _FakeUploadRepository implements UploadRepository {
@@ -567,14 +961,15 @@ GenerationSubmissionJob _job({
   required String id,
   required GenerationSubmissionStatus status,
   String? taskId,
+  String? imagePath,
   String? processedResultPath,
   String? resultSaveErrorMessage,
 }) {
   final DateTime now = DateTime.parse('2026-05-29T00:00:00Z');
-  final File imageFile = _writeImageFile(id);
+  final String resolvedImagePath = imagePath ?? _writeImageFile(id).path;
   return GenerationSubmissionJob(
     id: id,
-    imagePath: imageFile.path,
+    imagePath: resolvedImagePath,
     status: status,
     taskId: taskId ?? 'task-$id',
     promptSelection: const PromptSelectionSnapshot(

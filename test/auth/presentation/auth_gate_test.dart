@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
+import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
@@ -23,11 +24,19 @@ import 'package:fantasy_camera_flutter/features/camera/data/camera_device_reposi
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_choice.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_submission_service.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_repository.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_original_file_store.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 
 void main() {
+  Future<void> usePortraitSurface(WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+  }
+
   testWidgets('shows auth page when signed out', (WidgetTester tester) async {
     await tester.pumpWidget(
       FantasyCameraApp(
@@ -50,6 +59,7 @@ void main() {
   testWidgets('shows camera screen when signed in', (
     WidgetTester tester,
   ) async {
+    await usePortraitSurface(tester);
     await tester.pumpWidget(
       FantasyCameraApp(
         overrides: <Override>[
@@ -87,6 +97,7 @@ void main() {
   testWidgets('camera gallery thumbnail opens generation debug modal', (
     WidgetTester tester,
   ) async {
+    await usePortraitSurface(tester);
     await tester.pumpWidget(
       FantasyCameraApp(
         overrides: <Override>[
@@ -105,14 +116,17 @@ void main() {
             const _FakeCreditsRepository(),
           ),
           generationSubmissionServiceProvider.overrideWith((Ref ref) {
-            final GenerationSubmissionService service =
-                GenerationSubmissionService(
-                  uploadRepository: const _FakeUploadRepository(),
-                  generationTaskRepository:
-                      const _FakeGenerationTaskRepository(),
-                  photoLibrarySaver: const _FakePhotoLibrarySaver(),
-                  imageProcessor: const _FakeGenerationImageProcessor(),
-                );
+            final GenerationSubmissionService
+            service = GenerationSubmissionService(
+              uploadRepository: const _FakeUploadRepository(),
+              generationTaskRepository: const _FakeGenerationTaskRepository(),
+              generationRecordRepository: GenerationRecordRepository(
+                GenerationRecordDatabase.forExecutor(NativeDatabase.memory()),
+              ),
+              originalFileStore: const _FakeGenerationOriginalFileStore(),
+              photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
+              imageProcessor: const _FakeGenerationImageProcessor(),
+            );
             ref.onDispose(service.dispose);
             return service;
           }),
@@ -175,6 +189,7 @@ void main() {
   testWidgets('mounts camera screen after camera choices load', (
     WidgetTester tester,
   ) async {
+    await usePortraitSurface(tester);
     final Completer<List<CameraChoice>> cameraChoicesCompleter =
         Completer<List<CameraChoice>>();
 
@@ -209,6 +224,7 @@ void main() {
   testWidgets('loads camera choices after auth restores to signed in', (
     WidgetTester tester,
   ) async {
+    await usePortraitSurface(tester);
     final StreamController<AuthSessionState> authStates =
         StreamController<AuthSessionState>();
     addTearDown(authStates.close);
@@ -323,11 +339,48 @@ class _FakeCreditsRepository implements CreditsRepository {
   }
 }
 
-class _FakePhotoLibrarySaver implements PhotoLibrarySaver {
-  const _FakePhotoLibrarySaver();
+class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
+  const _FakePhotoLibraryAssetStore();
 
   @override
-  Future<void> saveImage(String path, {required String album}) async {}
+  Future<SavedPhotoLibraryImage> saveImage(
+    String path, {
+    required String album,
+    required String fileName,
+  }) async {
+    return const SavedPhotoLibraryImage(assetId: 'asset-result-1');
+  }
+
+  @override
+  Future<String?> resolveImagePath(String assetId) async {
+    return null;
+  }
+}
+
+class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
+  const _FakeGenerationOriginalFileStore();
+
+  @override
+  Future<void> deleteOriginal(String path) async {}
+
+  @override
+  Future<String> resolveOriginalPath(String path) async {
+    return path;
+  }
+
+  @override
+  Future<bool> originalExists(String path) async {
+    return true;
+  }
+
+  @override
+  Future<StoredOriginalFile> storeCameraOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime capturedAt,
+  }) async {
+    return StoredOriginalFile(path: sourcePath, format: 'heic');
+  }
 }
 
 class _FakeUploadRepository implements UploadRepository {

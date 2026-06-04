@@ -1,5 +1,17 @@
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 
+enum CameraPhotoDynamicRange {
+  sdr,
+  hdr;
+
+  ImageFileFormat get imageFileFormat {
+    return switch (this) {
+      CameraPhotoDynamicRange.sdr => ImageFileFormat.sdrHeif,
+      CameraPhotoDynamicRange.hdr => ImageFileFormat.heif,
+    };
+  }
+}
+
 class AppConfig {
   const AppConfig._();
 
@@ -23,14 +35,30 @@ class AppConfig {
   // 相机初始化和图像流的图像数据格式偏好；这不是 `takePicture()` 最终保存的文件格式。
   static const ImageFormatGroup cameraImageFormatGroup = ImageFormatGroup.jpeg;
 
-  // `takePicture()` 最终保存的照片文件格式。
-  static const ImageFileFormat cameraImageFileFormat = ImageFileFormat.heif;
+  // `takePicture()` 最终保存的照片动态范围。默认导出 SDR HEIF，避免保留 Apple HDR gain map。
+  static const CameraPhotoDynamicRange cameraPhotoDynamicRange =
+      CameraPhotoDynamicRange.sdr;
+
+  static ImageFileFormat get cameraImageFileFormat =>
+      cameraPhotoDynamicRange.imageFileFormat;
 
   // iOS AVFoundation 切换变焦档位时的动画变焦速度。
   static const double cameraZoomRampRate = 10.0;
 
+  // 相机 UI 中分割线和细边框的统一线宽。
+  static const double cameraUiDividerWidth = 0.5;
+
   // 拍摄原图和最终生成图保存到系统相册时使用的相册名。
   static const String generationPhotoAlbumName = 'TesserCam';
+
+  // 生成图保存到系统相册前使用的文件名规范。
+  static const String generationResultFileNamePrefix = 'TesserCam';
+  static const String generationResultFileExtension = 'heic';
+
+  static String generationResultFileName(String recordId) {
+    return '$generationResultFileNamePrefix-$recordId.'
+        '$generationResultFileExtension';
+  }
 
   // 上传前清洗图片的最长边目标像素。保持比例缩放到 2K 水平。
   static const int generationUploadImageMaxSide = 2048;

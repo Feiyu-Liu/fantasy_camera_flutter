@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
@@ -210,6 +211,38 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     }
   }
 
+  Future<void> focusAndExposeAt(Point<double> point) async {
+    final CameraController? currentController = state.controller;
+    if (currentController == null ||
+        !currentController.value.isInitialized ||
+        state.isSwitchingCamera) {
+      return;
+    }
+
+    final Point<double> clampedPoint = Point<double>(
+      point.x.clamp(0.0, 1.0),
+      point.y.clamp(0.0, 1.0),
+    );
+    final bool focusSupported = currentController.value.focusPointSupported;
+    final bool exposureSupported =
+        currentController.value.exposurePointSupported;
+    debugPrint(
+      '[CameraFocus] tap point x=${clampedPoint.x.toStringAsFixed(3)} '
+      'y=${clampedPoint.y.toStringAsFixed(3)} '
+      'focusSupported=$focusSupported exposureSupported=$exposureSupported',
+    );
+
+    if (!focusSupported && !exposureSupported) {
+      return;
+    }
+
+    try {
+      await currentController.setFocusAndExposurePoint(clampedPoint);
+    } on CameraException catch (e) {
+      _showCameraException(e);
+    }
+  }
+
   Future<XFile?> takePicture() async {
     final CameraController? currentController = state.controller;
     if (currentController == null ||
@@ -239,7 +272,7 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       final PromptSelectionSnapshot promptSelection = ref
           .read(promptSelectionControllerProvider)
           .snapshot;
-      ref
+      await ref
           .read(generationSubmissionControllerProvider.notifier)
           .queueCapturedFile(file, promptSelection: promptSelection);
       return file;

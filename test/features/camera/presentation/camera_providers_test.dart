@@ -1,10 +1,16 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
+import 'package:drift/native.dart';
+import 'package:fantasy_camera_flutter/config/app_config.dart';
 import 'package:fantasy_camera_flutter/features/camera/data/capture_orientation_reader.dart';
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_choice.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_original_file_store.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
@@ -14,6 +20,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/data/gener
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_message.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_providers.dart';
+import 'package:fantasy_camera_flutter/features/camera/presentation/camera_screen.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_state.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -182,12 +189,27 @@ void main() {
     expect(maxZoom, 10.0);
   });
 
+  test('CameraPhotoDynamicRange maps to capture file formats', () {
+    expect(
+      CameraPhotoDynamicRange.sdr.imageFileFormat,
+      ImageFileFormat.sdrHeif,
+    );
+    expect(CameraPhotoDynamicRange.hdr.imageFileFormat, ImageFileFormat.heif);
+  });
+
+  test('AppConfig exposes the configured photo dynamic range format', () {
+    expect(
+      AppConfig.cameraImageFileFormat,
+      AppConfig.cameraPhotoDynamicRange.imageFileFormat,
+    );
+  });
+
   test(
     'AVFoundation photo capture event triggers overlay after native will-capture',
     () async {
       final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
       CameraPlatform.instance = camera;
-      final ProviderContainer container = _container(
+      final _TestContainer testContainer = _container(
         choices: const <CameraChoice>[
           CameraChoice(
             description: CameraDescription(
@@ -201,7 +223,11 @@ void main() {
           ),
         ],
       );
-      addTearDown(container.dispose);
+      final ProviderContainer container = testContainer.container;
+      addTearDown(() async {
+        await testContainer.dispose();
+        await Future<void>.delayed(Duration.zero);
+      });
       final ProviderSubscription<CameraState> subscription = container.listen(
         cameraStateProvider,
         (_, _) {},
@@ -229,17 +255,89 @@ void main() {
       await takePictureFuture;
     },
   );
+
+  test(
+    'focusAndExposeAt forwards supported focus and exposure point',
+    () async {
+      final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+      CameraPlatform.instance = camera;
+      final _TestContainer testContainer = _container(
+        choices: const <CameraChoice>[
+          CameraChoice(
+            description: CameraDescription(
+              name: 'back',
+              lensDirection: CameraLensDirection.back,
+              sensorOrientation: 0,
+            ),
+            label: 'Back Camera',
+            isVirtualDevice: false,
+            deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+          ),
+        ],
+      );
+      final ProviderContainer container = testContainer.container;
+      addTearDown(() async {
+        await testContainer.dispose();
+        await Future<void>.delayed(Duration.zero);
+      });
+
+      final CameraControllerNotifier notifier = container.read(
+        cameraStateProvider.notifier,
+      );
+      await notifier.openDefaultCamera();
+
+      await notifier.focusAndExposeAt(const Point<double>(0.2, 0.8));
+
+      expect(camera.focusPoint, const Point<double>(0.2, 0.8));
+      expect(camera.exposurePoint, const Point<double>(0.2, 0.8));
+    },
+  );
+
+  test('cameraPreviewPointForTap accounts for covered preview crop', () {
+    final Point<double>? center = cameraPreviewPointForTap(
+      tapPosition: const Offset(50, 100),
+      containerSize: const Size(100, 200),
+      previewSize: const Size(1920, 1080),
+    );
+
+    expect(center?.x, closeTo(0.5, 0.001));
+    expect(center?.y, closeTo(0.5, 0.001));
+
+    final Point<double>? leftEdge = cameraPreviewPointForTap(
+      tapPosition: Offset.zero,
+      containerSize: const Size(100, 200),
+      previewSize: const Size(1920, 1080),
+    );
+
+    expect(leftEdge?.x, closeTo(0.056, 0.001));
+    expect(leftEdge?.y, closeTo(0, 0.001));
+
+    final Point<double>? croppedTop = cameraPreviewPointForTap(
+      tapPosition: Offset.zero,
+      containerSize: const Size(200, 100),
+      previewSize: const Size(1920, 1080),
+    );
+
+    expect(croppedTop?.x, closeTo(0, 0.001));
+    expect(croppedTop?.y, closeTo(0.359, 0.001));
+  });
 }
 
-ProviderContainer _container({required List<CameraChoice> choices}) {
-  return ProviderContainer(
+_TestContainer _container({required List<CameraChoice> choices}) {
+  final GenerationRecordDatabase database =
+      GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+  final ProviderContainer container = ProviderContainer(
     overrides: <Override>[
+      generationRecordDatabaseProvider.overrideWithValue(database),
       cameraChoicesProvider.overrideWithValue(choices),
       captureOrientationReaderProvider.overrideWithValue(
         const _FakeCaptureOrientationReader(),
       ),
-      photoLibrarySaverProvider.overrideWithValue(
-        const _FakePhotoLibrarySaver(),
+      generationOriginalFileStoreProvider.overrideWithValue(
+        const _FakeGenerationOriginalFileStore(),
+      ),
+      photoLibraryAssetStoreProvider.overrideWithValue(
+        const _FakePhotoLibraryAssetStore(),
       ),
       generationImageProcessorProvider.overrideWithValue(
         const _FakeGenerationImageProcessor(),
@@ -250,6 +348,19 @@ ProviderContainer _container({required List<CameraChoice> choices}) {
       ),
     ],
   );
+  return _TestContainer(container: container, database: database);
+}
+
+class _TestContainer {
+  const _TestContainer({required this.container, required this.database});
+
+  final ProviderContainer container;
+  final GenerationRecordDatabase database;
+
+  Future<void> dispose() async {
+    container.dispose();
+    await database.close();
+  }
 }
 
 class _FakeAVFoundationCamera extends AVFoundationCamera {
@@ -262,6 +373,8 @@ class _FakeAVFoundationCamera extends AVFoundationCamera {
   _photoCaptureController =
       StreamController<AVFoundationPhotoCaptureWillCaptureEvent>.broadcast();
   final Completer<XFile> _takePictureCompleter = Completer<XFile>();
+  Point<double>? focusPoint;
+  Point<double>? exposurePoint;
 
   static const int _cameraId = 0;
 
@@ -337,6 +450,16 @@ class _FakeAVFoundationCamera extends AVFoundationCamera {
   Future<void> setFlashMode(int cameraId, FlashMode mode) async {}
 
   @override
+  Future<void> setFocusPoint(int cameraId, Point<double>? point) async {
+    focusPoint = point;
+  }
+
+  @override
+  Future<void> setExposurePoint(int cameraId, Point<double>? point) async {
+    exposurePoint = point;
+  }
+
+  @override
   Future<void> setPhotoCaptureOrientation(
     DeviceOrientation orientation,
   ) async {}
@@ -392,11 +515,48 @@ class _FakeCaptureOrientationReader implements CaptureOrientationReader {
   }
 }
 
-class _FakePhotoLibrarySaver implements PhotoLibrarySaver {
-  const _FakePhotoLibrarySaver();
+class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
+  const _FakePhotoLibraryAssetStore();
 
   @override
-  Future<void> saveImage(String path, {required String album}) async {}
+  Future<SavedPhotoLibraryImage> saveImage(
+    String path, {
+    required String album,
+    required String fileName,
+  }) async {
+    return const SavedPhotoLibraryImage(assetId: 'asset-result-1');
+  }
+
+  @override
+  Future<String?> resolveImagePath(String assetId) async {
+    return null;
+  }
+}
+
+class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
+  const _FakeGenerationOriginalFileStore();
+
+  @override
+  Future<void> deleteOriginal(String path) async {}
+
+  @override
+  Future<String> resolveOriginalPath(String path) async {
+    return path;
+  }
+
+  @override
+  Future<bool> originalExists(String path) async {
+    return true;
+  }
+
+  @override
+  Future<StoredOriginalFile> storeCameraOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime capturedAt,
+  }) async {
+    return StoredOriginalFile(path: sourcePath, format: 'heic');
+  }
 }
 
 class _FakeGenerationImageProcessor implements GenerationImageProcessor {
