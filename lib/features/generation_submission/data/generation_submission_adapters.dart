@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart' hide XFile;
 
 abstract interface class GalleryImagePicker {
   Future<PickedGalleryImage?> pickImageFromGallery();
+
+  Future<void> cancelActivePick();
 }
 
 class PickedGalleryImage {
@@ -47,6 +49,9 @@ class ImagePickerGalleryImagePicker implements GalleryImagePicker {
     }
     return PickedGalleryImage(file: file);
   }
+
+  @override
+  Future<void> cancelActivePick() async {}
 }
 
 class PlatformGalleryImagePicker implements GalleryImagePicker {
@@ -81,6 +86,14 @@ class PlatformGalleryImagePicker implements GalleryImagePicker {
       file: XFile(path),
       assetId: assetId is String && assetId.isNotEmpty ? assetId : null,
     );
+  }
+
+  @override
+  Future<void> cancelActivePick() async {
+    if (!Platform.isIOS) {
+      return;
+    }
+    await _channel.invokeMethod<void>('cancelActivePick');
   }
 }
 

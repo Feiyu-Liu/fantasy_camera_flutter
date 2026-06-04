@@ -822,6 +822,9 @@ class _FakeGalleryImagePicker implements GalleryImagePicker {
     }
     return PickedGalleryImage(file: result, assetId: 'asset-gallery-1');
   }
+
+  @override
+  Future<void> cancelActivePick() async {}
 }
 
 class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {

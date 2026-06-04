@@ -35,6 +35,14 @@ class _GenerationSubmissionDebugModalState
   bool _pickingGalleryImage = false;
 
   @override
+  void dispose() {
+    if (_pickingGalleryImage) {
+      unawaited(ref.read(galleryImagePickerProvider).cancelActivePick());
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final List<GenerationSubmissionJob> jobs = ref
         .watch(generationSubmissionControllerProvider)
@@ -195,6 +203,7 @@ class _GenerationSubmissionDebugModalState
 
   Future<void> _pickGalleryImage() async {
     if (_pickingGalleryImage) {
+      _debugLog('pick gallery ignored because picker is active');
       return;
     }
 
@@ -204,6 +213,7 @@ class _GenerationSubmissionDebugModalState
     });
 
     try {
+      await ref.read(galleryImagePickerProvider).cancelActivePick();
       final PickedGalleryImage? pickedImage = await ref
           .read(galleryImagePickerProvider)
           .pickImageFromGallery();

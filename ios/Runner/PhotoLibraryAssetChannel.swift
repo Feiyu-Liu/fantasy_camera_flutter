@@ -5,7 +5,7 @@ import UIKit
 
 final class PhotoLibraryAssetChannel: NSObject {
   private let channel: FlutterMethodChannel
-  private var galleryPickerDelegate: AnyObject?
+  private var galleryPickerDelegate: GalleryImagePickerDelegate?
 
   init(binaryMessenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
@@ -31,6 +31,8 @@ final class PhotoLibraryAssetChannel: NSObject {
       saveImage(path: path, album: album, fileName: fileName, result: result)
     case "pickImage":
       pickImage(result: result)
+    case "cancelActivePick":
+      cancelActivePick(result: result)
     case "resolveImagePath":
       guard
         let args = call.arguments as? [String: Any],
@@ -52,6 +54,7 @@ final class PhotoLibraryAssetChannel: NSObject {
           result(FlutterError(code: "access_denied", message: "Photo library access denied.", details: nil))
           return
         }
+        self.clearStaleGalleryPickerIfNeeded()
         guard self.galleryPickerDelegate == nil else {
           result(FlutterError(code: "picker_active", message: "Photo picker is already active.", details: nil))
           return
@@ -67,6 +70,7 @@ final class PhotoLibraryAssetChannel: NSObject {
         configuration.preferredAssetRepresentationMode = .current
         let picker = PHPickerViewController(configuration: configuration)
         let delegate = GalleryImagePickerDelegate(
+          picker: picker,
           exportAssetForDisplay: self.exportAssetForDisplay(assetId:completion:),
           makeFlutterError: self.flutterError(code:error:),
           finish: { [weak self] response in
@@ -80,6 +84,29 @@ final class PhotoLibraryAssetChannel: NSObject {
         rootViewController.present(picker, animated: true)
       }
     }
+  }
+
+  private func cancelActivePick(result: @escaping FlutterResult) {
+    DispatchQueue.main.async {
+      guard let delegate = self.galleryPickerDelegate else {
+        result(nil)
+        return
+      }
+      delegate.cancel()
+      self.galleryPickerDelegate = nil
+      result(nil)
+    }
+  }
+
+  private func clearStaleGalleryPickerIfNeeded() {
+    guard let delegate = galleryPickerDelegate else {
+      return
+    }
+    if delegate.isPickerPresented {
+      return
+    }
+    delegate.cancel()
+    galleryPickerDelegate = nil
   }
 
   private func saveImage(
@@ -271,17 +298,27 @@ final class PhotoLibraryAssetChannel: NSObject {
 }
 
 private final class GalleryImagePickerDelegate: NSObject, PHPickerViewControllerDelegate, UIAdaptivePresentationControllerDelegate {
+  private weak var picker: PHPickerViewController?
   private let exportAssetForDisplay: (String, @escaping (String?, Error?) -> Void) -> Void
   private let makeFlutterError: (String, Error) -> FlutterError
   private let finish: (Any?) -> Void
   private var didReceivePickerResult = false
   private var didFinish = false
 
+  var isPickerPresented: Bool {
+    guard let picker = picker else {
+      return false
+    }
+    return picker.presentingViewController != nil || picker.view.window != nil
+  }
+
   init(
+    picker: PHPickerViewController,
     exportAssetForDisplay: @escaping (String, @escaping (String?, Error?) -> Void) -> Void,
     makeFlutterError: @escaping (String, Error) -> FlutterError,
     finish: @escaping (Any?) -> Void
   ) {
+    self.picker = picker
     self.exportAssetForDisplay = exportAssetForDisplay
     self.makeFlutterError = makeFlutterError
     self.finish = finish
@@ -326,6 +363,13 @@ private final class GalleryImagePickerDelegate: NSObject, PHPickerViewController
   func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
     guard !didReceivePickerResult else {
       return
+    }
+    finishOnce(nil)
+  }
+
+  func cancel() {
+    if let picker = picker, isPickerPresented {
+      picker.dismiss(animated: false)
     }
     finishOnce(nil)
   }
