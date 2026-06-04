@@ -6,6 +6,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../backend_api/domain/prompt_config.dart';
+import '../data/generation_submission_adapters.dart';
 import '../domain/generation_submission_job.dart';
 import 'generation_submission_providers.dart';
 
@@ -203,20 +204,25 @@ class _GenerationSubmissionDebugModalState
     });
 
     try {
-      final XFile? file = await ref
+      final PickedGalleryImage? pickedImage = await ref
           .read(galleryImagePickerProvider)
           .pickImageFromGallery();
-      if (file == null) {
+      if (pickedImage == null) {
         _debugLog('pick gallery canceled');
         return;
       }
+      final XFile file = pickedImage.file;
       _debugLog('pick gallery success path=${file.path}');
       final PromptSelectionSnapshot promptSelection = ref
           .read(promptSelectionControllerProvider)
           .snapshot;
       await ref
           .read(generationSubmissionControllerProvider.notifier)
-          .queueGalleryFile(file, promptSelection: promptSelection);
+          .queueGalleryFile(
+            file,
+            originalAssetId: pickedImage.assetId,
+            promptSelection: promptSelection,
+          );
     } on Object catch (error) {
       _debugLog('pick gallery failure error=$error');
     } finally {

@@ -1,9 +1,11 @@
 import Flutter
 import Photos
+import PhotosUI
 import UIKit
 
 final class PhotoLibraryAssetChannel: NSObject {
   private let channel: FlutterMethodChannel
+  private var galleryPickerDelegate: AnyObject?
 
   init(binaryMessenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
@@ -27,6 +29,8 @@ final class PhotoLibraryAssetChannel: NSObject {
         return
       }
       saveImage(path: path, album: album, fileName: fileName, result: result)
+    case "pickImage":
+      pickImage(result: result)
     case "resolveImagePath":
       guard
         let args = call.arguments as? [String: Any],
@@ -38,6 +42,42 @@ final class PhotoLibraryAssetChannel: NSObject {
       resolveImagePath(assetId: assetId, result: result)
     default:
       result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private func pickImage(result: @escaping FlutterResult) {
+    requestReadWriteAccess { granted in
+      DispatchQueue.main.async {
+        guard granted else {
+          result(FlutterError(code: "access_denied", message: "Photo library access denied.", details: nil))
+          return
+        }
+        guard self.galleryPickerDelegate == nil else {
+          result(FlutterError(code: "picker_active", message: "Photo picker is already active.", details: nil))
+          return
+        }
+        guard let rootViewController = self.rootViewController() else {
+          result(FlutterError(code: "missing_root_view_controller", message: "Unable to present photo picker.", details: nil))
+          return
+        }
+
+        var configuration = PHPickerConfiguration(photoLibrary: .shared())
+        configuration.filter = .images
+        configuration.selectionLimit = 1
+        configuration.preferredAssetRepresentationMode = .current
+        let picker = PHPickerViewController(configuration: configuration)
+        let delegate = GalleryImagePickerDelegate(
+          exportAssetForDisplay: self.exportAssetForDisplay(assetId:completion:),
+          makeFlutterError: self.flutterError(code:error:),
+          finish: { [weak self] response in
+            self?.galleryPickerDelegate = nil
+            result(response)
+          }
+        )
+        picker.delegate = delegate
+        self.galleryPickerDelegate = delegate
+        rootViewController.present(picker, animated: true)
+      }
     }
   }
 
@@ -100,68 +140,69 @@ final class PhotoLibraryAssetChannel: NSObject {
         return
       }
 
-      let assets = PHAsset.fetchAssets(withLocalIdentifiers: [assetId], options: nil)
-      guard let asset = assets.firstObject else {
-        result(nil)
-        return
-      }
-      let resources = PHAssetResource.assetResources(for: asset)
-      guard let resource = resources.first(where: { $0.type == .photo }) ?? resources.first else {
-        result(nil)
-        return
-      }
-
-      let fileName = self.exportFileName(for: resource, assetId: assetId)
-      let outputURL = FileManager.default.temporaryDirectory
-        .appendingPathComponent("TesserCamPhotoAssets", isDirectory: true)
-        .appendingPathComponent(fileName)
-
-      do {
-        try FileManager.default.createDirectory(
-          at: outputURL.deletingLastPathComponent(),
-          withIntermediateDirectories: true
-        )
-        if FileManager.default.fileExists(atPath: outputURL.path) {
-          result(outputURL.path)
-          return
-        }
-      } catch {
-        result(self.flutterError(code: "export_prepare_failed", error: error))
-        return
-      }
-
-      PHAssetResourceManager.default().writeData(for: resource, toFile: outputURL, options: nil) { error in
+      self.exportAssetForDisplay(assetId: assetId) { path, error in
         DispatchQueue.main.async {
           if let error = error {
             result(self.flutterError(code: "export_failed", error: error))
             return
           }
-          result(outputURL.path)
+          result(path)
         }
       }
     }
   }
 
-  private func requestReadWriteAccess(completion: @escaping (Bool) -> Void) {
-    if #available(iOS 14, *) {
-      let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
-      if status == .authorized || status == .limited {
-        completion(true)
-        return
-      }
-      PHPhotoLibrary.requestAuthorization(for: .readWrite) { newStatus in
-        completion(newStatus == .authorized || newStatus == .limited)
-      }
+  private func exportAssetForDisplay(
+    assetId: String,
+    completion: @escaping (String?, Error?) -> Void
+  ) {
+    let assets = PHAsset.fetchAssets(withLocalIdentifiers: [assetId], options: nil)
+    guard let asset = assets.firstObject else {
+      completion(nil, nil)
+      return
+    }
+    let resources = PHAssetResource.assetResources(for: asset)
+    guard let resource = resources.first(where: { $0.type == .photo }) ?? resources.first else {
+      completion(nil, nil)
       return
     }
 
-    let status = PHPhotoLibrary.authorizationStatus()
-    if status == .authorized {
+    let fileName = exportFileName(for: resource, assetId: assetId)
+    let outputURL = FileManager.default.temporaryDirectory
+      .appendingPathComponent("TesserCamPhotoAssets", isDirectory: true)
+      .appendingPathComponent(fileName)
+
+    do {
+      try FileManager.default.createDirectory(
+        at: outputURL.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+      )
+      if FileManager.default.fileExists(atPath: outputURL.path) {
+        completion(outputURL.path, nil)
+        return
+      }
+    } catch {
+      completion(nil, error)
+      return
+    }
+
+    PHAssetResourceManager.default().writeData(for: resource, toFile: outputURL, options: nil) { error in
+      if let error = error {
+        completion(nil, error)
+        return
+      }
+      completion(outputURL.path, nil)
+    }
+  }
+
+  private func requestReadWriteAccess(completion: @escaping (Bool) -> Void) {
+    let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+    if status == .authorized || status == .limited {
       completion(true)
       return
     }
-    PHPhotoLibrary.requestAuthorization { newStatus in
-      completion(newStatus == .authorized)
+    PHPhotoLibrary.requestAuthorization(for: .readWrite) { newStatus in
+      completion(newStatus == .authorized || newStatus == .limited)
     }
   }
 
@@ -210,6 +251,14 @@ final class PhotoLibraryAssetChannel: NSObject {
     return "\(safeAssetId).\(ext)"
   }
 
+  private func rootViewController() -> UIViewController? {
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    let window = scenes
+      .flatMap { $0.windows }
+      .first { $0.isKeyWindow }
+    return window?.rootViewController
+  }
+
   private func flutterError(code: String, error: Error) -> FlutterError {
     let nsError = error as NSError
     return FlutterError(
@@ -217,5 +266,53 @@ final class PhotoLibraryAssetChannel: NSObject {
       message: nsError.localizedDescription,
       details: nsError.userInfo
     )
+  }
+}
+
+private final class GalleryImagePickerDelegate: NSObject, PHPickerViewControllerDelegate {
+  private let exportAssetForDisplay: (String, @escaping (String?, Error?) -> Void) -> Void
+  private let makeFlutterError: (String, Error) -> FlutterError
+  private let finish: (Any?) -> Void
+
+  init(
+    exportAssetForDisplay: @escaping (String, @escaping (String?, Error?) -> Void) -> Void,
+    makeFlutterError: @escaping (String, Error) -> FlutterError,
+    finish: @escaping (Any?) -> Void
+  ) {
+    self.exportAssetForDisplay = exportAssetForDisplay
+    self.makeFlutterError = makeFlutterError
+    self.finish = finish
+    super.init()
+  }
+
+  func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+    picker.dismiss(animated: true)
+
+    guard let picked = results.first else {
+      finish(nil)
+      return
+    }
+    guard let assetId = picked.assetIdentifier else {
+      finish(FlutterError(
+        code: "missing_asset_id",
+        message: "Picked image did not return an asset id.",
+        details: nil
+      ))
+      return
+    }
+
+    exportAssetForDisplay(assetId) { [makeFlutterError, finish] path, error in
+      DispatchQueue.main.async {
+        if let error = error {
+          finish(makeFlutterError("export_failed", error))
+          return
+        }
+        guard let path = path else {
+          finish(nil)
+          return
+        }
+        finish(["path": path, "assetId": assetId])
+      }
+    }
   }
 }

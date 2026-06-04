@@ -814,9 +814,13 @@ class _FakeGalleryImagePicker implements GalleryImagePicker {
   int pickCount = 0;
 
   @override
-  Future<XFile?> pickImageFromGallery() async {
+  Future<PickedGalleryImage?> pickImageFromGallery() async {
     pickCount += 1;
-    return result;
+    final XFile? result = this.result;
+    if (result == null) {
+      return null;
+    }
+    return PickedGalleryImage(file: result, assetId: 'asset-gallery-1');
   }
 }
 

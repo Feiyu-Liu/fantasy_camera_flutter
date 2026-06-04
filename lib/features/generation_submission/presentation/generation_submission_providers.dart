@@ -17,7 +17,7 @@ import '../domain/generation_submission_job.dart';
 import 'generation_record_providers.dart';
 
 final galleryImagePickerProvider = Provider<GalleryImagePicker>((Ref ref) {
-  return ImagePickerGalleryImagePicker(ImagePicker());
+  return PlatformGalleryImagePicker(fallbackImagePicker: ImagePicker());
 }, dependencies: const <ProviderOrFamily>[]);
 
 final photoLibraryAssetStoreProvider = Provider<PhotoLibraryAssetStore>((
@@ -352,10 +352,12 @@ class GenerationSubmissionController
 
   Future<String> queueGalleryFile(
     XFile file, {
+    String? originalAssetId,
     PromptSelectionSnapshot? promptSelection,
   }) async {
     final String recordId = await _submissionService.queueGalleryFile(
       file,
+      originalAssetId: originalAssetId,
       promptSelection: promptSelection,
     );
     _deletedJobIds.remove(recordId);

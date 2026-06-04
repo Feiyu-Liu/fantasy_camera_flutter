@@ -9,7 +9,9 @@ import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.da
 import 'package:fantasy_camera_flutter/features/backend_api/domain/prompt_config.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_submission_service.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_repository.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_original_file_store.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
@@ -263,6 +265,60 @@ void main() {
       );
       expect(uploadRepository.events, isEmpty);
       expect(taskRepository.createdInputs, isEmpty);
+    },
+  );
+
+  test(
+    'resolves gallery original from asset id after service restart',
+    () async {
+      final GenerationRecordDatabase database =
+          GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      final GenerationRecordRepository repository = GenerationRecordRepository(
+        database,
+      );
+      final _FakeGenerationOriginalFileStore originalFileStore =
+          _FakeGenerationOriginalFileStore();
+      final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
+          _FakePhotoLibraryAssetStore();
+      final GenerationSubmissionService firstService =
+          GenerationSubmissionService(
+            uploadRepository: _FakeUploadRepository(),
+            generationTaskRepository: _FakeGenerationTaskRepository(),
+            generationRecordRepository: repository,
+            originalFileStore: originalFileStore,
+            photoLibraryAssetStore: photoLibraryAssetStore,
+            imageProcessor: _FakeGenerationImageProcessor(),
+          );
+      addTearDown(firstService.dispose);
+
+      final String recordId = await firstService.queueGalleryFile(
+        XFile('/tmp/gallery-picker-cache.jpg'),
+        originalAssetId: 'asset-gallery-1',
+      );
+      final GenerationRecord? record = await repository.findById(recordId);
+      expect(record?.originalAssetId, 'asset-gallery-1');
+      expect(record?.originalLocalPath, isNull);
+
+      final GenerationSubmissionService restartedService =
+          GenerationSubmissionService(
+            uploadRepository: _FakeUploadRepository(),
+            generationTaskRepository: _FakeGenerationTaskRepository(),
+            generationRecordRepository: repository,
+            originalFileStore: originalFileStore,
+            photoLibraryAssetStore: photoLibraryAssetStore,
+            imageProcessor: _FakeGenerationImageProcessor(),
+          );
+      addTearDown(restartedService.dispose);
+
+      final GenerationSubmissionState state = await restartedService
+          .stateForRecords(await repository.listRecords());
+
+      expect(state.jobs.single.imagePath, '/photos/asset-gallery-1.heic');
+      expect(photoLibraryAssetStore.resolvedAssetIds, <String>[
+        'asset-gallery-1',
+      ]);
     },
   );
 

@@ -117,16 +117,20 @@ class GenerationSubmissionService extends ChangeNotifier {
 
   Future<String> queueGalleryFile(
     XFile file, {
+    String? originalAssetId,
     PromptSelectionSnapshot? promptSelection,
   }) async {
     final DateTime now = DateTime.now();
     final String recordId = _nextRecordId(now);
     final PromptSelectionSnapshot snapshot =
         promptSelection ?? PromptSelectionSnapshot.fallback;
-    _debugLog('queue gallery record=$recordId path=${file.path}');
+    _debugLog(
+      'queue gallery record=$recordId path=${file.path} asset=${originalAssetId ?? 'none'}',
+    );
     await _generationRecordRepository.createGalleryRecord(
       recordId: recordId,
       createdAt: now,
+      originalAssetId: originalAssetId,
       promptStyle: snapshot.promptStyle,
       captureMode: snapshot.captureMode,
       appInputContractId: snapshot.appInputContractId,
@@ -812,6 +816,24 @@ class GenerationSubmissionService extends ChangeNotifier {
         return null;
       }
       return _originalFileStore.resolveOriginalPath(originalLocalPath);
+    }
+    final String? originalAssetId = record.originalAssetId;
+    if (originalAssetId != null) {
+      try {
+        final String? resolvedPath = await _photoLibraryAssetStore
+            .resolveImagePath(originalAssetId);
+        if (resolvedPath != null && resolvedPath.isNotEmpty) {
+          _runtimeFor(record.recordId).originalPath = resolvedPath;
+          return resolvedPath;
+        }
+        _debugLog(
+          'source asset unresolved record=${record.recordId} asset=$originalAssetId',
+        );
+      } on Object catch (error) {
+        _debugLog(
+          'source asset resolve failure record=${record.recordId} asset=$originalAssetId error=$error',
+        );
+      }
     }
     return _runtimeState[record.recordId]?.originalPath;
   }
