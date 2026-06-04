@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
+import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
@@ -23,7 +24,10 @@ import 'package:fantasy_camera_flutter/features/camera/data/camera_device_reposi
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_choice.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_submission_service.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_repository.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_original_file_store.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 
@@ -112,14 +116,17 @@ void main() {
             const _FakeCreditsRepository(),
           ),
           generationSubmissionServiceProvider.overrideWith((Ref ref) {
-            final GenerationSubmissionService service =
-                GenerationSubmissionService(
-                  uploadRepository: const _FakeUploadRepository(),
-                  generationTaskRepository:
-                      const _FakeGenerationTaskRepository(),
-                  photoLibrarySaver: const _FakePhotoLibrarySaver(),
-                  imageProcessor: const _FakeGenerationImageProcessor(),
-                );
+            final GenerationSubmissionService
+            service = GenerationSubmissionService(
+              uploadRepository: const _FakeUploadRepository(),
+              generationTaskRepository: const _FakeGenerationTaskRepository(),
+              generationRecordRepository: GenerationRecordRepository(
+                GenerationRecordDatabase.forExecutor(NativeDatabase.memory()),
+              ),
+              originalFileStore: const _FakeGenerationOriginalFileStore(),
+              photoLibrarySaver: const _FakePhotoLibrarySaver(),
+              imageProcessor: const _FakeGenerationImageProcessor(),
+            );
             ref.onDispose(service.dispose);
             return service;
           }),
@@ -337,6 +344,22 @@ class _FakePhotoLibrarySaver implements PhotoLibrarySaver {
 
   @override
   Future<void> saveImage(String path, {required String album}) async {}
+}
+
+class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
+  const _FakeGenerationOriginalFileStore();
+
+  @override
+  Future<void> deleteOriginal(String path) async {}
+
+  @override
+  Future<StoredOriginalFile> storeCameraOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime capturedAt,
+  }) async {
+    return StoredOriginalFile(path: sourcePath, format: 'heic');
+  }
 }
 
 class _FakeUploadRepository implements UploadRepository {

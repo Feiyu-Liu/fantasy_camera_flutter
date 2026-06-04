@@ -1,0 +1,12 @@
+appId: host.eunoia.tessercam
+---
+- launchApp:
+    clearState: false
+    permissions:
+      camera: allow
+      photos: allow
+- assertVisible: "Fantasy Camera"
+- assertVisible: "Sign in to continue"
+- assertVisible: "Email"
+- assertVisible: "Password"
+- assertVisible: "Sign in"

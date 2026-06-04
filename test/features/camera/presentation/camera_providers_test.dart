@@ -3,10 +3,14 @@ import 'dart:math';
 
 import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
+import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/config/app_config.dart';
 import 'package:fantasy_camera_flutter/features/camera/data/capture_orientation_reader.dart';
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_choice.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_original_file_store.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
@@ -205,7 +209,7 @@ void main() {
     () async {
       final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
       CameraPlatform.instance = camera;
-      final ProviderContainer container = _container(
+      final _TestContainer testContainer = _container(
         choices: const <CameraChoice>[
           CameraChoice(
             description: CameraDescription(
@@ -219,8 +223,9 @@ void main() {
           ),
         ],
       );
+      final ProviderContainer container = testContainer.container;
       addTearDown(() async {
-        container.dispose();
+        await testContainer.dispose();
         await Future<void>.delayed(Duration.zero);
       });
       final ProviderSubscription<CameraState> subscription = container.listen(
@@ -256,7 +261,7 @@ void main() {
     () async {
       final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
       CameraPlatform.instance = camera;
-      final ProviderContainer container = _container(
+      final _TestContainer testContainer = _container(
         choices: const <CameraChoice>[
           CameraChoice(
             description: CameraDescription(
@@ -270,8 +275,9 @@ void main() {
           ),
         ],
       );
+      final ProviderContainer container = testContainer.container;
       addTearDown(() async {
-        container.dispose();
+        await testContainer.dispose();
         await Future<void>.delayed(Duration.zero);
       });
 
@@ -317,12 +323,18 @@ void main() {
   });
 }
 
-ProviderContainer _container({required List<CameraChoice> choices}) {
-  return ProviderContainer(
+_TestContainer _container({required List<CameraChoice> choices}) {
+  final GenerationRecordDatabase database =
+      GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+  final ProviderContainer container = ProviderContainer(
     overrides: <Override>[
+      generationRecordDatabaseProvider.overrideWithValue(database),
       cameraChoicesProvider.overrideWithValue(choices),
       captureOrientationReaderProvider.overrideWithValue(
         const _FakeCaptureOrientationReader(),
+      ),
+      generationOriginalFileStoreProvider.overrideWithValue(
+        const _FakeGenerationOriginalFileStore(),
       ),
       photoLibrarySaverProvider.overrideWithValue(
         const _FakePhotoLibrarySaver(),
@@ -336,6 +348,19 @@ ProviderContainer _container({required List<CameraChoice> choices}) {
       ),
     ],
   );
+  return _TestContainer(container: container, database: database);
+}
+
+class _TestContainer {
+  const _TestContainer({required this.container, required this.database});
+
+  final ProviderContainer container;
+  final GenerationRecordDatabase database;
+
+  Future<void> dispose() async {
+    container.dispose();
+    await database.close();
+  }
 }
 
 class _FakeAVFoundationCamera extends AVFoundationCamera {
@@ -495,6 +520,22 @@ class _FakePhotoLibrarySaver implements PhotoLibrarySaver {
 
   @override
   Future<void> saveImage(String path, {required String album}) async {}
+}
+
+class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
+  const _FakeGenerationOriginalFileStore();
+
+  @override
+  Future<void> deleteOriginal(String path) async {}
+
+  @override
+  Future<StoredOriginalFile> storeCameraOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime capturedAt,
+  }) async {
+    return StoredOriginalFile(path: sourcePath, format: 'heic');
+  }
 }
 
 class _FakeGenerationImageProcessor implements GenerationImageProcessor {

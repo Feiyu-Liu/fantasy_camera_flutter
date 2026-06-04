@@ -84,7 +84,7 @@ class _GenerationSubmissionDebugModalState
                         onCancel:
                             job.status ==
                                 GenerationSubmissionStatus.awaitingConfirmation
-                            ? () => _cancelJob(job)
+                            ? () => unawaited(_cancelJob(job))
                             : null,
                       );
                     },
@@ -154,10 +154,15 @@ class _GenerationSubmissionDebugModalState
         .confirmJob(job.id);
   }
 
-  void _cancelJob(GenerationSubmissionJob job) {
+  Future<void> _cancelJob(GenerationSubmissionJob job) async {
     _debugLog('cancel job=${job.id}');
-    ref.read(generationSubmissionControllerProvider.notifier).cancelJob(job.id);
+    await ref
+        .read(generationSubmissionControllerProvider.notifier)
+        .cancelJob(job.id);
     if (_selectedJobId == job.id) {
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _selectedJobId = null;
         _loadingResultJobId = null;
@@ -209,7 +214,7 @@ class _GenerationSubmissionDebugModalState
       final PromptSelectionSnapshot promptSelection = ref
           .read(promptSelectionControllerProvider)
           .snapshot;
-      ref
+      await ref
           .read(generationSubmissionControllerProvider.notifier)
           .queueGalleryFile(file, promptSelection: promptSelection);
     } on Object catch (error) {

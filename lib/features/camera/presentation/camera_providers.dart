@@ -272,7 +272,7 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       final PromptSelectionSnapshot promptSelection = ref
           .read(promptSelectionControllerProvider)
           .snapshot;
-      ref
+      await ref
           .read(generationSubmissionControllerProvider.notifier)
           .queueCapturedFile(file, promptSelection: promptSelection);
       return file;

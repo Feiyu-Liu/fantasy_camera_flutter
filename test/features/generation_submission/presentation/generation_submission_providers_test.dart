@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
+import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/api_failure.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
@@ -8,9 +9,12 @@ import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.da
 import 'package:fantasy_camera_flutter/features/backend_api/domain/prompt_config.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_original_file_store.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -86,7 +90,9 @@ void main() {
     final GenerationSubmissionController notifier = container.read(
       generationSubmissionControllerProvider.notifier,
     );
-    final String jobId = notifier.queueGalleryFile(XFile('/tmp/photo.jpg'));
+    final String jobId = await notifier.queueGalleryFile(
+      XFile('/tmp/photo.jpg'),
+    );
 
     expect(
       container.read(generationSubmissionControllerProvider).jobs.single.status,
@@ -151,7 +157,7 @@ void main() {
     final GenerationSubmissionController notifier = container.read(
       generationSubmissionControllerProvider.notifier,
     );
-    final String jobId = notifier.queueGalleryFile(
+    final String jobId = await notifier.queueGalleryFile(
       XFile('/tmp/photo.jpg'),
       promptSelection: snapshot,
     );
@@ -171,7 +177,7 @@ void main() {
     });
   });
 
-  test('queues captured file and saves it to the TesserCam album', () async {
+  test('queues captured file into private original cache', () async {
     final _FakePhotoLibrarySaver photoLibrarySaver = _FakePhotoLibrarySaver();
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
     final _FakeGenerationTaskRepository taskRepository =
@@ -183,23 +189,22 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    container
+    await container
         .read(generationSubmissionControllerProvider.notifier)
         .queueCapturedFile(XFile('/tmp/photo.jpg'));
-    await Future<void>.delayed(Duration.zero);
 
     final GenerationSubmissionJob job = container
         .read(generationSubmissionControllerProvider)
         .jobs
         .single;
     expect(job.status, GenerationSubmissionStatus.awaitingConfirmation);
-    expect(photoLibrarySaver.events, <String>['save:/tmp/photo.jpg:TesserCam']);
+    expect(photoLibrarySaver.events, isEmpty);
     expect(uploadRepository.events, isEmpty);
     expect(taskRepository.createdInputs, isEmpty);
   });
 
   test(
-    'keeps captured file awaiting confirmation when album save fails',
+    'queues captured file without saving original to photo library',
     () async {
       final _FakePhotoLibrarySaver photoLibrarySaver = _FakePhotoLibrarySaver()
         ..failure = StateError('photos denied');
@@ -208,18 +213,18 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      container
+      await container
           .read(generationSubmissionControllerProvider.notifier)
           .queueCapturedFile(XFile('/tmp/photo.jpg'));
-      await Future<void>.delayed(Duration.zero);
 
       final GenerationSubmissionJob job = container
           .read(generationSubmissionControllerProvider)
           .jobs
           .single;
       expect(job.status, GenerationSubmissionStatus.awaitingConfirmation);
-      expect(job.errorCode, 'photo_library_save_failed');
-      expect(job.errorMessage, contains('photos denied'));
+      expect(job.errorCode, isNull);
+      expect(job.errorMessage, isNull);
+      expect(photoLibrarySaver.events, isEmpty);
     },
   );
 
@@ -238,8 +243,10 @@ void main() {
         generationSubmissionControllerProvider.notifier,
       );
 
-      final String jobId = notifier.queueGalleryFile(XFile('/tmp/photo.jpg'));
-      notifier.cancelJob(jobId);
+      final String jobId = await notifier.queueGalleryFile(
+        XFile('/tmp/photo.jpg'),
+      );
+      await notifier.cancelJob(jobId);
 
       expect(
         container.read(generationSubmissionControllerProvider).jobs,
@@ -363,7 +370,7 @@ void main() {
     expect(jobs, hasLength(2));
     expect(
       jobs.map((GenerationSubmissionJob job) => job.imagePath).toSet(),
-      <String>{'/tmp/first.jpg', '/tmp/second.jpg'},
+      everyElement(startsWith('/tmp/stored-local-')),
     );
     expect(
       jobs.every(
@@ -427,10 +434,14 @@ void main() {
     expect(imageProcessor.processedSourceExif.single, <String, Object>{
       'DateTimeOriginal': '2026:05:29 00:00:00',
     });
-    expect(photoLibrarySaver.events, <String>[
-      'save:/tmp/photo.jpg:TesserCam',
-      'save:/tmp/photo.jpg.cleaned.jpg.result.heic:TesserCam',
-    ]);
+    expect(photoLibrarySaver.events, hasLength(1));
+    expect(
+      photoLibrarySaver.events.single,
+      predicate<String>(
+        (String value) =>
+            value == 'save:/tmp/photo.jpg.cleaned.jpg.result.heic:TesserCam',
+      ),
+    );
     expect(taskRepository.fetchTaskIds, <String>['task-1', 'task-1']);
   });
 
@@ -541,9 +552,16 @@ ProviderContainer _container({
   _FakeGenerationImageProcessor? imageProcessor,
   _FakeUploadRepository? uploadRepository,
   _FakeGenerationTaskRepository? taskRepository,
+  _FakeGenerationOriginalFileStore? originalFileStore,
 }) {
+  final GenerationRecordDatabase database =
+      GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
   return ProviderContainer(
     overrides: <Override>[
+      generationRecordDatabaseProvider.overrideWithValue(database),
+      generationOriginalFileStoreProvider.overrideWithValue(
+        originalFileStore ?? _FakeGenerationOriginalFileStore(),
+      ),
       photoLibrarySaverProvider.overrideWithValue(
         photoLibrarySaver ?? _FakePhotoLibrarySaver(),
       ),
@@ -558,6 +576,32 @@ ProviderContainer _container({
       ),
     ],
   );
+}
+
+class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
+  final List<String> storedPaths = <String>[];
+  final List<String> deletedPaths = <String>[];
+  Object? storeFailure;
+
+  @override
+  Future<StoredOriginalFile> storeCameraOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime capturedAt,
+  }) async {
+    final Object? failure = storeFailure;
+    if (failure != null) {
+      throw failure;
+    }
+    final String storedPath = '/tmp/stored-$recordId.heic';
+    storedPaths.add('$sourcePath->$storedPath');
+    return StoredOriginalFile(path: storedPath, format: 'heic');
+  }
+
+  @override
+  Future<void> deleteOriginal(String path) async {
+    deletedPaths.add(path);
+  }
 }
 
 class _FakeGenerationImageProcessor implements GenerationImageProcessor {

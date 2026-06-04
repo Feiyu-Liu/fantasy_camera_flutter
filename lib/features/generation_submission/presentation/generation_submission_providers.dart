@@ -6,9 +6,13 @@ import 'package:image_picker/image_picker.dart' hide XFile;
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
 import '../application/generation_submission_service.dart';
+import '../data/generation_record_database.dart';
+import '../data/generation_record_repository.dart';
 import '../data/generation_image_processor.dart';
+import '../data/generation_original_file_store.dart';
 import '../data/generation_submission_adapters.dart';
 import '../domain/generation_submission_job.dart';
+import 'generation_record_providers.dart';
 
 final galleryImagePickerProvider = Provider<GalleryImagePicker>((Ref ref) {
   return ImagePickerGalleryImagePicker(ImagePicker());
@@ -36,12 +40,22 @@ final generationImageProcessorProvider = Provider<GenerationImageProcessor>((
   );
 }, dependencies: <ProviderOrFamily>[resultDownloadDioProvider]);
 
+final generationOriginalFileStoreProvider =
+    Provider<GenerationOriginalFileStore>(
+      (Ref ref) => const ApplicationSupportGenerationOriginalFileStore(),
+      dependencies: const <ProviderOrFamily>[],
+    );
+
 final generationSubmissionServiceProvider =
     Provider<GenerationSubmissionService>(
       (Ref ref) {
         final GenerationSubmissionService service = GenerationSubmissionService(
           uploadRepository: ref.watch(uploadRepositoryProvider),
           generationTaskRepository: ref.watch(generationTaskRepositoryProvider),
+          generationRecordRepository: ref.watch(
+            generationRecordRepositoryProvider,
+          ),
+          originalFileStore: ref.watch(generationOriginalFileStoreProvider),
           photoLibrarySaver: ref.watch(photoLibrarySaverProvider),
           imageProcessor: ref.watch(generationImageProcessorProvider),
         );
@@ -51,6 +65,8 @@ final generationSubmissionServiceProvider =
       dependencies: <ProviderOrFamily>[
         uploadRepositoryProvider,
         generationTaskRepositoryProvider,
+        generationRecordRepositoryProvider,
+        generationOriginalFileStoreProvider,
         photoLibrarySaverProvider,
         generationImageProcessorProvider,
       ],
@@ -61,6 +77,8 @@ final generationSubmissionControllerProvider =
       GenerationSubmissionController.new,
       dependencies: <ProviderOrFamily>[
         generationSubmissionServiceProvider,
+        generationRecordRepositoryProvider,
+        generationRecordsProvider,
         creditBalanceProvider,
       ],
     );
@@ -279,61 +297,97 @@ Map<String, Map<String, bool>> _cacheValuesForRoute(
 
 class GenerationSubmissionController
     extends Notifier<GenerationSubmissionState> {
-  GenerationSubmissionService get _service =>
-      ref.read(generationSubmissionServiceProvider);
+  late GenerationSubmissionService _submissionService;
+  late GenerationRecordRepository _recordRepository;
   final Set<String> _observedCreatedTaskJobIds = <String>{};
+  final Set<String> _deletedJobIds = <String>{};
+  GenerationSubmissionState? _lastPublishedState;
 
   @override
   GenerationSubmissionState build() {
     final GenerationSubmissionService service = ref.watch(
       generationSubmissionServiceProvider,
     );
+    _submissionService = service;
+    _recordRepository = ref.watch(generationRecordRepositoryProvider);
+    final AsyncValue<List<GenerationRecord>> records = ref.watch(
+      generationRecordsProvider,
+    );
+    return records.when(
+      data: (List<GenerationRecord> value) {
+        final GenerationSubmissionState nextState = _mergedWithCurrentState(
+          service.stateForRecords(value),
+        );
+        _refreshCreditBalanceAfterTaskCreation(nextState);
+        _lastPublishedState = nextState;
+        return nextState;
+      },
+      loading: () {
+        const GenerationSubmissionState nextState = GenerationSubmissionState();
+        _lastPublishedState = nextState;
+        return nextState;
+      },
+      error: (_, _) {
+        const GenerationSubmissionState nextState = GenerationSubmissionState();
+        _lastPublishedState = nextState;
+        return nextState;
+      },
+    );
+  }
 
-    void syncState() {
-      final GenerationSubmissionState nextState = service.state;
-      _refreshCreditBalanceAfterTaskCreation(nextState);
-      state = nextState;
+  Future<String?> queueCapturedFile(
+    XFile file, {
+    PromptSelectionSnapshot? promptSelection,
+  }) async {
+    final String? recordId = await _submissionService.queueCapturedFile(
+      file,
+      promptSelection: promptSelection,
+    );
+    if (recordId != null) {
+      _deletedJobIds.remove(recordId);
     }
-
-    service.addListener(syncState);
-    ref.onDispose(() => service.removeListener(syncState));
-    final GenerationSubmissionState initialState = service.state;
-    _refreshCreditBalanceAfterTaskCreation(initialState);
-    return initialState;
+    await _refreshFromRepository();
+    return recordId;
   }
 
-  String queueCapturedFile(
+  Future<String> queueGalleryFile(
     XFile file, {
     PromptSelectionSnapshot? promptSelection,
-  }) {
-    return _service.queueCapturedFile(file, promptSelection: promptSelection);
+  }) async {
+    final String recordId = await _submissionService.queueGalleryFile(
+      file,
+      promptSelection: promptSelection,
+    );
+    _deletedJobIds.remove(recordId);
+    await _refreshFromRepository();
+    return recordId;
   }
 
-  String queueGalleryFile(
-    XFile file, {
-    PromptSelectionSnapshot? promptSelection,
-  }) {
-    return _service.queueGalleryFile(file, promptSelection: promptSelection);
+  Future<void> submitCapturedFile(XFile file) async {
+    await _submissionService.submitCapturedFile(file);
+    await _refreshFromRepository();
   }
 
-  Future<void> submitCapturedFile(XFile file) {
-    return _service.submitCapturedFile(file);
+  Future<void> confirmJob(String jobId) async {
+    await _submissionService.confirmJob(jobId);
+    await _refreshFromRepository();
   }
 
-  Future<void> confirmJob(String jobId) {
-    return _service.confirmJob(jobId);
+  Future<void> cancelJob(String jobId) async {
+    await _submissionService.cancelJob(jobId);
+    _deletedJobIds.add(jobId);
+    await _refreshFromRepository();
   }
 
-  void cancelJob(String jobId) {
-    _service.cancelJob(jobId);
+  Future<String?> loadResultUrl(String jobId) async {
+    final String? result = await _submissionService.loadResultUrl(jobId);
+    await _refreshFromRepository();
+    return result;
   }
 
-  Future<String?> loadResultUrl(String jobId) {
-    return _service.loadResultUrl(jobId);
-  }
-
-  Future<void> pollTaskNowForDebug(String jobId) {
-    return _service.pollTaskNowForDebug(jobId);
+  Future<void> pollTaskNowForDebug(String jobId) async {
+    await _submissionService.pollTaskNowForDebug(jobId);
+    await _refreshFromRepository();
   }
 
   void _refreshCreditBalanceAfterTaskCreation(
@@ -347,4 +401,86 @@ class GenerationSubmissionController
       ref.invalidate(creditBalanceProvider);
     }
   }
+
+  Future<void> _refreshFromRepository() async {
+    final List<GenerationRecord> records = await _recordRepository
+        .listRecords();
+    final GenerationSubmissionState nextState = _submissionService
+        .stateForRecords(records);
+    final GenerationSubmissionState filteredNextState = _withoutDeletedJobs(
+      nextState,
+    );
+    _refreshCreditBalanceAfterTaskCreation(filteredNextState);
+    _lastPublishedState = filteredNextState;
+    state = filteredNextState;
+  }
+
+  GenerationSubmissionState _mergedWithCurrentState(
+    GenerationSubmissionState incomingState,
+  ) {
+    final GenerationSubmissionState filteredIncomingState = _withoutDeletedJobs(
+      incomingState,
+    );
+    final GenerationSubmissionState? currentState = _lastPublishedState;
+    if (currentState == null ||
+        currentState.jobs.isEmpty ||
+        filteredIncomingState.jobs.isEmpty) {
+      return filteredIncomingState;
+    }
+    final Map<String, GenerationSubmissionJob> currentJobs =
+        <String, GenerationSubmissionJob>{
+          for (final GenerationSubmissionJob job in currentState.jobs)
+            job.id: job,
+        };
+    return GenerationSubmissionState(
+      jobs: filteredIncomingState.jobs
+          .map((GenerationSubmissionJob incomingJob) {
+            final GenerationSubmissionJob? currentJob =
+                currentJobs[incomingJob.id];
+            if (currentJob == null) {
+              return incomingJob;
+            }
+            return _statusRank(currentJob.status) >
+                    _statusRank(incomingJob.status)
+                ? currentJob
+                : incomingJob;
+          })
+          .toList(growable: false),
+    );
+  }
+
+  GenerationSubmissionState _withoutDeletedJobs(
+    GenerationSubmissionState incomingState,
+  ) {
+    if (_deletedJobIds.isEmpty) {
+      return incomingState;
+    }
+    return GenerationSubmissionState(
+      jobs: incomingState.jobs
+          .where(
+            (GenerationSubmissionJob job) => !_deletedJobIds.contains(job.id),
+          )
+          .toList(growable: false),
+    );
+  }
+}
+
+int _statusRank(GenerationSubmissionStatus status) {
+  return switch (status) {
+    GenerationSubmissionStatus.awaitingConfirmation => 0,
+    GenerationSubmissionStatus.queued => 1,
+    GenerationSubmissionStatus.preparingUploadImage => 2,
+    GenerationSubmissionStatus.readingFile => 3,
+    GenerationSubmissionStatus.creatingUpload => 4,
+    GenerationSubmissionStatus.uploading => 5,
+    GenerationSubmissionStatus.completingUpload => 6,
+    GenerationSubmissionStatus.creatingTask => 7,
+    GenerationSubmissionStatus.submitted => 8,
+    GenerationSubmissionStatus.pollingTask => 9,
+    GenerationSubmissionStatus.completed => 10,
+    GenerationSubmissionStatus.processingResultImage => 11,
+    GenerationSubmissionStatus.resultSaved => 12,
+    GenerationSubmissionStatus.resultProcessingFailed => 12,
+    GenerationSubmissionStatus.failed => 12,
+  };
 }
