@@ -20,8 +20,10 @@ final galleryImagePickerProvider = Provider<GalleryImagePicker>((Ref ref) {
   return ImagePickerGalleryImagePicker(ImagePicker());
 }, dependencies: const <ProviderOrFamily>[]);
 
-final photoLibrarySaverProvider = Provider<PhotoLibrarySaver>((Ref ref) {
-  return const GalPhotoLibrarySaver();
+final photoLibraryAssetStoreProvider = Provider<PhotoLibraryAssetStore>((
+  Ref ref,
+) {
+  return const MethodChannelPhotoLibraryAssetStore();
 }, dependencies: const <ProviderOrFamily>[]);
 
 final resultDownloadDioProvider = Provider<Dio>((Ref ref) {
@@ -58,7 +60,7 @@ final generationSubmissionServiceProvider =
             generationRecordRepositoryProvider,
           ),
           originalFileStore: ref.watch(generationOriginalFileStoreProvider),
-          photoLibrarySaver: ref.watch(photoLibrarySaverProvider),
+          photoLibraryAssetStore: ref.watch(photoLibraryAssetStoreProvider),
           imageProcessor: ref.watch(generationImageProcessorProvider),
         );
         ref.onDispose(service.dispose);
@@ -69,7 +71,7 @@ final generationSubmissionServiceProvider =
         generationTaskRepositoryProvider,
         generationRecordRepositoryProvider,
         generationOriginalFileStoreProvider,
-        photoLibrarySaverProvider,
+        photoLibraryAssetStoreProvider,
         generationImageProcessorProvider,
       ],
     );

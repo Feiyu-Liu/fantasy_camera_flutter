@@ -336,8 +336,8 @@ _TestContainer _container({required List<CameraChoice> choices}) {
       generationOriginalFileStoreProvider.overrideWithValue(
         const _FakeGenerationOriginalFileStore(),
       ),
-      photoLibrarySaverProvider.overrideWithValue(
-        const _FakePhotoLibrarySaver(),
+      photoLibraryAssetStoreProvider.overrideWithValue(
+        const _FakePhotoLibraryAssetStore(),
       ),
       generationImageProcessorProvider.overrideWithValue(
         const _FakeGenerationImageProcessor(),
@@ -515,11 +515,22 @@ class _FakeCaptureOrientationReader implements CaptureOrientationReader {
   }
 }
 
-class _FakePhotoLibrarySaver implements PhotoLibrarySaver {
-  const _FakePhotoLibrarySaver();
+class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
+  const _FakePhotoLibraryAssetStore();
 
   @override
-  Future<void> saveImage(String path, {required String album}) async {}
+  Future<SavedPhotoLibraryImage> saveImage(
+    String path, {
+    required String album,
+    required String fileName,
+  }) async {
+    return const SavedPhotoLibraryImage(assetId: 'asset-result-1');
+  }
+
+  @override
+  Future<String?> resolveImagePath(String assetId) async {
+    return null;
+  }
 }
 
 class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {

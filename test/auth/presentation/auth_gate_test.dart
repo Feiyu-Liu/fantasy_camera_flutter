@@ -124,7 +124,7 @@ void main() {
                 GenerationRecordDatabase.forExecutor(NativeDatabase.memory()),
               ),
               originalFileStore: const _FakeGenerationOriginalFileStore(),
-              photoLibrarySaver: const _FakePhotoLibrarySaver(),
+              photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
               imageProcessor: const _FakeGenerationImageProcessor(),
             );
             ref.onDispose(service.dispose);
@@ -339,11 +339,22 @@ class _FakeCreditsRepository implements CreditsRepository {
   }
 }
 
-class _FakePhotoLibrarySaver implements PhotoLibrarySaver {
-  const _FakePhotoLibrarySaver();
+class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
+  const _FakePhotoLibraryAssetStore();
 
   @override
-  Future<void> saveImage(String path, {required String album}) async {}
+  Future<SavedPhotoLibraryImage> saveImage(
+    String path, {
+    required String album,
+    required String fileName,
+  }) async {
+    return const SavedPhotoLibraryImage(assetId: 'asset-result-1');
+  }
+
+  @override
+  Future<String?> resolveImagePath(String assetId) async {
+    return null;
+  }
 }
 
 class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {

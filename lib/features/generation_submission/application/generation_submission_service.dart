@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/foundation.dart';
@@ -24,13 +25,13 @@ class GenerationSubmissionService extends ChangeNotifier {
     required GenerationTaskRepository generationTaskRepository,
     required GenerationRecordRepository generationRecordRepository,
     required GenerationOriginalFileStore originalFileStore,
-    required PhotoLibrarySaver photoLibrarySaver,
+    required PhotoLibraryAssetStore photoLibraryAssetStore,
     required GenerationImageProcessor imageProcessor,
   }) : _uploadRepository = uploadRepository,
        _generationTaskRepository = generationTaskRepository,
        _generationRecordRepository = generationRecordRepository,
        _originalFileStore = originalFileStore,
-       _photoLibrarySaver = photoLibrarySaver,
+       _photoLibraryAssetStore = photoLibraryAssetStore,
        _imageProcessor = imageProcessor;
 
   static const Duration _taskPollInterval = Duration(seconds: 3);
@@ -39,7 +40,7 @@ class GenerationSubmissionService extends ChangeNotifier {
   final GenerationTaskRepository _generationTaskRepository;
   final GenerationRecordRepository _generationRecordRepository;
   final GenerationOriginalFileStore _originalFileStore;
-  final PhotoLibrarySaver _photoLibrarySaver;
+  final PhotoLibraryAssetStore _photoLibraryAssetStore;
   final GenerationImageProcessor _imageProcessor;
   final Map<String, Timer> _pollingTimers = <String, Timer>{};
   final Map<String, _RuntimeGenerationRecordState> _runtimeState =
@@ -54,9 +55,7 @@ class GenerationSubmissionService extends ChangeNotifier {
       records.map(_jobForRecord),
     );
     return GenerationSubmissionState(
-      jobs: jobs
-          .whereType<GenerationSubmissionJob>()
-          .toList(growable: false),
+      jobs: jobs.whereType<GenerationSubmissionJob>().toList(growable: false),
     );
   }
 
@@ -630,40 +629,71 @@ class GenerationSubmissionService extends ChangeNotifier {
             resultUrl: resultUrl,
             sourceExif: sourceExif,
           );
+      _runtimeFor(recordId).processedResultPath = result.path;
       _debugLog(
         'save processed result start record=$recordId path=${result.path}',
       );
-      await _photoLibrarySaver.saveImage(
-        result.path,
-        album: AppConfig.generationPhotoAlbumName,
-      );
+      final SavedPhotoLibraryImage savedImage = await _photoLibraryAssetStore
+          .saveImage(
+            result.path,
+            album: AppConfig.generationPhotoAlbumName,
+            fileName: AppConfig.generationResultFileName(recordId),
+          );
+      final DateTime savedAt = DateTime.now();
       _debugLog(
-        'save processed result success record=$recordId bytes=${result.bytes.length}',
+        'save processed result success record=$recordId bytes=${result.bytes.length} asset=${savedImage.assetId}',
       );
-      await _generationRecordRepository.updatePipelineStatus(
+      await _generationRecordRepository.markResultSaved(
         recordId: recordId,
-        status: GenerationRecordPipelineStatus.resultSaved,
-        updatedAt: DateTime.now(),
-        clearError: true,
-      );
-      await _generationRecordRepository.updateResultFields(
-        recordId: recordId,
-        updatedAt: DateTime.now(),
-        resultAvailability:
-            GenerationRecordResultAvailability.savedToPhotoLibrary,
-        resultLocalCachePath: result.path,
+        updatedAt: savedAt,
+        resultAssetId: savedImage.assetId,
+        resultSavedAt: savedAt,
         resultSizeBytes: result.bytes.length,
       );
+      await _deleteTemporaryResultFile(recordId: recordId, path: result.path);
     } on Object catch (error) {
       _debugLog(
         'process result pipeline failure record=$recordId error=$error',
       );
+      final GenerationRecord? failedRecord = await _generationRecordRepository
+          .findById(recordId);
       await _generationRecordRepository.updatePipelineStatus(
         recordId: recordId,
         status: GenerationRecordPipelineStatus.resultSaveFailed,
         updatedAt: DateTime.now(),
         errorCode: 'result_processing_failed',
         errorMessage: error.toString(),
+      );
+      final String? temporaryResultPath =
+          _runtimeState[recordId]?.processedResultPath;
+      if (temporaryResultPath != null &&
+          failedRecord?.resultLocalCachePath != temporaryResultPath) {
+        await _generationRecordRepository.updateResultFields(
+          recordId: recordId,
+          updatedAt: DateTime.now(),
+          resultAvailability: GenerationRecordResultAvailability.localCache,
+          resultLocalCachePath: temporaryResultPath,
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteTemporaryResultFile({
+    required String recordId,
+    required String path,
+  }) async {
+    try {
+      final File file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+        _debugLog('delete temp result success record=$recordId path=$path');
+      }
+      if (_runtimeState[recordId]?.processedResultPath == path) {
+        _runtimeState[recordId]?.processedResultPath = null;
+      }
+    } on Object catch (error) {
+      _debugLog(
+        'delete temp result failure record=$recordId path=$path error=$error',
       );
     }
   }
@@ -703,7 +733,9 @@ class GenerationSubmissionService extends ChangeNotifier {
     _pollingTimers.clear();
   }
 
-  Future<GenerationSubmissionJob?> _jobForRecord(GenerationRecord record) async {
+  Future<GenerationSubmissionJob?> _jobForRecord(
+    GenerationRecord record,
+  ) async {
     final GenerationSubmissionStatus? status = _submissionStatusForRecord(
       record,
     );
@@ -711,6 +743,7 @@ class GenerationSubmissionService extends ChangeNotifier {
       return null;
     }
     final String? imagePath = await _sourcePathForRecord(record);
+    final String? processedResultPath = await _resultPathForRecord(record);
     if (imagePath == null) {
       return GenerationSubmissionJob(
         id: record.recordId,
@@ -724,7 +757,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         errorCode: record.errorCode,
         errorMessage: record.errorMessage,
         promptSelection: _promptSelectionForRecord(record),
-        processedResultPath: record.resultLocalCachePath,
+        processedResultPath: processedResultPath,
         resultSaveErrorCode:
             record.pipelineStatus ==
                 GenerationRecordPipelineStatus.resultSaveFailed.name
@@ -755,7 +788,7 @@ class GenerationSubmissionService extends ChangeNotifier {
       uploadImagePath: runtime?.uploadImagePath,
       uploadImageSizeBytes: record.uploadSizeBytes,
       sourceExif: runtime?.sourceExif,
-      processedResultPath: record.resultLocalCachePath,
+      processedResultPath: processedResultPath,
       resultSaveErrorCode:
           status == GenerationSubmissionStatus.resultProcessingFailed
           ? record.errorCode
@@ -781,6 +814,45 @@ class GenerationSubmissionService extends ChangeNotifier {
       return _originalFileStore.resolveOriginalPath(originalLocalPath);
     }
     return _runtimeState[record.recordId]?.originalPath;
+  }
+
+  Future<String?> _resultPathForRecord(GenerationRecord record) async {
+    final String? runtimeResultPath =
+        _runtimeState[record.recordId]?.processedResultPath;
+    if (runtimeResultPath != null && await File(runtimeResultPath).exists()) {
+      return runtimeResultPath;
+    }
+    final String? resultAssetId = record.resultAssetId;
+    if (resultAssetId != null &&
+        record.resultAvailability ==
+            GenerationRecordResultAvailability.savedToPhotoLibrary.name) {
+      try {
+        final String? resolvedPath = await _photoLibraryAssetStore
+            .resolveImagePath(resultAssetId);
+        if (resolvedPath != null && resolvedPath.isNotEmpty) {
+          _runtimeFor(record.recordId).processedResultPath = resolvedPath;
+          return resolvedPath;
+        }
+        _debugLog(
+          'result asset unresolved record=${record.recordId} asset=$resultAssetId',
+        );
+      } on Object catch (error) {
+        _debugLog(
+          'result asset resolve failure record=${record.recordId} asset=$resultAssetId error=$error',
+        );
+      }
+    }
+    final String? resultLocalCachePath = record.resultLocalCachePath;
+    if (resultLocalCachePath == null) {
+      return null;
+    }
+    if (!await File(resultLocalCachePath).exists()) {
+      _debugLog(
+        'result path missing record=${record.recordId} path=$resultLocalCachePath',
+      );
+      return null;
+    }
+    return resultLocalCachePath;
   }
 
   PromptSelectionSnapshot _promptSelectionForRecord(GenerationRecord record) {
@@ -890,6 +962,7 @@ class _RuntimeGenerationRecordState {
     this.resultUrlExpiresAt,
     this.uploadImagePath,
     this.sourceExif,
+    this.processedResultPath,
   });
 
   String? originalPath;
@@ -898,6 +971,7 @@ class _RuntimeGenerationRecordState {
   DateTime? resultUrlExpiresAt;
   String? uploadImagePath;
   Map<String, Object>? sourceExif;
+  String? processedResultPath;
 
   bool get hasFreshResultUrl {
     final String? url = resultUrl;

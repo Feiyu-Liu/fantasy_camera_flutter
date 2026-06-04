@@ -277,6 +277,45 @@ class GenerationRecordRepository {
     );
   }
 
+  Future<void> markResultSaved({
+    required String recordId,
+    required DateTime updatedAt,
+    required String resultAssetId,
+    String? resultImageObjectId,
+    DateTime? resultSavedAt,
+    int? resultSizeBytes,
+    String? resultSha256,
+    GenerationRecordHashStatus? resultHashStatus,
+    String? resultHashError,
+  }) {
+    return _database.transaction(() async {
+      await _updateById(
+        recordId,
+        GenerationRecordsCompanion(
+          updatedAt: Value<DateTime>(updatedAt),
+          pipelineStatus: Value<String>(
+            GenerationRecordPipelineStatus.resultSaved.name,
+          ),
+          resultAvailability: Value<String>(
+            GenerationRecordResultAvailability.savedToPhotoLibrary.name,
+          ),
+          resultImageObjectId: Value<String?>.absentIfNull(resultImageObjectId),
+          resultLocalCachePath: const Value<String?>(null),
+          resultAssetId: Value<String?>(resultAssetId),
+          resultSavedAt: Value<DateTime?>.absentIfNull(resultSavedAt),
+          resultSizeBytes: Value<int?>.absentIfNull(resultSizeBytes),
+          resultSha256: Value<String?>.absentIfNull(resultSha256),
+          resultHashStatus: resultHashStatus == null
+              ? const Value<String?>.absent()
+              : Value<String?>(resultHashStatus.name),
+          resultHashError: Value<String?>.absentIfNull(resultHashError),
+          errorCode: const Value<String?>(null),
+          errorMessage: const Value<String?>(null),
+        ),
+      );
+    });
+  }
+
   Future<void> markOriginalCleared({
     required String recordId,
     required DateTime clearedAt,

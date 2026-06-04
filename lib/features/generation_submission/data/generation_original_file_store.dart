@@ -49,7 +49,10 @@ class ApplicationSupportGenerationOriginalFileStore
     await directory.create(recursive: true);
     await _excludeFromBackup(directory);
 
-    final String relativePath = p.join(relativeDirectory, '$recordId$extension');
+    final String relativePath = p.join(
+      relativeDirectory,
+      '$recordId$extension',
+    );
     final File destination = File(await resolveOriginalPath(relativePath));
     await sourceFile.copy(destination.path);
     await _excludeFromBackup(destination);
