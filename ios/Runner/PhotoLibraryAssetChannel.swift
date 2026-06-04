@@ -75,6 +75,7 @@ final class PhotoLibraryAssetChannel: NSObject {
           }
         )
         picker.delegate = delegate
+        picker.presentationController?.delegate = delegate
         self.galleryPickerDelegate = delegate
         rootViewController.present(picker, animated: true)
       }
@@ -269,10 +270,12 @@ final class PhotoLibraryAssetChannel: NSObject {
   }
 }
 
-private final class GalleryImagePickerDelegate: NSObject, PHPickerViewControllerDelegate {
+private final class GalleryImagePickerDelegate: NSObject, PHPickerViewControllerDelegate, UIAdaptivePresentationControllerDelegate {
   private let exportAssetForDisplay: (String, @escaping (String?, Error?) -> Void) -> Void
   private let makeFlutterError: (String, Error) -> FlutterError
   private let finish: (Any?) -> Void
+  private var didReceivePickerResult = false
+  private var didFinish = false
 
   init(
     exportAssetForDisplay: @escaping (String, @escaping (String?, Error?) -> Void) -> Void,
@@ -286,14 +289,15 @@ private final class GalleryImagePickerDelegate: NSObject, PHPickerViewController
   }
 
   func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+    didReceivePickerResult = true
     picker.dismiss(animated: true)
 
     guard let picked = results.first else {
-      finish(nil)
+      finishOnce(nil)
       return
     }
     guard let assetId = picked.assetIdentifier else {
-      finish(FlutterError(
+      finishOnce(FlutterError(
         code: "missing_asset_id",
         message: "Picked image did not return an asset id.",
         details: nil
@@ -301,18 +305,36 @@ private final class GalleryImagePickerDelegate: NSObject, PHPickerViewController
       return
     }
 
-    exportAssetForDisplay(assetId) { [makeFlutterError, finish] path, error in
+    exportAssetForDisplay(assetId) { [weak self] path, error in
       DispatchQueue.main.async {
+        guard let self = self else {
+          return
+        }
         if let error = error {
-          finish(makeFlutterError("export_failed", error))
+          self.finishOnce(self.makeFlutterError("export_failed", error))
           return
         }
         guard let path = path else {
-          finish(nil)
+          self.finishOnce(nil)
           return
         }
-        finish(["path": path, "assetId": assetId])
+        self.finishOnce(["path": path, "assetId": assetId])
       }
     }
+  }
+
+  func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+    guard !didReceivePickerResult else {
+      return
+    }
+    finishOnce(nil)
+  }
+
+  private func finishOnce(_ response: Any?) {
+    guard !didFinish else {
+      return
+    }
+    didFinish = true
+    finish(response)
   }
 }
