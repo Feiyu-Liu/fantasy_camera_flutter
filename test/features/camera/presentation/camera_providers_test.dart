@@ -529,6 +529,16 @@ class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
   Future<void> deleteOriginal(String path) async {}
 
   @override
+  Future<String> resolveOriginalPath(String path) async {
+    return path;
+  }
+
+  @override
+  Future<bool> originalExists(String path) async {
+    return true;
+  }
+
+  @override
   Future<StoredOriginalFile> storeCameraOriginal({
     required String recordId,
     required String sourcePath,

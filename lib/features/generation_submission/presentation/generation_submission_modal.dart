@@ -343,7 +343,7 @@ class _JobThumbnail extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            Image.file(File(job.imagePath), fit: BoxFit.cover),
+            _ThumbnailImage(path: job.imagePath),
             Positioned(
               right: 6,
               top: job.status == GenerationSubmissionStatus.awaitingConfirmation
@@ -373,6 +373,47 @@ class _JobThumbnail extends StatelessWidget {
               child: _PromptSnapshotBadge(job: job),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ThumbnailImage extends StatelessWidget {
+  const _ThumbnailImage({required this.path});
+
+  final String path;
+
+  @override
+  Widget build(BuildContext context) {
+    if (path.isEmpty) {
+      return const _MissingOriginalImagePlaceholder();
+    }
+    return Image.file(
+      File(path),
+      fit: BoxFit.cover,
+      errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
+        debugPrint(
+          '[GenerationSubmissionModal] thumbnail image load failure path=$path error=$error',
+        );
+        return const _MissingOriginalImagePlaceholder();
+      },
+    );
+  }
+}
+
+class _MissingOriginalImagePlaceholder extends StatelessWidget {
+  const _MissingOriginalImagePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: CupertinoColors.systemGrey6.resolveFrom(context),
+      child: Center(
+        child: Icon(
+          CupertinoIcons.photo,
+          color: CupertinoColors.secondaryLabel.resolveFrom(context),
+          size: 30,
         ),
       ),
     );

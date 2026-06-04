@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -315,12 +317,8 @@ class GenerationSubmissionController
     );
     return records.when(
       data: (List<GenerationRecord> value) {
-        final GenerationSubmissionState nextState = _mergedWithCurrentState(
-          service.stateForRecords(value),
-        );
-        _refreshCreditBalanceAfterTaskCreation(nextState);
-        _lastPublishedState = nextState;
-        return nextState;
+        unawaited(_publishRecords(value));
+        return _lastPublishedState ?? const GenerationSubmissionState();
       },
       loading: () {
         const GenerationSubmissionState nextState = GenerationSubmissionState();
@@ -405,7 +403,7 @@ class GenerationSubmissionController
   Future<void> _refreshFromRepository() async {
     final List<GenerationRecord> records = await _recordRepository
         .listRecords();
-    final GenerationSubmissionState nextState = _submissionService
+    final GenerationSubmissionState nextState = await _submissionService
         .stateForRecords(records);
     final GenerationSubmissionState filteredNextState = _withoutDeletedJobs(
       nextState,
@@ -413,6 +411,15 @@ class GenerationSubmissionController
     _refreshCreditBalanceAfterTaskCreation(filteredNextState);
     _lastPublishedState = filteredNextState;
     state = filteredNextState;
+  }
+
+  Future<void> _publishRecords(List<GenerationRecord> records) async {
+    final GenerationSubmissionState nextState = _mergedWithCurrentState(
+      await _submissionService.stateForRecords(records),
+    );
+    _refreshCreditBalanceAfterTaskCreation(nextState);
+    _lastPublishedState = nextState;
+    state = nextState;
   }
 
   GenerationSubmissionState _mergedWithCurrentState(
@@ -441,7 +448,8 @@ class GenerationSubmissionController
               return incomingJob;
             }
             return _statusRank(currentJob.status) >
-                    _statusRank(incomingJob.status)
+                        _statusRank(incomingJob.status) &&
+                    currentJob.updatedAt.isAfter(incomingJob.updatedAt)
                 ? currentJob
                 : incomingJob;
           })

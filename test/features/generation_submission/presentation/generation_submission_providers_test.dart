@@ -178,11 +178,14 @@ void main() {
   });
 
   test('queues captured file into private original cache', () async {
+    final _FakeGenerationOriginalFileStore originalFileStore =
+        _FakeGenerationOriginalFileStore();
     final _FakePhotoLibrarySaver photoLibrarySaver = _FakePhotoLibrarySaver();
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
     final _FakeGenerationTaskRepository taskRepository =
         _FakeGenerationTaskRepository();
     final ProviderContainer container = _container(
+      originalFileStore: originalFileStore,
       photoLibrarySaver: photoLibrarySaver,
       uploadRepository: uploadRepository,
       taskRepository: taskRepository,
@@ -198,6 +201,8 @@ void main() {
         .jobs
         .single;
     expect(job.status, GenerationSubmissionStatus.awaitingConfirmation);
+    expect(job.imagePath, startsWith('/resolved/originals/'));
+    expect(originalFileStore.storedRelativePaths.single, startsWith('originals/'));
     expect(photoLibrarySaver.events, isEmpty);
     expect(uploadRepository.events, isEmpty);
     expect(taskRepository.createdInputs, isEmpty);
@@ -370,7 +375,7 @@ void main() {
     expect(jobs, hasLength(2));
     expect(
       jobs.map((GenerationSubmissionJob job) => job.imagePath).toSet(),
-      everyElement(startsWith('/tmp/stored-local-')),
+      everyElement(startsWith('/resolved/originals/')),
     );
     expect(
       jobs.every(
@@ -463,12 +468,11 @@ void main() {
     await container
         .read(generationSubmissionControllerProvider.notifier)
         .submitCapturedFile(XFile('/tmp/photo.jpg'));
-    await Future<void>.delayed(Duration.zero);
 
-    final GenerationSubmissionJob job = container
-        .read(generationSubmissionControllerProvider)
-        .jobs
-        .single;
+    final GenerationSubmissionJob job = await _waitForSingleJobStatus(
+      container,
+      GenerationSubmissionStatus.resultProcessingFailed,
+    );
     expect(job.status, GenerationSubmissionStatus.resultProcessingFailed);
     expect(job.taskStatus, GenerationTaskStatus.completed);
     expect(job.resultSaveErrorCode, 'result_processing_failed');
@@ -493,12 +497,11 @@ void main() {
     await container
         .read(generationSubmissionControllerProvider.notifier)
         .submitCapturedFile(XFile('/tmp/photo.jpg'));
-    await Future<void>.delayed(Duration.zero);
 
-    final GenerationSubmissionJob job = container
-        .read(generationSubmissionControllerProvider)
-        .jobs
-        .single;
+    final GenerationSubmissionJob job = await _waitForSingleJobStatus(
+      container,
+      GenerationSubmissionStatus.failed,
+    );
     expect(job.status, GenerationSubmissionStatus.failed);
     expect(job.taskStatus, GenerationTaskStatus.failed);
     expect(job.errorCode, 'provider_error');
@@ -547,6 +550,23 @@ void main() {
   });
 }
 
+Future<GenerationSubmissionJob> _waitForSingleJobStatus(
+  ProviderContainer container,
+  GenerationSubmissionStatus status,
+) async {
+  final DateTime deadline = DateTime.now().add(const Duration(seconds: 3));
+  while (DateTime.now().isBefore(deadline)) {
+    final List<GenerationSubmissionJob> jobs = container
+        .read(generationSubmissionControllerProvider)
+        .jobs;
+    if (jobs.length == 1 && jobs.single.status == status) {
+      return jobs.single;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  return container.read(generationSubmissionControllerProvider).jobs.single;
+}
+
 ProviderContainer _container({
   _FakePhotoLibrarySaver? photoLibrarySaver,
   _FakeGenerationImageProcessor? imageProcessor,
@@ -580,6 +600,7 @@ ProviderContainer _container({
 
 class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
   final List<String> storedPaths = <String>[];
+  final List<String> storedRelativePaths = <String>[];
   final List<String> deletedPaths = <String>[];
   Object? storeFailure;
 
@@ -593,9 +614,23 @@ class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
     if (failure != null) {
       throw failure;
     }
-    final String storedPath = '/tmp/stored-$recordId.heic';
+    final String storedPath = 'originals/2026/06/04/$recordId.heic';
     storedPaths.add('$sourcePath->$storedPath');
+    storedRelativePaths.add(storedPath);
     return StoredOriginalFile(path: storedPath, format: 'heic');
+  }
+
+  @override
+  Future<String> resolveOriginalPath(String path) async {
+    if (path.startsWith('/')) {
+      return path;
+    }
+    return '/resolved/$path';
+  }
+
+  @override
+  Future<bool> originalExists(String path) async {
+    return true;
   }
 
   @override

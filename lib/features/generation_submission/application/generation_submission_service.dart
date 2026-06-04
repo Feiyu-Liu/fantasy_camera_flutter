@@ -47,10 +47,14 @@ class GenerationSubmissionService extends ChangeNotifier {
 
   int _nextJobId = 0;
 
-  GenerationSubmissionState stateForRecords(List<GenerationRecord> records) {
+  Future<GenerationSubmissionState> stateForRecords(
+    List<GenerationRecord> records,
+  ) async {
+    final List<GenerationSubmissionJob?> jobs = await Future.wait(
+      records.map(_jobForRecord),
+    );
     return GenerationSubmissionState(
-      jobs: records
-          .map(_jobForRecord)
+      jobs: jobs
           .whereType<GenerationSubmissionJob>()
           .toList(growable: false),
     );
@@ -160,7 +164,9 @@ class GenerationSubmissionService extends ChangeNotifier {
       return;
     }
 
-    _debugLog('confirm record=$recordId path=${_sourcePathForRecord(record)}');
+    _debugLog(
+      'confirm record=$recordId path=${await _sourcePathForRecord(record)}',
+    );
     await _submitRecord(record);
   }
 
@@ -235,7 +241,7 @@ class GenerationSubmissionService extends ChangeNotifier {
   Future<void> _submitRecord(GenerationRecord record) async {
     final String recordId = record.recordId;
     String stage = 'queued';
-    final String? sourcePath = _sourcePathForRecord(record);
+    final String? sourcePath = await _sourcePathForRecord(record);
     if (sourcePath == null) {
       _debugLog('submit skipped record=$recordId reason=missing-source-path');
       await _failRecord(
@@ -697,14 +703,14 @@ class GenerationSubmissionService extends ChangeNotifier {
     _pollingTimers.clear();
   }
 
-  GenerationSubmissionJob? _jobForRecord(GenerationRecord record) {
+  Future<GenerationSubmissionJob?> _jobForRecord(GenerationRecord record) async {
     final GenerationSubmissionStatus? status = _submissionStatusForRecord(
       record,
     );
     if (status == null) {
       return null;
     }
-    final String? imagePath = _sourcePathForRecord(record);
+    final String? imagePath = await _sourcePathForRecord(record);
     if (imagePath == null) {
       return GenerationSubmissionJob(
         id: record.recordId,
@@ -763,9 +769,18 @@ class GenerationSubmissionService extends ChangeNotifier {
     );
   }
 
-  String? _sourcePathForRecord(GenerationRecord record) {
-    return record.originalLocalPath ??
-        _runtimeState[record.recordId]?.originalPath;
+  Future<String?> _sourcePathForRecord(GenerationRecord record) async {
+    final String? originalLocalPath = record.originalLocalPath;
+    if (originalLocalPath != null) {
+      if (!await _originalFileStore.originalExists(originalLocalPath)) {
+        _debugLog(
+          'source path missing record=${record.recordId} path=$originalLocalPath',
+        );
+        return null;
+      }
+      return _originalFileStore.resolveOriginalPath(originalLocalPath);
+    }
+    return _runtimeState[record.recordId]?.originalPath;
   }
 
   PromptSelectionSnapshot _promptSelectionForRecord(GenerationRecord record) {

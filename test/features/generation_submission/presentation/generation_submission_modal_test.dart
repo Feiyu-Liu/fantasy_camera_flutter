@@ -190,6 +190,24 @@ void main() {
     expect(find.text('No captured photos yet'), findsNothing);
   });
 
+  testWidgets('modal shows thumbnail fallback when original file is missing', (
+    WidgetTester tester,
+  ) async {
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'missing',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+        imagePath: '/tmp/does-not-exist.heic',
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byIcon(CupertinoIcons.photo), findsOneWidget);
+  });
+
   testWidgets('tapping completed photo loads result image', (
     WidgetTester tester,
   ) async {
@@ -389,6 +407,8 @@ Future<void> _pumpModalHost(WidgetTester tester, _ModalHost host) async {
   });
   await tester.pumpWidget(host);
   await tester.pump();
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 1));
   await tester.pump();
 }
 
@@ -814,6 +834,16 @@ class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
   Future<void> deleteOriginal(String path) async {}
 
   @override
+  Future<String> resolveOriginalPath(String path) async {
+    return path;
+  }
+
+  @override
+  Future<bool> originalExists(String path) async {
+    return true;
+  }
+
+  @override
   Future<StoredOriginalFile> storeCameraOriginal({
     required String recordId,
     required String sourcePath,
@@ -916,14 +946,15 @@ GenerationSubmissionJob _job({
   required String id,
   required GenerationSubmissionStatus status,
   String? taskId,
+  String? imagePath,
   String? processedResultPath,
   String? resultSaveErrorMessage,
 }) {
   final DateTime now = DateTime.parse('2026-05-29T00:00:00Z');
-  final File imageFile = _writeImageFile(id);
+  final String resolvedImagePath = imagePath ?? _writeImageFile(id).path;
   return GenerationSubmissionJob(
     id: id,
-    imagePath: imageFile.path,
+    imagePath: resolvedImagePath,
     status: status,
     taskId: taskId ?? 'task-$id',
     promptSelection: const PromptSelectionSnapshot(
