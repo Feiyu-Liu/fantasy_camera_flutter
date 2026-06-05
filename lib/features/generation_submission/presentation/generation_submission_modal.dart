@@ -63,42 +63,57 @@ class _GenerationSubmissionDebugModalState
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
+        final double topInset = MediaQuery.paddingOf(context).top;
         final double height = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : MediaQuery.sizeOf(context).height;
-        final double bottomHeight = (height * 0.28).clamp(250.0, 304.0);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        final double availableContentHeight = (height - topInset).clamp(
+          0.0,
+          double.infinity,
+        );
+        final double heroHeight = (constraints.maxWidth * 4 / 3).clamp(
+          0.0,
+          availableContentHeight,
+        );
+        return Stack(
           children: <Widget>[
-            _GalleryHeader(onClose: () => Navigator.of(context).pop()),
-            Expanded(
-              child: _GalleryHeroPreview(
-                job: selectedJob,
-                loading: _loadingResultJobId == selectedJob?.id,
-                showOriginalImage: _showOriginalImage,
-                onToggleImage: selectedJob == null
-                    ? null
-                    : () {
-                        setState(() {
-                          _showOriginalImage = !_showOriginalImage;
-                        });
+            Padding(
+              padding: EdgeInsets.only(top: topInset),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  SizedBox(
+                    height: heroHeight,
+                    child: _GalleryHeroPreview(
+                      job: selectedJob,
+                      loading: _loadingResultJobId == selectedJob?.id,
+                      showOriginalImage: _showOriginalImage,
+                      onToggleImage: selectedJob == null
+                          ? null
+                          : () {
+                              setState(() {
+                                _showOriginalImage = !_showOriginalImage;
+                              });
+                            },
+                    ),
+                  ),
+                  Expanded(
+                    child: _RelatedMomentsStrip(
+                      jobs: jobs,
+                      selectedJob: selectedJob,
+                      pickingGalleryImage: _pickingGalleryImage,
+                      onPickGalleryImage: _pickGalleryImage,
+                      onSelectJob: _selectJob,
+                      onConfirmJob: _confirmJob,
+                      onCancelJob: (GenerationSubmissionJob job) {
+                        unawaited(_cancelJob(job));
                       },
+                    ),
+                  ),
+                ],
               ),
             ),
-            SizedBox(
-              height: bottomHeight,
-              child: _RelatedMomentsStrip(
-                jobs: jobs,
-                selectedJob: selectedJob,
-                pickingGalleryImage: _pickingGalleryImage,
-                onPickGalleryImage: _pickGalleryImage,
-                onSelectJob: _selectJob,
-                onConfirmJob: _confirmJob,
-                onCancelJob: (GenerationSubmissionJob job) {
-                  unawaited(_cancelJob(job));
-                },
-              ),
-            ),
+            _GalleryCloseButton(onClose: () => Navigator.of(context).pop()),
           ],
         );
       },
@@ -253,57 +268,41 @@ class GenerationSubmissionDebugModal extends StatelessWidget {
   }
 }
 
-class _GalleryHeader extends StatelessWidget {
-  const _GalleryHeader({required this.onClose});
+class _GalleryCloseButton extends StatelessWidget {
+  const _GalleryCloseButton({required this.onClose});
 
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 79,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: CupertinoColors.white,
-          border: Border(
-            bottom: BorderSide(color: Color(0xFFEEEEEE), width: 0.5),
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          minimum: EdgeInsets.zero,
-          child: Stack(
-            alignment: Alignment.center,
-            children: <Widget>[
-              const Text(
-                'JOURNAL / HIGHLIGHTS',
-                key: ValueKey<String>('generation-gallery-title'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: CupertinoColors.black,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 2.0,
-                ),
-              ),
-              Positioned(
-                left: 14,
-                child: CupertinoButton(
-                  key: const ValueKey<String>(
-                    'generation-submission-modal-close',
-                  ),
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size.square(44),
-                  onPressed: onClose,
-                  child: const Icon(
-                    CupertinoIcons.xmark,
-                    color: CupertinoColors.black,
-                    size: 20,
-                  ),
-                ),
+    final double topInset = MediaQuery.paddingOf(context).top;
+    return Positioned(
+      left: 14,
+      top: (topInset - 4).clamp(8.0, 54.0),
+      child: CupertinoButton(
+        key: const ValueKey<String>('generation-submission-modal-close'),
+        padding: EdgeInsets.zero,
+        minimumSize: const Size.square(44),
+        onPressed: onClose,
+        child: const DecoratedBox(
+          decoration: BoxDecoration(
+            color: CupertinoColors.white,
+            shape: BoxShape.circle,
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: Color(0x1A000000),
+                blurRadius: 12,
+                offset: Offset(0, 4),
               ),
             ],
+          ),
+          child: SizedBox.square(
+            dimension: 36,
+            child: Icon(
+              CupertinoIcons.xmark,
+              color: CupertinoColors.black,
+              size: 18,
+            ),
           ),
         ),
       ),
@@ -335,14 +334,12 @@ class _RelatedMomentsStrip extends StatelessWidget {
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: CupertinoColors.white,
-        border: Border(
-          top: BorderSide(color: Color(0xFFEEEEEE), width: 0.5),
-        ),
+        border: Border(top: BorderSide(color: Color(0xFFEEEEEE), width: 0.5)),
       ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(0, 24, 0, 13),
+          padding: const EdgeInsets.fromLTRB(0, 12, 0, 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -360,19 +357,19 @@ class _RelatedMomentsStrip extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               const SizedBox(
                 height: 0.5,
                 child: ColoredBox(color: Color(0xFFEEEEEE)),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               Expanded(
                 child: LayoutBuilder(
                   builder: (BuildContext context, BoxConstraints constraints) {
                     final double itemHeight = constraints.maxHeight;
-                    final double tileHeight = (itemHeight - 28).clamp(
-                      120.0,
-                      220.0,
+                    final double tileHeight = (itemHeight - 22).clamp(
+                      148.0,
+                      280.0,
                     );
                     final double tileWidth = tileHeight * 0.72;
                     return ListView.separated(
