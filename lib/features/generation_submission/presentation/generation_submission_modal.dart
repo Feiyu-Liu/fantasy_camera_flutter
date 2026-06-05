@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:photo_view/photo_view.dart';
+import 'package:photo_view/photo_view_gallery.dart';
 
 import '../../backend_api/domain/prompt_config.dart';
 import '../data/generation_submission_adapters.dart';
@@ -45,12 +47,14 @@ class _GenerationSubmissionDebugModalState
   String? _loadingResultJobId;
   bool _showOriginalImage = false;
   bool _pickingGalleryImage = false;
+  late final PageController _heroPageController = PageController();
 
   @override
   void dispose() {
     if (_pickingGalleryImage) {
       unawaited(ref.read(galleryImagePickerProvider).cancelActivePick());
     }
+    _heroPageController.dispose();
     super.dispose();
   }
 
@@ -60,6 +64,19 @@ class _GenerationSubmissionDebugModalState
         .watch(generationSubmissionControllerProvider)
         .jobs;
     final GenerationSubmissionJob? selectedJob = _selectedJob(jobs);
+    final int selectedIndex = selectedJob == null
+        ? 0
+        : jobs.indexWhere((GenerationSubmissionJob job) {
+            return job.id == selectedJob.id;
+          });
+    if (selectedJob != null && selectedIndex >= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        _syncHeroPageToSelection(selectedIndex, animate: false);
+      });
+    }
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
@@ -71,9 +88,34 @@ class _GenerationSubmissionDebugModalState
           0.0,
           double.infinity,
         );
-        final double heroHeight = (constraints.maxWidth * 4 / 3).clamp(
+        final double maxHeroHeight = (availableContentHeight - 196).clamp(
           0.0,
           availableContentHeight,
+        );
+        final double heroWidth = constraints.maxWidth.clamp(
+          0.0,
+          maxHeroHeight * 3 / 4,
+        );
+        final double heroHeight = heroWidth * 4 / 3;
+        final Widget hero = SizedBox(
+          width: heroWidth,
+          height: heroHeight,
+          child: _GalleryHeroPager(
+            jobs: jobs,
+            selectedJob: selectedJob,
+            selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+            pageController: _heroPageController,
+            loading: _loadingResultJobId == selectedJob?.id,
+            showOriginalImage: _showOriginalImage,
+            onPageChanged: _selectJobAtPage,
+            onToggleImage: selectedJob == null
+                ? null
+                : () {
+                    setState(() {
+                      _showOriginalImage = !_showOriginalImage;
+                    });
+                  },
+          ),
         );
         return Stack(
           children: <Widget>[
@@ -84,18 +126,7 @@ class _GenerationSubmissionDebugModalState
                 children: <Widget>[
                   SizedBox(
                     height: heroHeight,
-                    child: _GalleryHeroPreview(
-                      job: selectedJob,
-                      loading: _loadingResultJobId == selectedJob?.id,
-                      showOriginalImage: _showOriginalImage,
-                      onToggleImage: selectedJob == null
-                          ? null
-                          : () {
-                              setState(() {
-                                _showOriginalImage = !_showOriginalImage;
-                              });
-                            },
-                    ),
+                    child: Center(child: hero),
                   ),
                   Expanded(
                     child: _RelatedMomentsStrip(
@@ -136,7 +167,38 @@ class _GenerationSubmissionDebugModalState
     return jobs.first;
   }
 
-  void _selectJob(GenerationSubmissionJob job) {
+  void _syncHeroPageToSelection(int index, {required bool animate}) {
+    if (!_heroPageController.hasClients) {
+      return;
+    }
+    final double? page = _heroPageController.page;
+    final int currentPage = page == null
+        ? _heroPageController.initialPage
+        : page.round();
+    if (currentPage == index) {
+      return;
+    }
+    if (animate) {
+      unawaited(
+        _heroPageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+      return;
+    }
+    _heroPageController.jumpToPage(index);
+  }
+
+  void _selectJobAtPage(int index, List<GenerationSubmissionJob> jobs) {
+    if (index < 0 || index >= jobs.length) {
+      return;
+    }
+    _selectJob(jobs[index], syncHeroPage: false);
+  }
+
+  void _selectJob(GenerationSubmissionJob job, {bool syncHeroPage = true}) {
     _debugLog(
       'select job=${job.id} status=${job.status.name} task=${job.taskId ?? 'none'} resultCached=${job.resultUrl != null}',
     );
@@ -144,6 +206,17 @@ class _GenerationSubmissionDebugModalState
       _selectedJobId = job.id;
       _showOriginalImage = false;
     });
+    if (syncHeroPage) {
+      final List<GenerationSubmissionJob> jobs = ref
+          .read(generationSubmissionControllerProvider)
+          .jobs;
+      final int index = jobs.indexWhere((GenerationSubmissionJob item) {
+        return item.id == job.id;
+      });
+      if (index >= 0) {
+        _syncHeroPageToSelection(index, animate: true);
+      }
+    }
     if (job.status == GenerationSubmissionStatus.completed ||
         job.status == GenerationSubmissionStatus.resultProcessingFailed) {
       unawaited(_loadResult(job.id));
@@ -368,7 +441,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
                   builder: (BuildContext context, BoxConstraints constraints) {
                     final double itemHeight = constraints.maxHeight;
                     final double tileHeight = (itemHeight - 22).clamp(
-                      148.0,
+                      0.0,
                       280.0,
                     );
                     final double tileWidth = tileHeight * 0.72;
@@ -828,23 +901,32 @@ class _ThumbnailActionButton extends StatelessWidget {
   }
 }
 
-class _GalleryHeroPreview extends StatelessWidget {
-  const _GalleryHeroPreview({
-    required this.job,
+class _GalleryHeroPager extends StatelessWidget {
+  const _GalleryHeroPager({
+    required this.jobs,
+    required this.selectedJob,
+    required this.selectedIndex,
+    required this.pageController,
     required this.loading,
     required this.showOriginalImage,
+    required this.onPageChanged,
     required this.onToggleImage,
   });
 
-  final GenerationSubmissionJob? job;
+  final List<GenerationSubmissionJob> jobs;
+  final GenerationSubmissionJob? selectedJob;
+  final int selectedIndex;
+  final PageController pageController;
   final bool loading;
   final bool showOriginalImage;
+  final void Function(int index, List<GenerationSubmissionJob> jobs)
+  onPageChanged;
   final VoidCallback? onToggleImage;
 
   @override
   Widget build(BuildContext context) {
-    final GenerationSubmissionJob? job = this.job;
-    if (job == null) {
+    final GenerationSubmissionJob? selectedJob = this.selectedJob;
+    if (selectedJob == null || jobs.isEmpty) {
       return const ColoredBox(
         color: CupertinoColors.white,
         child: Center(
@@ -867,7 +949,22 @@ class _GalleryHeroPreview extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: <Widget>[
-          _previewContent(job),
+          PhotoViewGallery.builder(
+            key: const ValueKey<String>('generation-gallery-hero-pager'),
+            itemCount: jobs.length,
+            pageController: pageController,
+            onPageChanged: (int index) => onPageChanged(index, jobs),
+            backgroundDecoration: const BoxDecoration(
+              color: CupertinoColors.white,
+            ),
+            loadingBuilder: (BuildContext context, ImageChunkEvent? progress) {
+              return const Center(child: CupertinoActivityIndicator());
+            },
+            builder: (BuildContext context, int index) {
+              return _pageOptions(jobs[index]);
+            },
+          ),
+          _HeroImageKeyMarker(imageSource: _imageSourceForJob(selectedJob)),
           // Hero Overlay: FEATURED Badge and Location
           Positioned(
             left: 24,
@@ -897,7 +994,7 @@ class _GalleryHeroPreview extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '■ ${job.promptSelection?.captureMode.toUpperCase() ?? 'MOMENT'}, PARIS',
+                  '■ ${selectedJob.promptSelection?.captureMode.toUpperCase() ?? 'MOMENT'}, PARIS',
                   style: const TextStyle(
                     color: CupertinoColors.white,
                     fontSize: 13,
@@ -915,14 +1012,14 @@ class _GalleryHeroPreview extends StatelessWidget {
               ],
             ),
           ),
-          if (_shouldShowStatusOverlay(job))
+          if (_shouldShowStatusOverlay(selectedJob))
             Positioned(
               left: 24,
               top: 24,
               right: 24,
               child: _HeroStatusLabel(
-                status: job.status,
-                message: _heroStatusMessage(job),
+                status: selectedJob.status,
+                message: _heroStatusMessage(selectedJob),
               ),
             ),
           if (loading)
@@ -932,7 +1029,7 @@ class _GalleryHeroPreview extends StatelessWidget {
                 color: CupertinoColors.white,
               ),
             ),
-          if (_shouldShowToggle(job))
+          if (_shouldShowToggle(selectedJob))
             Positioned(
               right: 24,
               bottom: 24,
@@ -946,9 +1043,43 @@ class _GalleryHeroPreview extends StatelessWidget {
     );
   }
 
-  Widget _previewContent(GenerationSubmissionJob job) {
+  PhotoViewGalleryPageOptions _pageOptions(GenerationSubmissionJob job) {
+    const PhotoViewComputedScale minScale = PhotoViewComputedScale.contained;
+    const PhotoViewComputedScale initialScale =
+        PhotoViewComputedScale.contained;
+    final PhotoViewComputedScale maxScale = PhotoViewComputedScale.covered * 3;
+
+    final _HeroImageSource? imageSource = _imageSourceForJob(job);
+    if (imageSource == null) {
+      return PhotoViewGalleryPageOptions.customChild(
+        child: _placeholderForJob(job),
+        initialScale: initialScale,
+        minScale: minScale,
+        maxScale: maxScale,
+        disableGestures: true,
+      );
+    }
+
+    return PhotoViewGalleryPageOptions(
+      imageProvider: imageSource.imageProvider,
+      semanticLabel: imageSource.key.value,
+      initialScale: initialScale,
+      minScale: minScale,
+      maxScale: maxScale,
+      basePosition: Alignment.center,
+      filterQuality: FilterQuality.medium,
+      errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
+        debugPrint(
+          '[GenerationSubmissionModal] ${imageSource.failureLogLabel} load failure path=${imageSource.debugPath} error=$error',
+        );
+        return _HeroImageFailure(message: imageSource.failureMessage);
+      },
+    );
+  }
+
+  _HeroImageSource? _imageSourceForJob(GenerationSubmissionJob job) {
     if (showOriginalImage) {
-      return _HeroFileImage(
+      return _HeroFileImageSource(
         path: job.imagePath,
         key: const ValueKey<String>('generation-submission-original-image'),
         failureLogLabel: 'original image',
@@ -957,7 +1088,7 @@ class _GalleryHeroPreview extends StatelessWidget {
     }
 
     if (_shouldUseOriginalAsHero(job)) {
-      return _HeroFileImage(
+      return _HeroFileImageSource(
         path: job.imagePath,
         key: const ValueKey<String>('generation-submission-original-image'),
         failureLogLabel: 'original image',
@@ -966,7 +1097,7 @@ class _GalleryHeroPreview extends StatelessWidget {
     }
 
     if (job.status == GenerationSubmissionStatus.resultProcessingFailed) {
-      return _HeroFileImage(
+      return _HeroFileImageSource(
         path: job.imagePath,
         key: const ValueKey<String>('generation-submission-original-image'),
         failureLogLabel: 'original image',
@@ -976,22 +1107,12 @@ class _GalleryHeroPreview extends StatelessWidget {
 
     if (job.status != GenerationSubmissionStatus.completed &&
         job.status != GenerationSubmissionStatus.resultSaved) {
-      return Center(
-        child: Text(
-          _statusText(job.status).toUpperCase(),
-          style: const TextStyle(
-            color: Color(0xFFBBBBBB),
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.0,
-          ),
-        ),
-      );
+      return null;
     }
 
     final String? processedResultPath = job.processedResultPath;
     if (processedResultPath != null) {
-      return _HeroFileImage(
+      return _HeroFileImageSource(
         path: processedResultPath,
         key: const ValueKey<String>(
           'generation-submission-processed-result-image',
@@ -1003,41 +1124,36 @@ class _GalleryHeroPreview extends StatelessWidget {
 
     final String? resultUrl = job.resultUrl;
     if (resultUrl == null) {
-      return const Center(
-        child: Text(
-          'TAP TO LOAD RESULT',
-          style: TextStyle(
-            color: Color(0xFFBBBBBB),
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.0,
-          ),
-        ),
-      );
+      return null;
     }
 
-    return Image.network(
-      resultUrl,
+    return _HeroNetworkImageSource(
+      url: resultUrl,
       key: const ValueKey<String>('generation-submission-result-image'),
-      fit: BoxFit.cover,
-      errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
-        debugPrint(
-          '[GenerationSubmissionModal] result image load failure url=$resultUrl error=$error',
-        );
-        return const Center(
-          child: Text(
-            'IMAGE LOAD FAILURE',
-            style: TextStyle(color: CupertinoColors.secondaryLabel),
-          ),
-        );
-      },
-      loadingBuilder:
-          (BuildContext context, Widget child, ImageChunkEvent? progress) {
-            if (progress == null) {
-              return child;
-            }
-            return const Center(child: CupertinoActivityIndicator());
-          },
+      failureLogLabel: 'result image',
+      failureMessage: 'Result image could not be loaded',
+    );
+  }
+
+  Widget _placeholderForJob(GenerationSubmissionJob job) {
+    final String text;
+    if (job.status == GenerationSubmissionStatus.completed ||
+        job.status == GenerationSubmissionStatus.resultSaved) {
+      text = 'TAP TO LOAD RESULT';
+    } else {
+      text = _statusText(job.status).toUpperCase();
+    }
+
+    return Center(
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Color(0xFFBBBBBB),
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.0,
+        ),
+      ),
     );
   }
 
@@ -1064,8 +1180,7 @@ class _GalleryHeroPreview extends StatelessWidget {
       return 'LOADING RESULT';
     }
     if (job.status == GenerationSubmissionStatus.resultProcessingFailed) {
-      return (job.resultSaveErrorMessage ?? 'RESULT PROCESSING FAILED')
-          .toUpperCase();
+      return job.resultSaveErrorMessage ?? 'RESULT PROCESSING FAILED';
     }
     return _statusText(job.status).toUpperCase();
   }
@@ -1089,33 +1204,63 @@ class _GalleryHeroPreview extends StatelessWidget {
   }
 }
 
-class _HeroFileImage extends StatelessWidget {
-  const _HeroFileImage({
-    super.key,
+abstract class _HeroImageSource {
+  const _HeroImageSource({
     required this.path,
+    required this.key,
     required this.failureLogLabel,
     required this.failureMessage,
   });
 
   final String path;
+  final ValueKey<String> key;
   final String failureLogLabel;
   final String failureMessage;
 
+  ImageProvider get imageProvider;
+
+  String get debugPath => path;
+}
+
+class _HeroFileImageSource extends _HeroImageSource {
+  const _HeroFileImageSource({
+    required super.path,
+    required super.key,
+    required super.failureLogLabel,
+    required super.failureMessage,
+  });
+
+  @override
+  ImageProvider get imageProvider => FileImage(File(path));
+}
+
+class _HeroNetworkImageSource extends _HeroImageSource {
+  const _HeroNetworkImageSource({
+    required String url,
+    required super.key,
+    required super.failureLogLabel,
+    required super.failureMessage,
+  }) : super(path: url);
+
+  @override
+  ImageProvider get imageProvider => NetworkImage(path);
+
+  @override
+  String get debugPath => path;
+}
+
+class _HeroImageKeyMarker extends StatelessWidget {
+  const _HeroImageKeyMarker({required this.imageSource});
+
+  final _HeroImageSource? imageSource;
+
   @override
   Widget build(BuildContext context) {
-    if (path.isEmpty) {
-      return _HeroImageFailure(message: failureMessage);
+    final _HeroImageSource? imageSource = this.imageSource;
+    if (imageSource == null) {
+      return const SizedBox.shrink();
     }
-    return Image.file(
-      File(path),
-      fit: BoxFit.contain,
-      errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
-        debugPrint(
-          '[GenerationSubmissionModal] $failureLogLabel load failure path=$path error=$error',
-        );
-        return _HeroImageFailure(message: failureMessage);
-      },
-    );
+    return IgnorePointer(child: SizedBox.shrink(key: imageSource.key));
   }
 }
 
