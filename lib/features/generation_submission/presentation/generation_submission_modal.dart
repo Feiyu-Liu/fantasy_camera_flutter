@@ -19,16 +19,28 @@ Future<void> showGenerationSubmissionDebugModal(BuildContext context) {
   );
 }
 
-class GenerationSubmissionDebugModal extends ConsumerStatefulWidget {
-  const GenerationSubmissionDebugModal({super.key});
+class GenerationSubmissionGalleryPage extends StatelessWidget {
+  const GenerationSubmissionGalleryPage({super.key});
 
   @override
-  ConsumerState<GenerationSubmissionDebugModal> createState() =>
+  Widget build(BuildContext context) {
+    return const CupertinoPageScaffold(
+      backgroundColor: CupertinoColors.white,
+      child: _GenerationSubmissionGalleryContent(),
+    );
+  }
+}
+
+class _GenerationSubmissionGalleryContent extends ConsumerStatefulWidget {
+  const _GenerationSubmissionGalleryContent();
+
+  @override
+  ConsumerState<_GenerationSubmissionGalleryContent> createState() =>
       _GenerationSubmissionDebugModalState();
 }
 
 class _GenerationSubmissionDebugModalState
-    extends ConsumerState<GenerationSubmissionDebugModal> {
+    extends ConsumerState<_GenerationSubmissionGalleryContent> {
   String? _selectedJobId;
   String? _loadingResultJobId;
   bool _showOriginalImage = false;
@@ -49,76 +61,47 @@ class _GenerationSubmissionDebugModalState
         .jobs;
     final GenerationSubmissionJob? selectedJob = _selectedJob(jobs);
 
-    return CupertinoPopupSurface(
-      isSurfacePainted: true,
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.84,
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              color: CupertinoColors.systemBackground,
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double height = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : MediaQuery.sizeOf(context).height;
+        final double bottomHeight = (height * 0.28).clamp(250.0, 304.0);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            _GalleryHeader(onClose: () => Navigator.of(context).pop()),
+            Expanded(
+              child: _GalleryHeroPreview(
+                job: selectedJob,
+                loading: _loadingResultJobId == selectedJob?.id,
+                showOriginalImage: _showOriginalImage,
+                onToggleImage: selectedJob == null
+                    ? null
+                    : () {
+                        setState(() {
+                          _showOriginalImage = !_showOriginalImage;
+                        });
+                      },
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                _ModalHandle(onClose: () => Navigator.of(context).pop()),
-                SizedBox(
-                  height: 118,
-                  child: ListView.separated(
-                    key: const ValueKey<String>(
-                      'generation-submission-photo-list',
-                    ),
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: jobs.length + 1,
-                    separatorBuilder: (_, _) => const SizedBox(width: 10),
-                    itemBuilder: (BuildContext context, int index) {
-                      if (index == 0) {
-                        return _GalleryPickerTile(
-                          picking: _pickingGalleryImage,
-                          onTap: _pickGalleryImage,
-                        );
-                      }
-                      final GenerationSubmissionJob job = jobs[index - 1];
-                      return _JobThumbnail(
-                        job: job,
-                        selected: selectedJob?.id == job.id,
-                        onTap: () => _selectJob(job),
-                        onConfirm:
-                            job.status ==
-                                GenerationSubmissionStatus.awaitingConfirmation
-                            ? () => _confirmJob(job)
-                            : null,
-                        onCancel:
-                            job.status ==
-                                GenerationSubmissionStatus.awaitingConfirmation
-                            ? () => unawaited(_cancelJob(job))
-                            : null,
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: _ResultPreview(
-                    job: selectedJob,
-                    loading: _loadingResultJobId == selectedJob?.id,
-                    showOriginalImage: _showOriginalImage,
-                    onToggleImage: selectedJob == null
-                        ? null
-                        : () {
-                            setState(() {
-                              _showOriginalImage = !_showOriginalImage;
-                            });
-                          },
-                  ),
-                ),
-              ],
+            SizedBox(
+              height: bottomHeight,
+              child: _RelatedMomentsStrip(
+                jobs: jobs,
+                selectedJob: selectedJob,
+                pickingGalleryImage: _pickingGalleryImage,
+                onPickGalleryImage: _pickGalleryImage,
+                onSelectJob: _selectJob,
+                onConfirmJob: _confirmJob,
+                onCancelJob: (GenerationSubmissionJob job) {
+                  unawaited(_cancelJob(job));
+                },
+              ),
             ),
-          ),
-        ),
-      ),
+          ],
+        );
+      },
     );
   }
 
@@ -249,35 +232,256 @@ class _GenerationSubmissionDebugModalState
   }
 }
 
-class _ModalHandle extends StatelessWidget {
-  const _ModalHandle({required this.onClose});
+class GenerationSubmissionDebugModal extends StatelessWidget {
+  const GenerationSubmissionDebugModal({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoPopupSurface(
+      isSurfacePainted: true,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.84,
+          child: const DecoratedBox(
+            decoration: BoxDecoration(color: CupertinoColors.white),
+            child: _GenerationSubmissionGalleryContent(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GalleryHeader extends StatelessWidget {
+  const _GalleryHeader({required this.onClose});
 
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 10, 8),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Center(
-              child: Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: CupertinoColors.systemGrey3.resolveFrom(context),
-                  borderRadius: BorderRadius.circular(999),
+    return SizedBox(
+      height: 79,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: CupertinoColors.white,
+          border: Border(
+            bottom: BorderSide(color: CupertinoColors.black, width: 0.8),
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          minimum: EdgeInsets.zero,
+          child: Stack(
+            alignment: Alignment.center,
+            children: <Widget>[
+              const Text(
+                'JOURNAL / HIGHLIGHTS',
+                key: ValueKey<String>('generation-gallery-title'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: CupertinoColors.black,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 5.4,
                 ),
               ),
-            ),
+              Positioned(
+                left: 14,
+                child: CupertinoButton(
+                  key: const ValueKey<String>(
+                    'generation-submission-modal-close',
+                  ),
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size.square(44),
+                  onPressed: onClose,
+                  child: const Icon(
+                    CupertinoIcons.xmark,
+                    color: CupertinoColors.black,
+                    size: 22,
+                  ),
+                ),
+              ),
+            ],
           ),
-          CupertinoButton(
-            key: const ValueKey<String>('generation-submission-modal-close'),
-            padding: EdgeInsets.zero,
-            minimumSize: const Size.square(32),
-            onPressed: onClose,
-            child: const Icon(CupertinoIcons.xmark_circle_fill),
+        ),
+      ),
+    );
+  }
+}
+
+class _RelatedMomentsStrip extends StatelessWidget {
+  const _RelatedMomentsStrip({
+    required this.jobs,
+    required this.selectedJob,
+    required this.pickingGalleryImage,
+    required this.onPickGalleryImage,
+    required this.onSelectJob,
+    required this.onConfirmJob,
+    required this.onCancelJob,
+  });
+
+  final List<GenerationSubmissionJob> jobs;
+  final GenerationSubmissionJob? selectedJob;
+  final bool pickingGalleryImage;
+  final VoidCallback onPickGalleryImage;
+  final ValueChanged<GenerationSubmissionJob> onSelectJob;
+  final ValueChanged<GenerationSubmissionJob> onConfirmJob;
+  final ValueChanged<GenerationSubmissionJob> onCancelJob;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: CupertinoColors.white,
+        border: Border(
+          top: BorderSide(color: CupertinoColors.black, width: 0.8),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(0, 29, 0, 13),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'RELATED MOMENTS',
+                  key: ValueKey<String>('generation-gallery-related-title'),
+                  style: TextStyle(
+                    color: CupertinoColors.black,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 4.4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 25),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (BuildContext context, BoxConstraints constraints) {
+                    final double itemHeight = constraints.maxHeight;
+                    final double tileHeight = (itemHeight - 28).clamp(
+                      96.0,
+                      184.0,
+                    );
+                    final double tileWidth = tileHeight * 0.68;
+                    return ListView.separated(
+                      key: const ValueKey<String>(
+                        'generation-submission-photo-list',
+                      ),
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      itemCount: jobs.length + 1,
+                      separatorBuilder: (_, _) => const SizedBox(width: 16),
+                      itemBuilder: (BuildContext context, int index) {
+                        if (index == 0) {
+                          return _GalleryMomentItem(
+                            width: tileWidth,
+                            height: itemHeight,
+                            imageHeight: tileHeight,
+                            caption: 'IMPORT',
+                            child: _GalleryPickerTile(
+                              width: tileWidth,
+                              height: tileHeight,
+                              picking: pickingGalleryImage,
+                              onTap: onPickGalleryImage,
+                            ),
+                          );
+                        }
+                        final GenerationSubmissionJob job = jobs[index - 1];
+                        return _GalleryMomentItem(
+                          width: tileWidth,
+                          height: itemHeight,
+                          imageHeight: tileHeight,
+                          caption: _captionForJob(job),
+                          child: _JobThumbnail(
+                            width: tileWidth,
+                            height: tileHeight,
+                            job: job,
+                            selected: selectedJob?.id == job.id,
+                            onTap: () => onSelectJob(job),
+                            onConfirm:
+                                job.status ==
+                                    GenerationSubmissionStatus
+                                        .awaitingConfirmation
+                                ? () => onConfirmJob(job)
+                                : null,
+                            onCancel:
+                                job.status ==
+                                    GenerationSubmissionStatus
+                                        .awaitingConfirmation
+                                ? () => onCancelJob(job)
+                                : null,
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _captionForJob(GenerationSubmissionJob job) {
+    final DateTime createdAt = job.createdAt;
+    final int hour = createdAt.hour == 0
+        ? 12
+        : createdAt.hour > 12
+        ? createdAt.hour - 12
+        : createdAt.hour;
+    final String minute = createdAt.minute.toString().padLeft(2, '0');
+    final String period = createdAt.hour >= 12 ? 'PM' : 'AM';
+    final String mode =
+        job.promptSelection?.captureMode.toUpperCase() ?? 'MOMENT';
+    return '$hour:$minute $period — $mode';
+  }
+}
+
+class _GalleryMomentItem extends StatelessWidget {
+  const _GalleryMomentItem({
+    required this.width,
+    required this.height,
+    required this.imageHeight,
+    required this.caption,
+    required this.child,
+  });
+
+  final double width;
+  final double height;
+  final double imageHeight;
+  final String caption;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          SizedBox(width: width, height: imageHeight, child: child),
+          const SizedBox(height: 9),
+          Text(
+            caption,
+            maxLines: 1,
+            overflow: TextOverflow.clip,
+            softWrap: false,
+            style: const TextStyle(
+              color: CupertinoColors.systemGrey,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.25,
+            ),
           ),
         ],
       ),
@@ -286,8 +490,15 @@ class _ModalHandle extends StatelessWidget {
 }
 
 class _GalleryPickerTile extends StatelessWidget {
-  const _GalleryPickerTile({required this.picking, required this.onTap});
+  const _GalleryPickerTile({
+    required this.width,
+    required this.height,
+    required this.picking,
+    required this.onTap,
+  });
 
+  final double width;
+  final double height;
   final bool picking;
   final VoidCallback onTap;
 
@@ -297,14 +508,11 @@ class _GalleryPickerTile extends StatelessWidget {
       key: const ValueKey<String>('generation-submission-gallery-picker'),
       onTap: picking ? null : onTap,
       child: Container(
-        width: 84,
-        height: 108,
+        width: width,
+        height: height,
         decoration: BoxDecoration(
-          color: CupertinoColors.secondarySystemBackground.resolveFrom(context),
-          border: Border.all(
-            color: CupertinoColors.separator.resolveFrom(context),
-          ),
-          borderRadius: BorderRadius.circular(10),
+          color: CupertinoColors.white,
+          border: Border.all(color: CupertinoColors.black),
         ),
         child: Center(
           child: picking
@@ -315,8 +523,8 @@ class _GalleryPickerTile extends StatelessWidget {
                 )
               : const Icon(
                   CupertinoIcons.plus,
-                  color: CupertinoColors.activeBlue,
-                  size: 30,
+                  color: CupertinoColors.black,
+                  size: 32,
                 ),
         ),
       ),
@@ -326,6 +534,8 @@ class _GalleryPickerTile extends StatelessWidget {
 
 class _JobThumbnail extends StatelessWidget {
   const _JobThumbnail({
+    required this.width,
+    required this.height,
     required this.job,
     required this.selected,
     required this.onTap,
@@ -333,6 +543,8 @@ class _JobThumbnail extends StatelessWidget {
     required this.onCancel,
   });
 
+  final double width;
+  final double height;
   final GenerationSubmissionJob job;
   final bool selected;
   final VoidCallback onTap;
@@ -341,19 +553,16 @@ class _JobThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color borderColor = selected
-        ? CupertinoColors.activeBlue.resolveFrom(context)
-        : CupertinoColors.separator.resolveFrom(context);
+    const Color borderColor = CupertinoColors.black;
 
     return GestureDetector(
       key: ValueKey<String>('generation-submission-photo-${job.id}'),
       onTap: onTap,
       child: Container(
-        width: 84,
-        height: 108,
+        width: width,
+        height: height,
         decoration: BoxDecoration(
           border: Border.all(color: borderColor, width: selected ? 2 : 1),
-          borderRadius: BorderRadius.circular(10),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
@@ -424,7 +633,7 @@ class _MissingOriginalImagePlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: CupertinoColors.systemGrey6.resolveFrom(context),
+      color: CupertinoColors.white,
       child: Center(
         child: Icon(
           CupertinoIcons.photo,
@@ -477,9 +686,10 @@ class _PromptSnapshotBadge extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
+  const _StatusBadge({required this.status, this.includeTestKey = true});
 
   final GenerationSubmissionStatus status;
+  final bool includeTestKey;
 
   @override
   Widget build(BuildContext context) {
@@ -497,40 +707,54 @@ class _StatusBadge extends StatelessWidget {
 
   Widget _statusIcon() {
     return switch (status) {
-      GenerationSubmissionStatus.awaitingConfirmation => const Icon(
+      GenerationSubmissionStatus.awaitingConfirmation => Icon(
         CupertinoIcons.question_circle_fill,
-        key: ValueKey<String>('generation-submission-status-awaiting'),
+        key: includeTestKey
+            ? const ValueKey<String>('generation-submission-status-awaiting')
+            : null,
         color: CupertinoColors.white,
         size: 20,
       ),
-      GenerationSubmissionStatus.resultSaved => const Icon(
+      GenerationSubmissionStatus.resultSaved => Icon(
         CupertinoIcons.check_mark_circled_solid,
-        key: ValueKey<String>('generation-submission-status-result-saved'),
+        key: includeTestKey
+            ? const ValueKey<String>(
+                'generation-submission-status-result-saved',
+              )
+            : null,
         color: CupertinoColors.activeGreen,
         size: 20,
       ),
-      GenerationSubmissionStatus.resultProcessingFailed => const Icon(
+      GenerationSubmissionStatus.resultProcessingFailed => Icon(
         CupertinoIcons.exclamationmark_circle_fill,
-        key: ValueKey<String>(
-          'generation-submission-status-result-processing-failed',
-        ),
+        key: includeTestKey
+            ? const ValueKey<String>(
+                'generation-submission-status-result-processing-failed',
+              )
+            : null,
         color: CupertinoColors.systemRed,
         size: 20,
       ),
-      GenerationSubmissionStatus.completed => const Icon(
+      GenerationSubmissionStatus.completed => Icon(
         CupertinoIcons.check_mark_circled_solid,
-        key: ValueKey<String>('generation-submission-status-completed'),
+        key: includeTestKey
+            ? const ValueKey<String>('generation-submission-status-completed')
+            : null,
         color: CupertinoColors.activeGreen,
         size: 20,
       ),
-      GenerationSubmissionStatus.failed => const Icon(
+      GenerationSubmissionStatus.failed => Icon(
         CupertinoIcons.exclamationmark_circle_fill,
-        key: ValueKey<String>('generation-submission-status-failed'),
+        key: includeTestKey
+            ? const ValueKey<String>('generation-submission-status-failed')
+            : null,
         color: CupertinoColors.systemRed,
         size: 20,
       ),
-      _ => const CupertinoActivityIndicator(
-        key: ValueKey<String>('generation-submission-status-processing'),
+      _ => CupertinoActivityIndicator(
+        key: includeTestKey
+            ? const ValueKey<String>('generation-submission-status-processing')
+            : null,
         color: CupertinoColors.white,
         radius: 8,
       ),
@@ -601,8 +825,8 @@ class _ThumbnailActionButton extends StatelessWidget {
   }
 }
 
-class _ResultPreview extends StatelessWidget {
-  const _ResultPreview({
+class _GalleryHeroPreview extends StatelessWidget {
+  const _GalleryHeroPreview({
     required this.job,
     required this.loading,
     required this.showOriginalImage,
@@ -618,31 +842,54 @@ class _ResultPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final GenerationSubmissionJob? job = this.job;
     if (job == null) {
-      return const Center(
-        child: Text(
-          'Capture a photo to inspect generation results',
-          style: TextStyle(color: CupertinoColors.secondaryLabel),
+      return const ColoredBox(
+        color: CupertinoColors.white,
+        child: Center(
+          child: Text(
+            'Capture or choose a photo',
+            key: ValueKey<String>('generation-gallery-empty-hero'),
+            style: TextStyle(
+              color: CupertinoColors.secondaryLabel,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+    return ColoredBox(
+      color: CupertinoColors.white,
       child: Stack(
         fit: StackFit.expand,
         children: <Widget>[
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: _previewContent(job),
-          ),
-          Positioned(
-            right: 12,
-            bottom: 12,
-            child: _ImageToggleButton(
-              showingOriginal: showOriginalImage,
-              onPressed: onToggleImage,
+          _previewContent(job),
+          if (_shouldShowStatusOverlay(job))
+            Positioned(
+              left: 32,
+              bottom: 34,
+              right: 32,
+              child: _HeroStatusLabel(
+                status: job.status,
+                message: _heroStatusMessage(job),
+              ),
             ),
-          ),
+          if (loading)
+            const Center(
+              child: CupertinoActivityIndicator(
+                key: ValueKey<String>('generation-submission-result-loading'),
+                color: CupertinoColors.white,
+              ),
+            ),
+          if (_shouldShowToggle(job))
+            Positioned(
+              right: 24,
+              bottom: 24,
+              child: _ImageToggleButton(
+                showingOriginal: showOriginalImage,
+                onPressed: onToggleImage,
+              ),
+            ),
         ],
       ),
     );
@@ -650,47 +897,29 @@ class _ResultPreview extends StatelessWidget {
 
   Widget _previewContent(GenerationSubmissionJob job) {
     if (showOriginalImage) {
-      return Image.file(
-        File(job.imagePath),
+      return _HeroFileImage(
+        path: job.imagePath,
         key: const ValueKey<String>('generation-submission-original-image'),
-        fit: BoxFit.contain,
-        errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
-          debugPrint(
-            '[GenerationSubmissionModal] original image load failure path=${job.imagePath} error=$error',
-          );
-          return const Center(
-            child: Text(
-              'Original image could not be loaded',
-              style: TextStyle(color: CupertinoColors.secondaryLabel),
-            ),
-          );
-        },
+        failureLogLabel: 'original image',
+        failureMessage: 'Original image could not be loaded',
       );
     }
 
-    if (loading) {
-      return const Center(
-        child: CupertinoActivityIndicator(
-          key: ValueKey<String>('generation-submission-result-loading'),
-        ),
-      );
-    }
-
-    if (job.status == GenerationSubmissionStatus.processingResultImage) {
-      return const Center(
-        child: CupertinoActivityIndicator(
-          key: ValueKey<String>('generation-submission-result-processing'),
-        ),
+    if (_shouldUseOriginalAsHero(job)) {
+      return _HeroFileImage(
+        path: job.imagePath,
+        key: const ValueKey<String>('generation-submission-original-image'),
+        failureLogLabel: 'original image',
+        failureMessage: 'Original image could not be loaded',
       );
     }
 
     if (job.status == GenerationSubmissionStatus.resultProcessingFailed) {
-      return Center(
-        child: Text(
-          job.resultSaveErrorMessage ?? 'Result processing failed',
-          style: const TextStyle(color: CupertinoColors.secondaryLabel),
-          textAlign: TextAlign.center,
-        ),
+      return _HeroFileImage(
+        path: job.imagePath,
+        key: const ValueKey<String>('generation-submission-original-image'),
+        failureLogLabel: 'original image',
+        failureMessage: 'Original image could not be loaded',
       );
     }
 
@@ -706,23 +935,13 @@ class _ResultPreview extends StatelessWidget {
 
     final String? processedResultPath = job.processedResultPath;
     if (processedResultPath != null) {
-      return Image.file(
-        File(processedResultPath),
+      return _HeroFileImage(
+        path: processedResultPath,
         key: const ValueKey<String>(
           'generation-submission-processed-result-image',
         ),
-        fit: BoxFit.contain,
-        errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
-          debugPrint(
-            '[GenerationSubmissionModal] processed result image load failure path=$processedResultPath error=$error',
-          );
-          return const Center(
-            child: Text(
-              'Processed result image could not be loaded',
-              style: TextStyle(color: CupertinoColors.secondaryLabel),
-            ),
-          );
-        },
+        failureLogLabel: 'processed result image',
+        failureMessage: 'Processed result image could not be loaded',
       );
     }
 
@@ -739,7 +958,7 @@ class _ResultPreview extends StatelessWidget {
     return Image.network(
       resultUrl,
       key: const ValueKey<String>('generation-submission-result-image'),
-      fit: BoxFit.contain,
+      fit: BoxFit.cover,
       errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
         debugPrint(
           '[GenerationSubmissionModal] result image load failure url=$resultUrl error=$error',
@@ -761,6 +980,34 @@ class _ResultPreview extends StatelessWidget {
     );
   }
 
+  bool _shouldUseOriginalAsHero(GenerationSubmissionJob job) {
+    return job.status != GenerationSubmissionStatus.completed &&
+        job.status != GenerationSubmissionStatus.resultSaved;
+  }
+
+  bool _shouldShowToggle(GenerationSubmissionJob job) {
+    return job.status == GenerationSubmissionStatus.completed ||
+        job.status == GenerationSubmissionStatus.resultSaved ||
+        job.status == GenerationSubmissionStatus.resultProcessingFailed;
+  }
+
+  bool _shouldShowStatusOverlay(GenerationSubmissionJob job) {
+    return job.status != GenerationSubmissionStatus.resultSaved &&
+        (showOriginalImage ||
+            job.status != GenerationSubmissionStatus.completed ||
+            loading);
+  }
+
+  String _heroStatusMessage(GenerationSubmissionJob job) {
+    if (loading) {
+      return 'Loading result';
+    }
+    if (job.status == GenerationSubmissionStatus.resultProcessingFailed) {
+      return job.resultSaveErrorMessage ?? 'Result processing failed';
+    }
+    return _statusText(job.status);
+  }
+
   static String _statusText(GenerationSubmissionStatus status) {
     return switch (status) {
       GenerationSubmissionStatus.failed => 'Generation failed',
@@ -777,6 +1024,99 @@ class _ResultPreview extends StatelessWidget {
       GenerationSubmissionStatus.pollingTask => 'Waiting for generation result',
       _ => 'Preparing generation task',
     };
+  }
+}
+
+class _HeroFileImage extends StatelessWidget {
+  const _HeroFileImage({
+    super.key,
+    required this.path,
+    required this.failureLogLabel,
+    required this.failureMessage,
+  });
+
+  final String path;
+  final String failureLogLabel;
+  final String failureMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    if (path.isEmpty) {
+      return _HeroImageFailure(message: failureMessage);
+    }
+    return Image.file(
+      File(path),
+      fit: BoxFit.cover,
+      errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
+        debugPrint(
+          '[GenerationSubmissionModal] $failureLogLabel load failure path=$path error=$error',
+        );
+        return _HeroImageFailure(message: failureMessage);
+      },
+    );
+  }
+}
+
+class _HeroImageFailure extends StatelessWidget {
+  const _HeroImageFailure({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: CupertinoColors.white,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Text(
+            message,
+            key: const ValueKey<String>('generation-gallery-hero-failure'),
+            style: const TextStyle(color: CupertinoColors.secondaryLabel),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroStatusLabel extends StatelessWidget {
+  const _HeroStatusLabel({required this.status, required this.message});
+
+  final GenerationSubmissionStatus status;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: CupertinoColors.black.withValues(alpha: 0.64),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            _StatusBadge(status: status, includeTestKey: false),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                key: const ValueKey<String>('generation-gallery-hero-status'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: CupertinoColors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

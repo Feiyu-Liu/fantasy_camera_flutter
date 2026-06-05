@@ -1,8 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../auth/presentation/auth_gate.dart';
 import '../l10n/l10n.dart';
+import 'app_router.dart';
 
 class FantasyCameraApp extends StatelessWidget {
   const FantasyCameraApp({this.overrides = const <Override>[], super.key});
@@ -13,7 +13,7 @@ class FantasyCameraApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ProviderScope(
       overrides: overrides,
-      child: CupertinoApp(
+      child: CupertinoApp.router(
         title: appLocalizationsFor(defaultAppLocale).appTitle,
         debugShowCheckedModeBanner: false,
         locale: defaultAppLocale,
@@ -24,7 +24,7 @@ class FantasyCameraApp extends StatelessWidget {
           scaffoldBackgroundColor: CupertinoColors.black,
           primaryColor: CupertinoColors.white,
         ),
-        home: const AuthGate(),
+        routerConfig: createAppRouter(),
       ),
     );
   }

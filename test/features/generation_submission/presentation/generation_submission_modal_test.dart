@@ -40,6 +40,7 @@ void main() {
     ];
 
     await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+    await tester.pump();
 
     expect(
       find.byKey(const ValueKey<String>('generation-submission-photo-list')),
@@ -205,7 +206,10 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
-    expect(find.byIcon(CupertinoIcons.photo), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-photo-missing')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('tapping completed photo loads result image', (
@@ -439,6 +443,7 @@ class _ModalHostState extends State<_ModalHost> {
   late final Future<List<GenerationRecord>> _seedFuture = _seedRecords();
 
   Future<List<GenerationRecord>> _seedRecords() async {
+    _FakePhotoLibraryAssetStore.resultPaths.clear();
     await _seedJobs(widget.jobs, _recordRepository);
     return _recordRepository.listRecords();
   }
@@ -732,12 +737,14 @@ Future<void> _seedJobs(
       resultImageObjectId: job.resultImageObjectId,
     );
     if (job.processedResultPath != null) {
+      _FakePhotoLibraryAssetStore.resultPaths['asset-result-${job.id}'] =
+          job.processedResultPath!;
       await repository.updateResultFields(
         recordId: job.id,
         updatedAt: job.updatedAt,
         resultAvailability:
             GenerationRecordResultAvailability.savedToPhotoLibrary,
-        resultLocalCachePath: job.processedResultPath,
+        resultAssetId: 'asset-result-${job.id}',
       );
     }
   }
@@ -830,6 +837,8 @@ class _FakeGalleryImagePicker implements GalleryImagePicker {
 class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   const _FakePhotoLibraryAssetStore();
 
+  static final Map<String, String> resultPaths = <String, String>{};
+
   @override
   Future<SavedPhotoLibraryImage> saveImage(
     String path, {
@@ -841,7 +850,7 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
 
   @override
   Future<String?> resolveImagePath(String assetId) async {
-    return null;
+    return resultPaths[assetId];
   }
 }
 

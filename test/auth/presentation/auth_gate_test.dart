@@ -94,7 +94,7 @@ void main() {
     );
   });
 
-  testWidgets('camera gallery thumbnail opens generation debug modal', (
+  testWidgets('camera gallery thumbnail opens generation gallery page', (
     WidgetTester tester,
   ) async {
     await usePortraitSurface(tester);
@@ -144,6 +144,10 @@ void main() {
     await tester.tap(find.byType(CameraPhotoGalleryButton));
     await tester.pumpAndSettle();
 
+    expect(
+      find.byKey(const ValueKey<String>('generation-gallery-title')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(
         const ValueKey<String>('generation-submission-gallery-picker'),

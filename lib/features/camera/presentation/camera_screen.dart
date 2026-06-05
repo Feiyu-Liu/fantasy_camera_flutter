@@ -6,9 +6,11 @@ import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:my_ui/my_ui.dart';
 
+import '../../../app/app_router.dart';
 import '../../../config/app_config.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/camera/camera_controller.dart';
@@ -16,7 +18,6 @@ import '../../../shared/camera/camera_preview.dart';
 import '../../backend_api/domain/credit_balance.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
-import '../../generation_submission/presentation/generation_submission_modal.dart';
 import '../../generation_submission/presentation/generation_submission_providers.dart';
 import '../data/capture_orientation_reader.dart';
 import 'camera_message.dart';
@@ -114,7 +115,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       onFlashPressed: notifier.toggleFlash,
       onFlipCameraPressed: notifier.flipCamera,
       onShutterPressed: notifier.takePicture,
-      onGalleryPressed: () => showGenerationSubmissionDebugModal(context),
+      onGalleryPressed: () => context.push(generationGalleryRoute),
       onZoomStopSelected: notifier.setDisplayZoom,
       onModeSelected: ref
           .read(promptSelectionControllerProvider.notifier)
