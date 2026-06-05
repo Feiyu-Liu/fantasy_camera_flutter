@@ -256,6 +256,87 @@ void main() {
     },
   );
 
+  test('pauseCamera disposes current controller and clears state', () async {
+    final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+    CameraPlatform.instance = camera;
+    final _TestContainer testContainer = _container(
+      choices: const <CameraChoice>[
+        CameraChoice(
+          description: CameraDescription(
+            name: 'back',
+            lensDirection: CameraLensDirection.back,
+            sensorOrientation: 0,
+          ),
+          label: 'Back Camera',
+          isVirtualDevice: false,
+          deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+        ),
+      ],
+    );
+    final ProviderContainer container = testContainer.container;
+    addTearDown(() async {
+      await testContainer.dispose();
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    final CameraControllerNotifier notifier = container.read(
+      cameraStateProvider.notifier,
+    );
+    await notifier.openDefaultCamera();
+
+    expect(container.read(cameraStateProvider).controller, isNotNull);
+
+    await notifier.pauseCamera();
+
+    final CameraState state = container.read(cameraStateProvider);
+    expect(camera.disposeCount, 1);
+    expect(state.controller, isNull);
+    expect(state.isInitializing, isFalse);
+    expect(state.isTakingPicture, isFalse);
+    expect(state.isSwitchingCamera, isFalse);
+    expect(state.isTogglingFlash, isFalse);
+    expect(state.message, isA<CameraStartingMessage>());
+  });
+
+  test('camera can reopen after pauseCamera', () async {
+    final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+    CameraPlatform.instance = camera;
+    final _TestContainer testContainer = _container(
+      choices: const <CameraChoice>[
+        CameraChoice(
+          description: CameraDescription(
+            name: 'back',
+            lensDirection: CameraLensDirection.back,
+            sensorOrientation: 0,
+          ),
+          label: 'Back Camera',
+          isVirtualDevice: false,
+          deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+        ),
+      ],
+    );
+    final ProviderContainer container = testContainer.container;
+    addTearDown(() async {
+      await testContainer.dispose();
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    final CameraControllerNotifier notifier = container.read(
+      cameraStateProvider.notifier,
+    );
+    await notifier.openDefaultCamera();
+    await notifier.pauseCamera();
+    await notifier.openDefaultCamera();
+
+    expect(camera.disposeCount, 1);
+    expect(camera.createCameraCount, 2);
+    expect(container.read(cameraStateProvider).controller, isNotNull);
+    expect(
+      container.read(cameraStateProvider).hasInitializedController,
+      isTrue,
+    );
+  });
+
   test(
     'focusAndExposeAt forwards supported focus and exposure point',
     () async {
@@ -375,6 +456,8 @@ class _FakeAVFoundationCamera extends AVFoundationCamera {
   final Completer<XFile> _takePictureCompleter = Completer<XFile>();
   Point<double>? focusPoint;
   Point<double>? exposurePoint;
+  int createCameraCount = 0;
+  int disposeCount = 0;
 
   static const int _cameraId = 0;
 
@@ -383,6 +466,7 @@ class _FakeAVFoundationCamera extends AVFoundationCamera {
     CameraDescription cameraDescription,
     MediaSettings? mediaSettings,
   ) async {
+    createCameraCount += 1;
     return _cameraId;
   }
 
@@ -491,9 +575,7 @@ class _FakeAVFoundationCamera extends AVFoundationCamera {
 
   @override
   Future<void> dispose(int cameraId) async {
-    await _deviceOrientationController.close();
-    await _initializedController.close();
-    await _photoCaptureController.close();
+    disposeCount += 1;
   }
 }
 

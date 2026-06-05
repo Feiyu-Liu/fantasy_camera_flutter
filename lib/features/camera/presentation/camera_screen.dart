@@ -115,7 +115,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       onFlashPressed: notifier.toggleFlash,
       onFlipCameraPressed: notifier.flipCamera,
       onShutterPressed: notifier.takePicture,
-      onGalleryPressed: () => context.push(generationGalleryRoute),
+      onGalleryPressed: _openGallery,
       onZoomStopSelected: notifier.setDisplayZoom,
       onModeSelected: ref
           .read(promptSelectionControllerProvider.notifier)
@@ -133,6 +133,21 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       target: captureOrientationTurns(orientation),
     );
     return _controlsRotationTurns;
+  }
+
+  Future<void> _openGallery() async {
+    final CameraControllerNotifier notifier = ref.read(
+      cameraStateProvider.notifier,
+    );
+    await notifier.pauseCamera();
+    if (!mounted) {
+      return;
+    }
+    await context.push(generationGalleryRoute);
+    if (!mounted) {
+      return;
+    }
+    await notifier.openDefaultCamera();
   }
 
   Widget _buildViewfinder(CameraState cameraState) {

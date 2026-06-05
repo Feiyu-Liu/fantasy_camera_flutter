@@ -263,10 +263,10 @@ class _GalleryHeader extends StatelessWidget {
     return SizedBox(
       height: 79,
       child: DecoratedBox(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: CupertinoColors.white,
           border: Border(
-            bottom: BorderSide(color: CupertinoColors.black, width: 0.8),
+            bottom: BorderSide(color: Color(0xFFEEEEEE), width: 0.5),
           ),
         ),
         child: SafeArea(
@@ -282,9 +282,9 @@ class _GalleryHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: CupertinoColors.black,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 5.4,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 2.0,
                 ),
               ),
               Positioned(
@@ -299,7 +299,7 @@ class _GalleryHeader extends StatelessWidget {
                   child: const Icon(
                     CupertinoIcons.xmark,
                     color: CupertinoColors.black,
-                    size: 22,
+                    size: 20,
                   ),
                 ),
               ),
@@ -333,16 +333,16 @@ class _RelatedMomentsStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: CupertinoColors.white,
         border: Border(
-          top: BorderSide(color: CupertinoColors.black, width: 0.8),
+          top: BorderSide(color: Color(0xFFEEEEEE), width: 0.5),
         ),
       ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(0, 29, 0, 13),
+          padding: const EdgeInsets.fromLTRB(0, 24, 0, 13),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -354,22 +354,27 @@ class _RelatedMomentsStrip extends StatelessWidget {
                   key: ValueKey<String>('generation-gallery-related-title'),
                   style: TextStyle(
                     color: CupertinoColors.black,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 4.4,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5,
                   ),
                 ),
               ),
-              const SizedBox(height: 25),
+              const SizedBox(height: 16),
+              const SizedBox(
+                height: 0.5,
+                child: ColoredBox(color: Color(0xFFEEEEEE)),
+              ),
+              const SizedBox(height: 20),
               Expanded(
                 child: LayoutBuilder(
                   builder: (BuildContext context, BoxConstraints constraints) {
                     final double itemHeight = constraints.maxHeight;
                     final double tileHeight = (itemHeight - 28).clamp(
-                      96.0,
-                      184.0,
+                      120.0,
+                      220.0,
                     );
-                    final double tileWidth = tileHeight * 0.68;
+                    final double tileWidth = tileHeight * 0.72;
                     return ListView.separated(
                       key: const ValueKey<String>(
                         'generation-submission-photo-list',
@@ -377,14 +382,14 @@ class _RelatedMomentsStrip extends StatelessWidget {
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       itemCount: jobs.length + 1,
-                      separatorBuilder: (_, _) => const SizedBox(width: 16),
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
                       itemBuilder: (BuildContext context, int index) {
                         if (index == 0) {
                           return _GalleryMomentItem(
                             width: tileWidth,
                             height: itemHeight,
                             imageHeight: tileHeight,
-                            caption: 'IMPORT',
+                            caption: 'IMPORT — NEW',
                             child: _GalleryPickerTile(
                               width: tileWidth,
                               height: tileHeight,
@@ -470,17 +475,17 @@ class _GalleryMomentItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           SizedBox(width: width, height: imageHeight, child: child),
-          const SizedBox(height: 9),
+          const SizedBox(height: 10),
           Text(
             caption,
             maxLines: 1,
             overflow: TextOverflow.clip,
             softWrap: false,
             style: const TextStyle(
-              color: CupertinoColors.systemGrey,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.25,
+              color: Color(0xFF777777),
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.1,
             ),
           ),
         ],
@@ -511,8 +516,8 @@ class _GalleryPickerTile extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: CupertinoColors.white,
-          border: Border.all(color: CupertinoColors.black),
+          color: const Color(0xFFF9F9F9),
+          border: Border.all(color: const Color(0xFFDDDDDD), width: 0.5),
         ),
         child: Center(
           child: picking
@@ -522,9 +527,9 @@ class _GalleryPickerTile extends StatelessWidget {
                   ),
                 )
               : const Icon(
-                  CupertinoIcons.plus,
+                  CupertinoIcons.add,
                   color: CupertinoColors.black,
-                  size: 32,
+                  size: 24,
                 ),
         ),
       ),
@@ -553,8 +558,6 @@ class _JobThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color borderColor = CupertinoColors.black;
-
     return GestureDetector(
       key: ValueKey<String>('generation-submission-photo-${job.id}'),
       onTap: onTap,
@@ -562,7 +565,10 @@ class _JobThumbnail extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          border: Border.all(color: borderColor, width: selected ? 2 : 1),
+          border: Border.all(
+            color: selected ? CupertinoColors.black : const Color(0xFFDDDDDD),
+            width: selected ? 1.5 : 0.5,
+          ),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
@@ -633,12 +639,12 @@ class _MissingOriginalImagePlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: CupertinoColors.white,
+      color: const Color(0xFFF5F5F5),
       child: Center(
         child: Icon(
           CupertinoIcons.photo,
           color: CupertinoColors.secondaryLabel.resolveFrom(context),
-          size: 30,
+          size: 24,
         ),
       ),
     );
@@ -657,17 +663,17 @@ class _PromptSnapshotBadge extends StatelessWidget {
     final int activeCount = selection.switches.values
         .where((bool selected) => selected)
         .length;
-    final String label = activeCount == 0 ? '默认' : '开 $activeCount';
+    final String label = activeCount == 0 ? 'DEFAULT' : '+$activeCount';
 
     return Align(
       alignment: Alignment.topLeft,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: CupertinoColors.black.withValues(alpha: 0.58),
-          borderRadius: BorderRadius.circular(999),
+          color: CupertinoColors.black.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(2),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
           child: Text(
             label,
             key: ValueKey<String>('generation-submission-prompt-${job.id}'),
@@ -675,8 +681,8 @@ class _PromptSnapshotBadge extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: CupertinoColors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+              fontSize: 8,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -695,11 +701,11 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: CupertinoColors.black.withValues(alpha: 0.62),
+        color: CupertinoColors.black.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(999),
       ),
       child: SizedBox.square(
-        dimension: 26,
+        dimension: 22,
         child: Center(child: _statusIcon()),
       ),
     );
@@ -713,7 +719,7 @@ class _StatusBadge extends StatelessWidget {
             ? const ValueKey<String>('generation-submission-status-awaiting')
             : null,
         color: CupertinoColors.white,
-        size: 20,
+        size: 16,
       ),
       GenerationSubmissionStatus.resultSaved => Icon(
         CupertinoIcons.check_mark_circled_solid,
@@ -723,7 +729,7 @@ class _StatusBadge extends StatelessWidget {
               )
             : null,
         color: CupertinoColors.activeGreen,
-        size: 20,
+        size: 16,
       ),
       GenerationSubmissionStatus.resultProcessingFailed => Icon(
         CupertinoIcons.exclamationmark_circle_fill,
@@ -733,7 +739,7 @@ class _StatusBadge extends StatelessWidget {
               )
             : null,
         color: CupertinoColors.systemRed,
-        size: 20,
+        size: 16,
       ),
       GenerationSubmissionStatus.completed => Icon(
         CupertinoIcons.check_mark_circled_solid,
@@ -741,7 +747,7 @@ class _StatusBadge extends StatelessWidget {
             ? const ValueKey<String>('generation-submission-status-completed')
             : null,
         color: CupertinoColors.activeGreen,
-        size: 20,
+        size: 16,
       ),
       GenerationSubmissionStatus.failed => Icon(
         CupertinoIcons.exclamationmark_circle_fill,
@@ -749,14 +755,14 @@ class _StatusBadge extends StatelessWidget {
             ? const ValueKey<String>('generation-submission-status-failed')
             : null,
         color: CupertinoColors.systemRed,
-        size: 20,
+        size: 16,
       ),
       _ => CupertinoActivityIndicator(
         key: includeTestKey
             ? const ValueKey<String>('generation-submission-status-processing')
             : null,
         color: CupertinoColors.white,
-        radius: 8,
+        radius: 6,
       ),
     };
   }
@@ -813,12 +819,12 @@ class _ThumbnailActionButton extends StatelessWidget {
       onTap: onPressed,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.88),
+          color: color.withValues(alpha: 0.8),
           borderRadius: BorderRadius.circular(999),
         ),
         child: SizedBox.square(
-          dimension: 28,
-          child: Icon(icon, color: CupertinoColors.white, size: 17),
+          dimension: 24,
+          child: Icon(icon, color: CupertinoColors.white, size: 14),
         ),
       ),
     );
@@ -846,12 +852,13 @@ class _GalleryHeroPreview extends StatelessWidget {
         color: CupertinoColors.white,
         child: Center(
           child: Text(
-            'Capture or choose a photo',
+            'SELECT A MOMENT',
             key: ValueKey<String>('generation-gallery-empty-hero'),
             style: TextStyle(
-              color: CupertinoColors.secondaryLabel,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
+              color: Color(0xFFBBBBBB),
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
             ),
           ),
         ),
@@ -864,11 +871,58 @@ class _GalleryHeroPreview extends StatelessWidget {
         fit: StackFit.expand,
         children: <Widget>[
           _previewContent(job),
+          // Hero Overlay: FEATURED Badge and Location
+          Positioned(
+            left: 24,
+            bottom: 32,
+            right: 24,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                DecoratedBox(
+                  decoration: const BoxDecoration(color: Color(0xFFF8E71C)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Text(
+                      'FEATURED',
+                      style: TextStyle(
+                        color: CupertinoColors.black,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '■ ${job.promptSelection?.captureMode.toUpperCase() ?? 'MOMENT'}, PARIS',
+                  style: const TextStyle(
+                    color: CupertinoColors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.0,
+                    shadows: <Shadow>[
+                      Shadow(
+                        color: Color(0x80000000),
+                        offset: Offset(0, 1),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
           if (_shouldShowStatusOverlay(job))
             Positioned(
-              left: 32,
-              bottom: 34,
-              right: 32,
+              left: 24,
+              top: 24,
+              right: 24,
               child: _HeroStatusLabel(
                 status: job.status,
                 message: _heroStatusMessage(job),
@@ -927,8 +981,13 @@ class _GalleryHeroPreview extends StatelessWidget {
         job.status != GenerationSubmissionStatus.resultSaved) {
       return Center(
         child: Text(
-          _statusText(job.status),
-          style: const TextStyle(color: CupertinoColors.secondaryLabel),
+          _statusText(job.status).toUpperCase(),
+          style: const TextStyle(
+            color: Color(0xFFBBBBBB),
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.0,
+          ),
         ),
       );
     }
@@ -949,8 +1008,13 @@ class _GalleryHeroPreview extends StatelessWidget {
     if (resultUrl == null) {
       return const Center(
         child: Text(
-          'Tap completed photo to load result',
-          style: TextStyle(color: CupertinoColors.secondaryLabel),
+          'TAP TO LOAD RESULT',
+          style: TextStyle(
+            color: Color(0xFFBBBBBB),
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.0,
+          ),
         ),
       );
     }
@@ -965,7 +1029,7 @@ class _GalleryHeroPreview extends StatelessWidget {
         );
         return const Center(
           child: Text(
-            'Result image could not be loaded',
+            'IMAGE LOAD FAILURE',
             style: TextStyle(color: CupertinoColors.secondaryLabel),
           ),
         );
@@ -1000,12 +1064,13 @@ class _GalleryHeroPreview extends StatelessWidget {
 
   String _heroStatusMessage(GenerationSubmissionJob job) {
     if (loading) {
-      return 'Loading result';
+      return 'LOADING RESULT';
     }
     if (job.status == GenerationSubmissionStatus.resultProcessingFailed) {
-      return job.resultSaveErrorMessage ?? 'Result processing failed';
+      return (job.resultSaveErrorMessage ?? 'RESULT PROCESSING FAILED')
+          .toUpperCase();
     }
-    return _statusText(job.status);
+    return _statusText(job.status).toUpperCase();
   }
 
   static String _statusText(GenerationSubmissionStatus status) {
@@ -1046,7 +1111,7 @@ class _HeroFileImage extends StatelessWidget {
     }
     return Image.file(
       File(path),
-      fit: BoxFit.cover,
+      fit: BoxFit.contain,
       errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
         debugPrint(
           '[GenerationSubmissionModal] $failureLogLabel load failure path=$path error=$error',
