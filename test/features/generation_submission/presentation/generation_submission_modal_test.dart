@@ -212,6 +212,48 @@ void main() {
     );
   });
 
+  testWidgets('hero toolbar is present but disabled before result exists', (
+    WidgetTester tester,
+  ) async {
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(id: 'pending', status: GenerationSubmissionStatus.pollingTask),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-original-image'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
+      warnIfMissed: false,
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-original-image'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-result-image')),
+      findsNothing,
+    );
+  });
+
   testWidgets('tapping completed photo loads result image', (
     WidgetTester tester,
   ) async {
@@ -296,7 +338,41 @@ void main() {
     );
   });
 
-  testWidgets('result processing failure shows error message', (
+  testWidgets('saved result photo toggle switches to original image', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-toggle-result');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'saved-toggle',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-processed-result-image'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-original-image'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('result processing failure keeps thumbnail status off hero', (
     WidgetTester tester,
   ) async {
     final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
@@ -309,7 +385,7 @@ void main() {
 
     await _pumpModalHost(tester, _ModalHost(jobs: jobs));
 
-    expect(find.text('HEIF conversion failed'), findsOneWidget);
+    expect(find.text('HEIF conversion failed'), findsNothing);
     expect(
       find.byKey(
         const ValueKey<String>(
@@ -975,6 +1051,7 @@ GenerationSubmissionJob _job({
   String? taskId,
   String? imagePath,
   String? processedResultPath,
+  String? resultUrl,
   String? resultSaveErrorMessage,
 }) {
   final DateTime now = DateTime.parse('2026-05-29T00:00:00Z');
@@ -994,6 +1071,7 @@ GenerationSubmissionJob _job({
         'backgroundBlur': false,
       },
     ),
+    resultUrl: resultUrl,
     processedResultPath: processedResultPath,
     resultSaveErrorMessage: resultSaveErrorMessage,
     createdAt: now,

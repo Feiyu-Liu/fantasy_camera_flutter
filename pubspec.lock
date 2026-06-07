@@ -1053,7 +1053,7 @@ packages:
     source: sdk
     version: "0.0.0"
   smooth_corner:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: smooth_corner
       sha256: "112d7331f82ead81ec870c5d1eb0624f2e7e367eccd166c2fffe4c11d4f87c4f"

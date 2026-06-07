@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
+import 'package:smooth_corner/smooth_corner.dart';
 
 import '../../../theme/app_colors.dart';
 import '../../backend_api/domain/prompt_config.dart';
@@ -423,9 +426,9 @@ class _RelatedMomentsStrip extends StatelessWidget {
                   key: ValueKey<String>('generation-gallery-related-title'),
                   style: TextStyle(
                     color: AppColors.black,
-                    fontSize: 13,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5,
+                    letterSpacing: 1.2,
                   ),
                 ),
               ),
@@ -761,10 +764,9 @@ class _PromptSnapshotBadge extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status, this.includeTestKey = true});
+  const _StatusBadge({required this.status});
 
   final GenerationSubmissionStatus status;
-  final bool includeTestKey;
 
   @override
   Widget build(BuildContext context) {
@@ -784,52 +786,40 @@ class _StatusBadge extends StatelessWidget {
     return switch (status) {
       GenerationSubmissionStatus.awaitingConfirmation => Icon(
         CupertinoIcons.question_circle_fill,
-        key: includeTestKey
-            ? const ValueKey<String>('generation-submission-status-awaiting')
-            : null,
+        key: const ValueKey<String>('generation-submission-status-awaiting'),
         color: AppColors.white,
         size: 16,
       ),
       GenerationSubmissionStatus.resultSaved => Icon(
         CupertinoIcons.check_mark_circled_solid,
-        key: includeTestKey
-            ? const ValueKey<String>(
-                'generation-submission-status-result-saved',
-              )
-            : null,
+        key: const ValueKey<String>(
+          'generation-submission-status-result-saved',
+        ),
         color: AppColors.success,
         size: 16,
       ),
       GenerationSubmissionStatus.resultProcessingFailed => Icon(
         CupertinoIcons.exclamationmark_circle_fill,
-        key: includeTestKey
-            ? const ValueKey<String>(
-                'generation-submission-status-result-processing-failed',
-              )
-            : null,
+        key: const ValueKey<String>(
+          'generation-submission-status-result-processing-failed',
+        ),
         color: AppColors.danger,
         size: 16,
       ),
       GenerationSubmissionStatus.completed => Icon(
         CupertinoIcons.check_mark_circled_solid,
-        key: includeTestKey
-            ? const ValueKey<String>('generation-submission-status-completed')
-            : null,
+        key: const ValueKey<String>('generation-submission-status-completed'),
         color: AppColors.success,
         size: 16,
       ),
       GenerationSubmissionStatus.failed => Icon(
         CupertinoIcons.exclamationmark_circle_fill,
-        key: includeTestKey
-            ? const ValueKey<String>('generation-submission-status-failed')
-            : null,
+        key: const ValueKey<String>('generation-submission-status-failed'),
         color: AppColors.danger,
         size: 16,
       ),
       _ => CupertinoActivityIndicator(
-        key: includeTestKey
-            ? const ValueKey<String>('generation-submission-status-processing')
-            : null,
+        key: const ValueKey<String>('generation-submission-status-processing'),
         color: AppColors.white,
         radius: 6,
       ),
@@ -962,65 +952,6 @@ class _GalleryHeroPager extends StatelessWidget {
             },
           ),
           _HeroImageKeyMarker(imageSource: _imageSourceForJob(selectedJob)),
-          // Hero Overlay: FEATURED Badge and Location
-          Positioned(
-            left: 24,
-            bottom: 32,
-            right: 24,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                DecoratedBox(
-                  decoration: const BoxDecoration(
-                    color: AppColors.accentYellow,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    child: Text(
-                      'FEATURED',
-                      style: TextStyle(
-                        color: AppColors.black,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '■ ${selectedJob.promptSelection?.captureMode.toUpperCase() ?? 'MOMENT'}, PARIS',
-                  style: const TextStyle(
-                    color: AppColors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.0,
-                    shadows: <Shadow>[
-                      Shadow(
-                        color: AppColors.textShadowBlack50,
-                        offset: Offset(0, 1),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (_shouldShowStatusOverlay(selectedJob))
-            Positioned(
-              left: 24,
-              top: 24,
-              right: 24,
-              child: _HeroStatusLabel(
-                status: selectedJob.status,
-                message: _heroStatusMessage(selectedJob),
-              ),
-            ),
           if (loading)
             const Center(
               child: CupertinoActivityIndicator(
@@ -1028,15 +959,17 @@ class _GalleryHeroPager extends StatelessWidget {
                 color: AppColors.white,
               ),
             ),
-          if (_shouldShowToggle(selectedJob))
-            Positioned(
-              right: 24,
-              bottom: 24,
-              child: _ImageToggleButton(
-                showingOriginal: showOriginalImage,
-                onPressed: onToggleImage,
-              ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 18,
+            child: _HeroToolbar(
+              showingOriginal: showOriginalImage,
+              onToggleImage: _canToggleHeroImage(selectedJob)
+                  ? onToggleImage
+                  : null,
             ),
+          ),
         ],
       ),
     );
@@ -1161,27 +1094,16 @@ class _GalleryHeroPager extends StatelessWidget {
         job.status != GenerationSubmissionStatus.resultSaved;
   }
 
-  bool _shouldShowToggle(GenerationSubmissionJob job) {
-    return job.status == GenerationSubmissionStatus.completed ||
-        job.status == GenerationSubmissionStatus.resultSaved ||
-        job.status == GenerationSubmissionStatus.resultProcessingFailed;
-  }
-
-  bool _shouldShowStatusOverlay(GenerationSubmissionJob job) {
-    return job.status != GenerationSubmissionStatus.resultSaved &&
-        (showOriginalImage ||
-            job.status != GenerationSubmissionStatus.completed ||
-            loading);
-  }
-
-  String _heroStatusMessage(GenerationSubmissionJob job) {
-    if (loading) {
-      return 'LOADING RESULT';
+  bool _canToggleHeroImage(GenerationSubmissionJob job) {
+    if (job.imagePath.isEmpty) {
+      return false;
     }
-    if (job.status == GenerationSubmissionStatus.resultProcessingFailed) {
-      return job.resultSaveErrorMessage ?? 'RESULT PROCESSING FAILED';
-    }
-    return _statusText(job.status).toUpperCase();
+
+    return switch (job.status) {
+      GenerationSubmissionStatus.completed => job.resultUrl != null,
+      GenerationSubmissionStatus.resultSaved => job.processedResultPath != null,
+      _ => false,
+    };
   }
 
   static String _statusText(GenerationSubmissionStatus status) {
@@ -1289,42 +1211,61 @@ class _HeroImageFailure extends StatelessWidget {
   }
 }
 
-class _HeroStatusLabel extends StatelessWidget {
-  const _HeroStatusLabel({required this.status, required this.message});
+class _HeroToolbar extends StatelessWidget {
+  const _HeroToolbar({
+    required this.showingOriginal,
+    required this.onToggleImage,
+  });
 
-  final GenerationSubmissionStatus status;
-  final String message;
+  final bool showingOriginal;
+  final VoidCallback? onToggleImage;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(color: AppColors.blackOverlay(0.64)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            _StatusBadge(status: status, includeTestKey: false),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                key: const ValueKey<String>('generation-gallery-hero-status'),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
+    final SmoothRectangleBorder toolbarShape = SmoothRectangleBorder(
+      borderRadius: BorderRadius.circular(999),
+      smoothness: 0.8,
+      side: BorderSide(
+        color: AppColors.white.withValues(alpha: 0.18),
+        width: 0.5,
+      ),
+    );
+
+    return Center(
+      child: ClipPath(
+        clipper: ShapeBorderClipper(shape: toolbarShape),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: DecoratedBox(
+            decoration: ShapeDecoration(
+              color: AppColors.blackOverlay(0.42),
+              shape: toolbarShape,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  _ImageToggleButton(
+                    showingOriginal: showingOriginal,
+                    onPressed: onToggleImage,
+                  ),
+                  const _HeroToolbarButton(
+                    key: ValueKey<String>('generation-submission-more-actions'),
+                    icon: LucideIcons.moreHorizontal,
+                    onPressed: _noop,
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
+
+void _noop() {}
 
 class _ImageToggleButton extends StatelessWidget {
   const _ImageToggleButton({
@@ -1337,22 +1278,40 @@ class _ImageToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color backgroundColor = AppColors.blackOverlay(0.68);
+    final bool enabled = onPressed != null;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: CupertinoButton(
-        key: const ValueKey<String>('generation-submission-image-toggle'),
-        padding: EdgeInsets.zero,
-        minimumSize: const Size.square(44),
-        onPressed: onPressed,
-        child: Icon(
-          showingOriginal ? CupertinoIcons.sparkles : CupertinoIcons.photo,
-          color: AppColors.white,
-          size: 22,
+    return _HeroToolbarButton(
+      key: const ValueKey<String>('generation-submission-image-toggle'),
+      icon: showingOriginal ? LucideIcons.sparkles : LucideIcons.image,
+      onPressed: onPressed,
+      opacity: enabled ? 1.0 : 0.38,
+    );
+  }
+}
+
+class _HeroToolbarButton extends StatelessWidget {
+  const _HeroToolbarButton({
+    super.key,
+    required this.icon,
+    required this.onPressed,
+    this.opacity = 1.0,
+  });
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: const Size.square(36),
+      onPressed: onPressed,
+      child: Opacity(
+        opacity: opacity,
+        child: SizedBox.square(
+          dimension: 36,
+          child: Icon(icon, color: AppColors.white, size: 18),
         ),
       ),
     );
