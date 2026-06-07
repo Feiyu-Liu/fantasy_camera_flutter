@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/l10n.dart';
+import '../theme/app_colors.dart';
 import 'app_router.dart';
 
 class FantasyCameraApp extends StatelessWidget {
@@ -21,8 +22,8 @@ class FantasyCameraApp extends StatelessWidget {
         supportedLocales: AppLocalizations.supportedLocales,
         theme: const CupertinoThemeData(
           brightness: Brightness.dark,
-          scaffoldBackgroundColor: CupertinoColors.black,
-          primaryColor: CupertinoColors.white,
+          scaffoldBackgroundColor: AppColors.black,
+          primaryColor: AppColors.white,
         ),
         routerConfig: createAppRouter(),
       ),

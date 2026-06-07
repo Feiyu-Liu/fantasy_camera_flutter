@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 
+import '../../../theme/app_colors.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../data/generation_submission_adapters.dart';
 import '../domain/generation_submission_job.dart';
@@ -27,7 +28,7 @@ class GenerationSubmissionGalleryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.white,
+      backgroundColor: AppColors.white,
       child: _GenerationSubmissionGalleryContent(),
     );
   }
@@ -332,7 +333,7 @@ class GenerationSubmissionDebugModal extends StatelessWidget {
         child: SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.84,
           child: const DecoratedBox(
-            decoration: BoxDecoration(color: CupertinoColors.white),
+            decoration: BoxDecoration(color: AppColors.white),
             child: _GenerationSubmissionGalleryContent(),
           ),
         ),
@@ -359,11 +360,11 @@ class _GalleryCloseButton extends StatelessWidget {
         onPressed: onClose,
         child: const DecoratedBox(
           decoration: BoxDecoration(
-            color: CupertinoColors.white,
+            color: AppColors.white,
             shape: BoxShape.circle,
             boxShadow: <BoxShadow>[
               BoxShadow(
-                color: Color(0x1A000000),
+                color: AppColors.shadowBlack10,
                 blurRadius: 12,
                 offset: Offset(0, 4),
               ),
@@ -371,11 +372,7 @@ class _GalleryCloseButton extends StatelessWidget {
           ),
           child: SizedBox.square(
             dimension: 36,
-            child: Icon(
-              CupertinoIcons.xmark,
-              color: CupertinoColors.black,
-              size: 18,
-            ),
+            child: Icon(CupertinoIcons.xmark, color: AppColors.black, size: 18),
           ),
         ),
       ),
@@ -406,8 +403,10 @@ class _RelatedMomentsStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: CupertinoColors.white,
-        border: Border(top: BorderSide(color: Color(0xFFEEEEEE), width: 0.5)),
+        color: AppColors.white,
+        border: Border(
+          top: BorderSide(color: AppColors.borderSubtle, width: 0.5),
+        ),
       ),
       child: SafeArea(
         top: false,
@@ -423,7 +422,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
                   'RELATED MOMENTS',
                   key: ValueKey<String>('generation-gallery-related-title'),
                   style: TextStyle(
-                    color: CupertinoColors.black,
+                    color: AppColors.black,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5,
@@ -433,7 +432,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
               const SizedBox(height: 8),
               const SizedBox(
                 height: 0.5,
-                child: ColoredBox(color: Color(0xFFEEEEEE)),
+                child: ColoredBox(color: AppColors.borderSubtle),
               ),
               const SizedBox(height: 12),
               Expanded(
@@ -552,7 +551,7 @@ class _GalleryMomentItem extends StatelessWidget {
             overflow: TextOverflow.clip,
             softWrap: false,
             style: const TextStyle(
-              color: Color(0xFF777777),
+              color: AppColors.textMuted,
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.1,
@@ -586,8 +585,8 @@ class _GalleryPickerTile extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: const Color(0xFFF9F9F9),
-          border: Border.all(color: const Color(0xFFDDDDDD), width: 0.5),
+          color: AppColors.surface,
+          border: Border.all(color: AppColors.border, width: 0.5),
         ),
         child: Center(
           child: picking
@@ -598,7 +597,7 @@ class _GalleryPickerTile extends StatelessWidget {
                 )
               : const Icon(
                   CupertinoIcons.add,
-                  color: CupertinoColors.black,
+                  color: AppColors.black,
                   size: 24,
                 ),
         ),
@@ -636,8 +635,8 @@ class _JobThumbnail extends StatelessWidget {
         height: height,
         decoration: BoxDecoration(
           border: Border.all(
-            color: selected ? CupertinoColors.black : const Color(0xFFDDDDDD),
-            width: selected ? 1.5 : 0.5,
+            color: selected ? AppColors.accentYellow : AppColors.border,
+            width: selected ? 3 : 0.5,
           ),
         ),
         clipBehavior: Clip.antiAlias,
@@ -709,11 +708,11 @@ class _MissingOriginalImagePlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: const Color(0xFFF5F5F5),
+      color: AppColors.surfaceMuted,
       child: Center(
         child: Icon(
           CupertinoIcons.photo,
-          color: CupertinoColors.secondaryLabel.resolveFrom(context),
+          color: AppColors.secondaryLabel.resolveFrom(context),
           size: 24,
         ),
       ),
@@ -739,7 +738,7 @@ class _PromptSnapshotBadge extends StatelessWidget {
       alignment: Alignment.topLeft,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: CupertinoColors.black.withValues(alpha: 0.45),
+          color: AppColors.blackOverlay(0.45),
           borderRadius: BorderRadius.circular(2),
         ),
         child: Padding(
@@ -750,7 +749,7 @@ class _PromptSnapshotBadge extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: CupertinoColors.white,
+              color: AppColors.white,
               fontSize: 8,
               fontWeight: FontWeight.w700,
             ),
@@ -771,7 +770,7 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: CupertinoColors.black.withValues(alpha: 0.45),
+        color: AppColors.blackOverlay(0.45),
         borderRadius: BorderRadius.circular(999),
       ),
       child: SizedBox.square(
@@ -788,7 +787,7 @@ class _StatusBadge extends StatelessWidget {
         key: includeTestKey
             ? const ValueKey<String>('generation-submission-status-awaiting')
             : null,
-        color: CupertinoColors.white,
+        color: AppColors.white,
         size: 16,
       ),
       GenerationSubmissionStatus.resultSaved => Icon(
@@ -798,7 +797,7 @@ class _StatusBadge extends StatelessWidget {
                 'generation-submission-status-result-saved',
               )
             : null,
-        color: CupertinoColors.activeGreen,
+        color: AppColors.success,
         size: 16,
       ),
       GenerationSubmissionStatus.resultProcessingFailed => Icon(
@@ -808,7 +807,7 @@ class _StatusBadge extends StatelessWidget {
                 'generation-submission-status-result-processing-failed',
               )
             : null,
-        color: CupertinoColors.systemRed,
+        color: AppColors.danger,
         size: 16,
       ),
       GenerationSubmissionStatus.completed => Icon(
@@ -816,7 +815,7 @@ class _StatusBadge extends StatelessWidget {
         key: includeTestKey
             ? const ValueKey<String>('generation-submission-status-completed')
             : null,
-        color: CupertinoColors.activeGreen,
+        color: AppColors.success,
         size: 16,
       ),
       GenerationSubmissionStatus.failed => Icon(
@@ -824,14 +823,14 @@ class _StatusBadge extends StatelessWidget {
         key: includeTestKey
             ? const ValueKey<String>('generation-submission-status-failed')
             : null,
-        color: CupertinoColors.systemRed,
+        color: AppColors.danger,
         size: 16,
       ),
       _ => CupertinoActivityIndicator(
         key: includeTestKey
             ? const ValueKey<String>('generation-submission-status-processing')
             : null,
-        color: CupertinoColors.white,
+        color: AppColors.white,
         radius: 6,
       ),
     };
@@ -856,13 +855,13 @@ class _ConfirmationActions extends StatelessWidget {
       children: <Widget>[
         _ThumbnailActionButton(
           key: ValueKey<String>('generation-submission-cancel-$jobId'),
-          color: CupertinoColors.systemRed,
+          color: AppColors.danger,
           icon: CupertinoIcons.xmark,
           onPressed: onCancel,
         ),
         _ThumbnailActionButton(
           key: ValueKey<String>('generation-submission-confirm-$jobId'),
-          color: CupertinoColors.activeGreen,
+          color: AppColors.success,
           icon: CupertinoIcons.check_mark,
           onPressed: onConfirm,
         ),
@@ -894,7 +893,7 @@ class _ThumbnailActionButton extends StatelessWidget {
         ),
         child: SizedBox.square(
           dimension: 24,
-          child: Icon(icon, color: CupertinoColors.white, size: 14),
+          child: Icon(icon, color: AppColors.white, size: 14),
         ),
       ),
     );
@@ -928,13 +927,13 @@ class _GalleryHeroPager extends StatelessWidget {
     final GenerationSubmissionJob? selectedJob = this.selectedJob;
     if (selectedJob == null || jobs.isEmpty) {
       return const ColoredBox(
-        color: CupertinoColors.white,
+        color: AppColors.white,
         child: Center(
           child: Text(
             'SELECT A MOMENT',
             key: ValueKey<String>('generation-gallery-empty-hero'),
             style: TextStyle(
-              color: Color(0xFFBBBBBB),
+              color: AppColors.textPlaceholder,
               fontSize: 13,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.2,
@@ -945,7 +944,7 @@ class _GalleryHeroPager extends StatelessWidget {
     }
 
     return ColoredBox(
-      color: CupertinoColors.white,
+      color: AppColors.white,
       child: Stack(
         fit: StackFit.expand,
         children: <Widget>[
@@ -954,9 +953,7 @@ class _GalleryHeroPager extends StatelessWidget {
             itemCount: jobs.length,
             pageController: pageController,
             onPageChanged: (int index) => onPageChanged(index, jobs),
-            backgroundDecoration: const BoxDecoration(
-              color: CupertinoColors.white,
-            ),
+            backgroundDecoration: const BoxDecoration(color: AppColors.white),
             loadingBuilder: (BuildContext context, ImageChunkEvent? progress) {
               return const Center(child: CupertinoActivityIndicator());
             },
@@ -975,7 +972,9 @@ class _GalleryHeroPager extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 DecoratedBox(
-                  decoration: const BoxDecoration(color: Color(0xFFF8E71C)),
+                  decoration: const BoxDecoration(
+                    color: AppColors.accentYellow,
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -984,7 +983,7 @@ class _GalleryHeroPager extends StatelessWidget {
                     child: Text(
                       'FEATURED',
                       style: TextStyle(
-                        color: CupertinoColors.black,
+                        color: AppColors.black,
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 0.5,
@@ -996,13 +995,13 @@ class _GalleryHeroPager extends StatelessWidget {
                 Text(
                   '■ ${selectedJob.promptSelection?.captureMode.toUpperCase() ?? 'MOMENT'}, PARIS',
                   style: const TextStyle(
-                    color: CupertinoColors.white,
+                    color: AppColors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.0,
                     shadows: <Shadow>[
                       Shadow(
-                        color: Color(0x80000000),
+                        color: AppColors.textShadowBlack50,
                         offset: Offset(0, 1),
                         blurRadius: 4,
                       ),
@@ -1026,7 +1025,7 @@ class _GalleryHeroPager extends StatelessWidget {
             const Center(
               child: CupertinoActivityIndicator(
                 key: ValueKey<String>('generation-submission-result-loading'),
-                color: CupertinoColors.white,
+                color: AppColors.white,
               ),
             ),
           if (_shouldShowToggle(selectedJob))
@@ -1148,7 +1147,7 @@ class _GalleryHeroPager extends StatelessWidget {
       child: Text(
         text,
         style: const TextStyle(
-          color: Color(0xFFBBBBBB),
+          color: AppColors.textPlaceholder,
           fontSize: 12,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.0,
@@ -1272,14 +1271,16 @@ class _HeroImageFailure extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: CupertinoColors.white,
+      color: AppColors.white,
       child: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Text(
             message,
             key: const ValueKey<String>('generation-gallery-hero-failure'),
-            style: const TextStyle(color: CupertinoColors.secondaryLabel),
+            style: TextStyle(
+              color: AppColors.secondaryLabel.resolveFrom(context),
+            ),
             textAlign: TextAlign.center,
           ),
         ),
@@ -1297,9 +1298,7 @@ class _HeroStatusLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: CupertinoColors.black.withValues(alpha: 0.64),
-      ),
+      decoration: BoxDecoration(color: AppColors.blackOverlay(0.64)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
@@ -1314,7 +1313,7 @@ class _HeroStatusLabel extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: CupertinoColors.white,
+                  color: AppColors.white,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1338,7 +1337,7 @@ class _ImageToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color backgroundColor = CupertinoColors.black.withValues(alpha: 0.68);
+    final Color backgroundColor = AppColors.blackOverlay(0.68);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -1352,7 +1351,7 @@ class _ImageToggleButton extends StatelessWidget {
         onPressed: onPressed,
         child: Icon(
           showingOriginal ? CupertinoIcons.sparkles : CupertinoIcons.photo,
-          color: CupertinoColors.white,
+          color: AppColors.white,
           size: 22,
         ),
       ),
