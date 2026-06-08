@@ -423,8 +423,17 @@ void main() {
         const ValueKey<String>('generation-submission-gallery-picker'),
       ),
     );
-    await tester.pump();
-    await tester.pump();
+    for (int i = 0; i < 20; i += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (find
+          .byKey(
+            const ValueKey<String>('generation-submission-status-awaiting'),
+          )
+          .evaluate()
+          .isNotEmpty) {
+        break;
+      }
+    }
 
     expect(imagePicker.pickCount, 1);
     expect(
@@ -476,6 +485,69 @@ void main() {
         const ValueKey<String>('generation-submission-status-processing'),
       ),
       findsNothing,
+    );
+  });
+
+  testWidgets('gallery picker shows iCloud export progress dialog', (
+    WidgetTester tester,
+  ) async {
+    final File imageFile = _writeImageFile('gallery-icloud-picked');
+    final _FakeGalleryImagePicker imagePicker = _FakeGalleryImagePicker(
+      XFile(imageFile.path),
+      waitForCompletion: true,
+    );
+    addTearDown(imagePicker.dispose);
+
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        jobs: const <GenerationSubmissionJob>[],
+        imagePicker: imagePicker,
+        uploadRepository: _FakeUploadRepository(),
+        taskRepository: _FakeGenerationTaskRepository(),
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('generation-submission-gallery-picker'),
+      ),
+    );
+    await tester.pump();
+
+    imagePicker.emitProgress(0.4);
+    await tester.pump();
+
+    expect(find.text('Downloading from iCloud'), findsOneWidget);
+    expect(find.text('40%'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-gallery-export-progress-bar'),
+      ),
+      findsOneWidget,
+    );
+
+    imagePicker.completePick();
+    await imagePicker.pickFinished;
+    for (int i = 0; i < 20; i += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (find.text('Downloading from iCloud').evaluate().isEmpty &&
+          find
+              .byKey(
+                const ValueKey<String>('generation-submission-status-awaiting'),
+              )
+              .evaluate()
+              .isNotEmpty) {
+        break;
+      }
+    }
+
+    expect(find.text('Downloading from iCloud'), findsNothing);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-status-awaiting'),
+      ),
+      findsOneWidget,
     );
   });
 }
@@ -893,23 +965,62 @@ class _FakeGenerationImageProcessor implements GenerationImageProcessor {
 }
 
 class _FakeGalleryImagePicker implements GalleryImagePicker {
-  _FakeGalleryImagePicker(this.result);
+  _FakeGalleryImagePicker(this.result, {this.waitForCompletion = false});
 
   final XFile? result;
+  final bool waitForCompletion;
+  final StreamController<GalleryImagePickProgress> _progressController =
+      StreamController<GalleryImagePickProgress>.broadcast();
+  Completer<void>? _pickCompleter;
+  Completer<void>? _pickFinishedCompleter;
   int pickCount = 0;
+
+  Future<void> get pickFinished {
+    return _pickFinishedCompleter?.future ?? Future<void>.value();
+  }
+
+  @override
+  Stream<GalleryImagePickProgress> get progressEvents {
+    return _progressController.stream;
+  }
 
   @override
   Future<PickedGalleryImage?> pickImageFromGallery() async {
     pickCount += 1;
+    _pickFinishedCompleter = Completer<void>();
+    if (waitForCompletion) {
+      _pickCompleter = Completer<void>();
+      await _pickCompleter!.future;
+    }
     final XFile? result = this.result;
     if (result == null) {
+      _pickFinishedCompleter?.complete();
       return null;
     }
-    return PickedGalleryImage(file: result, assetId: 'asset-gallery-1');
+    final PickedGalleryImage pickedImage = PickedGalleryImage(
+      file: result,
+      assetId: 'asset-gallery-1',
+    );
+    _pickFinishedCompleter?.complete();
+    return pickedImage;
   }
 
   @override
   Future<void> cancelActivePick() async {}
+
+  void emitProgress(double progress) {
+    _progressController.add(
+      GalleryImagePickProgress(assetId: 'asset-gallery-1', progress: progress),
+    );
+  }
+
+  void completePick() {
+    _pickCompleter?.complete();
+  }
+
+  Future<void> dispose() {
+    return _progressController.close();
+  }
 }
 
 class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {

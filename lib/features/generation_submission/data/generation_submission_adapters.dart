@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
@@ -5,9 +6,21 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart' hide XFile;
 
 abstract interface class GalleryImagePicker {
+  Stream<GalleryImagePickProgress> get progressEvents;
+
   Future<PickedGalleryImage?> pickImageFromGallery();
 
   Future<void> cancelActivePick();
+}
+
+class GalleryImagePickProgress {
+  const GalleryImagePickProgress({
+    required this.assetId,
+    required this.progress,
+  });
+
+  final String assetId;
+  final double progress;
 }
 
 class PickedGalleryImage {
@@ -41,6 +54,11 @@ class ImagePickerGalleryImagePicker implements GalleryImagePicker {
   final ImagePicker _imagePicker;
 
   @override
+  Stream<GalleryImagePickProgress> get progressEvents {
+    return const Stream<GalleryImagePickProgress>.empty();
+  }
+
+  @override
   Future<PickedGalleryImage?> pickImageFromGallery() async {
     final XFile? file = await _imagePicker.pickImage(
       source: ImageSource.gallery,
@@ -63,8 +81,38 @@ class PlatformGalleryImagePicker implements GalleryImagePicker {
   static const MethodChannel _channel = MethodChannel(
     'fantasy_camera/photo_library_assets',
   );
+  static const EventChannel _eventChannel = EventChannel(
+    'fantasy_camera/photo_library_assets/events',
+  );
 
   final ImagePicker _fallbackImagePicker;
+
+  @override
+  Stream<GalleryImagePickProgress> get progressEvents {
+    if (!Platform.isIOS) {
+      return const Stream<GalleryImagePickProgress>.empty();
+    }
+    return _eventChannel
+        .receiveBroadcastStream()
+        .where((Object? event) {
+          return event is Map<Object?, Object?> &&
+              event['type'] == 'galleryExportProgress';
+        })
+        .map((Object? event) {
+          final Map<Object?, Object?> data = event! as Map<Object?, Object?>;
+          final Object? assetId = data['assetId'];
+          final Object? progress = data['progress'];
+          final double progressValue = switch (progress) {
+            final double value => value,
+            final int value => value.toDouble(),
+            _ => 0,
+          };
+          return GalleryImagePickProgress(
+            assetId: assetId is String ? assetId : '',
+            progress: progressValue.clamp(0.0, 1.0).toDouble(),
+          );
+        });
+  }
 
   @override
   Future<PickedGalleryImage?> pickImageFromGallery() async {

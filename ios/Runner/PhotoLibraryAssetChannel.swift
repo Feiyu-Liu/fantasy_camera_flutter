@@ -5,15 +5,22 @@ import UIKit
 
 final class PhotoLibraryAssetChannel: NSObject {
   private let channel: FlutterMethodChannel
+  private let eventChannel: FlutterEventChannel
   private var galleryPickerDelegate: GalleryImagePickerDelegate?
+  private var eventSink: FlutterEventSink?
 
   init(binaryMessenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
       name: "fantasy_camera/photo_library_assets",
       binaryMessenger: binaryMessenger
     )
+    eventChannel = FlutterEventChannel(
+      name: "fantasy_camera/photo_library_assets/events",
+      binaryMessenger: binaryMessenger
+    )
     super.init()
     channel.setMethodCallHandler(handle)
+    eventChannel.setStreamHandler(self)
   }
 
   private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -81,7 +88,7 @@ final class PhotoLibraryAssetChannel: NSObject {
         let picker = PHPickerViewController(configuration: configuration)
         let delegate = GalleryImagePickerDelegate(
           picker: picker,
-          exportAssetForDisplay: self.exportAssetForDisplay(assetId:completion:),
+          exportAssetForDisplay: self.exportAssetForDisplay(assetId:progress:completion:),
           makeFlutterError: self.flutterError(code:error:),
           finish: { [weak self] response in
             self?.galleryPickerDelegate = nil
@@ -192,6 +199,7 @@ final class PhotoLibraryAssetChannel: NSObject {
 
   private func exportAssetForDisplay(
     assetId: String,
+    progress: ((Double) -> Void)? = nil,
     completion: @escaping (String?, Error?) -> Void
   ) {
     let assets = PHAsset.fetchAssets(withLocalIdentifiers: [assetId], options: nil)
@@ -224,12 +232,31 @@ final class PhotoLibraryAssetChannel: NSObject {
       return
     }
 
-    PHAssetResourceManager.default().writeData(for: resource, toFile: outputURL, options: nil) { error in
+    let options = PHAssetResourceRequestOptions()
+    options.isNetworkAccessAllowed = true
+    options.progressHandler = { value in
+      progress?(value)
+      self.sendGalleryExportProgress(assetId: assetId, progress: value)
+    }
+
+    PHAssetResourceManager.default().writeData(for: resource, toFile: outputURL, options: options) { error in
       if let error = error {
         completion(nil, error)
         return
       }
+      self.sendGalleryExportProgress(assetId: assetId, progress: 1)
       completion(outputURL.path, nil)
+    }
+  }
+
+  private func sendGalleryExportProgress(assetId: String, progress: Double) {
+    let clampedProgress = max(0, min(1, progress))
+    DispatchQueue.main.async {
+      self.eventSink?([
+        "type": "galleryExportProgress",
+        "assetId": assetId,
+        "progress": clampedProgress
+      ])
     }
   }
 
@@ -339,9 +366,21 @@ final class PhotoLibraryAssetChannel: NSObject {
   }
 }
 
+extension PhotoLibraryAssetChannel: FlutterStreamHandler {
+  func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+    eventSink = events
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    eventSink = nil
+    return nil
+  }
+}
+
 private final class GalleryImagePickerDelegate: NSObject, PHPickerViewControllerDelegate, UIAdaptivePresentationControllerDelegate {
   private weak var picker: PHPickerViewController?
-  private let exportAssetForDisplay: (String, @escaping (String?, Error?) -> Void) -> Void
+  private let exportAssetForDisplay: (String, ((Double) -> Void)?, @escaping (String?, Error?) -> Void) -> Void
   private let makeFlutterError: (String, Error) -> FlutterError
   private let finish: (Any?) -> Void
   private var didReceivePickerResult = false
@@ -356,7 +395,7 @@ private final class GalleryImagePickerDelegate: NSObject, PHPickerViewController
 
   init(
     picker: PHPickerViewController,
-    exportAssetForDisplay: @escaping (String, @escaping (String?, Error?) -> Void) -> Void,
+    exportAssetForDisplay: @escaping (String, ((Double) -> Void)?, @escaping (String?, Error?) -> Void) -> Void,
     makeFlutterError: @escaping (String, Error) -> FlutterError,
     finish: @escaping (Any?) -> Void
   ) {
@@ -384,7 +423,7 @@ private final class GalleryImagePickerDelegate: NSObject, PHPickerViewController
       return
     }
 
-    exportAssetForDisplay(assetId) { [weak self] path, error in
+    exportAssetForDisplay(assetId, nil) { [weak self] path, error in
       DispatchQueue.main.async {
         guard let self = self else {
           return

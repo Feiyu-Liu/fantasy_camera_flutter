@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:photo_view/photo_view.dart';
@@ -52,12 +53,43 @@ class _GenerationSubmissionDebugModalState
   String? _loadingResultJobId;
   bool _showOriginalImage = false;
   bool _pickingGalleryImage = false;
+  bool _galleryExportProgressDialogVisible = false;
+  late final ValueNotifier<double> _galleryExportProgress =
+      ValueNotifier<double>(0);
+  List<GenerationSubmissionJob> _jobs = const <GenerationSubmissionJob>[];
+  ProviderSubscription<GenerationSubmissionState>? _jobsSubscription;
+  StreamSubscription<GalleryImagePickProgress>?
+  _galleryExportProgressSubscription;
+  late final GalleryImagePicker _galleryImagePicker;
   late final PageController _heroPageController = PageController();
 
   @override
+  void initState() {
+    super.initState();
+    _galleryImagePicker = ref.read(galleryImagePickerProvider);
+    _jobs = ref.read(generationSubmissionControllerProvider).jobs;
+    _jobsSubscription = ref.listenManual<GenerationSubmissionState>(
+      generationSubmissionControllerProvider,
+      (GenerationSubmissionState? previous, GenerationSubmissionState next) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _jobs = next.jobs;
+        });
+      },
+    );
+  }
+
+  @override
   void dispose() {
+    _jobsSubscription?.close();
+    _jobsSubscription = null;
+    unawaited(_galleryExportProgressSubscription?.cancel());
+    _galleryExportProgressSubscription = null;
+    _galleryExportProgress.dispose();
     if (_pickingGalleryImage) {
-      unawaited(ref.read(galleryImagePickerProvider).cancelActivePick());
+      unawaited(_galleryImagePicker.cancelActivePick());
     }
     _heroPageController.dispose();
     super.dispose();
@@ -65,9 +97,7 @@ class _GenerationSubmissionDebugModalState
 
   @override
   Widget build(BuildContext context) {
-    final List<GenerationSubmissionJob> jobs = ref
-        .watch(generationSubmissionControllerProvider)
-        .jobs;
+    final List<GenerationSubmissionJob> jobs = _jobs;
     final GenerationSubmissionJob? selectedJob = _selectedJob(jobs);
     final int selectedIndex = selectedJob == null
         ? 0
@@ -154,6 +184,10 @@ class _GenerationSubmissionDebugModalState
               ),
             ),
             _GalleryCloseButton(onClose: () => Navigator.of(context).pop()),
+            if (_galleryExportProgressDialogVisible)
+              _GalleryExportProgressOverlay(
+                progressListenable: _galleryExportProgress,
+              ),
           ],
         );
       },
@@ -310,15 +344,26 @@ class _GenerationSubmissionDebugModalState
     }
 
     _debugLog('pick gallery start');
+    _cancelGalleryExportProgressSubscription();
+    _galleryExportProgressSubscription = _galleryImagePicker.progressEvents
+        .listen(_handleGalleryExportProgress);
     setState(() {
       _pickingGalleryImage = true;
     });
+    _galleryExportProgress.value = 0;
 
     try {
-      await ref.read(galleryImagePickerProvider).cancelActivePick();
-      final PickedGalleryImage? pickedImage = await ref
-          .read(galleryImagePickerProvider)
+      await _galleryImagePicker.cancelActivePick();
+      final PickedGalleryImage? pickedImage = await _galleryImagePicker
           .pickImageFromGallery();
+      _cancelGalleryExportProgressSubscription();
+      if (mounted) {
+        _hideGalleryExportProgressDialog();
+      }
+      if (!mounted) {
+        _debugLog('pick gallery dropped because page was disposed');
+        return;
+      }
       if (pickedImage == null) {
         _debugLog('pick gallery canceled');
         return;
@@ -338,12 +383,53 @@ class _GenerationSubmissionDebugModalState
     } on Object catch (error) {
       _debugLog('pick gallery failure error=$error');
     } finally {
+      _cancelGalleryExportProgressSubscription();
+      if (mounted) {
+        _hideGalleryExportProgressDialog();
+      }
       if (mounted) {
         setState(() {
           _pickingGalleryImage = false;
         });
+        _galleryExportProgress.value = 0;
       }
     }
+  }
+
+  void _cancelGalleryExportProgressSubscription() {
+    final StreamSubscription<GalleryImagePickProgress>? subscription =
+        _galleryExportProgressSubscription;
+    _galleryExportProgressSubscription = null;
+    unawaited(subscription?.cancel());
+  }
+
+  void _handleGalleryExportProgress(GalleryImagePickProgress event) {
+    if (!mounted) {
+      return;
+    }
+    final double progress = event.progress.clamp(0.0, 1.0);
+    _galleryExportProgress.value = progress;
+    if (progress > 0 && progress < 1) {
+      _showGalleryExportProgressDialog();
+    }
+  }
+
+  void _showGalleryExportProgressDialog() {
+    if (_galleryExportProgressDialogVisible || !mounted) {
+      return;
+    }
+    setState(() {
+      _galleryExportProgressDialogVisible = true;
+    });
+  }
+
+  void _hideGalleryExportProgressDialog() {
+    if (!_galleryExportProgressDialogVisible || !mounted) {
+      return;
+    }
+    setState(() {
+      _galleryExportProgressDialogVisible = false;
+    });
   }
 
   void _debugLog(String message) {
@@ -472,6 +558,89 @@ class GenerationSubmissionDebugModal extends StatelessWidget {
           child: const DecoratedBox(
             decoration: BoxDecoration(color: AppColors.white),
             child: _GenerationSubmissionGalleryContent(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GalleryExportProgressOverlay extends StatelessWidget {
+  const _GalleryExportProgressOverlay({required this.progressListenable});
+
+  final ValueListenable<double> progressListenable;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: ColoredBox(
+        color: AppColors.black.withValues(alpha: 0.18),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 280),
+            child: _GalleryExportProgressDialog(
+              progressListenable: progressListenable,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GalleryExportProgressDialog extends StatelessWidget {
+  const _GalleryExportProgressDialog({required this.progressListenable});
+
+  final ValueListenable<double> progressListenable;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoAlertDialog(
+      title: const Text('Downloading from iCloud'),
+      content: Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: ValueListenableBuilder<double>(
+          valueListenable: progressListenable,
+          builder: (BuildContext context, double progress, Widget? child) {
+            final double clampedProgress = progress.clamp(0.0, 1.0);
+            final int percent = (clampedProgress * 100).round().clamp(0, 100);
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Text('Preparing your photo...'),
+                const SizedBox(height: 14),
+                _GalleryExportProgressBar(progress: clampedProgress),
+                const SizedBox(height: 10),
+                Text('$percent%'),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _GalleryExportProgressBar extends StatelessWidget {
+  const _GalleryExportProgressBar({required this.progress});
+
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const ValueKey<String>('generation-gallery-export-progress-bar'),
+      height: 4,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(2),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(color: AppColors.border),
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: progress.clamp(0.0, 1.0),
+            child: const DecoratedBox(
+              decoration: BoxDecoration(color: AppColors.black),
+            ),
           ),
         ),
       ),
