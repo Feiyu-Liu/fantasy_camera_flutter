@@ -25,6 +25,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/presentati
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_ui/my_ui.dart';
 
 void main() {
   testWidgets('modal shows captured photos with status icons', (
@@ -376,6 +377,28 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('saved result thumbnail swaps to processed image', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-thumbnail-result');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'saved-thumbnail',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    final BlurredImageSwapTransition transition = tester.widget(
+      find.byKey(
+        const ValueKey<String>('generation-thumbnail-swap-saved-thumbnail'),
+      ),
+    );
+    expect(transition.showReplacement, isTrue);
   });
 
   testWidgets('saved result photo toggle switches to original image', (

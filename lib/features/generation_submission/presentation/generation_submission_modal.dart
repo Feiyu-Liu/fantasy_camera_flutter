@@ -7,6 +7,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:my_ui/my_ui.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:progressive_blur/progressive_blur.dart';
@@ -951,6 +952,10 @@ class _JobThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String? thumbnailResultPath =
+        job.status == GenerationSubmissionStatus.resultSaved
+        ? job.processedResultPath
+        : null;
     return GestureDetector(
       key: ValueKey<String>('generation-submission-photo-${job.id}'),
       onTap: onTap,
@@ -967,7 +972,12 @@ class _JobThumbnail extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            _ThumbnailImage(path: job.imagePath),
+            BlurredImageSwapTransition(
+              key: ValueKey<String>('generation-thumbnail-swap-${job.id}'),
+              showReplacement: thumbnailResultPath != null,
+              original: _ThumbnailImage(path: job.imagePath),
+              replacement: _ThumbnailImage(path: thumbnailResultPath ?? ''),
+            ),
             if (onRetry == null)
               Positioned(
                 right: 6,
