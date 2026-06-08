@@ -394,6 +394,17 @@ class GenerationSubmissionController
     await _refreshFromRepository();
   }
 
+  Future<void> resumeActiveRecords() async {
+    await _submissionService.resumeActiveRecords();
+    await _refreshFromRepository();
+  }
+
+  Future<void> retryJob(String jobId) async {
+    _deletedJobIds.remove(jobId);
+    await _submissionService.retryJob(jobId);
+    await _refreshFromRepository();
+  }
+
   Future<void> toggleResultFavorite(String jobId) async {
     await _submissionService.toggleResultFavorite(jobId);
     await _refreshFromRepository();

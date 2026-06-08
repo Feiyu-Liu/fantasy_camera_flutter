@@ -178,6 +178,9 @@ class _GenerationSubmissionDebugModalState
                       onCancelJob: (GenerationSubmissionJob job) {
                         unawaited(_cancelJob(job));
                       },
+                      onRetryJob: (GenerationSubmissionJob job) {
+                        unawaited(_retryJob(job));
+                      },
                     ),
                   ),
                 ],
@@ -307,6 +310,17 @@ class _GenerationSubmissionDebugModalState
         _showOriginalImage = false;
       });
     }
+  }
+
+  Future<void> _retryJob(GenerationSubmissionJob job) async {
+    _debugLog('retry job=${job.id}');
+    setState(() {
+      _selectedJobId = job.id;
+      _showOriginalImage = false;
+    });
+    await ref
+        .read(generationSubmissionControllerProvider.notifier)
+        .retryJob(job.id);
   }
 
   Future<void> _toggleFavorite(GenerationSubmissionJob job) async {
@@ -695,6 +709,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
     required this.onSelectJob,
     required this.onConfirmJob,
     required this.onCancelJob,
+    required this.onRetryJob,
   });
 
   final List<GenerationSubmissionJob> jobs;
@@ -704,6 +719,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
   final ValueChanged<GenerationSubmissionJob> onSelectJob;
   final ValueChanged<GenerationSubmissionJob> onConfirmJob;
   final ValueChanged<GenerationSubmissionJob> onCancelJob;
+  final ValueChanged<GenerationSubmissionJob> onRetryJob;
 
   @override
   Widget build(BuildContext context) {
@@ -790,6 +806,9 @@ class _RelatedMomentsStrip extends StatelessWidget {
                                       .awaitingConfirmation
                               ? () => onCancelJob(job)
                               : null,
+                          onRetry: _canRetryJob(job)
+                              ? () => onRetryJob(job)
+                              : null,
                         ),
                       );
                     },
@@ -815,6 +834,11 @@ class _RelatedMomentsStrip extends StatelessWidget {
     final String mode =
         job.promptSelection?.captureMode.toUpperCase() ?? 'MOMENT';
     return '$hour:$minute $period — $mode';
+  }
+
+  bool _canRetryJob(GenerationSubmissionJob job) {
+    return job.status == GenerationSubmissionStatus.failed ||
+        job.status == GenerationSubmissionStatus.resultProcessingFailed;
   }
 }
 
@@ -913,6 +937,7 @@ class _JobThumbnail extends StatelessWidget {
     required this.onTap,
     required this.onConfirm,
     required this.onCancel,
+    required this.onRetry,
   });
 
   final double width;
@@ -922,6 +947,7 @@ class _JobThumbnail extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onConfirm;
   final VoidCallback? onCancel;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -942,17 +968,35 @@ class _JobThumbnail extends StatelessWidget {
           fit: StackFit.expand,
           children: <Widget>[
             _ThumbnailImage(path: job.imagePath),
-            Positioned(
-              right: 6,
-              top: job.status == GenerationSubmissionStatus.awaitingConfirmation
-                  ? 6
-                  : null,
-              bottom:
-                  job.status == GenerationSubmissionStatus.awaitingConfirmation
-                  ? null
-                  : 6,
-              child: _StatusBadge(status: job.status),
-            ),
+            if (onRetry == null)
+              Positioned(
+                right: 6,
+                top:
+                    job.status ==
+                        GenerationSubmissionStatus.awaitingConfirmation
+                    ? 6
+                    : null,
+                bottom:
+                    job.status ==
+                        GenerationSubmissionStatus.awaitingConfirmation
+                    ? null
+                    : 6,
+                child: _StatusBadge(status: job.status),
+              ),
+            if (onRetry != null)
+              Positioned(
+                right: 6,
+                bottom: 6,
+                child: _ThumbnailActionButton(
+                  key: ValueKey<String>(
+                    'generation-submission-retry-${job.id}',
+                  ),
+                  color: AppColors.accentYellow,
+                  icon: LucideIcons.refreshCcw,
+                  iconColor: AppColors.black,
+                  onPressed: onRetry,
+                ),
+              ),
             if (job.status == GenerationSubmissionStatus.awaitingConfirmation)
               Positioned(
                 left: 6,
@@ -1161,11 +1205,13 @@ class _ThumbnailActionButton extends StatelessWidget {
     required this.color,
     required this.icon,
     required this.onPressed,
+    this.iconColor = AppColors.white,
   });
 
   final Color color;
   final IconData icon;
   final VoidCallback? onPressed;
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -1178,7 +1224,7 @@ class _ThumbnailActionButton extends StatelessWidget {
         ),
         child: SizedBox.square(
           dimension: 24,
-          child: Icon(icon, color: AppColors.white, size: 14),
+          child: Icon(icon, color: iconColor, size: 14),
         ),
       ),
     );

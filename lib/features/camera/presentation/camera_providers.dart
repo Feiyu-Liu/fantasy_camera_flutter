@@ -94,6 +94,11 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
 
   Future<void> handleAppLifecycleState(AppLifecycleState lifecycleState) async {
     if (lifecycleState == AppLifecycleState.resumed) {
+      unawaited(
+        ref
+            .read(generationSubmissionControllerProvider.notifier)
+            .resumeActiveRecords(),
+      );
       await openDefaultCamera();
       return;
     }

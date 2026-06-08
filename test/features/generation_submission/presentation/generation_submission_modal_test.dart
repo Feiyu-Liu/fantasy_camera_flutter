@@ -91,6 +91,10 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey<String>('generation-submission-status-failed')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-retry-failed')),
       findsOneWidget,
     );
   });
@@ -173,6 +177,41 @@ void main() {
     );
     expect(uploadRepository.createUploadCount, 0);
     expect(taskRepository.createTaskCount, 0);
+  });
+
+  testWidgets('tapping failed thumbnail retry restarts generation', (
+    WidgetTester tester,
+  ) async {
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository();
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(id: 'failed', status: GenerationSubmissionStatus.failed),
+    ];
+
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        jobs: jobs,
+        uploadRepository: uploadRepository,
+        taskRepository: taskRepository,
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-retry-failed')),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(uploadRepository.createUploadCount, 1);
+    expect(taskRepository.createTaskCount, 1);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-status-processing'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('modal shows gallery picker when no jobs exist', (
@@ -373,7 +412,7 @@ void main() {
     );
   });
 
-  testWidgets('result processing failure keeps thumbnail status off hero', (
+  testWidgets('result processing failure keeps error text off hero', (
     WidgetTester tester,
   ) async {
     final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
@@ -392,6 +431,12 @@ void main() {
         const ValueKey<String>(
           'generation-submission-status-result-processing-failed',
         ),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-retry-failed-result'),
       ),
       findsOneWidget,
     );

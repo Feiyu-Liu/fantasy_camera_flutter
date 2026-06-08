@@ -47,6 +47,7 @@ class GenerationSubmissionService extends ChangeNotifier {
   final PhotoLibraryAssetStore _photoLibraryAssetStore;
   final GenerationImageProcessor _imageProcessor;
   final Map<String, Timer> _pollingTimers = <String, Timer>{};
+  final Map<String, Future<void>> _pollingOperations = <String, Future<void>>{};
   final Map<String, _RuntimeGenerationRecordState> _runtimeState =
       <String, _RuntimeGenerationRecordState>{};
 
@@ -233,6 +234,67 @@ class GenerationSubmissionService extends ChangeNotifier {
       return;
     }
     await _pollTask(recordId: recordId, taskId: taskId);
+  }
+
+  Future<void> resumeActiveRecords() async {
+    final List<GenerationRecord> records = await _generationRecordRepository
+        .listActiveRecords();
+    _debugLog('resume active records count=${records.length}');
+    for (final GenerationRecord record in records) {
+      await _resumeRecord(record);
+    }
+    notifyListeners();
+  }
+
+  Future<void> retryJob(String recordId) async {
+    final GenerationRecord? record = await _generationRecordRepository.findById(
+      recordId,
+    );
+    if (record == null) {
+      _debugLog('retry skipped record=$recordId reason=missing-record');
+      return;
+    }
+
+    final GenerationRecordPipelineStatus status =
+        generationRecordPipelineStatusFromName(record.pipelineStatus);
+    if (status != GenerationRecordPipelineStatus.generationFailed &&
+        status != GenerationRecordPipelineStatus.resultSaveFailed) {
+      _debugLog(
+        'retry skipped record=$recordId reason=status-${record.pipelineStatus}',
+      );
+      return;
+    }
+
+    _debugLog('retry start record=$recordId status=${record.pipelineStatus}');
+    _stopTaskPolling(recordId);
+    _runtimeState.remove(recordId);
+
+    if (status == GenerationRecordPipelineStatus.resultSaveFailed &&
+        record.taskId != null) {
+      await _generationRecordRepository.updatePipelineStatus(
+        recordId: recordId,
+        status: GenerationRecordPipelineStatus.completed,
+        updatedAt: DateTime.now(),
+        clearError: true,
+      );
+      await _processCompletedResult(recordId: recordId, taskId: record.taskId!);
+      notifyListeners();
+      return;
+    }
+
+    await _generationRecordRepository.resetForRetry(
+      recordId: recordId,
+      updatedAt: DateTime.now(),
+    );
+    final GenerationRecord? retryRecord = await _generationRecordRepository
+        .findById(recordId);
+    if (retryRecord == null) {
+      _debugLog('retry aborted record=$recordId reason=missing-after-reset');
+      notifyListeners();
+      return;
+    }
+    await _submitRecord(retryRecord);
+    notifyListeners();
   }
 
   Future<void> toggleResultFavorite(String recordId) async {
@@ -482,6 +544,89 @@ class GenerationSubmissionService extends ChangeNotifier {
     }
   }
 
+  Future<void> _resumeRecord(GenerationRecord record) async {
+    final GenerationRecordPipelineStatus status =
+        generationRecordPipelineStatusFromName(record.pipelineStatus);
+    final String recordId = record.recordId;
+    _debugLog(
+      'resume record=$recordId status=${record.pipelineStatus} task=${record.taskId ?? 'none'}',
+    );
+
+    switch (status) {
+      case GenerationRecordPipelineStatus.submitted:
+      case GenerationRecordPipelineStatus.pollingTask:
+        final String? taskId = record.taskId;
+        if (taskId == null || taskId.isEmpty) {
+          _debugLog('resume resubmit record=$recordId reason=missing-task');
+          await _generationRecordRepository.resetForRetry(
+            recordId: recordId,
+            updatedAt: DateTime.now(),
+          );
+          final GenerationRecord? retryRecord =
+              await _generationRecordRepository.findById(recordId);
+          if (retryRecord != null) {
+            await _submitRecord(retryRecord);
+          }
+          return;
+        }
+        await _resumeTaskPolling(recordId: recordId, taskId: taskId);
+      case GenerationRecordPipelineStatus.completed:
+      case GenerationRecordPipelineStatus.processingResultImage:
+      case GenerationRecordPipelineStatus.resultSaveFailed:
+        final String? taskId = record.taskId;
+        if (taskId == null || taskId.isEmpty) {
+          _debugLog(
+            'resume resubmit completed-like record=$recordId reason=missing-task',
+          );
+          await _generationRecordRepository.resetForRetry(
+            recordId: recordId,
+            updatedAt: DateTime.now(),
+          );
+          final GenerationRecord? retryRecord =
+              await _generationRecordRepository.findById(recordId);
+          if (retryRecord != null) {
+            await _submitRecord(retryRecord);
+          }
+          return;
+        }
+        if (status != GenerationRecordPipelineStatus.completed) {
+          await _generationRecordRepository.updatePipelineStatus(
+            recordId: recordId,
+            status: GenerationRecordPipelineStatus.completed,
+            updatedAt: DateTime.now(),
+            clearError: true,
+          );
+        }
+        await _processCompletedResult(recordId: recordId, taskId: taskId);
+      case GenerationRecordPipelineStatus.preparingUploadImage:
+      case GenerationRecordPipelineStatus.creatingUpload:
+      case GenerationRecordPipelineStatus.uploading:
+      case GenerationRecordPipelineStatus.completingUpload:
+      case GenerationRecordPipelineStatus.creatingTask:
+        _debugLog(
+          'resume resubmit record=$recordId reason=interrupted-${record.pipelineStatus}',
+        );
+        await _generationRecordRepository.resetForRetry(
+          recordId: recordId,
+          updatedAt: DateTime.now(),
+        );
+        final GenerationRecord? retryRecord = await _generationRecordRepository
+            .findById(recordId);
+        if (retryRecord != null) {
+          await _submitRecord(retryRecord);
+        }
+      case GenerationRecordPipelineStatus.awaitingConfirmation:
+      case GenerationRecordPipelineStatus.awaitingRetry:
+      case GenerationRecordPipelineStatus.localOriginalSaveFailed:
+      case GenerationRecordPipelineStatus.resultSaved:
+      case GenerationRecordPipelineStatus.generationFailed:
+      case GenerationRecordPipelineStatus.canceled:
+        _debugLog(
+          'resume skipped record=$recordId reason=${record.pipelineStatus}',
+        );
+    }
+  }
+
   bool _canLoadResultUrl(GenerationSubmissionStatus status) {
     return status == GenerationSubmissionStatus.completed ||
         status == GenerationSubmissionStatus.processingResultImage ||
@@ -549,15 +694,54 @@ class GenerationSubmissionService extends ChangeNotifier {
   }
 
   void _startTaskPolling({required String recordId, required String taskId}) {
-    _pollingTimers.remove(recordId)?.cancel();
+    if (_pollingTimers.containsKey(recordId)) {
+      _debugLog('polling already active record=$recordId task=$taskId');
+      return;
+    }
     _debugLog('polling start record=$recordId task=$taskId');
-    unawaited(_pollTask(recordId: recordId, taskId: taskId));
     _pollingTimers[recordId] = Timer.periodic(_taskPollInterval, (_) {
       unawaited(_pollTask(recordId: recordId, taskId: taskId));
     });
+    unawaited(_pollTask(recordId: recordId, taskId: taskId));
+  }
+
+  Future<void> _resumeTaskPolling({
+    required String recordId,
+    required String taskId,
+  }) async {
+    if (!_pollingTimers.containsKey(recordId)) {
+      _debugLog('polling resume start record=$recordId task=$taskId');
+      _pollingTimers[recordId] = Timer.periodic(_taskPollInterval, (_) {
+        unawaited(_pollTask(recordId: recordId, taskId: taskId));
+      });
+    } else {
+      _debugLog('polling already active record=$recordId task=$taskId');
+    }
+    await _pollTask(recordId: recordId, taskId: taskId);
   }
 
   Future<void> _pollTask({
+    required String recordId,
+    required String taskId,
+  }) async {
+    final Future<void>? running = _pollingOperations[recordId];
+    if (running != null) {
+      _debugLog('poll skipped record=$recordId task=$taskId reason=in-flight');
+      return running;
+    }
+    final Future<void> operation = _pollTaskOnce(
+      recordId: recordId,
+      taskId: taskId,
+    );
+    _pollingOperations[recordId] = operation;
+    try {
+      await operation;
+    } finally {
+      _pollingOperations.remove(recordId);
+    }
+  }
+
+  Future<void> _pollTaskOnce({
     required String recordId,
     required String taskId,
   }) async {
