@@ -48,8 +48,6 @@ class _GenerationSubmissionGalleryContent extends ConsumerStatefulWidget {
 
 class _GenerationSubmissionDebugModalState
     extends ConsumerState<_GenerationSubmissionGalleryContent> {
-  static const double _topGlassExtension = 24;
-
   String? _selectedJobId;
   String? _loadingResultJobId;
   bool _showOriginalImage = false;
@@ -131,7 +129,7 @@ class _GenerationSubmissionDebugModalState
         return Stack(
           children: <Widget>[
             _TopGradientBlur(
-              blurHeight: topInset > 0 ? topInset + _topGlassExtension : 0,
+              blurHeight: topInset,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
