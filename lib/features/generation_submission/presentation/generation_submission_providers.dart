@@ -56,6 +56,7 @@ final generationSubmissionServiceProvider =
         final GenerationSubmissionService service = GenerationSubmissionService(
           uploadRepository: ref.watch(uploadRepositoryProvider),
           generationTaskRepository: ref.watch(generationTaskRepositoryProvider),
+          feedbackRepository: ref.watch(feedbackRepositoryProvider),
           generationRecordRepository: ref.watch(
             generationRecordRepositoryProvider,
           ),
@@ -69,6 +70,7 @@ final generationSubmissionServiceProvider =
       dependencies: <ProviderOrFamily>[
         uploadRepositoryProvider,
         generationTaskRepositoryProvider,
+        feedbackRepositoryProvider,
         generationRecordRepositoryProvider,
         generationOriginalFileStoreProvider,
         photoLibraryAssetStoreProvider,
@@ -389,6 +391,11 @@ class GenerationSubmissionController
 
   Future<void> pollTaskNowForDebug(String jobId) async {
     await _submissionService.pollTaskNowForDebug(jobId);
+    await _refreshFromRepository();
+  }
+
+  Future<void> toggleResultFavorite(String jobId) async {
+    await _submissionService.toggleResultFavorite(jobId);
     await _refreshFromRepository();
   }
 

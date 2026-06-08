@@ -110,20 +110,34 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     }
 
     await _disposeCurrentController();
+    _markCameraPaused();
+  }
+
+  Future<void> pauseCamera() async {
+    if (state.controller == null && !state.isInitializing) {
+      return;
+    }
+
     state = state.copyWith(
-      clearController: true,
       message: const CameraStartingMessage(),
       isInitializing: false,
       isTakingPicture: false,
       isSwitchingCamera: false,
       isTogglingFlash: false,
-      minAvailableZoom: 1.0,
-      maxAvailableZoom: 1.0,
-      currentRawZoom: 1.0,
-      baseRawZoom: 1.0,
-      displayZoomMultiplier: 1.0,
-      displayZoomStops: const <double>[1.0],
     );
+
+    try {
+      await _disposeCurrentController();
+    } on CameraException catch (e) {
+      _showCameraException(e);
+    } on Object catch (error, stackTrace) {
+      logAppError('camera_pause_failed', error, stackTrace);
+      state = state.copyWith(message: CameraErrorMessage(error.toString()));
+    } finally {
+      if (!_isDisposed) {
+        _markCameraPaused();
+      }
+    }
   }
 
   void handleScaleStart() {
@@ -550,6 +564,23 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     logAppError(e.code, e.description);
     state = state.copyWith(
       message: CameraErrorMessage(e.description ?? e.code),
+    );
+  }
+
+  void _markCameraPaused() {
+    state = state.copyWith(
+      clearController: true,
+      message: const CameraStartingMessage(),
+      isInitializing: false,
+      isTakingPicture: false,
+      isSwitchingCamera: false,
+      isTogglingFlash: false,
+      minAvailableZoom: 1.0,
+      maxAvailableZoom: 1.0,
+      currentRawZoom: 1.0,
+      baseRawZoom: 1.0,
+      displayZoomMultiplier: 1.0,
+      displayZoomStops: const <double>[1.0],
     );
   }
 

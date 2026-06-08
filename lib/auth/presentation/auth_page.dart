@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../theme/app_colors.dart';
 import 'auth_providers.dart';
 
 class AuthPage extends ConsumerStatefulWidget {
@@ -34,7 +35,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
     final AuthControllerState state = ref.watch(authControllerProvider);
     final String? message = state.errorMessage ?? widget.sessionMessage;
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.black,
+      backgroundColor: AppColors.black,
       child: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -49,7 +50,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                     'Fantasy Camera',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: CupertinoColors.white,
+                      color: AppColors.white,
                       fontSize: 32,
                       fontWeight: FontWeight.w700,
                     ),
@@ -59,7 +60,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                     _isSignUp ? 'Create your account' : 'Sign in to continue',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: Color(0xFFBDBDBD),
+                      color: AppColors.textSecondary,
                       fontSize: 15,
                     ),
                   ),
@@ -94,7 +95,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                       message,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: Color(0xFFFFB4A8),
+                        color: AppColors.authError,
                         fontSize: 13,
                       ),
                     ),
@@ -105,8 +106,8 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                     onPressed: state.isSubmitting
                         ? null
                         : () => _submitPassword(state),
-                    color: CupertinoColors.white,
-                    disabledColor: const Color(0xFF555555),
+                    color: AppColors.white,
+                    disabledColor: AppColors.disabledDark,
                     minimumSize: const Size.fromHeight(52),
                     borderRadius: BorderRadius.circular(8),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -114,13 +115,13 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                         ? const SizedBox.square(
                             dimension: 18,
                             child: CupertinoActivityIndicator(
-                              color: CupertinoColors.black,
+                              color: AppColors.black,
                             ),
                           )
                         : Text(
                             _isSignUp ? 'Create account' : 'Sign in',
                             style: const TextStyle(
-                              color: CupertinoColors.black,
+                              color: AppColors.black,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -141,8 +142,8 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                           : 'New here? Create account',
                       style: TextStyle(
                         color: state.isSubmitting
-                            ? const Color(0xFF777777)
-                            : CupertinoColors.activeBlue,
+                            ? AppColors.disabledText
+                            : AppColors.link,
                       ),
                     ),
                   ),
@@ -158,11 +159,11 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                       minimumSize: const Size.fromHeight(52),
                       borderRadius: BorderRadius.circular(8),
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      color: const Color(0xFF111111),
-                      disabledColor: const Color(0xFF222222),
+                      color: AppColors.darkSurface,
+                      disabledColor: AppColors.disabledSurfaceDark,
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFF555555)),
+                          border: Border.all(color: AppColors.disabledDark),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const SizedBox(
@@ -171,7 +172,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                             child: Text(
                               'Continue with Apple',
                               style: TextStyle(
-                                color: CupertinoColors.white,
+                                color: AppColors.white,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -286,17 +287,15 @@ class _CupertinoAuthTextField extends StatelessWidget {
           onChanged: onChanged,
           onSubmitted: onSubmitted,
           placeholder: placeholder,
-          placeholderStyle: const TextStyle(color: Color(0xFFBDBDBD)),
-          style: const TextStyle(color: CupertinoColors.white),
-          cursorColor: CupertinoColors.white,
+          placeholderStyle: const TextStyle(color: AppColors.textSecondary),
+          style: const TextStyle(color: AppColors.white),
+          cursorColor: AppColors.white,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
           decoration: BoxDecoration(
-            color: const Color(0xFF151515),
+            color: AppColors.authInputBackground,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: hasError
-                  ? const Color(0xFFFFB4A8)
-                  : const Color(0xFF2A2A2A),
+              color: hasError ? AppColors.authError : AppColors.authInputBorder,
             ),
           ),
         ),
@@ -304,7 +303,7 @@ class _CupertinoAuthTextField extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             errorText!,
-            style: const TextStyle(color: Color(0xFFFFB4A8), fontSize: 12),
+            style: const TextStyle(color: AppColors.authError, fontSize: 12),
           ),
         ],
       ],

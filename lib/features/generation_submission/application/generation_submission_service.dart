@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import '../../../config/app_config.dart';
 import '../../backend_api/data/backend_repositories.dart';
 import '../../backend_api/domain/api_failure.dart';
+import '../../backend_api/domain/feedback.dart';
 import '../../backend_api/domain/generation_task.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/domain/upload_session.dart';
@@ -23,12 +24,14 @@ class GenerationSubmissionService extends ChangeNotifier {
   GenerationSubmissionService({
     required UploadRepository uploadRepository,
     required GenerationTaskRepository generationTaskRepository,
+    required FeedbackRepository feedbackRepository,
     required GenerationRecordRepository generationRecordRepository,
     required GenerationOriginalFileStore originalFileStore,
     required PhotoLibraryAssetStore photoLibraryAssetStore,
     required GenerationImageProcessor imageProcessor,
   }) : _uploadRepository = uploadRepository,
        _generationTaskRepository = generationTaskRepository,
+       _feedbackRepository = feedbackRepository,
        _generationRecordRepository = generationRecordRepository,
        _originalFileStore = originalFileStore,
        _photoLibraryAssetStore = photoLibraryAssetStore,
@@ -38,6 +41,7 @@ class GenerationSubmissionService extends ChangeNotifier {
 
   final UploadRepository _uploadRepository;
   final GenerationTaskRepository _generationTaskRepository;
+  final FeedbackRepository _feedbackRepository;
   final GenerationRecordRepository _generationRecordRepository;
   final GenerationOriginalFileStore _originalFileStore;
   final PhotoLibraryAssetStore _photoLibraryAssetStore;
@@ -231,6 +235,52 @@ class GenerationSubmissionService extends ChangeNotifier {
     await _pollTask(recordId: recordId, taskId: taskId);
   }
 
+  Future<void> toggleResultFavorite(String recordId) async {
+    final GenerationRecord? record = await _generationRecordRepository.findById(
+      recordId,
+    );
+    if (record == null) {
+      _debugLog('favorite skipped record=$recordId reason=missing-record');
+      return;
+    }
+    final String? resultAssetId = record.resultAssetId;
+    if (record.pipelineStatus !=
+            GenerationRecordPipelineStatus.resultSaved.name ||
+        record.resultAvailability !=
+            GenerationRecordResultAvailability.savedToPhotoLibrary.name ||
+        resultAssetId == null ||
+        resultAssetId.isEmpty) {
+      _debugLog(
+        'favorite skipped record=$recordId reason=not-saved-result status=${record.pipelineStatus} asset=${resultAssetId ?? 'none'}',
+      );
+      return;
+    }
+
+    final bool nextFavorite = !record.resultIsFavorite;
+    _debugLog(
+      'favorite photo start record=$recordId asset=$resultAssetId favorite=$nextFavorite',
+    );
+    await _photoLibraryAssetStore.setFavorite(
+      resultAssetId,
+      isFavorite: nextFavorite,
+    );
+    final DateTime updatedAt = DateTime.now();
+    await _generationRecordRepository.updateResultFavorite(
+      recordId: recordId,
+      updatedAt: updatedAt,
+      isFavorite: nextFavorite,
+      favoritedAt: nextFavorite ? updatedAt : null,
+    );
+    _debugLog(
+      'favorite photo success record=$recordId asset=$resultAssetId favorite=$nextFavorite',
+    );
+
+    if (nextFavorite && record.resultFavoriteFeedbackSubmittedAt == null) {
+      await _submitFavoriteFeedback(recordId: recordId, taskId: record.taskId);
+    }
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _cancelAllPolling();
@@ -239,6 +289,46 @@ class GenerationSubmissionService extends ChangeNotifier {
 
   String _nextRecordId(DateTime now) {
     return 'local-${now.microsecondsSinceEpoch}-${_nextJobId++}';
+  }
+
+  Future<void> _submitFavoriteFeedback({
+    required String recordId,
+    required String? taskId,
+  }) async {
+    if (taskId == null || taskId.isEmpty) {
+      _debugLog(
+        'favorite feedback skipped record=$recordId reason=missing-task',
+      );
+      return;
+    }
+    try {
+      _debugLog('favorite feedback start record=$recordId task=$taskId');
+      await _feedbackRepository.submitFeedback(
+        FeedbackInput(
+          taskId: taskId,
+          rating: FeedbackRating.positive,
+          tags: const <String>['ios_favorite'],
+          metadata: const <String, Object?>{'entry': 'gallery_hero_toolbar'},
+        ),
+      );
+      final DateTime submittedAt = DateTime.now();
+      await _generationRecordRepository.updateResultFavorite(
+        recordId: recordId,
+        updatedAt: submittedAt,
+        isFavorite: true,
+        favoritedAt: submittedAt,
+        feedbackSubmittedAt: submittedAt,
+      );
+      _debugLog('favorite feedback success record=$recordId task=$taskId');
+    } on BackendApiFailure catch (error) {
+      _debugLog(
+        'favorite feedback backend failure record=$recordId task=$taskId code=${error.code} status=${error.statusCode} message=${error.message}',
+      );
+    } on Object catch (error) {
+      _debugLog(
+        'favorite feedback local failure record=$recordId task=$taskId error=$error',
+      );
+    }
   }
 
   Future<void> _submitRecord(GenerationRecord record) async {
@@ -762,6 +852,10 @@ class GenerationSubmissionService extends ChangeNotifier {
         errorMessage: record.errorMessage,
         promptSelection: _promptSelectionForRecord(record),
         processedResultPath: processedResultPath,
+        resultAssetId: record.resultAssetId,
+        isResultFavorite: record.resultIsFavorite,
+        resultFavoriteFeedbackSubmittedAt:
+            record.resultFavoriteFeedbackSubmittedAt,
         resultSaveErrorCode:
             record.pipelineStatus ==
                 GenerationRecordPipelineStatus.resultSaveFailed.name
@@ -793,6 +887,10 @@ class GenerationSubmissionService extends ChangeNotifier {
       uploadImageSizeBytes: record.uploadSizeBytes,
       sourceExif: runtime?.sourceExif,
       processedResultPath: processedResultPath,
+      resultAssetId: record.resultAssetId,
+      isResultFavorite: record.resultIsFavorite,
+      resultFavoriteFeedbackSubmittedAt:
+          record.resultFavoriteFeedbackSubmittedAt,
       resultSaveErrorCode:
           status == GenerationSubmissionStatus.resultProcessingFailed
           ? record.errorCode

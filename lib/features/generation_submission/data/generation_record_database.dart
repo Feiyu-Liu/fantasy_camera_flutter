@@ -47,6 +47,11 @@ class GenerationRecords extends Table {
   TextColumn get resultSha256 => text().nullable()();
   TextColumn get resultHashStatus => text().nullable()();
   TextColumn get resultHashError => text().nullable()();
+  BoolColumn get resultIsFavorite =>
+      boolean().withDefault(const Constant<bool>(false))();
+  DateTimeColumn get resultFavoritedAt => dateTime().nullable()();
+  DateTimeColumn get resultFavoriteFeedbackSubmittedAt =>
+      dateTime().nullable()();
 
   TextColumn get promptStyle => text().nullable()();
   TextColumn get captureMode => text().nullable()();
@@ -68,7 +73,29 @@ class GenerationRecordDatabase extends _$GenerationRecordDatabase {
   GenerationRecordDatabase.forExecutor(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration {
+    return MigrationStrategy(
+      onUpgrade: (Migrator migrator, int from, int to) async {
+        if (from < 2) {
+          await migrator.addColumn(
+            generationRecords,
+            generationRecords.resultIsFavorite,
+          );
+          await migrator.addColumn(
+            generationRecords,
+            generationRecords.resultFavoritedAt,
+          );
+          await migrator.addColumn(
+            generationRecords,
+            generationRecords.resultFavoriteFeedbackSubmittedAt,
+          );
+        }
+      },
+    );
+  }
 }
 
 LazyDatabase _openConnection() {

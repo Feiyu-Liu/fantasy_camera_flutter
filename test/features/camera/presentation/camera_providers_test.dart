@@ -13,6 +13,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/data/gener
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/feedback.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
@@ -256,6 +257,87 @@ void main() {
     },
   );
 
+  test('pauseCamera disposes current controller and clears state', () async {
+    final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+    CameraPlatform.instance = camera;
+    final _TestContainer testContainer = _container(
+      choices: const <CameraChoice>[
+        CameraChoice(
+          description: CameraDescription(
+            name: 'back',
+            lensDirection: CameraLensDirection.back,
+            sensorOrientation: 0,
+          ),
+          label: 'Back Camera',
+          isVirtualDevice: false,
+          deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+        ),
+      ],
+    );
+    final ProviderContainer container = testContainer.container;
+    addTearDown(() async {
+      await testContainer.dispose();
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    final CameraControllerNotifier notifier = container.read(
+      cameraStateProvider.notifier,
+    );
+    await notifier.openDefaultCamera();
+
+    expect(container.read(cameraStateProvider).controller, isNotNull);
+
+    await notifier.pauseCamera();
+
+    final CameraState state = container.read(cameraStateProvider);
+    expect(camera.disposeCount, 1);
+    expect(state.controller, isNull);
+    expect(state.isInitializing, isFalse);
+    expect(state.isTakingPicture, isFalse);
+    expect(state.isSwitchingCamera, isFalse);
+    expect(state.isTogglingFlash, isFalse);
+    expect(state.message, isA<CameraStartingMessage>());
+  });
+
+  test('camera can reopen after pauseCamera', () async {
+    final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+    CameraPlatform.instance = camera;
+    final _TestContainer testContainer = _container(
+      choices: const <CameraChoice>[
+        CameraChoice(
+          description: CameraDescription(
+            name: 'back',
+            lensDirection: CameraLensDirection.back,
+            sensorOrientation: 0,
+          ),
+          label: 'Back Camera',
+          isVirtualDevice: false,
+          deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+        ),
+      ],
+    );
+    final ProviderContainer container = testContainer.container;
+    addTearDown(() async {
+      await testContainer.dispose();
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    final CameraControllerNotifier notifier = container.read(
+      cameraStateProvider.notifier,
+    );
+    await notifier.openDefaultCamera();
+    await notifier.pauseCamera();
+    await notifier.openDefaultCamera();
+
+    expect(camera.disposeCount, 1);
+    expect(camera.createCameraCount, 2);
+    expect(container.read(cameraStateProvider).controller, isNotNull);
+    expect(
+      container.read(cameraStateProvider).hasInitializedController,
+      isTrue,
+    );
+  });
+
   test(
     'focusAndExposeAt forwards supported focus and exposure point',
     () async {
@@ -346,6 +428,9 @@ _TestContainer _container({required List<CameraChoice> choices}) {
       generationTaskRepositoryProvider.overrideWithValue(
         const _FakeGenerationTaskRepository(),
       ),
+      feedbackRepositoryProvider.overrideWithValue(
+        const _FakeFeedbackRepository(),
+      ),
     ],
   );
   return _TestContainer(container: container, database: database);
@@ -375,6 +460,8 @@ class _FakeAVFoundationCamera extends AVFoundationCamera {
   final Completer<XFile> _takePictureCompleter = Completer<XFile>();
   Point<double>? focusPoint;
   Point<double>? exposurePoint;
+  int createCameraCount = 0;
+  int disposeCount = 0;
 
   static const int _cameraId = 0;
 
@@ -383,6 +470,7 @@ class _FakeAVFoundationCamera extends AVFoundationCamera {
     CameraDescription cameraDescription,
     MediaSettings? mediaSettings,
   ) async {
+    createCameraCount += 1;
     return _cameraId;
   }
 
@@ -491,9 +579,7 @@ class _FakeAVFoundationCamera extends AVFoundationCamera {
 
   @override
   Future<void> dispose(int cameraId) async {
-    await _deviceOrientationController.close();
-    await _initializedController.close();
-    await _photoCaptureController.close();
+    disposeCount += 1;
   }
 }
 
@@ -531,6 +617,9 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   Future<String?> resolveImagePath(String assetId) async {
     return null;
   }
+
+  @override
+  Future<void> setFavorite(String assetId, {required bool isFavorite}) async {}
 }
 
 class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
@@ -631,5 +720,20 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   @override
   Future<ResultUrl> createResultUrl(String taskId) {
     throw UnimplementedError();
+  }
+}
+
+class _FakeFeedbackRepository implements FeedbackRepository {
+  const _FakeFeedbackRepository();
+
+  @override
+  Future<FeedbackSubmission> submitFeedback(FeedbackInput input) async {
+    return FeedbackSubmission(
+      id: 'feedback-${input.taskId}',
+      taskId: input.taskId,
+      rating: input.rating,
+      improveOptIn: input.improveOptIn,
+      createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+    );
   }
 }

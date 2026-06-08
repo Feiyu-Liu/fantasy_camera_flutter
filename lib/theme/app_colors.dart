@@ -1,0 +1,37 @@
+import 'package:flutter/cupertino.dart';
+
+abstract final class AppColors {
+  static const Color black = CupertinoColors.black;
+  static const Color white = CupertinoColors.white;
+
+  static const Color accentYellow = Color(0xFFEAC45B);
+  static const Color focusYellow = Color(0xFFF3D36A);
+
+  static const Color success = CupertinoColors.activeGreen;
+  static const Color danger = CupertinoColors.systemRed;
+  static const Color link = CupertinoColors.activeBlue;
+
+  static const CupertinoDynamicColor secondaryLabel =
+      CupertinoColors.secondaryLabel;
+  static const Color textSecondary = Color(0xFFBDBDBD);
+  static const Color textMuted = Color(0xFF777777);
+  static const Color textPlaceholder = Color(0xFFBBBBBB);
+
+  static const Color border = Color(0xFFDDDDDD);
+  static const Color borderSubtle = Color(0xFFEEEEEE);
+  static const Color surface = Color(0xFFF9F9F9);
+  static const Color surfaceMuted = Color(0xFFF5F5F5);
+
+  static const Color darkSurface = Color(0xFF111111);
+  static const Color authInputBackground = Color(0xFF151515);
+  static const Color authInputBorder = Color(0xFF2A2A2A);
+  static const Color disabledDark = Color(0xFF555555);
+  static const Color disabledText = Color(0xFF777777);
+  static const Color disabledSurfaceDark = Color(0xFF222222);
+  static const Color authError = Color(0xFFFFB4A8);
+
+  static const Color shadowBlack10 = Color(0x1A000000);
+  static const Color textShadowBlack50 = Color(0x80000000);
+
+  static Color blackOverlay(double alpha) => black.withValues(alpha: alpha);
+}

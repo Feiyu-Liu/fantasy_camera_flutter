@@ -37,6 +37,9 @@ class GenerationSubmissionJob {
     this.uploadImageSizeBytes,
     this.sourceExif,
     this.processedResultPath,
+    this.resultAssetId,
+    this.isResultFavorite = false,
+    this.resultFavoriteFeedbackSubmittedAt,
     this.resultSaveErrorCode,
     this.resultSaveErrorMessage,
     this.errorCode,
@@ -59,6 +62,9 @@ class GenerationSubmissionJob {
   final int? uploadImageSizeBytes;
   final Map<String, Object>? sourceExif;
   final String? processedResultPath;
+  final String? resultAssetId;
+  final bool isResultFavorite;
+  final DateTime? resultFavoriteFeedbackSubmittedAt;
   final String? resultSaveErrorCode;
   final String? resultSaveErrorMessage;
   final String? errorCode;
@@ -92,6 +98,9 @@ class GenerationSubmissionJob {
     int? uploadImageSizeBytes,
     Map<String, Object>? sourceExif,
     String? processedResultPath,
+    String? resultAssetId,
+    bool? isResultFavorite,
+    DateTime? resultFavoriteFeedbackSubmittedAt,
     String? resultSaveErrorCode,
     String? resultSaveErrorMessage,
     String? errorCode,
@@ -116,6 +125,11 @@ class GenerationSubmissionJob {
       uploadImageSizeBytes: uploadImageSizeBytes ?? this.uploadImageSizeBytes,
       sourceExif: sourceExif ?? this.sourceExif,
       processedResultPath: processedResultPath ?? this.processedResultPath,
+      resultAssetId: resultAssetId ?? this.resultAssetId,
+      isResultFavorite: isResultFavorite ?? this.isResultFavorite,
+      resultFavoriteFeedbackSubmittedAt:
+          resultFavoriteFeedbackSubmittedAt ??
+          this.resultFavoriteFeedbackSubmittedAt,
       resultSaveErrorCode: clearResultSaveError
           ? null
           : resultSaveErrorCode ?? this.resultSaveErrorCode,

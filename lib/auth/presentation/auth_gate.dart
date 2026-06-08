@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/camera/presentation/camera_providers.dart';
 import '../../features/camera/presentation/camera_screen.dart';
+import '../../theme/app_colors.dart';
 import '../domain/auth_session_state.dart';
 import 'auth_page.dart';
 import 'auth_providers.dart';
@@ -65,11 +66,11 @@ class _AuthLoadingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.black,
+      backgroundColor: AppColors.black,
       child: Center(
         child: SizedBox.square(
           dimension: 24,
-          child: CupertinoActivityIndicator(color: CupertinoColors.white),
+          child: CupertinoActivityIndicator(color: AppColors.white),
         ),
       ),
     );
@@ -82,7 +83,7 @@ class _ConfigErrorPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.black,
+      backgroundColor: AppColors.black,
       child: SafeArea(
         child: Padding(
           padding: EdgeInsets.all(24),
@@ -90,7 +91,7 @@ class _ConfigErrorPage extends StatelessWidget {
             child: Text(
               'Missing Supabase configuration. Start with SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY dart-defines.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: CupertinoColors.white, fontSize: 16),
+              style: TextStyle(color: AppColors.white, fontSize: 16),
             ),
           ),
         ),

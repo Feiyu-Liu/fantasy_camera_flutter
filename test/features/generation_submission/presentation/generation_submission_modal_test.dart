@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/feedback.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/prompt_config.dart';
@@ -40,6 +41,7 @@ void main() {
     ];
 
     await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+    await tester.pump();
 
     expect(
       find.byKey(const ValueKey<String>('generation-submission-photo-list')),
@@ -205,7 +207,52 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
-    expect(find.byIcon(CupertinoIcons.photo), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-photo-missing')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('hero toolbar is present but disabled before result exists', (
+    WidgetTester tester,
+  ) async {
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(id: 'pending', status: GenerationSubmissionStatus.pollingTask),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-original-image'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
+      warnIfMissed: false,
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-original-image'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-result-image')),
+      findsNothing,
+    );
   });
 
   testWidgets('tapping completed photo loads result image', (
@@ -292,7 +339,41 @@ void main() {
     );
   });
 
-  testWidgets('result processing failure shows error message', (
+  testWidgets('saved result photo toggle switches to original image', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-toggle-result');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'saved-toggle',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-processed-result-image'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-original-image'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('result processing failure keeps thumbnail status off hero', (
     WidgetTester tester,
   ) async {
     final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
@@ -305,7 +386,7 @@ void main() {
 
     await _pumpModalHost(tester, _ModalHost(jobs: jobs));
 
-    expect(find.text('HEIF conversion failed'), findsOneWidget);
+    expect(find.text('HEIF conversion failed'), findsNothing);
     expect(
       find.byKey(
         const ValueKey<String>(
@@ -342,8 +423,17 @@ void main() {
         const ValueKey<String>('generation-submission-gallery-picker'),
       ),
     );
-    await tester.pump();
-    await tester.pump();
+    for (int i = 0; i < 20; i += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (find
+          .byKey(
+            const ValueKey<String>('generation-submission-status-awaiting'),
+          )
+          .evaluate()
+          .isNotEmpty) {
+        break;
+      }
+    }
 
     expect(imagePicker.pickCount, 1);
     expect(
@@ -397,6 +487,69 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets('gallery picker shows iCloud export progress dialog', (
+    WidgetTester tester,
+  ) async {
+    final File imageFile = _writeImageFile('gallery-icloud-picked');
+    final _FakeGalleryImagePicker imagePicker = _FakeGalleryImagePicker(
+      XFile(imageFile.path),
+      waitForCompletion: true,
+    );
+    addTearDown(imagePicker.dispose);
+
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        jobs: const <GenerationSubmissionJob>[],
+        imagePicker: imagePicker,
+        uploadRepository: _FakeUploadRepository(),
+        taskRepository: _FakeGenerationTaskRepository(),
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('generation-submission-gallery-picker'),
+      ),
+    );
+    await tester.pump();
+
+    imagePicker.emitProgress(0.4);
+    await tester.pump();
+
+    expect(find.text('Downloading from iCloud'), findsOneWidget);
+    expect(find.text('40%'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-gallery-export-progress-bar'),
+      ),
+      findsOneWidget,
+    );
+
+    imagePicker.completePick();
+    await imagePicker.pickFinished;
+    for (int i = 0; i < 20; i += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (find.text('Downloading from iCloud').evaluate().isEmpty &&
+          find
+              .byKey(
+                const ValueKey<String>('generation-submission-status-awaiting'),
+              )
+              .evaluate()
+              .isNotEmpty) {
+        break;
+      }
+    }
+
+    expect(find.text('Downloading from iCloud'), findsNothing);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-status-awaiting'),
+      ),
+      findsOneWidget,
+    );
+  });
 }
 
 Future<void> _pumpModalHost(WidgetTester tester, _ModalHost host) async {
@@ -439,6 +592,7 @@ class _ModalHostState extends State<_ModalHost> {
   late final Future<List<GenerationRecord>> _seedFuture = _seedRecords();
 
   Future<List<GenerationRecord>> _seedRecords() async {
+    _FakePhotoLibraryAssetStore.resultPaths.clear();
     await _seedJobs(widget.jobs, _recordRepository);
     return _recordRepository.listRecords();
   }
@@ -483,6 +637,7 @@ class _ModalHostState extends State<_ModalHost> {
                     widget.uploadRepository ?? _FakeUploadRepository(),
                 generationTaskRepository:
                     widget.taskRepository ?? _FakeGenerationTaskRepository(),
+                feedbackRepository: const _FakeFeedbackRepository(),
                 generationRecordRepository: _recordRepository,
                 originalFileStore: const _FakeGenerationOriginalFileStore(),
                 photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
@@ -732,12 +887,14 @@ Future<void> _seedJobs(
       resultImageObjectId: job.resultImageObjectId,
     );
     if (job.processedResultPath != null) {
+      _FakePhotoLibraryAssetStore.resultPaths['asset-result-${job.id}'] =
+          job.processedResultPath!;
       await repository.updateResultFields(
         recordId: job.id,
         updatedAt: job.updatedAt,
         resultAvailability:
             GenerationRecordResultAvailability.savedToPhotoLibrary,
-        resultLocalCachePath: job.processedResultPath,
+        resultAssetId: 'asset-result-${job.id}',
       );
     }
   }
@@ -808,24 +965,68 @@ class _FakeGenerationImageProcessor implements GenerationImageProcessor {
 }
 
 class _FakeGalleryImagePicker implements GalleryImagePicker {
-  _FakeGalleryImagePicker(this.result);
+  _FakeGalleryImagePicker(this.result, {this.waitForCompletion = false});
 
   final XFile? result;
+  final bool waitForCompletion;
+  final StreamController<GalleryImagePickProgress> _progressController =
+      StreamController<GalleryImagePickProgress>.broadcast();
+  Completer<void>? _pickCompleter;
+  Completer<void>? _pickFinishedCompleter;
   int pickCount = 0;
+
+  Future<void> get pickFinished {
+    return _pickFinishedCompleter?.future ?? Future<void>.value();
+  }
+
+  @override
+  Stream<GalleryImagePickProgress> get progressEvents {
+    return _progressController.stream;
+  }
 
   @override
   Future<PickedGalleryImage?> pickImageFromGallery() async {
     pickCount += 1;
+    _pickFinishedCompleter = Completer<void>();
+    if (waitForCompletion) {
+      _pickCompleter = Completer<void>();
+      await _pickCompleter!.future;
+    }
     final XFile? result = this.result;
     if (result == null) {
+      _pickFinishedCompleter?.complete();
       return null;
     }
-    return PickedGalleryImage(file: result, assetId: 'asset-gallery-1');
+    final PickedGalleryImage pickedImage = PickedGalleryImage(
+      file: result,
+      assetId: 'asset-gallery-1',
+    );
+    _pickFinishedCompleter?.complete();
+    return pickedImage;
+  }
+
+  @override
+  Future<void> cancelActivePick() async {}
+
+  void emitProgress(double progress) {
+    _progressController.add(
+      GalleryImagePickProgress(assetId: 'asset-gallery-1', progress: progress),
+    );
+  }
+
+  void completePick() {
+    _pickCompleter?.complete();
+  }
+
+  Future<void> dispose() {
+    return _progressController.close();
   }
 }
 
 class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   const _FakePhotoLibraryAssetStore();
+
+  static final Map<String, String> resultPaths = <String, String>{};
 
   @override
   Future<SavedPhotoLibraryImage> saveImage(
@@ -838,7 +1039,25 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
 
   @override
   Future<String?> resolveImagePath(String assetId) async {
-    return null;
+    return resultPaths[assetId];
+  }
+
+  @override
+  Future<void> setFavorite(String assetId, {required bool isFavorite}) async {}
+}
+
+class _FakeFeedbackRepository implements FeedbackRepository {
+  const _FakeFeedbackRepository();
+
+  @override
+  Future<FeedbackSubmission> submitFeedback(FeedbackInput input) async {
+    return FeedbackSubmission(
+      id: 'feedback-${input.taskId}',
+      taskId: input.taskId,
+      rating: input.rating,
+      improveOptIn: input.improveOptIn,
+      createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+    );
   }
 }
 
@@ -963,6 +1182,7 @@ GenerationSubmissionJob _job({
   String? taskId,
   String? imagePath,
   String? processedResultPath,
+  String? resultUrl,
   String? resultSaveErrorMessage,
 }) {
   final DateTime now = DateTime.parse('2026-05-29T00:00:00Z');
@@ -982,6 +1202,7 @@ GenerationSubmissionJob _job({
         'backgroundBlur': false,
       },
     ),
+    resultUrl: resultUrl,
     processedResultPath: processedResultPath,
     resultSaveErrorMessage: resultSaveErrorMessage,
     createdAt: now,

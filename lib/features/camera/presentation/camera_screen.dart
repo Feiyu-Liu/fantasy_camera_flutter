@@ -6,17 +6,19 @@ import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:my_ui/my_ui.dart';
 
+import '../../../app/app_router.dart';
 import '../../../config/app_config.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/camera/camera_preview.dart';
+import '../../../theme/app_colors.dart';
 import '../../backend_api/domain/credit_balance.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
-import '../../generation_submission/presentation/generation_submission_modal.dart';
 import '../../generation_submission/presentation/generation_submission_providers.dart';
 import '../data/capture_orientation_reader.dart';
 import 'camera_message.dart';
@@ -64,7 +66,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   Widget build(BuildContext context) {
     final CameraState cameraState = ref.watch(cameraStateProvider);
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.black,
+      backgroundColor: AppColors.black,
       child: _buildCameraUi(cameraState),
     );
   }
@@ -114,7 +116,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       onFlashPressed: notifier.toggleFlash,
       onFlipCameraPressed: notifier.flipCamera,
       onShutterPressed: notifier.takePicture,
-      onGalleryPressed: () => showGenerationSubmissionDebugModal(context),
+      onGalleryPressed: _openGallery,
       onZoomStopSelected: notifier.setDisplayZoom,
       onModeSelected: ref
           .read(promptSelectionControllerProvider.notifier)
@@ -132,6 +134,21 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       target: captureOrientationTurns(orientation),
     );
     return _controlsRotationTurns;
+  }
+
+  Future<void> _openGallery() async {
+    final CameraControllerNotifier notifier = ref.read(
+      cameraStateProvider.notifier,
+    );
+    await notifier.pauseCamera();
+    if (!mounted) {
+      return;
+    }
+    await context.push(generationGalleryRoute);
+    if (!mounted) {
+      return;
+    }
+    await notifier.openDefaultCamera();
   }
 
   Widget _buildViewfinder(CameraState cameraState) {
@@ -388,7 +405,7 @@ class _CreditsBalanceBadge extends StatelessWidget {
                   textAlign: TextAlign.center,
                   textScaler: TextScaler.noScaling,
                   style: const TextStyle(
-                    color: CupertinoColors.black,
+                    color: AppColors.black,
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),
@@ -407,11 +424,7 @@ class _CreditCoinIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Icon(
-      LucideIcons.tickets,
-      color: CupertinoColors.black,
-      size: 17,
-    );
+    return const Icon(LucideIcons.tickets, color: AppColors.black, size: 17);
   }
 }
 
@@ -467,13 +480,9 @@ class _PromptOptionBarButton extends StatelessWidget {
               curve: Curves.easeOutCubic,
               height: 34,
               decoration: BoxDecoration(
-                color: selected
-                    ? const Color(0xFFEAC45B)
-                    : CupertinoColors.white,
+                color: selected ? AppColors.accentYellow : AppColors.white,
                 border: Border.all(
-                  color: CupertinoColors.black.withValues(
-                    alpha: selected ? 1 : 0.72,
-                  ),
+                  color: AppColors.blackOverlay(selected ? 1 : 0.72),
                   width: AppConfig.cameraUiDividerWidth,
                 ),
                 borderRadius: BorderRadius.zero,
@@ -490,7 +499,7 @@ class _PromptOptionBarButton extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       textScaler: TextScaler.noScaling,
                       style: const TextStyle(
-                        color: CupertinoColors.black,
+                        color: AppColors.black,
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
                         height: 1,
@@ -499,7 +508,7 @@ class _PromptOptionBarButton extends StatelessWidget {
                     const SizedBox(width: 7),
                     Icon(
                       _promptOptionIcon(definition.id),
-                      color: CupertinoColors.black,
+                      color: AppColors.black,
                       size: 15,
                     ),
                   ],
@@ -529,11 +538,11 @@ class _CaptureProgressThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const ColoredBox(
-      color: Color(0xFF111111),
+      color: AppColors.darkSurface,
       child: Center(
         child: SizedBox.square(
           dimension: 18,
-          child: CupertinoActivityIndicator(color: CupertinoColors.white),
+          child: CupertinoActivityIndicator(color: AppColors.white),
         ),
       ),
     );
@@ -646,7 +655,7 @@ class _PreviewPanelState extends State<_PreviewPanel>
     final bool initialized = cameraController?.value.isInitialized ?? false;
     return ClipRect(
       child: ColoredBox(
-        color: CupertinoColors.black,
+        color: AppColors.black,
         child: Stack(
           fit: StackFit.expand,
           children: <Widget>[
@@ -655,7 +664,7 @@ class _PreviewPanelState extends State<_PreviewPanel>
             IgnorePointer(
               child: FadeTransition(
                 opacity: _overlayOpacity,
-                child: const ColoredBox(color: CupertinoColors.black),
+                child: const ColoredBox(color: AppColors.black),
               ),
             ),
             if (widget.focusIndicatorPosition != null)
@@ -727,7 +736,7 @@ class _FocusIndicator extends StatelessWidget {
             scale: scale,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFF3D36A), width: 1.8),
+                border: Border.all(color: AppColors.focusYellow, width: 1.8),
               ),
             ),
           ),

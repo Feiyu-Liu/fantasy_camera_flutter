@@ -5,15 +5,22 @@ import UIKit
 
 final class PhotoLibraryAssetChannel: NSObject {
   private let channel: FlutterMethodChannel
-  private var galleryPickerDelegate: AnyObject?
+  private let eventChannel: FlutterEventChannel
+  private var galleryPickerDelegate: GalleryImagePickerDelegate?
+  private var eventSink: FlutterEventSink?
 
   init(binaryMessenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
       name: "fantasy_camera/photo_library_assets",
       binaryMessenger: binaryMessenger
     )
+    eventChannel = FlutterEventChannel(
+      name: "fantasy_camera/photo_library_assets/events",
+      binaryMessenger: binaryMessenger
+    )
     super.init()
     channel.setMethodCallHandler(handle)
+    eventChannel.setStreamHandler(self)
   }
 
   private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -31,6 +38,8 @@ final class PhotoLibraryAssetChannel: NSObject {
       saveImage(path: path, album: album, fileName: fileName, result: result)
     case "pickImage":
       pickImage(result: result)
+    case "cancelActivePick":
+      cancelActivePick(result: result)
     case "resolveImagePath":
       guard
         let args = call.arguments as? [String: Any],
@@ -40,6 +49,16 @@ final class PhotoLibraryAssetChannel: NSObject {
         return
       }
       resolveImagePath(assetId: assetId, result: result)
+    case "setFavorite":
+      guard
+        let args = call.arguments as? [String: Any],
+        let assetId = args["assetId"] as? String,
+        let isFavorite = args["isFavorite"] as? Bool
+      else {
+        result(FlutterError(code: "bad_args", message: "Missing favorite arguments.", details: nil))
+        return
+      }
+      setFavorite(assetId: assetId, isFavorite: isFavorite, result: result)
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -52,6 +71,7 @@ final class PhotoLibraryAssetChannel: NSObject {
           result(FlutterError(code: "access_denied", message: "Photo library access denied.", details: nil))
           return
         }
+        self.clearStaleGalleryPickerIfNeeded()
         guard self.galleryPickerDelegate == nil else {
           result(FlutterError(code: "picker_active", message: "Photo picker is already active.", details: nil))
           return
@@ -67,7 +87,8 @@ final class PhotoLibraryAssetChannel: NSObject {
         configuration.preferredAssetRepresentationMode = .current
         let picker = PHPickerViewController(configuration: configuration)
         let delegate = GalleryImagePickerDelegate(
-          exportAssetForDisplay: self.exportAssetForDisplay(assetId:completion:),
+          picker: picker,
+          exportAssetForDisplay: self.exportAssetForDisplay(assetId:progress:completion:),
           makeFlutterError: self.flutterError(code:error:),
           finish: { [weak self] response in
             self?.galleryPickerDelegate = nil
@@ -75,10 +96,34 @@ final class PhotoLibraryAssetChannel: NSObject {
           }
         )
         picker.delegate = delegate
+        picker.presentationController?.delegate = delegate
         self.galleryPickerDelegate = delegate
         rootViewController.present(picker, animated: true)
       }
     }
+  }
+
+  private func cancelActivePick(result: @escaping FlutterResult) {
+    DispatchQueue.main.async {
+      guard let delegate = self.galleryPickerDelegate else {
+        result(nil)
+        return
+      }
+      delegate.cancel()
+      self.galleryPickerDelegate = nil
+      result(nil)
+    }
+  }
+
+  private func clearStaleGalleryPickerIfNeeded() {
+    guard let delegate = galleryPickerDelegate else {
+      return
+    }
+    if delegate.isPickerPresented {
+      return
+    }
+    delegate.cancel()
+    galleryPickerDelegate = nil
   }
 
   private func saveImage(
@@ -154,6 +199,7 @@ final class PhotoLibraryAssetChannel: NSObject {
 
   private func exportAssetForDisplay(
     assetId: String,
+    progress: ((Double) -> Void)? = nil,
     completion: @escaping (String?, Error?) -> Void
   ) {
     let assets = PHAsset.fetchAssets(withLocalIdentifiers: [assetId], options: nil)
@@ -186,12 +232,31 @@ final class PhotoLibraryAssetChannel: NSObject {
       return
     }
 
-    PHAssetResourceManager.default().writeData(for: resource, toFile: outputURL, options: nil) { error in
+    let options = PHAssetResourceRequestOptions()
+    options.isNetworkAccessAllowed = true
+    options.progressHandler = { value in
+      progress?(value)
+      self.sendGalleryExportProgress(assetId: assetId, progress: value)
+    }
+
+    PHAssetResourceManager.default().writeData(for: resource, toFile: outputURL, options: options) { error in
       if let error = error {
         completion(nil, error)
         return
       }
+      self.sendGalleryExportProgress(assetId: assetId, progress: 1)
       completion(outputURL.path, nil)
+    }
+  }
+
+  private func sendGalleryExportProgress(assetId: String, progress: Double) {
+    let clampedProgress = max(0, min(1, progress))
+    DispatchQueue.main.async {
+      self.eventSink?([
+        "type": "galleryExportProgress",
+        "assetId": assetId,
+        "progress": clampedProgress
+      ])
     }
   }
 
@@ -203,6 +268,38 @@ final class PhotoLibraryAssetChannel: NSObject {
     }
     PHPhotoLibrary.requestAuthorization(for: .readWrite) { newStatus in
       completion(newStatus == .authorized || newStatus == .limited)
+    }
+  }
+
+  private func setFavorite(assetId: String, isFavorite: Bool, result: @escaping FlutterResult) {
+    requestReadWriteAccess { granted in
+      guard granted else {
+        result(FlutterError(code: "access_denied", message: "Photo library access denied.", details: nil))
+        return
+      }
+
+      let assets = PHAsset.fetchAssets(withLocalIdentifiers: [assetId], options: nil)
+      guard let asset = assets.firstObject else {
+        result(FlutterError(code: "asset_not_found", message: "Photo asset was not found.", details: nil))
+        return
+      }
+
+      PHPhotoLibrary.shared().performChanges({
+        let changeRequest = PHAssetChangeRequest(for: asset)
+        changeRequest.isFavorite = isFavorite
+      }, completionHandler: { success, error in
+        DispatchQueue.main.async {
+          if let error = error {
+            result(self.flutterError(code: "favorite_failed", error: error))
+            return
+          }
+          guard success else {
+            result(FlutterError(code: "favorite_failed", message: "Photo favorite update failed.", details: nil))
+            return
+          }
+          result(nil)
+        }
+      })
     }
   }
 
@@ -269,16 +366,40 @@ final class PhotoLibraryAssetChannel: NSObject {
   }
 }
 
-private final class GalleryImagePickerDelegate: NSObject, PHPickerViewControllerDelegate {
-  private let exportAssetForDisplay: (String, @escaping (String?, Error?) -> Void) -> Void
+extension PhotoLibraryAssetChannel: FlutterStreamHandler {
+  func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+    eventSink = events
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    eventSink = nil
+    return nil
+  }
+}
+
+private final class GalleryImagePickerDelegate: NSObject, PHPickerViewControllerDelegate, UIAdaptivePresentationControllerDelegate {
+  private weak var picker: PHPickerViewController?
+  private let exportAssetForDisplay: (String, ((Double) -> Void)?, @escaping (String?, Error?) -> Void) -> Void
   private let makeFlutterError: (String, Error) -> FlutterError
   private let finish: (Any?) -> Void
+  private var didReceivePickerResult = false
+  private var didFinish = false
+
+  var isPickerPresented: Bool {
+    guard let picker = picker else {
+      return false
+    }
+    return picker.presentingViewController != nil || picker.view.window != nil
+  }
 
   init(
-    exportAssetForDisplay: @escaping (String, @escaping (String?, Error?) -> Void) -> Void,
+    picker: PHPickerViewController,
+    exportAssetForDisplay: @escaping (String, ((Double) -> Void)?, @escaping (String?, Error?) -> Void) -> Void,
     makeFlutterError: @escaping (String, Error) -> FlutterError,
     finish: @escaping (Any?) -> Void
   ) {
+    self.picker = picker
     self.exportAssetForDisplay = exportAssetForDisplay
     self.makeFlutterError = makeFlutterError
     self.finish = finish
@@ -286,14 +407,15 @@ private final class GalleryImagePickerDelegate: NSObject, PHPickerViewController
   }
 
   func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+    didReceivePickerResult = true
     picker.dismiss(animated: true)
 
     guard let picked = results.first else {
-      finish(nil)
+      finishOnce(nil)
       return
     }
     guard let assetId = picked.assetIdentifier else {
-      finish(FlutterError(
+      finishOnce(FlutterError(
         code: "missing_asset_id",
         message: "Picked image did not return an asset id.",
         details: nil
@@ -301,18 +423,43 @@ private final class GalleryImagePickerDelegate: NSObject, PHPickerViewController
       return
     }
 
-    exportAssetForDisplay(assetId) { [makeFlutterError, finish] path, error in
+    exportAssetForDisplay(assetId, nil) { [weak self] path, error in
       DispatchQueue.main.async {
+        guard let self = self else {
+          return
+        }
         if let error = error {
-          finish(makeFlutterError("export_failed", error))
+          self.finishOnce(self.makeFlutterError("export_failed", error))
           return
         }
         guard let path = path else {
-          finish(nil)
+          self.finishOnce(nil)
           return
         }
-        finish(["path": path, "assetId": assetId])
+        self.finishOnce(["path": path, "assetId": assetId])
       }
     }
+  }
+
+  func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+    guard !didReceivePickerResult else {
+      return
+    }
+    finishOnce(nil)
+  }
+
+  func cancel() {
+    if let picker = picker, isPickerPresented {
+      picker.dismiss(animated: false)
+    }
+    finishOnce(nil)
+  }
+
+  private func finishOnce(_ response: Any?) {
+    guard !didFinish else {
+      return
+    }
+    didFinish = true
+    finish(response)
   }
 }
