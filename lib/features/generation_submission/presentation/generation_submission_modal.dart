@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
+import 'package:progressive_blur/progressive_blur.dart';
 import 'package:smooth_corner/smooth_corner.dart';
 
 import '../../../theme/app_colors.dart';
@@ -47,6 +48,8 @@ class _GenerationSubmissionGalleryContent extends ConsumerStatefulWidget {
 
 class _GenerationSubmissionDebugModalState
     extends ConsumerState<_GenerationSubmissionGalleryContent> {
+  static const double _topGlassExtension = 24;
+
   String? _selectedJobId;
   String? _loadingResultJobId;
   bool _showOriginalImage = false;
@@ -88,27 +91,28 @@ class _GenerationSubmissionDebugModalState
         final double height = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : MediaQuery.sizeOf(context).height;
-        final double availableContentHeight = (height - topInset).clamp(
-          0.0,
-          double.infinity,
-        );
-        final double maxHeroHeight = (availableContentHeight - 196).clamp(
-          0.0,
-          availableContentHeight,
-        );
+        final double maxHeroHeight = (height - 196).clamp(0.0, height);
         final double heroWidth = constraints.maxWidth.clamp(
           0.0,
           maxHeroHeight * 3 / 4,
         );
         final double heroHeight = heroWidth * 4 / 3;
+        final double heroTopPadding = topInset;
+        final double heroViewportHeight = (heroHeight + heroTopPadding).clamp(
+          0.0,
+          height,
+        );
         final Widget hero = SizedBox(
           width: heroWidth,
-          height: heroHeight,
+          height: heroViewportHeight,
           child: _GalleryHeroPager(
             jobs: jobs,
             selectedJob: selectedJob,
             selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
             pageController: _heroPageController,
+            previewSize: Size(heroWidth, heroHeight),
+            viewportSize: Size(heroWidth, heroViewportHeight),
+            topPadding: heroTopPadding,
             loading: _loadingResultJobId == selectedJob?.id,
             showOriginalImage: _showOriginalImage,
             onPageChanged: _selectJobAtPage,
@@ -126,13 +130,13 @@ class _GenerationSubmissionDebugModalState
         );
         return Stack(
           children: <Widget>[
-            Padding(
-              padding: EdgeInsets.only(top: topInset),
+            _TopGradientBlur(
+              blurHeight: topInset > 0 ? topInset + _topGlassExtension : 0,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   SizedBox(
-                    height: heroHeight,
+                    height: heroViewportHeight,
                     child: Center(child: hero),
                   ),
                   Expanded(
@@ -334,15 +338,55 @@ class _GenerationSubmissionDebugModalState
   }
 }
 
+class _TopGradientBlur extends StatelessWidget {
+  const _TopGradientBlur({required this.blurHeight, required this.child});
+
+  final double blurHeight;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (blurHeight <= 0) {
+      return child;
+    }
+
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double height = constraints.maxHeight;
+        final double blurExtentStop = height > 0
+            ? (blurHeight / height).clamp(0.0, 1.0)
+            : 0.0;
+        if (blurExtentStop <= 0) {
+          return child;
+        }
+
+        return ProgressiveBlurWidget(
+          sigma: 28,
+          blurTextureDimensions: 384,
+          linearGradientBlur: LinearGradientBlur(
+            values: const <double>[1, 0],
+            stops: <double>[0, blurExtentStop],
+            start: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          child: child,
+        );
+      },
+    );
+  }
+}
+
 class GenerationSubmissionDebugModal extends StatelessWidget {
   const GenerationSubmissionDebugModal({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final double bottomInset = MediaQuery.paddingOf(context).bottom;
+
     return CupertinoPopupSurface(
       isSurfacePainted: true,
-      child: SafeArea(
-        top: false,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
         child: SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.84,
           child: const DecoratedBox(
@@ -414,105 +458,97 @@ class _RelatedMomentsStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double bottomInset = MediaQuery.paddingOf(context).bottom;
+    final EdgeInsets contentPadding = EdgeInsets.fromLTRB(
+      0,
+      12,
+      0,
+      10 + bottomInset,
+    );
+
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        border: Border(
-          top: BorderSide(color: AppColors.borderSubtle, width: 0.5),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(0, 12, 0, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                child: Text(
-                  'RELATED MOMENTS',
-                  key: ValueKey<String>('generation-gallery-related-title'),
-                  style: TextStyle(
-                    color: AppColors.black,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                  ),
+      decoration: const BoxDecoration(color: AppColors.white),
+      child: Padding(
+        padding: contentPadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                'RELATED MOMENTS',
+                key: ValueKey<String>('generation-gallery-related-title'),
+                style: TextStyle(
+                  color: AppColors.black,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
                 ),
               ),
-              const SizedBox(height: 8),
-              const SizedBox(
-                height: 0.5,
-                child: ColoredBox(color: AppColors.borderSubtle),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (BuildContext context, BoxConstraints constraints) {
-                    final double itemHeight = constraints.maxHeight;
-                    final double tileHeight = (itemHeight - 22).clamp(
-                      0.0,
-                      280.0,
-                    );
-                    final double tileWidth = tileHeight * 0.72;
-                    return ListView.separated(
-                      key: const ValueKey<String>(
-                        'generation-submission-photo-list',
-                      ),
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      itemCount: jobs.length + 1,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
-                      itemBuilder: (BuildContext context, int index) {
-                        if (index == 0) {
-                          return _GalleryMomentItem(
-                            width: tileWidth,
-                            height: itemHeight,
-                            imageHeight: tileHeight,
-                            caption: 'IMPORT — NEW',
-                            child: _GalleryPickerTile(
-                              width: tileWidth,
-                              height: tileHeight,
-                              picking: pickingGalleryImage,
-                              onTap: onPickGalleryImage,
-                            ),
-                          );
-                        }
-                        final GenerationSubmissionJob job = jobs[index - 1];
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  final double itemHeight = constraints.maxHeight;
+                  final double tileHeight = (itemHeight - 22).clamp(0.0, 280.0);
+                  final double tileWidth = tileHeight * 0.72;
+                  return ListView.separated(
+                    key: const ValueKey<String>(
+                      'generation-submission-photo-list',
+                    ),
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    itemCount: jobs.length + 1,
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
+                    itemBuilder: (BuildContext context, int index) {
+                      if (index == 0) {
                         return _GalleryMomentItem(
                           width: tileWidth,
                           height: itemHeight,
                           imageHeight: tileHeight,
-                          caption: _captionForJob(job),
-                          child: _JobThumbnail(
+                          caption: 'IMPORT — NEW',
+                          child: _GalleryPickerTile(
                             width: tileWidth,
                             height: tileHeight,
-                            job: job,
-                            selected: selectedJob?.id == job.id,
-                            onTap: () => onSelectJob(job),
-                            onConfirm:
-                                job.status ==
-                                    GenerationSubmissionStatus
-                                        .awaitingConfirmation
-                                ? () => onConfirmJob(job)
-                                : null,
-                            onCancel:
-                                job.status ==
-                                    GenerationSubmissionStatus
-                                        .awaitingConfirmation
-                                ? () => onCancelJob(job)
-                                : null,
+                            picking: pickingGalleryImage,
+                            onTap: onPickGalleryImage,
                           ),
                         );
-                      },
-                    );
-                  },
-                ),
+                      }
+                      final GenerationSubmissionJob job = jobs[index - 1];
+                      return _GalleryMomentItem(
+                        width: tileWidth,
+                        height: itemHeight,
+                        imageHeight: tileHeight,
+                        caption: _captionForJob(job),
+                        child: _JobThumbnail(
+                          width: tileWidth,
+                          height: tileHeight,
+                          job: job,
+                          selected: selectedJob?.id == job.id,
+                          onTap: () => onSelectJob(job),
+                          onConfirm:
+                              job.status ==
+                                  GenerationSubmissionStatus
+                                      .awaitingConfirmation
+                              ? () => onConfirmJob(job)
+                              : null,
+                          onCancel:
+                              job.status ==
+                                  GenerationSubmissionStatus
+                                      .awaitingConfirmation
+                              ? () => onCancelJob(job)
+                              : null,
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -900,12 +936,15 @@ class _ThumbnailActionButton extends StatelessWidget {
   }
 }
 
-class _GalleryHeroPager extends StatelessWidget {
+class _GalleryHeroPager extends StatefulWidget {
   const _GalleryHeroPager({
     required this.jobs,
     required this.selectedJob,
     required this.selectedIndex,
     required this.pageController,
+    required this.previewSize,
+    required this.viewportSize,
+    required this.topPadding,
     required this.loading,
     required this.showOriginalImage,
     required this.onPageChanged,
@@ -917,6 +956,9 @@ class _GalleryHeroPager extends StatelessWidget {
   final GenerationSubmissionJob? selectedJob;
   final int selectedIndex;
   final PageController pageController;
+  final Size previewSize;
+  final Size viewportSize;
+  final double topPadding;
   final bool loading;
   final bool showOriginalImage;
   final void Function(int index, List<GenerationSubmissionJob> jobs)
@@ -925,20 +967,54 @@ class _GalleryHeroPager extends StatelessWidget {
   final VoidCallback? onToggleFavorite;
 
   @override
+  State<_GalleryHeroPager> createState() => _GalleryHeroPagerState();
+}
+
+class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
+  final Map<String, PhotoViewController> _photoControllers =
+      <String, PhotoViewController>{};
+  final Map<String, Size> _imageSizes = <String, Size>{};
+  final Set<String> _resolvingImageSizes = <String>{};
+
+  @override
+  void didUpdateWidget(covariant _GalleryHeroPager oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.topPadding != widget.topPadding) {
+      _disposePhotoControllers();
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposePhotoControllers();
+    super.dispose();
+  }
+
+  void _disposePhotoControllers() {
+    for (final PhotoViewController controller in _photoControllers.values) {
+      controller.dispose();
+    }
+    _photoControllers.clear();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final GenerationSubmissionJob? selectedJob = this.selectedJob;
-    if (selectedJob == null || jobs.isEmpty) {
-      return const ColoredBox(
+    final GenerationSubmissionJob? selectedJob = widget.selectedJob;
+    if (selectedJob == null || widget.jobs.isEmpty) {
+      return ColoredBox(
         color: AppColors.white,
-        child: Center(
-          child: Text(
-            'SELECT A MOMENT',
-            key: ValueKey<String>('generation-gallery-empty-hero'),
-            style: TextStyle(
-              color: AppColors.textPlaceholder,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
+        child: Padding(
+          padding: EdgeInsets.only(top: widget.topPadding),
+          child: const Center(
+            child: Text(
+              'SELECT A MOMENT',
+              key: ValueKey<String>('generation-gallery-empty-hero'),
+              style: TextStyle(
+                color: AppColors.textPlaceholder,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
             ),
           ),
         ),
@@ -952,19 +1028,24 @@ class _GalleryHeroPager extends StatelessWidget {
         children: <Widget>[
           PhotoViewGallery.builder(
             key: const ValueKey<String>('generation-gallery-hero-pager'),
-            itemCount: jobs.length,
-            pageController: pageController,
-            onPageChanged: (int index) => onPageChanged(index, jobs),
+            itemCount: widget.jobs.length,
+            pageController: widget.pageController,
+            customSize: widget.previewSize,
+            onPageChanged: (int index) =>
+                widget.onPageChanged(index, widget.jobs),
             backgroundDecoration: const BoxDecoration(color: AppColors.white),
             loadingBuilder: (BuildContext context, ImageChunkEvent? progress) {
-              return const Center(child: CupertinoActivityIndicator());
+              return Padding(
+                padding: EdgeInsets.only(top: widget.topPadding),
+                child: const Center(child: CupertinoActivityIndicator()),
+              );
             },
             builder: (BuildContext context, int index) {
-              return _pageOptions(jobs[index]);
+              return _pageOptions(widget.jobs[index]);
             },
           ),
           _HeroImageKeyMarker(imageSource: _imageSourceForJob(selectedJob)),
-          if (loading)
+          if (widget.loading)
             const Center(
               child: CupertinoActivityIndicator(
                 key: ValueKey<String>('generation-submission-result-loading'),
@@ -976,13 +1057,13 @@ class _GalleryHeroPager extends StatelessWidget {
             right: 0,
             bottom: 18,
             child: _HeroToolbar(
-              showingOriginal: showOriginalImage,
+              showingOriginal: widget.showOriginalImage,
               onToggleImage: _canToggleHeroImage(selectedJob)
-                  ? onToggleImage
+                  ? widget.onToggleImage
                   : null,
               isFavorite: selectedJob.isResultFavorite,
               onToggleFavorite: _canToggleFavorite(selectedJob)
-                  ? onToggleFavorite
+                  ? widget.onToggleFavorite
                   : null,
             ),
           ),
@@ -996,25 +1077,29 @@ class _GalleryHeroPager extends StatelessWidget {
     const PhotoViewComputedScale initialScale =
         PhotoViewComputedScale.contained;
     final PhotoViewComputedScale maxScale = PhotoViewComputedScale.covered * 3;
+    final PhotoViewController controller = _controllerForJob(job);
 
     final _HeroImageSource? imageSource = _imageSourceForJob(job);
     if (imageSource == null) {
       return PhotoViewGalleryPageOptions.customChild(
         child: _placeholderForJob(job),
+        controller: controller,
         initialScale: initialScale,
         minScale: minScale,
         maxScale: maxScale,
         disableGestures: true,
       );
     }
+    _resolveImageSize(imageSource);
 
     return PhotoViewGalleryPageOptions(
       imageProvider: imageSource.imageProvider,
       semanticLabel: imageSource.key.value,
+      controller: controller,
       initialScale: initialScale,
       minScale: minScale,
       maxScale: maxScale,
-      basePosition: Alignment.center,
+      basePosition: _basePositionForSource(imageSource),
       filterQuality: FilterQuality.medium,
       errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
         debugPrint(
@@ -1025,8 +1110,92 @@ class _GalleryHeroPager extends StatelessWidget {
     );
   }
 
+  PhotoViewController _controllerForJob(GenerationSubmissionJob job) {
+    return _photoControllers.putIfAbsent(job.id, () {
+      return PhotoViewController();
+    });
+  }
+
+  Alignment _basePositionForSource(_HeroImageSource imageSource) {
+    final double viewportHeight = widget.viewportSize.height;
+    final double previewHeight = widget.previewSize.height;
+    final double topPadding = widget.topPadding;
+    if (viewportHeight <= 0 || previewHeight <= 0 || topPadding <= 0) {
+      return Alignment.center;
+    }
+
+    final Size? imageSize = _imageSizes[imageSource.debugPath];
+    if (imageSize == null || imageSize.width <= 0 || imageSize.height <= 0) {
+      return Alignment.center;
+    }
+
+    final double containedScale = _containedScale(
+      widget.previewSize,
+      imageSize,
+    );
+    final double displayedImageHeight = imageSize.height * containedScale;
+    final double extraSpace = viewportHeight - displayedImageHeight;
+    if (extraSpace <= 0) {
+      return Alignment.center;
+    }
+
+    final double defaultTop =
+        topPadding + (previewHeight - displayedImageHeight) / 2;
+    final double targetAlignmentY = (defaultTop / extraSpace) * 2 - 1;
+    return Alignment(0, targetAlignmentY.clamp(-1.0, 1.0));
+  }
+
+  double _containedScale(Size viewportSize, Size imageSize) {
+    return (viewportSize.width / imageSize.width).clamp(0.0, double.infinity) <
+            (viewportSize.height / imageSize.height).clamp(0.0, double.infinity)
+        ? viewportSize.width / imageSize.width
+        : viewportSize.height / imageSize.height;
+  }
+
+  void _resolveImageSize(_HeroImageSource imageSource) {
+    final String debugPath = imageSource.debugPath;
+    if (_imageSizes.containsKey(debugPath) ||
+        _resolvingImageSizes.contains(debugPath)) {
+      return;
+    }
+
+    _resolvingImageSizes.add(debugPath);
+    final ImageStream stream = imageSource.imageProvider.resolve(
+      const ImageConfiguration(),
+    );
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (ImageInfo info, bool synchronousCall) {
+        stream.removeListener(listener);
+        _setStateAfterBuild(() {
+          _resolvingImageSizes.remove(debugPath);
+          _imageSizes[debugPath] = Size(
+            info.image.width.toDouble(),
+            info.image.height.toDouble(),
+          );
+        });
+      },
+      onError: (Object error, StackTrace? stackTrace) {
+        stream.removeListener(listener);
+        _setStateAfterBuild(() {
+          _resolvingImageSizes.remove(debugPath);
+        });
+      },
+    );
+    stream.addListener(listener);
+  }
+
+  void _setStateAfterBuild(VoidCallback update) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      setState(update);
+    });
+  }
+
   _HeroImageSource? _imageSourceForJob(GenerationSubmissionJob job) {
-    if (showOriginalImage) {
+    if (widget.showOriginalImage) {
       return _HeroFileImageSource(
         path: job.imagePath,
         key: const ValueKey<String>('generation-submission-original-image'),
