@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/feedback.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/prompt_config.dart';
@@ -564,6 +565,7 @@ class _ModalHostState extends State<_ModalHost> {
                     widget.uploadRepository ?? _FakeUploadRepository(),
                 generationTaskRepository:
                     widget.taskRepository ?? _FakeGenerationTaskRepository(),
+                feedbackRepository: const _FakeFeedbackRepository(),
                 generationRecordRepository: _recordRepository,
                 originalFileStore: const _FakeGenerationOriginalFileStore(),
                 photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
@@ -927,6 +929,24 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   @override
   Future<String?> resolveImagePath(String assetId) async {
     return resultPaths[assetId];
+  }
+
+  @override
+  Future<void> setFavorite(String assetId, {required bool isFavorite}) async {}
+}
+
+class _FakeFeedbackRepository implements FeedbackRepository {
+  const _FakeFeedbackRepository();
+
+  @override
+  Future<FeedbackSubmission> submitFeedback(FeedbackInput input) async {
+    return FeedbackSubmission(
+      id: 'feedback-${input.taskId}',
+      taskId: input.taskId,
+      rating: input.rating,
+      improveOptIn: input.improveOptIn,
+      createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+    );
   }
 }
 

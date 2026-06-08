@@ -31,6 +31,8 @@ abstract interface class PhotoLibraryAssetStore {
   });
 
   Future<String?> resolveImagePath(String assetId);
+
+  Future<void> setFavorite(String assetId, {required bool isFavorite});
 }
 
 class ImagePickerGalleryImagePicker implements GalleryImagePicker {
@@ -125,6 +127,14 @@ class MethodChannelPhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   Future<String?> resolveImagePath(String assetId) {
     return _channel.invokeMethod<String>('resolveImagePath', {
       'assetId': assetId,
+    });
+  }
+
+  @override
+  Future<void> setFavorite(String assetId, {required bool isFavorite}) {
+    return _channel.invokeMethod<void>('setFavorite', {
+      'assetId': assetId,
+      'isFavorite': isFavorite,
     });
   }
 }

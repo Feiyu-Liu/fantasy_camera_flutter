@@ -42,6 +42,16 @@ final class PhotoLibraryAssetChannel: NSObject {
         return
       }
       resolveImagePath(assetId: assetId, result: result)
+    case "setFavorite":
+      guard
+        let args = call.arguments as? [String: Any],
+        let assetId = args["assetId"] as? String,
+        let isFavorite = args["isFavorite"] as? Bool
+      else {
+        result(FlutterError(code: "bad_args", message: "Missing favorite arguments.", details: nil))
+        return
+      }
+      setFavorite(assetId: assetId, isFavorite: isFavorite, result: result)
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -231,6 +241,38 @@ final class PhotoLibraryAssetChannel: NSObject {
     }
     PHPhotoLibrary.requestAuthorization(for: .readWrite) { newStatus in
       completion(newStatus == .authorized || newStatus == .limited)
+    }
+  }
+
+  private func setFavorite(assetId: String, isFavorite: Bool, result: @escaping FlutterResult) {
+    requestReadWriteAccess { granted in
+      guard granted else {
+        result(FlutterError(code: "access_denied", message: "Photo library access denied.", details: nil))
+        return
+      }
+
+      let assets = PHAsset.fetchAssets(withLocalIdentifiers: [assetId], options: nil)
+      guard let asset = assets.firstObject else {
+        result(FlutterError(code: "asset_not_found", message: "Photo asset was not found.", details: nil))
+        return
+      }
+
+      PHPhotoLibrary.shared().performChanges({
+        let changeRequest = PHAssetChangeRequest(for: asset)
+        changeRequest.isFavorite = isFavorite
+      }, completionHandler: { success, error in
+        DispatchQueue.main.async {
+          if let error = error {
+            result(self.flutterError(code: "favorite_failed", error: error))
+            return
+          }
+          guard success else {
+            result(FlutterError(code: "favorite_failed", message: "Photo favorite update failed.", details: nil))
+            return
+          }
+          result(nil)
+        }
+      })
     }
   }
 

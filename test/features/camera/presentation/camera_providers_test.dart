@@ -13,6 +13,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/data/gener
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/feedback.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
@@ -427,6 +428,9 @@ _TestContainer _container({required List<CameraChoice> choices}) {
       generationTaskRepositoryProvider.overrideWithValue(
         const _FakeGenerationTaskRepository(),
       ),
+      feedbackRepositoryProvider.overrideWithValue(
+        const _FakeFeedbackRepository(),
+      ),
     ],
   );
   return _TestContainer(container: container, database: database);
@@ -613,6 +617,9 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   Future<String?> resolveImagePath(String assetId) async {
     return null;
   }
+
+  @override
+  Future<void> setFavorite(String assetId, {required bool isFavorite}) async {}
 }
 
 class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
@@ -713,5 +720,20 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   @override
   Future<ResultUrl> createResultUrl(String taskId) {
     throw UnimplementedError();
+  }
+}
+
+class _FakeFeedbackRepository implements FeedbackRepository {
+  const _FakeFeedbackRepository();
+
+  @override
+  Future<FeedbackSubmission> submitFeedback(FeedbackInput input) async {
+    return FeedbackSubmission(
+      id: 'feedback-${input.taskId}',
+      taskId: input.taskId,
+      rating: input.rating,
+      improveOptIn: input.improveOptIn,
+      createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+    );
   }
 }

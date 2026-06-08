@@ -375,6 +375,44 @@ class $GenerationRecordsTable extends GenerationRecords
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _resultIsFavoriteMeta = const VerificationMeta(
+    'resultIsFavorite',
+  );
+  @override
+  late final GeneratedColumn<bool> resultIsFavorite = GeneratedColumn<bool>(
+    'result_is_favorite',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("result_is_favorite" IN (0, 1))',
+    ),
+    defaultValue: const Constant<bool>(false),
+  );
+  static const VerificationMeta _resultFavoritedAtMeta = const VerificationMeta(
+    'resultFavoritedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> resultFavoritedAt =
+      GeneratedColumn<DateTime>(
+        'result_favorited_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _resultFavoriteFeedbackSubmittedAtMeta =
+      const VerificationMeta('resultFavoriteFeedbackSubmittedAt');
+  @override
+  late final GeneratedColumn<DateTime> resultFavoriteFeedbackSubmittedAt =
+      GeneratedColumn<DateTime>(
+        'result_favorite_feedback_submitted_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _promptStyleMeta = const VerificationMeta(
     'promptStyle',
   );
@@ -487,6 +525,9 @@ class $GenerationRecordsTable extends GenerationRecords
     resultSha256,
     resultHashStatus,
     resultHashError,
+    resultIsFavorite,
+    resultFavoritedAt,
+    resultFavoriteFeedbackSubmittedAt,
     promptStyle,
     captureMode,
     appInputContractId,
@@ -803,6 +844,33 @@ class $GenerationRecordsTable extends GenerationRecords
         ),
       );
     }
+    if (data.containsKey('result_is_favorite')) {
+      context.handle(
+        _resultIsFavoriteMeta,
+        resultIsFavorite.isAcceptableOrUnknown(
+          data['result_is_favorite']!,
+          _resultIsFavoriteMeta,
+        ),
+      );
+    }
+    if (data.containsKey('result_favorited_at')) {
+      context.handle(
+        _resultFavoritedAtMeta,
+        resultFavoritedAt.isAcceptableOrUnknown(
+          data['result_favorited_at']!,
+          _resultFavoritedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('result_favorite_feedback_submitted_at')) {
+      context.handle(
+        _resultFavoriteFeedbackSubmittedAtMeta,
+        resultFavoriteFeedbackSubmittedAt.isAcceptableOrUnknown(
+          data['result_favorite_feedback_submitted_at']!,
+          _resultFavoriteFeedbackSubmittedAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('prompt_style')) {
       context.handle(
         _promptStyleMeta,
@@ -1004,6 +1072,18 @@ class $GenerationRecordsTable extends GenerationRecords
         DriftSqlType.string,
         data['${effectivePrefix}result_hash_error'],
       ),
+      resultIsFavorite: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}result_is_favorite'],
+      )!,
+      resultFavoritedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}result_favorited_at'],
+      ),
+      resultFavoriteFeedbackSubmittedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}result_favorite_feedback_submitted_at'],
+      ),
       promptStyle: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}prompt_style'],
@@ -1076,6 +1156,9 @@ class GenerationRecord extends DataClass
   final String? resultSha256;
   final String? resultHashStatus;
   final String? resultHashError;
+  final bool resultIsFavorite;
+  final DateTime? resultFavoritedAt;
+  final DateTime? resultFavoriteFeedbackSubmittedAt;
   final String? promptStyle;
   final String? captureMode;
   final String? appInputContractId;
@@ -1117,6 +1200,9 @@ class GenerationRecord extends DataClass
     this.resultSha256,
     this.resultHashStatus,
     this.resultHashError,
+    required this.resultIsFavorite,
+    this.resultFavoritedAt,
+    this.resultFavoriteFeedbackSubmittedAt,
     this.promptStyle,
     this.captureMode,
     this.appInputContractId,
@@ -1212,6 +1298,15 @@ class GenerationRecord extends DataClass
     }
     if (!nullToAbsent || resultHashError != null) {
       map['result_hash_error'] = Variable<String>(resultHashError);
+    }
+    map['result_is_favorite'] = Variable<bool>(resultIsFavorite);
+    if (!nullToAbsent || resultFavoritedAt != null) {
+      map['result_favorited_at'] = Variable<DateTime>(resultFavoritedAt);
+    }
+    if (!nullToAbsent || resultFavoriteFeedbackSubmittedAt != null) {
+      map['result_favorite_feedback_submitted_at'] = Variable<DateTime>(
+        resultFavoriteFeedbackSubmittedAt,
+      );
     }
     if (!nullToAbsent || promptStyle != null) {
       map['prompt_style'] = Variable<String>(promptStyle);
@@ -1324,6 +1419,14 @@ class GenerationRecord extends DataClass
       resultHashError: resultHashError == null && nullToAbsent
           ? const Value.absent()
           : Value(resultHashError),
+      resultIsFavorite: Value(resultIsFavorite),
+      resultFavoritedAt: resultFavoritedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resultFavoritedAt),
+      resultFavoriteFeedbackSubmittedAt:
+          resultFavoriteFeedbackSubmittedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resultFavoriteFeedbackSubmittedAt),
       promptStyle: promptStyle == null && nullToAbsent
           ? const Value.absent()
           : Value(promptStyle),
@@ -1411,6 +1514,13 @@ class GenerationRecord extends DataClass
       resultSha256: serializer.fromJson<String?>(json['resultSha256']),
       resultHashStatus: serializer.fromJson<String?>(json['resultHashStatus']),
       resultHashError: serializer.fromJson<String?>(json['resultHashError']),
+      resultIsFavorite: serializer.fromJson<bool>(json['resultIsFavorite']),
+      resultFavoritedAt: serializer.fromJson<DateTime?>(
+        json['resultFavoritedAt'],
+      ),
+      resultFavoriteFeedbackSubmittedAt: serializer.fromJson<DateTime?>(
+        json['resultFavoriteFeedbackSubmittedAt'],
+      ),
       promptStyle: serializer.fromJson<String?>(json['promptStyle']),
       captureMode: serializer.fromJson<String?>(json['captureMode']),
       appInputContractId: serializer.fromJson<String?>(
@@ -1461,6 +1571,11 @@ class GenerationRecord extends DataClass
       'resultSha256': serializer.toJson<String?>(resultSha256),
       'resultHashStatus': serializer.toJson<String?>(resultHashStatus),
       'resultHashError': serializer.toJson<String?>(resultHashError),
+      'resultIsFavorite': serializer.toJson<bool>(resultIsFavorite),
+      'resultFavoritedAt': serializer.toJson<DateTime?>(resultFavoritedAt),
+      'resultFavoriteFeedbackSubmittedAt': serializer.toJson<DateTime?>(
+        resultFavoriteFeedbackSubmittedAt,
+      ),
       'promptStyle': serializer.toJson<String?>(promptStyle),
       'captureMode': serializer.toJson<String?>(captureMode),
       'appInputContractId': serializer.toJson<String?>(appInputContractId),
@@ -1505,6 +1620,9 @@ class GenerationRecord extends DataClass
     Value<String?> resultSha256 = const Value.absent(),
     Value<String?> resultHashStatus = const Value.absent(),
     Value<String?> resultHashError = const Value.absent(),
+    bool? resultIsFavorite,
+    Value<DateTime?> resultFavoritedAt = const Value.absent(),
+    Value<DateTime?> resultFavoriteFeedbackSubmittedAt = const Value.absent(),
     Value<String?> promptStyle = const Value.absent(),
     Value<String?> captureMode = const Value.absent(),
     Value<String?> appInputContractId = const Value.absent(),
@@ -1590,6 +1708,13 @@ class GenerationRecord extends DataClass
     resultHashError: resultHashError.present
         ? resultHashError.value
         : this.resultHashError,
+    resultIsFavorite: resultIsFavorite ?? this.resultIsFavorite,
+    resultFavoritedAt: resultFavoritedAt.present
+        ? resultFavoritedAt.value
+        : this.resultFavoritedAt,
+    resultFavoriteFeedbackSubmittedAt: resultFavoriteFeedbackSubmittedAt.present
+        ? resultFavoriteFeedbackSubmittedAt.value
+        : this.resultFavoriteFeedbackSubmittedAt,
     promptStyle: promptStyle.present ? promptStyle.value : this.promptStyle,
     captureMode: captureMode.present ? captureMode.value : this.captureMode,
     appInputContractId: appInputContractId.present
@@ -1697,6 +1822,16 @@ class GenerationRecord extends DataClass
       resultHashError: data.resultHashError.present
           ? data.resultHashError.value
           : this.resultHashError,
+      resultIsFavorite: data.resultIsFavorite.present
+          ? data.resultIsFavorite.value
+          : this.resultIsFavorite,
+      resultFavoritedAt: data.resultFavoritedAt.present
+          ? data.resultFavoritedAt.value
+          : this.resultFavoritedAt,
+      resultFavoriteFeedbackSubmittedAt:
+          data.resultFavoriteFeedbackSubmittedAt.present
+          ? data.resultFavoriteFeedbackSubmittedAt.value
+          : this.resultFavoriteFeedbackSubmittedAt,
       promptStyle: data.promptStyle.present
           ? data.promptStyle.value
           : this.promptStyle,
@@ -1755,6 +1890,11 @@ class GenerationRecord extends DataClass
           ..write('resultSha256: $resultSha256, ')
           ..write('resultHashStatus: $resultHashStatus, ')
           ..write('resultHashError: $resultHashError, ')
+          ..write('resultIsFavorite: $resultIsFavorite, ')
+          ..write('resultFavoritedAt: $resultFavoritedAt, ')
+          ..write(
+            'resultFavoriteFeedbackSubmittedAt: $resultFavoriteFeedbackSubmittedAt, ',
+          )
           ..write('promptStyle: $promptStyle, ')
           ..write('captureMode: $captureMode, ')
           ..write('appInputContractId: $appInputContractId, ')
@@ -1801,6 +1941,9 @@ class GenerationRecord extends DataClass
     resultSha256,
     resultHashStatus,
     resultHashError,
+    resultIsFavorite,
+    resultFavoritedAt,
+    resultFavoriteFeedbackSubmittedAt,
     promptStyle,
     captureMode,
     appInputContractId,
@@ -1846,6 +1989,10 @@ class GenerationRecord extends DataClass
           other.resultSha256 == this.resultSha256 &&
           other.resultHashStatus == this.resultHashStatus &&
           other.resultHashError == this.resultHashError &&
+          other.resultIsFavorite == this.resultIsFavorite &&
+          other.resultFavoritedAt == this.resultFavoritedAt &&
+          other.resultFavoriteFeedbackSubmittedAt ==
+              this.resultFavoriteFeedbackSubmittedAt &&
           other.promptStyle == this.promptStyle &&
           other.captureMode == this.captureMode &&
           other.appInputContractId == this.appInputContractId &&
@@ -1889,6 +2036,9 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
   final Value<String?> resultSha256;
   final Value<String?> resultHashStatus;
   final Value<String?> resultHashError;
+  final Value<bool> resultIsFavorite;
+  final Value<DateTime?> resultFavoritedAt;
+  final Value<DateTime?> resultFavoriteFeedbackSubmittedAt;
   final Value<String?> promptStyle;
   final Value<String?> captureMode;
   final Value<String?> appInputContractId;
@@ -1931,6 +2081,9 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     this.resultSha256 = const Value.absent(),
     this.resultHashStatus = const Value.absent(),
     this.resultHashError = const Value.absent(),
+    this.resultIsFavorite = const Value.absent(),
+    this.resultFavoritedAt = const Value.absent(),
+    this.resultFavoriteFeedbackSubmittedAt = const Value.absent(),
     this.promptStyle = const Value.absent(),
     this.captureMode = const Value.absent(),
     this.appInputContractId = const Value.absent(),
@@ -1974,6 +2127,9 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     this.resultSha256 = const Value.absent(),
     this.resultHashStatus = const Value.absent(),
     this.resultHashError = const Value.absent(),
+    this.resultIsFavorite = const Value.absent(),
+    this.resultFavoritedAt = const Value.absent(),
+    this.resultFavoriteFeedbackSubmittedAt = const Value.absent(),
     this.promptStyle = const Value.absent(),
     this.captureMode = const Value.absent(),
     this.appInputContractId = const Value.absent(),
@@ -2023,6 +2179,9 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     Expression<String>? resultSha256,
     Expression<String>? resultHashStatus,
     Expression<String>? resultHashError,
+    Expression<bool>? resultIsFavorite,
+    Expression<DateTime>? resultFavoritedAt,
+    Expression<DateTime>? resultFavoriteFeedbackSubmittedAt,
     Expression<String>? promptStyle,
     Expression<String>? captureMode,
     Expression<String>? appInputContractId,
@@ -2073,6 +2232,11 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
       if (resultSha256 != null) 'result_sha256': resultSha256,
       if (resultHashStatus != null) 'result_hash_status': resultHashStatus,
       if (resultHashError != null) 'result_hash_error': resultHashError,
+      if (resultIsFavorite != null) 'result_is_favorite': resultIsFavorite,
+      if (resultFavoritedAt != null) 'result_favorited_at': resultFavoritedAt,
+      if (resultFavoriteFeedbackSubmittedAt != null)
+        'result_favorite_feedback_submitted_at':
+            resultFavoriteFeedbackSubmittedAt,
       if (promptStyle != null) 'prompt_style': promptStyle,
       if (captureMode != null) 'capture_mode': captureMode,
       if (appInputContractId != null)
@@ -2120,6 +2284,9 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     Value<String?>? resultSha256,
     Value<String?>? resultHashStatus,
     Value<String?>? resultHashError,
+    Value<bool>? resultIsFavorite,
+    Value<DateTime?>? resultFavoritedAt,
+    Value<DateTime?>? resultFavoriteFeedbackSubmittedAt,
     Value<String?>? promptStyle,
     Value<String?>? captureMode,
     Value<String?>? appInputContractId,
@@ -2163,6 +2330,11 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
       resultSha256: resultSha256 ?? this.resultSha256,
       resultHashStatus: resultHashStatus ?? this.resultHashStatus,
       resultHashError: resultHashError ?? this.resultHashError,
+      resultIsFavorite: resultIsFavorite ?? this.resultIsFavorite,
+      resultFavoritedAt: resultFavoritedAt ?? this.resultFavoritedAt,
+      resultFavoriteFeedbackSubmittedAt:
+          resultFavoriteFeedbackSubmittedAt ??
+          this.resultFavoriteFeedbackSubmittedAt,
       promptStyle: promptStyle ?? this.promptStyle,
       captureMode: captureMode ?? this.captureMode,
       appInputContractId: appInputContractId ?? this.appInputContractId,
@@ -2286,6 +2458,17 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     if (resultHashError.present) {
       map['result_hash_error'] = Variable<String>(resultHashError.value);
     }
+    if (resultIsFavorite.present) {
+      map['result_is_favorite'] = Variable<bool>(resultIsFavorite.value);
+    }
+    if (resultFavoritedAt.present) {
+      map['result_favorited_at'] = Variable<DateTime>(resultFavoritedAt.value);
+    }
+    if (resultFavoriteFeedbackSubmittedAt.present) {
+      map['result_favorite_feedback_submitted_at'] = Variable<DateTime>(
+        resultFavoriteFeedbackSubmittedAt.value,
+      );
+    }
     if (promptStyle.present) {
       map['prompt_style'] = Variable<String>(promptStyle.value);
     }
@@ -2351,6 +2534,11 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
           ..write('resultSha256: $resultSha256, ')
           ..write('resultHashStatus: $resultHashStatus, ')
           ..write('resultHashError: $resultHashError, ')
+          ..write('resultIsFavorite: $resultIsFavorite, ')
+          ..write('resultFavoritedAt: $resultFavoritedAt, ')
+          ..write(
+            'resultFavoriteFeedbackSubmittedAt: $resultFavoriteFeedbackSubmittedAt, ',
+          )
           ..write('promptStyle: $promptStyle, ')
           ..write('captureMode: $captureMode, ')
           ..write('appInputContractId: $appInputContractId, ')
@@ -2412,6 +2600,9 @@ typedef $$GenerationRecordsTableCreateCompanionBuilder =
       Value<String?> resultSha256,
       Value<String?> resultHashStatus,
       Value<String?> resultHashError,
+      Value<bool> resultIsFavorite,
+      Value<DateTime?> resultFavoritedAt,
+      Value<DateTime?> resultFavoriteFeedbackSubmittedAt,
       Value<String?> promptStyle,
       Value<String?> captureMode,
       Value<String?> appInputContractId,
@@ -2456,6 +2647,9 @@ typedef $$GenerationRecordsTableUpdateCompanionBuilder =
       Value<String?> resultSha256,
       Value<String?> resultHashStatus,
       Value<String?> resultHashError,
+      Value<bool> resultIsFavorite,
+      Value<DateTime?> resultFavoritedAt,
+      Value<DateTime?> resultFavoriteFeedbackSubmittedAt,
       Value<String?> promptStyle,
       Value<String?> captureMode,
       Value<String?> appInputContractId,
@@ -2639,6 +2833,22 @@ class $$GenerationRecordsTableFilterComposer
     column: $table.resultHashError,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<bool> get resultIsFavorite => $composableBuilder(
+    column: $table.resultIsFavorite,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get resultFavoritedAt => $composableBuilder(
+    column: $table.resultFavoritedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get resultFavoriteFeedbackSubmittedAt =>
+      $composableBuilder(
+        column: $table.resultFavoriteFeedbackSubmittedAt,
+        builder: (column) => ColumnFilters(column),
+      );
 
   ColumnFilters<String> get promptStyle => $composableBuilder(
     column: $table.promptStyle,
@@ -2850,6 +3060,22 @@ class $$GenerationRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get resultIsFavorite => $composableBuilder(
+    column: $table.resultIsFavorite,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get resultFavoritedAt => $composableBuilder(
+    column: $table.resultFavoritedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get resultFavoriteFeedbackSubmittedAt =>
+      $composableBuilder(
+        column: $table.resultFavoriteFeedbackSubmittedAt,
+        builder: (column) => ColumnOrderings(column),
+      );
+
   ColumnOrderings<String> get promptStyle => $composableBuilder(
     column: $table.promptStyle,
     builder: (column) => ColumnOrderings(column),
@@ -3052,6 +3278,22 @@ class $$GenerationRecordsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get resultIsFavorite => $composableBuilder(
+    column: $table.resultIsFavorite,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get resultFavoritedAt => $composableBuilder(
+    column: $table.resultFavoritedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get resultFavoriteFeedbackSubmittedAt =>
+      $composableBuilder(
+        column: $table.resultFavoriteFeedbackSubmittedAt,
+        builder: (column) => column,
+      );
+
   GeneratedColumn<String> get promptStyle => $composableBuilder(
     column: $table.promptStyle,
     builder: (column) => column,
@@ -3159,6 +3401,10 @@ class $$GenerationRecordsTableTableManager
                 Value<String?> resultSha256 = const Value.absent(),
                 Value<String?> resultHashStatus = const Value.absent(),
                 Value<String?> resultHashError = const Value.absent(),
+                Value<bool> resultIsFavorite = const Value.absent(),
+                Value<DateTime?> resultFavoritedAt = const Value.absent(),
+                Value<DateTime?> resultFavoriteFeedbackSubmittedAt =
+                    const Value.absent(),
                 Value<String?> promptStyle = const Value.absent(),
                 Value<String?> captureMode = const Value.absent(),
                 Value<String?> appInputContractId = const Value.absent(),
@@ -3201,6 +3447,10 @@ class $$GenerationRecordsTableTableManager
                 resultSha256: resultSha256,
                 resultHashStatus: resultHashStatus,
                 resultHashError: resultHashError,
+                resultIsFavorite: resultIsFavorite,
+                resultFavoritedAt: resultFavoritedAt,
+                resultFavoriteFeedbackSubmittedAt:
+                    resultFavoriteFeedbackSubmittedAt,
                 promptStyle: promptStyle,
                 captureMode: captureMode,
                 appInputContractId: appInputContractId,
@@ -3245,6 +3495,10 @@ class $$GenerationRecordsTableTableManager
                 Value<String?> resultSha256 = const Value.absent(),
                 Value<String?> resultHashStatus = const Value.absent(),
                 Value<String?> resultHashError = const Value.absent(),
+                Value<bool> resultIsFavorite = const Value.absent(),
+                Value<DateTime?> resultFavoritedAt = const Value.absent(),
+                Value<DateTime?> resultFavoriteFeedbackSubmittedAt =
+                    const Value.absent(),
                 Value<String?> promptStyle = const Value.absent(),
                 Value<String?> captureMode = const Value.absent(),
                 Value<String?> appInputContractId = const Value.absent(),
@@ -3287,6 +3541,10 @@ class $$GenerationRecordsTableTableManager
                 resultSha256: resultSha256,
                 resultHashStatus: resultHashStatus,
                 resultHashError: resultHashError,
+                resultIsFavorite: resultIsFavorite,
+                resultFavoritedAt: resultFavoritedAt,
+                resultFavoriteFeedbackSubmittedAt:
+                    resultFavoriteFeedbackSubmittedAt,
                 promptStyle: promptStyle,
                 captureMode: captureMode,
                 appInputContractId: appInputContractId,

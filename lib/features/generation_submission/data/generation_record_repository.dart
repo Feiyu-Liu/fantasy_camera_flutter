@@ -316,6 +316,28 @@ class GenerationRecordRepository {
     });
   }
 
+  Future<void> updateResultFavorite({
+    required String recordId,
+    required DateTime updatedAt,
+    required bool isFavorite,
+    DateTime? favoritedAt,
+    DateTime? feedbackSubmittedAt,
+  }) {
+    return _updateById(
+      recordId,
+      GenerationRecordsCompanion(
+        updatedAt: Value<DateTime>(updatedAt),
+        resultIsFavorite: Value<bool>(isFavorite),
+        resultFavoritedAt: Value<DateTime?>(
+          isFavorite ? favoritedAt ?? updatedAt : null,
+        ),
+        resultFavoriteFeedbackSubmittedAt: feedbackSubmittedAt == null
+            ? const Value<DateTime?>.absent()
+            : Value<DateTime?>(feedbackSubmittedAt),
+      ),
+    );
+  }
+
   Future<void> markOriginalCleared({
     required String recordId,
     required DateTime clearedAt,

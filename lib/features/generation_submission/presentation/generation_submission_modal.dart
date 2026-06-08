@@ -119,6 +119,9 @@ class _GenerationSubmissionDebugModalState
                       _showOriginalImage = !_showOriginalImage;
                     });
                   },
+            onToggleFavorite: selectedJob == null
+                ? null
+                : () => unawaited(_toggleFavorite(selectedJob)),
           ),
         );
         return Stack(
@@ -253,6 +256,13 @@ class _GenerationSubmissionDebugModalState
         _showOriginalImage = false;
       });
     }
+  }
+
+  Future<void> _toggleFavorite(GenerationSubmissionJob job) async {
+    _debugLog('toggle favorite job=${job.id}');
+    await ref
+        .read(generationSubmissionControllerProvider.notifier)
+        .toggleResultFavorite(job.id);
   }
 
   Future<void> _loadResult(String jobId) async {
@@ -900,6 +910,7 @@ class _GalleryHeroPager extends StatelessWidget {
     required this.showOriginalImage,
     required this.onPageChanged,
     required this.onToggleImage,
+    required this.onToggleFavorite,
   });
 
   final List<GenerationSubmissionJob> jobs;
@@ -911,6 +922,7 @@ class _GalleryHeroPager extends StatelessWidget {
   final void Function(int index, List<GenerationSubmissionJob> jobs)
   onPageChanged;
   final VoidCallback? onToggleImage;
+  final VoidCallback? onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -967,6 +979,10 @@ class _GalleryHeroPager extends StatelessWidget {
               showingOriginal: showOriginalImage,
               onToggleImage: _canToggleHeroImage(selectedJob)
                   ? onToggleImage
+                  : null,
+              isFavorite: selectedJob.isResultFavorite,
+              onToggleFavorite: _canToggleFavorite(selectedJob)
+                  ? onToggleFavorite
                   : null,
             ),
           ),
@@ -1106,6 +1122,12 @@ class _GalleryHeroPager extends StatelessWidget {
     };
   }
 
+  bool _canToggleFavorite(GenerationSubmissionJob job) {
+    return job.status == GenerationSubmissionStatus.resultSaved &&
+        job.resultAssetId != null &&
+        job.resultAssetId!.isNotEmpty;
+  }
+
   static String _statusText(GenerationSubmissionStatus status) {
     return switch (status) {
       GenerationSubmissionStatus.failed => 'Generation failed',
@@ -1215,10 +1237,14 @@ class _HeroToolbar extends StatelessWidget {
   const _HeroToolbar({
     required this.showingOriginal,
     required this.onToggleImage,
+    required this.isFavorite,
+    required this.onToggleFavorite,
   });
 
   final bool showingOriginal;
   final VoidCallback? onToggleImage;
+  final bool isFavorite;
+  final VoidCallback? onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -1249,6 +1275,10 @@ class _HeroToolbar extends StatelessWidget {
                   _ImageToggleButton(
                     showingOriginal: showingOriginal,
                     onPressed: onToggleImage,
+                  ),
+                  _FavoriteButton(
+                    isFavorite: isFavorite,
+                    onPressed: onToggleFavorite,
                   ),
                   const _HeroToolbarButton(
                     key: ValueKey<String>('generation-submission-more-actions'),
@@ -1289,16 +1319,38 @@ class _ImageToggleButton extends StatelessWidget {
   }
 }
 
+class _FavoriteButton extends StatelessWidget {
+  const _FavoriteButton({required this.isFavorite, required this.onPressed});
+
+  final bool isFavorite;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool enabled = onPressed != null;
+
+    return _HeroToolbarButton(
+      key: const ValueKey<String>('generation-submission-favorite-toggle'),
+      icon: LucideIcons.heart,
+      onPressed: onPressed,
+      color: isFavorite ? AppColors.accentYellow : AppColors.white,
+      opacity: enabled ? 1.0 : 0.38,
+    );
+  }
+}
+
 class _HeroToolbarButton extends StatelessWidget {
   const _HeroToolbarButton({
     super.key,
     required this.icon,
     required this.onPressed,
+    this.color = AppColors.white,
     this.opacity = 1.0,
   });
 
   final IconData icon;
   final VoidCallback? onPressed;
+  final Color color;
   final double opacity;
 
   @override
@@ -1311,7 +1363,7 @@ class _HeroToolbarButton extends StatelessWidget {
         opacity: opacity,
         child: SizedBox.square(
           dimension: 36,
-          child: Icon(icon, color: AppColors.white, size: 18),
+          child: Icon(icon, color: color, size: 18),
         ),
       ),
     );

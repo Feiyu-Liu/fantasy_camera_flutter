@@ -6,6 +6,7 @@ import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/feedback.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
@@ -120,6 +121,7 @@ void main() {
             service = GenerationSubmissionService(
               uploadRepository: const _FakeUploadRepository(),
               generationTaskRepository: const _FakeGenerationTaskRepository(),
+              feedbackRepository: const _FakeFeedbackRepository(),
               generationRecordRepository: GenerationRecordRepository(
                 GenerationRecordDatabase.forExecutor(NativeDatabase.memory()),
               ),
@@ -145,7 +147,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.byKey(const ValueKey<String>('generation-gallery-title')),
+      find.byKey(const ValueKey<String>('generation-gallery-empty-hero')),
       findsOneWidget,
     );
     expect(
@@ -358,6 +360,24 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   @override
   Future<String?> resolveImagePath(String assetId) async {
     return null;
+  }
+
+  @override
+  Future<void> setFavorite(String assetId, {required bool isFavorite}) async {}
+}
+
+class _FakeFeedbackRepository implements FeedbackRepository {
+  const _FakeFeedbackRepository();
+
+  @override
+  Future<FeedbackSubmission> submitFeedback(FeedbackInput input) async {
+    return FeedbackSubmission(
+      id: 'feedback-${input.taskId}',
+      taskId: input.taskId,
+      rating: input.rating,
+      improveOptIn: input.improveOptIn,
+      createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+    );
   }
 }
 

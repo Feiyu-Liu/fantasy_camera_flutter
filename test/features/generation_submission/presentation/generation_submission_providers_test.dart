@@ -4,6 +4,7 @@ import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/api_failure.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/feedback.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/prompt_config.dart';
@@ -286,6 +287,7 @@ void main() {
           GenerationSubmissionService(
             uploadRepository: _FakeUploadRepository(),
             generationTaskRepository: _FakeGenerationTaskRepository(),
+            feedbackRepository: _FakeFeedbackRepository(),
             generationRecordRepository: repository,
             originalFileStore: originalFileStore,
             photoLibraryAssetStore: photoLibraryAssetStore,
@@ -305,6 +307,7 @@ void main() {
           GenerationSubmissionService(
             uploadRepository: _FakeUploadRepository(),
             generationTaskRepository: _FakeGenerationTaskRepository(),
+            feedbackRepository: _FakeFeedbackRepository(),
             generationRecordRepository: repository,
             originalFileStore: originalFileStore,
             photoLibraryAssetStore: photoLibraryAssetStore,
@@ -518,6 +521,83 @@ void main() {
     expect(taskRepository.fetchTaskIds, <String>['task-1', 'task-1']);
   });
 
+  test(
+    'favorite toggles iOS asset and submits first positive feedback',
+    () async {
+      final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
+          _FakePhotoLibraryAssetStore();
+      final _FakeFeedbackRepository feedbackRepository =
+          _FakeFeedbackRepository();
+      final ProviderContainer container = _container(
+        photoLibraryAssetStore: photoLibraryAssetStore,
+        feedbackRepository: feedbackRepository,
+        taskRepository: _completedTaskRepository(),
+      );
+      addTearDown(container.dispose);
+      final String jobId = await _createSavedResultJob(container);
+      final GenerationSubmissionController notifier = container.read(
+        generationSubmissionControllerProvider.notifier,
+      );
+
+      await notifier.toggleResultFavorite(jobId);
+
+      GenerationSubmissionJob job = container
+          .read(generationSubmissionControllerProvider)
+          .jobs
+          .single;
+      expect(job.isResultFavorite, isTrue);
+      expect(
+        photoLibraryAssetStore.events.last,
+        'favorite:asset-result-1:true',
+      );
+      expect(feedbackRepository.inputs, hasLength(1));
+      expect(feedbackRepository.inputs.single.taskId, 'task-1');
+      expect(feedbackRepository.inputs.single.rating, FeedbackRating.positive);
+      expect(feedbackRepository.inputs.single.tags, <String>['ios_favorite']);
+
+      await notifier.toggleResultFavorite(jobId);
+
+      job = container.read(generationSubmissionControllerProvider).jobs.single;
+      expect(job.isResultFavorite, isFalse);
+      expect(
+        photoLibraryAssetStore.events.last,
+        'favorite:asset-result-1:false',
+      );
+      expect(feedbackRepository.inputs, hasLength(1));
+
+      await notifier.toggleResultFavorite(jobId);
+
+      job = container.read(generationSubmissionControllerProvider).jobs.single;
+      expect(job.isResultFavorite, isTrue);
+      expect(feedbackRepository.inputs, hasLength(1));
+    },
+  );
+
+  test('favorite failure keeps local state unchanged', () async {
+    final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
+        _FakePhotoLibraryAssetStore();
+    final ProviderContainer container = _container(
+      photoLibraryAssetStore: photoLibraryAssetStore,
+      taskRepository: _completedTaskRepository(),
+    );
+    addTearDown(container.dispose);
+    final String jobId = await _createSavedResultJob(container);
+    photoLibraryAssetStore.failure = StateError('favorite denied');
+
+    await expectLater(
+      container
+          .read(generationSubmissionControllerProvider.notifier)
+          .toggleResultFavorite(jobId),
+      throwsStateError,
+    );
+
+    final GenerationSubmissionJob job = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(job.isResultFavorite, isFalse);
+  });
+
   test('result processing failure marks postprocess failure status', () async {
     final _FakeGenerationImageProcessor imageProcessor =
         _FakeGenerationImageProcessor()
@@ -635,11 +715,45 @@ Future<GenerationSubmissionJob> _waitForSingleJobStatus(
   return container.read(generationSubmissionControllerProvider).jobs.single;
 }
 
+Future<String> _createSavedResultJob(ProviderContainer container) async {
+  await container
+      .read(generationSubmissionControllerProvider.notifier)
+      .submitCapturedFile(XFile('/tmp/photo.jpg'));
+  await Future<void>.delayed(Duration.zero);
+
+  final GenerationSubmissionController notifier = container.read(
+    generationSubmissionControllerProvider.notifier,
+  );
+  final String jobId = container
+      .read(generationSubmissionControllerProvider)
+      .jobs
+      .single
+      .id;
+
+  await notifier.pollTaskNowForDebug(jobId);
+  expect(
+    container.read(generationSubmissionControllerProvider).jobs.single.status,
+    GenerationSubmissionStatus.resultSaved,
+  );
+  return jobId;
+}
+
+_FakeGenerationTaskRepository _completedTaskRepository() {
+  return _FakeGenerationTaskRepository()
+    ..fetchTaskResponses.add(
+      _task(
+        status: GenerationTaskStatus.completed,
+        resultImageObjectId: 'result-1',
+      ),
+    );
+}
+
 ProviderContainer _container({
   _FakePhotoLibraryAssetStore? photoLibraryAssetStore,
   _FakeGenerationImageProcessor? imageProcessor,
   _FakeUploadRepository? uploadRepository,
   _FakeGenerationTaskRepository? taskRepository,
+  _FakeFeedbackRepository? feedbackRepository,
   _FakeGenerationOriginalFileStore? originalFileStore,
 }) {
   final GenerationRecordDatabase database =
@@ -661,6 +775,9 @@ ProviderContainer _container({
       ),
       generationTaskRepositoryProvider.overrideWithValue(
         taskRepository ?? _FakeGenerationTaskRepository(),
+      ),
+      feedbackRepositoryProvider.overrideWithValue(
+        feedbackRepository ?? _FakeFeedbackRepository(),
       ),
     ],
   );
@@ -776,6 +893,36 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   Future<String?> resolveImagePath(String assetId) async {
     resolvedAssetIds.add(assetId);
     return '/photos/$assetId.heic';
+  }
+
+  @override
+  Future<void> setFavorite(String assetId, {required bool isFavorite}) async {
+    events.add('favorite:$assetId:$isFavorite');
+    final Object? failure = this.failure;
+    if (failure != null) {
+      throw failure;
+    }
+  }
+}
+
+class _FakeFeedbackRepository implements FeedbackRepository {
+  final List<FeedbackInput> inputs = <FeedbackInput>[];
+  Object? failure;
+
+  @override
+  Future<FeedbackSubmission> submitFeedback(FeedbackInput input) async {
+    inputs.add(input);
+    final Object? failure = this.failure;
+    if (failure != null) {
+      throw failure;
+    }
+    return FeedbackSubmission(
+      id: 'feedback-${input.taskId}',
+      taskId: input.taskId,
+      rating: input.rating,
+      improveOptIn: input.improveOptIn,
+      createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+    );
   }
 }
 
