@@ -145,7 +145,7 @@ class _GenerationSubmissionDebugModalState
                       selectedJob: selectedJob,
                       pickingGalleryImage: _pickingGalleryImage,
                       onPickGalleryImage: _pickGalleryImage,
-                      onSelectJob: _selectJob,
+                      onSelectJob: _selectJobFromStrip,
                       onConfirmJob: _confirmJob,
                       onCancelJob: (GenerationSubmissionJob job) {
                         unawaited(_cancelJob(job));
@@ -207,6 +207,21 @@ class _GenerationSubmissionDebugModalState
       return;
     }
     _selectJob(jobs[index], syncHeroPage: false);
+  }
+
+  void _selectJobFromStrip(GenerationSubmissionJob job) {
+    unawaited(_selectJobFromStripAsync(job));
+  }
+
+  Future<void> _selectJobFromStripAsync(GenerationSubmissionJob job) async {
+    final _HeroImageSource? imageSource = _heroImageSourceForJob(job);
+    if (imageSource is _HeroFileImageSource) {
+      await _precacheHeroImage(imageSource.imageProvider);
+    }
+    if (!mounted) {
+      return;
+    }
+    _selectJob(job);
   }
 
   void _selectJob(GenerationSubmissionJob job, {bool syncHeroPage = true}) {
@@ -335,6 +350,73 @@ class _GenerationSubmissionDebugModalState
 
   void _debugLog(String message) {
     debugPrint('[GenerationSubmissionModal] $message');
+  }
+
+  _HeroImageSource? _heroImageSourceForJob(GenerationSubmissionJob job) {
+    if (_showOriginalImage ||
+        job.status == GenerationSubmissionStatus.resultProcessingFailed ||
+        (job.status != GenerationSubmissionStatus.completed &&
+            job.status != GenerationSubmissionStatus.resultSaved)) {
+      return _HeroFileImageSource(
+        path: job.imagePath,
+        key: const ValueKey<String>('generation-submission-original-image'),
+        failureLogLabel: 'original image',
+        failureMessage: 'Original image could not be loaded',
+      );
+    }
+
+    final String? processedResultPath = job.processedResultPath;
+    if (processedResultPath != null) {
+      return _HeroFileImageSource(
+        path: processedResultPath,
+        key: const ValueKey<String>(
+          'generation-submission-processed-result-image',
+        ),
+        failureLogLabel: 'processed result image',
+        failureMessage: 'Processed result image could not be loaded',
+      );
+    }
+
+    final String? resultUrl = job.resultUrl;
+    if (resultUrl == null) {
+      return null;
+    }
+
+    return _HeroNetworkImageSource(
+      url: resultUrl,
+      key: const ValueKey<String>('generation-submission-result-image'),
+      failureLogLabel: 'result image',
+      failureMessage: 'Result image could not be loaded',
+    );
+  }
+
+  Future<void> _precacheHeroImage(ImageProvider imageProvider) {
+    final Completer<void> completer = Completer<void>();
+    final ImageStream stream = imageProvider.resolve(
+      const ImageConfiguration(),
+    );
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (ImageInfo image, bool synchronousCall) {
+        stream.removeListener(listener);
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      },
+      onError: (Object error, StackTrace? stackTrace) {
+        stream.removeListener(listener);
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      },
+    );
+    stream.addListener(listener);
+    return completer.future.timeout(
+      const Duration(milliseconds: 120),
+      onTimeout: () {
+        stream.removeListener(listener);
+      },
+    );
   }
 }
 
@@ -982,6 +1064,18 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
     if (oldWidget.topPadding != widget.topPadding) {
       _disposePhotoControllers();
     }
+    _precacheSelectedAndNeighborImageSizes();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _precacheSelectedAndNeighborImageSizes();
+    });
   }
 
   @override
@@ -1031,6 +1125,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
             itemCount: widget.jobs.length,
             pageController: widget.pageController,
             customSize: widget.previewSize,
+            allowImplicitScrolling: true,
             onPageChanged: (int index) =>
                 widget.onPageChanged(index, widget.jobs),
             backgroundDecoration: const BoxDecoration(color: AppColors.white),
@@ -1167,12 +1262,18 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
     listener = ImageStreamListener(
       (ImageInfo info, bool synchronousCall) {
         stream.removeListener(listener);
+        final Size imageSize = Size(
+          info.image.width.toDouble(),
+          info.image.height.toDouble(),
+        );
+        if (synchronousCall) {
+          _resolvingImageSizes.remove(debugPath);
+          _imageSizes[debugPath] = imageSize;
+          return;
+        }
         _setStateAfterBuild(() {
           _resolvingImageSizes.remove(debugPath);
-          _imageSizes[debugPath] = Size(
-            info.image.width.toDouble(),
-            info.image.height.toDouble(),
-          );
+          _imageSizes[debugPath] = imageSize;
         });
       },
       onError: (Object error, StackTrace? stackTrace) {
@@ -1183,6 +1284,26 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       },
     );
     stream.addListener(listener);
+  }
+
+  void _precacheSelectedAndNeighborImageSizes() {
+    final int selectedIndex = widget.selectedIndex;
+    for (final int index in <int>[
+      selectedIndex,
+      selectedIndex - 1,
+      selectedIndex + 1,
+    ]) {
+      if (index < 0 || index >= widget.jobs.length) {
+        continue;
+      }
+      final _HeroImageSource? imageSource = _imageSourceForJob(
+        widget.jobs[index],
+      );
+      if (imageSource == null) {
+        continue;
+      }
+      _resolveImageSize(imageSource);
+    }
   }
 
   void _setStateAfterBuild(VoidCallback update) {
