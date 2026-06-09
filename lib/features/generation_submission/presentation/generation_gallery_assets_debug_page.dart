@@ -215,7 +215,7 @@ class _GenerationGalleryAssetsDebugPageState
     );
 
     if (_animateSwap && pair == _pairs[_selectedIndex]) {
-      return generationHeroBokehSwapPageOptions(
+      return generationHeroBlurredSwapPageOptions(
         originalImageProvider: AssetImage(pair.originalAsset),
         replacementImageProvider: AssetImage(pair.resultAsset),
         childSize: _childSizeForAsset(pair.resultAsset, previewSize),

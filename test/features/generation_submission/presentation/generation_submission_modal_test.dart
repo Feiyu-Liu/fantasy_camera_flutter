@@ -418,7 +418,7 @@ void main() {
 
     await _pumpModalHost(tester, _ModalHost(key: hostKey, jobs: jobs));
 
-    expect(find.byType(BokehImageSwapTransition), findsNothing);
+    expect(find.byType(BlurredImageSwapTransition), findsNothing);
 
     await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
       _job(
@@ -430,30 +430,30 @@ void main() {
     ]);
     for (int i = 0; i < 10; i += 1) {
       await tester.pump(const Duration(milliseconds: 20));
-      if (find.byType(BokehImageSwapTransition).evaluate().isNotEmpty) {
+      if (find.byType(BlurredImageSwapTransition).evaluate().isNotEmpty) {
         break;
       }
     }
 
-    final BokehImageSwapTransition transition = tester.widget(
-      find.byType(BokehImageSwapTransition),
+    final BlurredImageSwapTransition transition = tester.widget(
+      find.byType(BlurredImageSwapTransition),
     );
     expect(transition.showReplacement, isTrue);
 
     await tester.pump(const Duration(milliseconds: 1500));
-    expect(find.byType(BokehImageSwapTransition), findsNothing);
+    expect(find.byType(BlurredImageSwapTransition), findsNothing);
 
     await tester.tap(
       find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
     );
     await tester.pump();
-    expect(find.byType(BokehImageSwapTransition), findsNothing);
+    expect(find.byType(BlurredImageSwapTransition), findsNothing);
 
     await tester.tap(
       find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
     );
     await tester.pump();
-    expect(find.byType(BokehImageSwapTransition), findsNothing);
+    expect(find.byType(BlurredImageSwapTransition), findsNothing);
   });
 
   testWidgets(
@@ -479,7 +479,7 @@ void main() {
       ]);
       await tester.pump(const Duration(milliseconds: 200));
 
-      expect(find.byType(BokehImageSwapTransition), findsNothing);
+      expect(find.byType(BlurredImageSwapTransition), findsNothing);
     },
   );
 
@@ -514,7 +514,7 @@ void main() {
     ]);
     await tester.pump(const Duration(milliseconds: 20));
 
-    expect(find.byType(BokehImageSwapTransition), findsNothing);
+    expect(find.byType(BlurredImageSwapTransition), findsNothing);
     expect(
       find.byKey(
         const ValueKey<String>('generation-submission-original-image'),
@@ -525,7 +525,7 @@ void main() {
     precacheCompleter.complete(true);
     await tester.pump();
 
-    expect(find.byType(BokehImageSwapTransition), findsOneWidget);
+    expect(find.byType(BlurredImageSwapTransition), findsOneWidget);
   });
 
   testWidgets('saved result photo toggle switches to original image', (

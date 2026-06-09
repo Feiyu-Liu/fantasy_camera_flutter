@@ -26,7 +26,7 @@ PhotoViewGalleryPageOptions generationHeroImagePageOptions({
   );
 }
 
-PhotoViewGalleryPageOptions generationHeroBokehSwapPageOptions({
+PhotoViewGalleryPageOptions generationHeroBlurredSwapPageOptions({
   required ImageProvider originalImageProvider,
   required ImageProvider replacementImageProvider,
   required Size childSize,
@@ -45,17 +45,19 @@ PhotoViewGalleryPageOptions generationHeroBokehSwapPageOptions({
     child: _GenerationHeroImageCanvas(
       size: childSize,
       markerKey: replacementMarkerKey,
-      child: BokehImageSwapTransition(
-        original: _GenerationHeroImage(
-          imageProvider: originalImageProvider,
-          errorBuilder: originalErrorBuilder,
+      child: RepaintBoundary(
+        child: BlurredImageSwapTransition(
+          original: _GenerationHeroImage(
+            imageProvider: originalImageProvider,
+            errorBuilder: originalErrorBuilder,
+          ),
+          replacement: _GenerationHeroImage(
+            imageProvider: replacementImageProvider,
+            errorBuilder: replacementErrorBuilder,
+          ),
+          showReplacement: true,
+          animateInitialReplacement: true,
         ),
-        replacement: _GenerationHeroImage(
-          imageProvider: replacementImageProvider,
-          errorBuilder: replacementErrorBuilder,
-        ),
-        showReplacement: true,
-        animateInitialReplacement: true,
       ),
     ),
   );

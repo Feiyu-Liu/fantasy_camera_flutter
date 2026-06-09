@@ -1591,7 +1591,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
     }
 
     if (_shouldAnimateResultArrival(job, imageSource)) {
-      return generationHeroBokehSwapPageOptions(
+      return generationHeroBlurredSwapPageOptions(
         originalImageProvider: originalImageSource.imageProvider,
         replacementImageProvider: imageSource.imageProvider,
         childSize: imageSize,
