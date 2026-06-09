@@ -1868,7 +1868,7 @@ class _HeroToolbarState extends State<_HeroToolbar>
         CurvedAnimation(
           parent: _controller,
           curve: const Interval(0.42, 1, curve: Curves.easeOut),
-          reverseCurve: const Interval(0, 0.55, curve: Curves.easeIn),
+          reverseCurve: const Interval(0.72, 1, curve: Curves.easeOutCubic),
         ),
       );
   bool _expanded = false;
@@ -2002,7 +2002,7 @@ class _HeroToolbarState extends State<_HeroToolbar>
                 'generation-submission-more-dismiss-layer',
               ),
               behavior: HitTestBehavior.translucent,
-              onTap: () => _setExpanded(false),
+              onTapDown: (_) => _setExpanded(false),
             ),
           ),
         Align(
@@ -2188,7 +2188,7 @@ class _ExpandedHeroMenu extends StatelessWidget {
     return CurvedAnimation(
       parent: animation,
       curve: Interval(start, end, curve: Curves.easeOutCubic),
-      reverseCurve: Interval(0, 0.45, curve: Curves.easeInCubic),
+      reverseCurve: const Interval(0.74, 1, curve: Curves.easeOutCubic),
     );
   }
 }
