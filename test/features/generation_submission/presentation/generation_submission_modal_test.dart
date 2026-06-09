@@ -379,7 +379,7 @@ void main() {
     );
   });
 
-  testWidgets('saved result thumbnail swaps to processed image', (
+  testWidgets('saved result thumbnail directly shows processed image', (
     WidgetTester tester,
   ) async {
     final File processedFile = _writeImageFile('processed-thumbnail-result');
@@ -393,12 +393,139 @@ void main() {
 
     await _pumpModalHost(tester, _ModalHost(jobs: jobs));
 
-    final BlurredImageSwapTransition transition = tester.widget(
+    expect(
       find.byKey(
         const ValueKey<String>('generation-thumbnail-swap-saved-thumbnail'),
       ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-thumbnail-image-saved-thumbnail'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('hero animates only when selected result first arrives', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(id: 'arriving', status: GenerationSubmissionStatus.pollingTask),
+    ];
+    final File processedFile = _writeImageFile('processed-arriving-result');
+
+    await _pumpModalHost(tester, _ModalHost(key: hostKey, jobs: jobs));
+
+    expect(find.byType(BokehImageSwapTransition), findsNothing);
+
+    await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+      _job(
+        id: 'arriving',
+        status: GenerationSubmissionStatus.resultSaved,
+        imagePath: jobs.single.imagePath,
+        processedResultPath: processedFile.path,
+      ),
+    ]);
+    for (int i = 0; i < 10; i += 1) {
+      await tester.pump(const Duration(milliseconds: 20));
+      if (find.byType(BokehImageSwapTransition).evaluate().isNotEmpty) {
+        break;
+      }
+    }
+
+    final BokehImageSwapTransition transition = tester.widget(
+      find.byType(BokehImageSwapTransition),
     );
     expect(transition.showReplacement, isTrue);
+
+    await tester.pump(const Duration(milliseconds: 1500));
+    expect(find.byType(BokehImageSwapTransition), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
+    );
+    await tester.pump();
+    expect(find.byType(BokehImageSwapTransition), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
+    );
+    await tester.pump();
+    expect(find.byType(BokehImageSwapTransition), findsNothing);
+  });
+
+  testWidgets(
+    'hero does not animate for completed result url before local save',
+    (WidgetTester tester) async {
+      final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+      final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+        _job(
+          id: 'arriving-url',
+          status: GenerationSubmissionStatus.pollingTask,
+        ),
+      ];
+
+      await _pumpModalHost(tester, _ModalHost(key: hostKey, jobs: jobs));
+
+      await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+        _job(
+          id: 'arriving-url',
+          status: GenerationSubmissionStatus.completed,
+          imagePath: jobs.single.imagePath,
+          resultUrl: 'https://example.com/result.jpg',
+        ),
+      ]);
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.byType(BokehImageSwapTransition), findsNothing);
+    },
+  );
+
+  testWidgets('hero holds original until saved result is precached', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+    final Completer<bool> precacheCompleter = Completer<bool>();
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(id: 'precache', status: GenerationSubmissionStatus.pollingTask),
+    ];
+    final File processedFile = _writeImageFile('processed-precache-result');
+
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        key: hostKey,
+        jobs: jobs,
+        heroImagePrecache: (ImageProvider imageProvider) {
+          return precacheCompleter.future;
+        },
+      ),
+    );
+
+    await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+      _job(
+        id: 'precache',
+        status: GenerationSubmissionStatus.resultSaved,
+        imagePath: jobs.single.imagePath,
+        processedResultPath: processedFile.path,
+      ),
+    ]);
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(find.byType(BokehImageSwapTransition), findsNothing);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-original-image'),
+      ),
+      findsOneWidget,
+    );
+
+    precacheCompleter.complete(true);
+    await tester.pump();
+
+    expect(find.byType(BokehImageSwapTransition), findsOneWidget);
   });
 
   testWidgets('saved result photo toggle switches to original image', (
@@ -517,12 +644,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 320));
     expect(find.text('在相册中查看'), findsOneWidget);
 
-    await tester.tap(
+    final Rect dismissRect = tester.getRect(
       find.byKey(
         const ValueKey<String>('generation-submission-more-dismiss-layer'),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 260));
+    await tester.tapAt(Offset(dismissRect.left + 8, dismissRect.top + 8));
+    await tester.pump(const Duration(milliseconds: 360));
 
     expect(
       find.byKey(
@@ -845,14 +973,17 @@ Future<void> _tapExpandedMoreAction(WidgetTester tester, int index) async {
 
 class _ModalHost extends StatefulWidget {
   const _ModalHost({
+    super.key,
     required this.jobs,
     this.imagePicker,
+    this.heroImagePrecache,
     this.uploadRepository,
     this.taskRepository,
   });
 
   final List<GenerationSubmissionJob> jobs;
   final _FakeGalleryImagePicker? imagePicker;
+  final HeroImagePrecache? heroImagePrecache;
   final _FakeUploadRepository? uploadRepository;
   final _FakeGenerationTaskRepository? taskRepository;
 
@@ -878,6 +1009,10 @@ class _ModalHostState extends State<_ModalHost> {
     _FakeFeedbackRepository.inputs.clear();
     await _seedJobs(widget.jobs, _recordRepository);
     return _recordRepository.listRecords();
+  }
+
+  Future<void> replaceJobs(List<GenerationSubmissionJob> jobs) async {
+    await _recordRepository.replaceJobs(jobs);
   }
 
   @override
@@ -906,6 +1041,12 @@ class _ModalHostState extends State<_ModalHost> {
         ),
         galleryImagePickerProvider.overrideWithValue(
           widget.imagePicker ?? _FakeGalleryImagePicker(null),
+        ),
+        heroImagePrecacheProvider.overrideWithValue(
+          widget.heroImagePrecache ??
+              (ImageProvider imageProvider) async {
+                return true;
+              },
         ),
         uploadRepositoryProvider.overrideWithValue(
           widget.uploadRepository ?? _FakeUploadRepository(),
@@ -971,11 +1112,25 @@ class _NotifyingGenerationRecordRepository extends GenerationRecordRepository {
   _NotifyingGenerationRecordRepository(super.database, this._recordsController);
 
   final StreamController<List<GenerationRecord>> _recordsController;
+  bool _suspendEmits = false;
 
   Future<void> _emitRecords() async {
-    if (!_recordsController.isClosed) {
+    if (!_suspendEmits && !_recordsController.isClosed) {
       _recordsController.add(await listRecords());
     }
+  }
+
+  Future<void> replaceJobs(List<GenerationSubmissionJob> jobs) async {
+    _suspendEmits = true;
+    try {
+      for (final GenerationRecord record in await listRecords()) {
+        await super.deleteRecord(record.recordId);
+      }
+      await _seedJobs(jobs, this);
+    } finally {
+      _suspendEmits = false;
+    }
+    await _emitRecords();
   }
 
   @override

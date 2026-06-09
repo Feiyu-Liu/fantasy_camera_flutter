@@ -7,7 +7,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:my_ui/my_ui.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:progressive_blur/progressive_blur.dart';
@@ -17,6 +16,7 @@ import '../../../theme/app_colors.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../data/generation_submission_adapters.dart';
 import '../domain/generation_submission_job.dart';
+import 'generation_hero_photo_view_page_options.dart';
 import 'generation_submission_providers.dart';
 
 Future<void> showGenerationSubmissionDebugModal(BuildContext context) {
@@ -55,6 +55,10 @@ class _GenerationSubmissionDebugModalState
   bool _showOriginalImage = false;
   bool _pickingGalleryImage = false;
   bool _galleryExportProgressDialogVisible = false;
+  String? _resultArrivalAnimationJobId;
+  final Set<String> _pendingResultArrivalPrecacheJobIds = <String>{};
+  final Set<String> _animatedResultArrivalJobIds = <String>{};
+  Timer? _resultArrivalAnimationTimer;
   late final ValueNotifier<double> _galleryExportProgress =
       ValueNotifier<double>(0);
   List<GenerationSubmissionJob> _jobs = const <GenerationSubmissionJob>[];
@@ -75,9 +79,21 @@ class _GenerationSubmissionDebugModalState
         if (!mounted) {
           return;
         }
+        final GenerationSubmissionJob? resultArrivalPrecacheJob =
+            _nextResultArrivalPrecacheJob(previous?.jobs ?? _jobs, next.jobs);
         setState(() {
           _jobs = next.jobs;
+          if (resultArrivalPrecacheJob != null) {
+            _pendingResultArrivalPrecacheJobIds.add(
+              resultArrivalPrecacheJob.id,
+            );
+          }
         });
+        if (resultArrivalPrecacheJob != null) {
+          unawaited(
+            _precacheAndStartResultArrivalAnimation(resultArrivalPrecacheJob),
+          );
+        }
       },
     );
   }
@@ -86,6 +102,8 @@ class _GenerationSubmissionDebugModalState
   void dispose() {
     _jobsSubscription?.close();
     _jobsSubscription = null;
+    _resultArrivalAnimationTimer?.cancel();
+    _resultArrivalAnimationTimer = null;
     unawaited(_galleryExportProgressSubscription?.cancel());
     _galleryExportProgressSubscription = null;
     _galleryExportProgress.dispose();
@@ -144,12 +162,16 @@ class _GenerationSubmissionDebugModalState
             topPadding: heroTopPadding,
             loading: _loadingResultJobId == selectedJob?.id,
             showOriginalImage: _showOriginalImage,
+            resultArrivalAnimationJobId: _resultArrivalAnimationJobId,
+            pendingResultArrivalPrecacheJobIds:
+                _pendingResultArrivalPrecacheJobIds,
             onPageChanged: _selectJobAtPage,
             onToggleImage: selectedJob == null
                 ? null
                 : () {
                     setState(() {
                       _showOriginalImage = !_showOriginalImage;
+                      _clearResultArrivalAnimationNow();
                     });
                   },
             onToggleFavorite: selectedJob == null
@@ -218,6 +240,129 @@ class _GenerationSubmissionDebugModalState
     return jobs.first;
   }
 
+  GenerationSubmissionJob? _nextResultArrivalPrecacheJob(
+    List<GenerationSubmissionJob> previousJobs,
+    List<GenerationSubmissionJob> nextJobs,
+  ) {
+    if (_showOriginalImage) {
+      return null;
+    }
+    final String? selectedJobId =
+        _selectedJobId ?? (nextJobs.isEmpty ? null : nextJobs.first.id);
+    if (selectedJobId == null ||
+        _pendingResultArrivalPrecacheJobIds.contains(selectedJobId) ||
+        _animatedResultArrivalJobIds.contains(selectedJobId)) {
+      return null;
+    }
+    final GenerationSubmissionJob? previousJob = _findJobById(
+      previousJobs,
+      selectedJobId,
+    );
+    final GenerationSubmissionJob? nextJob = _findJobById(
+      nextJobs,
+      selectedJobId,
+    );
+    if (previousJob == null || nextJob == null) {
+      return null;
+    }
+    if (_hasLocalSavedResult(previousJob) || !_hasLocalSavedResult(nextJob)) {
+      return null;
+    }
+    return nextJob;
+  }
+
+  GenerationSubmissionJob? _findJobById(
+    List<GenerationSubmissionJob> jobs,
+    String id,
+  ) {
+    for (final GenerationSubmissionJob job in jobs) {
+      if (job.id == id) {
+        return job;
+      }
+    }
+    return null;
+  }
+
+  bool _hasLocalSavedResult(GenerationSubmissionJob job) {
+    return job.status == GenerationSubmissionStatus.resultSaved &&
+        job.processedResultPath != null;
+  }
+
+  Future<void> _precacheAndStartResultArrivalAnimation(
+    GenerationSubmissionJob job,
+  ) async {
+    final String? processedResultPath = job.processedResultPath;
+    if (processedResultPath == null) {
+      _finishPendingResultArrivalPrecache(job.id);
+      return;
+    }
+
+    final _HeroFileImageSource imageSource = _HeroFileImageSource(
+      path: processedResultPath,
+      key: const ValueKey<String>(
+        'generation-submission-processed-result-image',
+      ),
+      failureLogLabel: 'processed result image',
+      failureMessage: 'Processed result image could not be loaded',
+    );
+    final bool precached = await ref.read(heroImagePrecacheProvider)(
+      imageSource.imageProvider,
+    );
+    if (!mounted) {
+      return;
+    }
+
+    final bool stillSelected = _selectedJob(_jobs)?.id == job.id;
+    final bool shouldAnimate =
+        precached &&
+        stillSelected &&
+        !_showOriginalImage &&
+        !_animatedResultArrivalJobIds.contains(job.id) &&
+        _hasLocalSavedResult(_findJobById(_jobs, job.id) ?? job);
+
+    setState(() {
+      _pendingResultArrivalPrecacheJobIds.remove(job.id);
+      if (shouldAnimate) {
+        _animatedResultArrivalJobIds.add(job.id);
+        _resultArrivalAnimationJobId = job.id;
+      }
+    });
+
+    if (shouldAnimate) {
+      _clearResultArrivalAnimationAfterDelay(job.id);
+    }
+  }
+
+  void _finishPendingResultArrivalPrecache(String jobId) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _pendingResultArrivalPrecacheJobIds.remove(jobId);
+    });
+  }
+
+  void _clearResultArrivalAnimationAfterDelay(String jobId) {
+    _resultArrivalAnimationTimer?.cancel();
+    _resultArrivalAnimationTimer = Timer(
+      const Duration(milliseconds: 1500),
+      () {
+        if (!mounted || _resultArrivalAnimationJobId != jobId) {
+          return;
+        }
+        setState(() {
+          _resultArrivalAnimationJobId = null;
+        });
+      },
+    );
+  }
+
+  void _clearResultArrivalAnimationNow() {
+    _resultArrivalAnimationTimer?.cancel();
+    _resultArrivalAnimationTimer = null;
+    _resultArrivalAnimationJobId = null;
+  }
+
   void _syncHeroPageToSelection(int index, {required bool animate}) {
     if (!_heroPageController.hasClients) {
       return;
@@ -256,7 +401,7 @@ class _GenerationSubmissionDebugModalState
   Future<void> _selectJobFromStripAsync(GenerationSubmissionJob job) async {
     final _HeroImageSource? imageSource = _heroImageSourceForJob(job);
     if (imageSource is _HeroFileImageSource) {
-      await _precacheHeroImage(imageSource.imageProvider);
+      await ref.read(heroImagePrecacheProvider)(imageSource.imageProvider);
     }
     if (!mounted) {
       return;
@@ -271,6 +416,7 @@ class _GenerationSubmissionDebugModalState
     setState(() {
       _selectedJobId = job.id;
       _showOriginalImage = false;
+      _clearResultArrivalAnimationNow();
     });
     if (syncHeroPage) {
       final List<GenerationSubmissionJob> jobs = ref
@@ -294,6 +440,7 @@ class _GenerationSubmissionDebugModalState
     setState(() {
       _selectedJobId = job.id;
       _showOriginalImage = false;
+      _clearResultArrivalAnimationNow();
     });
     await ref
         .read(generationSubmissionControllerProvider.notifier)
@@ -313,6 +460,7 @@ class _GenerationSubmissionDebugModalState
         _selectedJobId = null;
         _loadingResultJobId = null;
         _showOriginalImage = false;
+        _clearResultArrivalAnimationNow();
       });
     }
   }
@@ -322,6 +470,7 @@ class _GenerationSubmissionDebugModalState
     setState(() {
       _selectedJobId = job.id;
       _showOriginalImage = false;
+      _clearResultArrivalAnimationNow();
     });
     await ref
         .read(generationSubmissionControllerProvider.notifier)
@@ -532,35 +681,6 @@ class _GenerationSubmissionDebugModalState
       key: const ValueKey<String>('generation-submission-result-image'),
       failureLogLabel: 'result image',
       failureMessage: 'Result image could not be loaded',
-    );
-  }
-
-  Future<void> _precacheHeroImage(ImageProvider imageProvider) {
-    final Completer<void> completer = Completer<void>();
-    final ImageStream stream = imageProvider.resolve(
-      const ImageConfiguration(),
-    );
-    late final ImageStreamListener listener;
-    listener = ImageStreamListener(
-      (ImageInfo image, bool synchronousCall) {
-        stream.removeListener(listener);
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
-      onError: (Object error, StackTrace? stackTrace) {
-        stream.removeListener(listener);
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
-    );
-    stream.addListener(listener);
-    return completer.future.timeout(
-      const Duration(milliseconds: 120),
-      onTimeout: () {
-        stream.removeListener(listener);
-      },
     );
   }
 }
@@ -1018,11 +1138,9 @@ class _JobThumbnail extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            BlurredImageSwapTransition(
-              key: ValueKey<String>('generation-thumbnail-swap-${job.id}'),
-              showReplacement: thumbnailResultPath != null,
-              original: _ThumbnailImage(path: job.imagePath),
-              replacement: _ThumbnailImage(path: thumbnailResultPath ?? ''),
+            _ThumbnailImage(
+              key: ValueKey<String>('generation-thumbnail-image-${job.id}'),
+              path: thumbnailResultPath ?? job.imagePath,
             ),
             if (onRetry == null)
               Positioned(
@@ -1078,7 +1196,7 @@ class _JobThumbnail extends StatelessWidget {
 }
 
 class _ThumbnailImage extends StatelessWidget {
-  const _ThumbnailImage({required this.path});
+  const _ThumbnailImage({super.key, required this.path});
 
   final String path;
 
@@ -1298,6 +1416,8 @@ class _GalleryHeroPager extends StatefulWidget {
     required this.topPadding,
     required this.loading,
     required this.showOriginalImage,
+    required this.resultArrivalAnimationJobId,
+    required this.pendingResultArrivalPrecacheJobIds,
     required this.onPageChanged,
     required this.onToggleImage,
     required this.onToggleFavorite,
@@ -1313,6 +1433,8 @@ class _GalleryHeroPager extends StatefulWidget {
   final double topPadding;
   final bool loading;
   final bool showOriginalImage;
+  final String? resultArrivalAnimationJobId;
+  final Set<String> pendingResultArrivalPrecacheJobIds;
   final void Function(int index, List<GenerationSubmissionJob> jobs)
   onPageChanged;
   final VoidCallback? onToggleImage;
@@ -1410,7 +1532,6 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
               return _pageOptions(widget.jobs[index]);
             },
           ),
-          _HeroImageKeyMarker(imageSource: _imageSourceForJob(selectedJob)),
           if (widget.loading)
             const Center(
               child: CupertinoActivityIndicator(
@@ -1421,7 +1542,6 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
           Positioned(
             left: 0,
             right: 0,
-            top: 0,
             bottom: 18,
             child: _HeroToolbar(
               selectedJob: selectedJob,
@@ -1442,10 +1562,6 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
   }
 
   PhotoViewGalleryPageOptions _pageOptions(GenerationSubmissionJob job) {
-    const PhotoViewComputedScale minScale = PhotoViewComputedScale.contained;
-    const PhotoViewComputedScale initialScale =
-        PhotoViewComputedScale.contained;
-    final PhotoViewComputedScale maxScale = PhotoViewComputedScale.covered * 3;
     final PhotoViewController controller = _controllerForJob(job);
 
     final _HeroImageSource? imageSource = _imageSourceForJob(job);
@@ -1453,30 +1569,69 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       return PhotoViewGalleryPageOptions.customChild(
         child: _placeholderForJob(job),
         controller: controller,
-        initialScale: initialScale,
-        minScale: minScale,
-        maxScale: maxScale,
+        initialScale: PhotoViewComputedScale.contained,
+        minScale: PhotoViewComputedScale.contained,
+        maxScale: PhotoViewComputedScale.covered * 3,
         disableGestures: true,
       );
     }
-    _resolveImageSize(imageSource);
-
-    return PhotoViewGalleryPageOptions(
-      imageProvider: imageSource.imageProvider,
-      semanticLabel: imageSource.key.value,
-      controller: controller,
-      initialScale: initialScale,
-      minScale: minScale,
-      maxScale: maxScale,
-      basePosition: _basePositionForSource(imageSource),
-      filterQuality: FilterQuality.medium,
-      errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
-        debugPrint(
-          '[GenerationSubmissionModal] ${imageSource.failureLogLabel} load failure path=${imageSource.debugPath} error=$error',
-        );
-        return _HeroImageFailure(message: imageSource.failureMessage);
-      },
+    final _HeroImageSource originalImageSource = _originalImageSourceForJob(
+      job,
     );
+    _resolveImageSize(imageSource);
+    _resolveImageSize(originalImageSource);
+
+    final Size imageSize = _childSizeForSource(imageSource);
+
+    Widget errorBuilder(BuildContext context, Object error, StackTrace? stack) {
+      debugPrint(
+        '[GenerationSubmissionModal] ${imageSource.failureLogLabel} load failure path=${imageSource.debugPath} error=$error',
+      );
+      return _HeroImageFailure(message: imageSource.failureMessage);
+    }
+
+    if (_shouldAnimateResultArrival(job, imageSource)) {
+      return generationHeroBokehSwapPageOptions(
+        originalImageProvider: originalImageSource.imageProvider,
+        replacementImageProvider: imageSource.imageProvider,
+        childSize: imageSize,
+        controller: controller,
+        basePosition: _basePositionForSource(imageSource),
+        semanticLabel: imageSource.key.value,
+        replacementMarkerKey: imageSource.key,
+        originalErrorBuilder:
+            (BuildContext context, Object error, StackTrace? stack) {
+              debugPrint(
+                '[GenerationSubmissionModal] ${originalImageSource.failureLogLabel} load failure path=${originalImageSource.debugPath} error=$error',
+              );
+              return _HeroImageFailure(
+                message: originalImageSource.failureMessage,
+              );
+            },
+        replacementErrorBuilder: errorBuilder,
+      );
+    }
+
+    return generationHeroImagePageOptions(
+      imageProvider: imageSource.imageProvider,
+      childSize: imageSize,
+      controller: controller,
+      basePosition: _basePositionForSource(imageSource),
+      semanticLabel: imageSource.key.value,
+      markerKey: imageSource.key,
+      errorBuilder: errorBuilder,
+    );
+  }
+
+  Size _childSizeForSource(_HeroImageSource imageSource) {
+    final Size? imageSize = _imageSizes[imageSource.debugPath];
+    if (imageSize != null && imageSize.width > 0 && imageSize.height > 0) {
+      return imageSize;
+    }
+    if (widget.previewSize.width > 0 && widget.previewSize.height > 0) {
+      return widget.previewSize;
+    }
+    return const Size(1, 1);
   }
 
   PhotoViewController _controllerForJob(GenerationSubmissionJob job) {
@@ -1591,30 +1746,19 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
 
   _HeroImageSource? _imageSourceForJob(GenerationSubmissionJob job) {
     if (widget.showOriginalImage) {
-      return _HeroFileImageSource(
-        path: job.imagePath,
-        key: const ValueKey<String>('generation-submission-original-image'),
-        failureLogLabel: 'original image',
-        failureMessage: 'Original image could not be loaded',
-      );
+      return _originalImageSourceForJob(job);
+    }
+
+    if (_shouldHoldOriginalForResultArrival(job)) {
+      return _originalImageSourceForJob(job);
     }
 
     if (_shouldUseOriginalAsHero(job)) {
-      return _HeroFileImageSource(
-        path: job.imagePath,
-        key: const ValueKey<String>('generation-submission-original-image'),
-        failureLogLabel: 'original image',
-        failureMessage: 'Original image could not be loaded',
-      );
+      return _originalImageSourceForJob(job);
     }
 
     if (job.status == GenerationSubmissionStatus.resultProcessingFailed) {
-      return _HeroFileImageSource(
-        path: job.imagePath,
-        key: const ValueKey<String>('generation-submission-original-image'),
-        failureLogLabel: 'original image',
-        failureMessage: 'Original image could not be loaded',
-      );
+      return _originalImageSourceForJob(job);
     }
 
     if (job.status != GenerationSubmissionStatus.completed &&
@@ -1645,6 +1789,31 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       failureLogLabel: 'result image',
       failureMessage: 'Result image could not be loaded',
     );
+  }
+
+  _HeroImageSource _originalImageSourceForJob(GenerationSubmissionJob job) {
+    return _HeroFileImageSource(
+      path: job.imagePath,
+      key: const ValueKey<String>('generation-submission-original-image'),
+      failureLogLabel: 'original image',
+      failureMessage: 'Original image could not be loaded',
+    );
+  }
+
+  bool _isOriginalHeroSource(_HeroImageSource? imageSource) {
+    return imageSource?.key.value == 'generation-submission-original-image';
+  }
+
+  bool _shouldAnimateResultArrival(
+    GenerationSubmissionJob job,
+    _HeroImageSource imageSource,
+  ) {
+    return widget.resultArrivalAnimationJobId == job.id &&
+        !_isOriginalHeroSource(imageSource);
+  }
+
+  bool _shouldHoldOriginalForResultArrival(GenerationSubmissionJob job) {
+    return widget.pendingResultArrivalPrecacheJobIds.contains(job.id);
   }
 
   Widget _placeholderForJob(GenerationSubmissionJob job) {
@@ -1754,21 +1923,6 @@ class _HeroNetworkImageSource extends _HeroImageSource {
 
   @override
   String get debugPath => path;
-}
-
-class _HeroImageKeyMarker extends StatelessWidget {
-  const _HeroImageKeyMarker({required this.imageSource});
-
-  final _HeroImageSource? imageSource;
-
-  @override
-  Widget build(BuildContext context) {
-    final _HeroImageSource? imageSource = this.imageSource;
-    if (imageSource == null) {
-      return const SizedBox.shrink();
-    }
-    return IgnorePointer(child: SizedBox.shrink(key: imageSource.key));
-  }
 }
 
 class _HeroImageFailure extends StatelessWidget {
@@ -1992,118 +2146,135 @@ class _HeroToolbarState extends State<_HeroToolbar>
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.bottomCenter,
-      children: <Widget>[
-        if (_expanded)
-          Positioned.fill(
-            child: GestureDetector(
-              key: const ValueKey<String>(
-                'generation-submission-more-dismiss-layer',
-              ),
-              behavior: HitTestBehavior.translucent,
-              onTapDown: (_) => _setExpanded(false),
-            ),
-          ),
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: AnimatedBuilder(
-            animation: _expandCurve,
-            builder: (BuildContext context, Widget? child) {
-              final double value = _expandCurve.value;
-              final double width = lerpDouble(
-                _collapsedWidth,
-                _expandedWidth,
-                value,
-              )!;
-              final double height = lerpDouble(
-                _collapsedHeight,
-                _expandedHeight,
-                value,
-              )!;
-              final double radius = lerpDouble(
-                _collapsedHeight / 2,
-                28,
-                value,
-              )!;
-              final SmoothRectangleBorder toolbarShape = SmoothRectangleBorder(
-                borderRadius: BorderRadius.circular(radius),
-                smoothness: 0.8,
-                side: BorderSide(
-                  color: AppColors.white.withValues(alpha: 0.18),
-                  width: 0.5,
-                ),
-              );
-              return GestureDetector(
-                key: const ValueKey<String>(
-                  'generation-submission-more-hit-region',
-                ),
-                behavior: HitTestBehavior.translucent,
-                onTapUp: _expanded
-                    ? (TapUpDetails details) {
-                        _handleExpandedMenuTap(details.localPosition);
-                      }
-                    : null,
-                child: SizedBox(
-                  width: width,
-                  height: height,
-                  child: ClipPath(
-                    clipper: ShapeBorderClipper(shape: toolbarShape),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                      child: DecoratedBox(
-                        decoration: ShapeDecoration(
-                          color: AppColors.blackOverlay(0.42),
-                          shape: toolbarShape,
-                        ),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: <Widget>[
-                            IgnorePointer(
-                              ignoring: _expanded,
-                              child: FadeTransition(
-                                opacity: _toolsOpacity,
-                                child: ScaleTransition(
-                                  scale: Tween<double>(
-                                    begin: 1,
-                                    end: 0.94,
-                                  ).animate(_expandCurve),
-                                  child: _CollapsedHeroTools(
-                                    showingOriginal: widget.showingOriginal,
-                                    onToggleImage: widget.onToggleImage,
-                                    isFavorite: widget.isFavorite,
-                                    onToggleFavorite: widget.onToggleFavorite,
-                                    onMorePressed: widget.onMoreActions == null
-                                        ? null
-                                        : () => _setExpanded(true),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            IgnorePointer(
-                              ignoring: !_expanded,
-                              child: FadeTransition(
-                                opacity: _menuOpacity,
-                                child: _ExpandedHeroMenu(
-                                  animation: _controller,
-                                  items: _items,
-                                  onSelected: (_HeroMoreActionItem item) {
-                                    unawaited(_selectAction(item));
-                                  },
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+    return AnimatedBuilder(
+      animation: _expandCurve,
+      builder: (BuildContext context, Widget? child) {
+        final double height = lerpDouble(
+          _collapsedHeight,
+          _expandedHeight,
+          _expandCurve.value,
+        )!;
+        return SizedBox(
+          height: height,
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            children: <Widget>[
+              if (_expanded)
+                Positioned.fill(
+                  child: GestureDetector(
+                    key: const ValueKey<String>(
+                      'generation-submission-more-dismiss-layer',
                     ),
+                    behavior: HitTestBehavior.translucent,
+                    onTapDown: (_) => _setExpanded(false),
                   ),
                 ),
-              );
-            },
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: AnimatedBuilder(
+                  animation: _expandCurve,
+                  builder: (BuildContext context, Widget? child) {
+                    final double value = _expandCurve.value;
+                    final double width = lerpDouble(
+                      _collapsedWidth,
+                      _expandedWidth,
+                      value,
+                    )!;
+                    final double height = lerpDouble(
+                      _collapsedHeight,
+                      _expandedHeight,
+                      value,
+                    )!;
+                    final double radius = lerpDouble(
+                      _collapsedHeight / 2,
+                      28,
+                      value,
+                    )!;
+                    final SmoothRectangleBorder toolbarShape =
+                        SmoothRectangleBorder(
+                          borderRadius: BorderRadius.circular(radius),
+                          smoothness: 0.8,
+                          side: BorderSide(
+                            color: AppColors.white.withValues(alpha: 0.18),
+                            width: 0.5,
+                          ),
+                        );
+                    return GestureDetector(
+                      key: const ValueKey<String>(
+                        'generation-submission-more-hit-region',
+                      ),
+                      behavior: HitTestBehavior.translucent,
+                      onTapUp: _expanded
+                          ? (TapUpDetails details) {
+                              _handleExpandedMenuTap(details.localPosition);
+                            }
+                          : null,
+                      child: SizedBox(
+                        width: width,
+                        height: height,
+                        child: ClipPath(
+                          clipper: ShapeBorderClipper(shape: toolbarShape),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                            child: DecoratedBox(
+                              decoration: ShapeDecoration(
+                                color: AppColors.blackOverlay(0.42),
+                                shape: toolbarShape,
+                              ),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: <Widget>[
+                                  IgnorePointer(
+                                    ignoring: _expanded,
+                                    child: FadeTransition(
+                                      opacity: _toolsOpacity,
+                                      child: ScaleTransition(
+                                        scale: Tween<double>(
+                                          begin: 1,
+                                          end: 0.94,
+                                        ).animate(_expandCurve),
+                                        child: _CollapsedHeroTools(
+                                          showingOriginal:
+                                              widget.showingOriginal,
+                                          onToggleImage: widget.onToggleImage,
+                                          isFavorite: widget.isFavorite,
+                                          onToggleFavorite:
+                                              widget.onToggleFavorite,
+                                          onMorePressed:
+                                              widget.onMoreActions == null
+                                              ? null
+                                              : () => _setExpanded(true),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IgnorePointer(
+                                    ignoring: !_expanded,
+                                    child: FadeTransition(
+                                      opacity: _menuOpacity,
+                                      child: _ExpandedHeroMenu(
+                                        animation: _controller,
+                                        items: _items,
+                                        onSelected: (_HeroMoreActionItem item) {
+                                          unawaited(_selectAction(item));
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
