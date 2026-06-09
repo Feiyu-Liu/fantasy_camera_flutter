@@ -149,7 +149,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     if (!mounted) {
       return;
     }
-    await context.push(generationGalleryAssetsDebugRoute);
+    await context.push(generationGalleryRoute);
     if (!mounted) {
       return;
     }
