@@ -43,9 +43,16 @@ abstract interface class PhotoLibraryAssetStore {
     required String fileName,
   });
 
+  Future<SavedPhotoLibraryImage> saveImageToLibrary(
+    String path, {
+    required String fileName,
+  });
+
   Future<String?> resolveImagePath(String assetId);
 
   Future<void> setFavorite(String assetId, {required bool isFavorite});
+
+  Future<void> openPhotoLibrary();
 }
 
 class ImagePickerGalleryImagePicker implements GalleryImagePicker {
@@ -172,6 +179,24 @@ class MethodChannelPhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   }
 
   @override
+  Future<SavedPhotoLibraryImage> saveImageToLibrary(
+    String path, {
+    required String fileName,
+  }) async {
+    if (!Platform.isIOS) {
+      throw UnsupportedError('Photo library save is only implemented on iOS.');
+    }
+    final String? assetId = await _channel.invokeMethod<String>(
+      'saveImageToLibrary',
+      <String, Object?>{'path': path, 'fileName': fileName},
+    );
+    if (assetId == null || assetId.isEmpty) {
+      throw StateError('Photo library save did not return an asset id.');
+    }
+    return SavedPhotoLibraryImage(assetId: assetId);
+  }
+
+  @override
   Future<String?> resolveImagePath(String assetId) {
     return _channel.invokeMethod<String>('resolveImagePath', {
       'assetId': assetId,
@@ -184,5 +209,15 @@ class MethodChannelPhotoLibraryAssetStore implements PhotoLibraryAssetStore {
       'assetId': assetId,
       'isFavorite': isFavorite,
     });
+  }
+
+  @override
+  Future<void> openPhotoLibrary() {
+    if (!Platform.isIOS) {
+      throw UnsupportedError(
+        'Opening the photo library is only implemented on iOS.',
+      );
+    }
+    return _channel.invokeMethod<void>('openPhotoLibrary');
   }
 }

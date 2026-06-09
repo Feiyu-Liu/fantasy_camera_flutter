@@ -1287,6 +1287,19 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   }
 
   @override
+  Future<SavedPhotoLibraryImage> saveImageToLibrary(
+    String path, {
+    required String fileName,
+  }) async {
+    events.add('save-library:$path:$fileName');
+    final Object? failure = this.failure;
+    if (failure != null) {
+      throw failure;
+    }
+    return const SavedPhotoLibraryImage(assetId: 'asset-original-1');
+  }
+
+  @override
   Future<String?> resolveImagePath(String assetId) async {
     resolvedAssetIds.add(assetId);
     return '/photos/$assetId.heic';
@@ -1299,6 +1312,11 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
     if (failure != null) {
       throw failure;
     }
+  }
+
+  @override
+  Future<void> openPhotoLibrary() async {
+    events.add('open-photo-library');
   }
 }
 

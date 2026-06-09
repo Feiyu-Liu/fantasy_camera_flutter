@@ -465,6 +465,200 @@ void main() {
     );
   });
 
+  testWidgets('hero more actions expand inside toolbar', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-more-actions');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'more-actions',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+
+    expect(find.text('在相册中查看'), findsOneWidget);
+    expect(find.text('保存原图'), findsOneWidget);
+    expect(find.text('重试'), findsOneWidget);
+    expect(find.text('不喜欢这张图片'), findsOneWidget);
+    expect(find.text('移除'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-more-dismiss-layer'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('hero more actions collapse when tapping outside', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-more-collapse');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'more-collapse',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    expect(find.text('在相册中查看'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('generation-submission-more-dismiss-layer'),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 260));
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-more-dismiss-layer'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('more action opens photo library', (WidgetTester tester) async {
+    final File processedFile = _writeImageFile('processed-open-library');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'open-library',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    await _tapExpandedMoreAction(tester, 0);
+    await tester.pump(const Duration(milliseconds: 260));
+    await tester.pump();
+
+    expect(_FakePhotoLibraryAssetStore.openPhotoLibraryCount, 1);
+  });
+
+  testWidgets('more action saves camera original to photo library', (
+    WidgetTester tester,
+  ) async {
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'save-original',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    await _tapExpandedMoreAction(tester, 1);
+    await tester.pump(const Duration(milliseconds: 260));
+    await tester.pump();
+
+    expect(_FakePhotoLibraryAssetStore.librarySavePaths, hasLength(1));
+    expect(
+      _FakePhotoLibraryAssetStore.librarySaveFileNames.single,
+      startsWith('TesserCam-Original-save-original.'),
+    );
+  });
+
+  testWidgets('more action submits negative feedback', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-dislike');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'dislike',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    await _tapExpandedMoreAction(tester, 3);
+    await tester.pump(const Duration(milliseconds: 260));
+    await tester.pump();
+
+    expect(_FakeFeedbackRepository.inputs, hasLength(1));
+    expect(
+      _FakeFeedbackRepository.inputs.single.rating,
+      FeedbackRating.negative,
+    );
+    expect(_FakeFeedbackRepository.inputs.single.tags, <String>[
+      'dislike_result',
+    ]);
+  });
+
+  testWidgets(
+    'more action removes record from gallery without deleting asset',
+    (WidgetTester tester) async {
+      final File processedFile = _writeImageFile('processed-remove');
+      final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+        _job(
+          id: 'remove',
+          status: GenerationSubmissionStatus.resultSaved,
+          processedResultPath: processedFile.path,
+        ),
+      ];
+
+      await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('generation-submission-photo-remove'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('generation-submission-more-actions'),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 320));
+      await _tapExpandedMoreAction(tester, 4);
+      await tester.pump(const Duration(milliseconds: 260));
+      await tester.pump();
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('generation-submission-photo-remove'),
+        ),
+        findsNothing,
+      );
+      expect(_FakePhotoLibraryAssetStore.deletedAssetIds, isEmpty);
+    },
+  );
+
   testWidgets('tapping gallery picker queues selected image for confirmation', (
     WidgetTester tester,
   ) async {
@@ -633,6 +827,22 @@ Future<void> _pumpModalHost(WidgetTester tester, _ModalHost host) async {
   await tester.pump();
 }
 
+Future<void> _tapExpandedMoreAction(WidgetTester tester, int index) async {
+  final Finder hitRegion = find.byKey(
+    const ValueKey<String>('generation-submission-more-hit-region'),
+  );
+  for (int attempt = 0; attempt < 10; attempt += 1) {
+    final Rect rect = tester.getRect(hitRegion);
+    if (rect.height >= 200) {
+      break;
+    }
+    await tester.pump(const Duration(milliseconds: 40));
+  }
+  final Rect rect = tester.getRect(hitRegion);
+  expect(rect.height, greaterThanOrEqualTo(200));
+  await tester.tapAt(Offset(rect.center.dx, rect.top + 10 + index * 42 + 21));
+}
+
 class _ModalHost extends StatefulWidget {
   const _ModalHost({
     required this.jobs,
@@ -661,6 +871,11 @@ class _ModalHostState extends State<_ModalHost> {
 
   Future<List<GenerationRecord>> _seedRecords() async {
     _FakePhotoLibraryAssetStore.resultPaths.clear();
+    _FakePhotoLibraryAssetStore.librarySavePaths.clear();
+    _FakePhotoLibraryAssetStore.librarySaveFileNames.clear();
+    _FakePhotoLibraryAssetStore.deletedAssetIds.clear();
+    _FakePhotoLibraryAssetStore.openPhotoLibraryCount = 0;
+    _FakeFeedbackRepository.inputs.clear();
     await _seedJobs(widget.jobs, _recordRepository);
     return _recordRepository.listRecords();
   }
@@ -1095,6 +1310,10 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   const _FakePhotoLibraryAssetStore();
 
   static final Map<String, String> resultPaths = <String, String>{};
+  static final List<String> librarySavePaths = <String>[];
+  static final List<String> librarySaveFileNames = <String>[];
+  static final List<String> deletedAssetIds = <String>[];
+  static int openPhotoLibraryCount = 0;
 
   @override
   Future<SavedPhotoLibraryImage> saveImage(
@@ -1106,19 +1325,37 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   }
 
   @override
+  Future<SavedPhotoLibraryImage> saveImageToLibrary(
+    String path, {
+    required String fileName,
+  }) async {
+    librarySavePaths.add(path);
+    librarySaveFileNames.add(fileName);
+    return const SavedPhotoLibraryImage(assetId: 'asset-original-1');
+  }
+
+  @override
   Future<String?> resolveImagePath(String assetId) async {
     return resultPaths[assetId];
   }
 
   @override
   Future<void> setFavorite(String assetId, {required bool isFavorite}) async {}
+
+  @override
+  Future<void> openPhotoLibrary() async {
+    openPhotoLibraryCount += 1;
+  }
 }
 
 class _FakeFeedbackRepository implements FeedbackRepository {
   const _FakeFeedbackRepository();
 
+  static final List<FeedbackInput> inputs = <FeedbackInput>[];
+
   @override
   Future<FeedbackSubmission> submitFeedback(FeedbackInput input) async {
+    inputs.add(input);
     return FeedbackSubmission(
       id: 'feedback-${input.taskId}',
       taskId: input.taskId,

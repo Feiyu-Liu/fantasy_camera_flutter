@@ -155,6 +155,10 @@ class _GenerationSubmissionDebugModalState
             onToggleFavorite: selectedJob == null
                 ? null
                 : () => unawaited(_toggleFavorite(selectedJob)),
+            onMoreActions: selectedJob == null
+                ? null
+                : (_HeroMoreAction action) =>
+                      unawaited(_performMoreAction(action, selectedJob)),
           ),
         );
         return Stack(
@@ -329,6 +333,48 @@ class _GenerationSubmissionDebugModalState
     await ref
         .read(generationSubmissionControllerProvider.notifier)
         .toggleResultFavorite(job.id);
+  }
+
+  Future<void> _performMoreAction(
+    _HeroMoreAction action,
+    GenerationSubmissionJob job,
+  ) async {
+    final GenerationSubmissionController controller = ref.read(
+      generationSubmissionControllerProvider.notifier,
+    );
+    try {
+      switch (action) {
+        case _HeroMoreAction.viewInAlbum:
+          _debugLog('more action view in album job=${job.id}');
+          await controller.openPhotoLibrary(job.id);
+        case _HeroMoreAction.saveOriginal:
+          _debugLog('more action save original job=${job.id}');
+          await controller.saveOriginalToPhotoLibrary(job.id);
+        case _HeroMoreAction.retry:
+          _debugLog('more action retry job=${job.id}');
+          await _retryJob(job);
+        case _HeroMoreAction.dislike:
+          _debugLog('more action dislike job=${job.id}');
+          await controller.submitNegativeFeedback(job.id);
+        case _HeroMoreAction.remove:
+          _debugLog('more action remove job=${job.id}');
+          await controller.removeJob(job.id);
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            if (_selectedJobId == job.id) {
+              _selectedJobId = null;
+              _loadingResultJobId = null;
+              _showOriginalImage = false;
+            }
+          });
+      }
+    } on Object catch (error) {
+      _debugLog(
+        'more action failure job=${job.id} action=${action.name} error=$error',
+      );
+    }
   }
 
   Future<void> _loadResult(String jobId) async {
@@ -1255,6 +1301,7 @@ class _GalleryHeroPager extends StatefulWidget {
     required this.onPageChanged,
     required this.onToggleImage,
     required this.onToggleFavorite,
+    required this.onMoreActions,
   });
 
   final List<GenerationSubmissionJob> jobs;
@@ -1270,6 +1317,7 @@ class _GalleryHeroPager extends StatefulWidget {
   onPageChanged;
   final VoidCallback? onToggleImage;
   final VoidCallback? onToggleFavorite;
+  final ValueChanged<_HeroMoreAction>? onMoreActions;
 
   @override
   State<_GalleryHeroPager> createState() => _GalleryHeroPagerState();
@@ -1373,8 +1421,10 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
           Positioned(
             left: 0,
             right: 0,
+            top: 0,
             bottom: 18,
             child: _HeroToolbar(
+              selectedJob: selectedJob,
               showingOriginal: widget.showOriginalImage,
               onToggleImage: _canToggleHeroImage(selectedJob)
                   ? widget.onToggleImage
@@ -1383,6 +1433,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
               onToggleFavorite: _canToggleFavorite(selectedJob)
                   ? widget.onToggleFavorite
                   : null,
+              onMoreActions: widget.onMoreActions,
             ),
           ),
         ],
@@ -1746,69 +1797,463 @@ class _HeroImageFailure extends StatelessWidget {
   }
 }
 
-class _HeroToolbar extends StatelessWidget {
+enum _HeroMoreAction { viewInAlbum, saveOriginal, retry, dislike, remove }
+
+class _HeroMoreActionItem {
+  const _HeroMoreActionItem({
+    required this.action,
+    required this.title,
+    required this.icon,
+    required this.enabled,
+    this.destructive = false,
+  });
+
+  final _HeroMoreAction action;
+  final String title;
+  final IconData icon;
+  final bool enabled;
+  final bool destructive;
+}
+
+class _HeroToolbar extends StatefulWidget {
   const _HeroToolbar({
+    required this.selectedJob,
     required this.showingOriginal,
     required this.onToggleImage,
     required this.isFavorite,
     required this.onToggleFavorite,
+    required this.onMoreActions,
+  });
+
+  final GenerationSubmissionJob selectedJob;
+  final bool showingOriginal;
+  final VoidCallback? onToggleImage;
+  final bool isFavorite;
+  final VoidCallback? onToggleFavorite;
+  final ValueChanged<_HeroMoreAction>? onMoreActions;
+
+  @override
+  State<_HeroToolbar> createState() => _HeroToolbarState();
+}
+
+class _HeroToolbarState extends State<_HeroToolbar>
+    with SingleTickerProviderStateMixin {
+  static const Duration _expandDuration = Duration(milliseconds: 280);
+  static const Duration _collapseDuration = Duration(milliseconds: 220);
+  static const double _collapsedWidth = 116;
+  static const double _collapsedHeight = 44;
+  static const double _expandedWidth = 220;
+  static const double _expandedHeight = 232;
+
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: _expandDuration,
+    reverseDuration: _collapseDuration,
+  );
+  late final Animation<double> _expandCurve = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+  late final Animation<double> _toolsOpacity = Tween<double>(begin: 1, end: 0)
+      .animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0, 0.34, curve: Curves.easeOut),
+          reverseCurve: const Interval(0.48, 1, curve: Curves.easeIn),
+        ),
+      );
+  late final Animation<double> _menuOpacity = Tween<double>(begin: 0, end: 1)
+      .animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0.42, 1, curve: Curves.easeOut),
+          reverseCurve: const Interval(0, 0.55, curve: Curves.easeIn),
+        ),
+      );
+  bool _expanded = false;
+
+  @override
+  void didUpdateWidget(covariant _HeroToolbar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.onMoreActions != widget.onMoreActions && _expanded) {
+      _setExpanded(false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _setExpanded(bool expanded) {
+    if (_expanded == expanded) {
+      return;
+    }
+    setState(() {
+      _expanded = expanded;
+    });
+    final bool reduceMotion =
+        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    if (reduceMotion) {
+      _controller.value = expanded ? 1 : 0;
+      return;
+    }
+    if (expanded) {
+      unawaited(_controller.forward());
+    } else {
+      unawaited(_controller.reverse());
+    }
+  }
+
+  Future<void> _selectAction(_HeroMoreActionItem item) async {
+    debugPrint(
+      '[GenerationSubmissionModal] hero toolbar action selected action=${item.action.name} enabled=${item.enabled}',
+    );
+    if (!item.enabled) {
+      _setExpanded(false);
+      return;
+    }
+    _setExpanded(false);
+    await Future<void>.delayed(_collapseDuration);
+    if (!mounted) {
+      return;
+    }
+    widget.onMoreActions?.call(item.action);
+  }
+
+  void _handleExpandedMenuTap(Offset localPosition) {
+    if (!_expanded) {
+      return;
+    }
+    const double topPadding = 10;
+    const double itemHeight = 42;
+    final int index = ((localPosition.dy - topPadding) / itemHeight).floor();
+    final List<_HeroMoreActionItem> items = _items;
+    if (index < 0 || index >= items.length) {
+      return;
+    }
+    unawaited(_selectAction(items[index]));
+  }
+
+  List<_HeroMoreActionItem> get _items {
+    return <_HeroMoreActionItem>[
+      _HeroMoreActionItem(
+        action: _HeroMoreAction.viewInAlbum,
+        title: '在相册中查看',
+        icon: LucideIcons.images,
+        enabled: _canViewInAlbum,
+      ),
+      _HeroMoreActionItem(
+        action: _HeroMoreAction.saveOriginal,
+        title: '保存原图',
+        icon: LucideIcons.download,
+        enabled: widget.selectedJob.canSaveOriginalToPhotoLibrary,
+      ),
+      _HeroMoreActionItem(
+        action: _HeroMoreAction.retry,
+        title: '重试',
+        icon: LucideIcons.refreshCcw,
+        enabled: _canRetry,
+      ),
+      _HeroMoreActionItem(
+        action: _HeroMoreAction.dislike,
+        title: '不喜欢这张图片',
+        icon: LucideIcons.thumbsDown,
+        enabled: _canDislike,
+      ),
+      const _HeroMoreActionItem(
+        action: _HeroMoreAction.remove,
+        title: '移除',
+        icon: LucideIcons.trash2,
+        enabled: true,
+        destructive: true,
+      ),
+    ];
+  }
+
+  bool get _canViewInAlbum {
+    return (widget.selectedJob.resultAssetId != null &&
+            widget.selectedJob.resultAssetId!.isNotEmpty) ||
+        widget.selectedJob.imagePath.isNotEmpty;
+  }
+
+  bool get _canRetry {
+    return widget.selectedJob.status == GenerationSubmissionStatus.failed ||
+        widget.selectedJob.status ==
+            GenerationSubmissionStatus.resultProcessingFailed;
+  }
+
+  bool get _canDislike {
+    return widget.selectedJob.taskId != null &&
+        widget.selectedJob.taskId!.isNotEmpty;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.bottomCenter,
+      children: <Widget>[
+        if (_expanded)
+          Positioned.fill(
+            child: GestureDetector(
+              key: const ValueKey<String>(
+                'generation-submission-more-dismiss-layer',
+              ),
+              behavior: HitTestBehavior.translucent,
+              onTap: () => _setExpanded(false),
+            ),
+          ),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: AnimatedBuilder(
+            animation: _expandCurve,
+            builder: (BuildContext context, Widget? child) {
+              final double value = _expandCurve.value;
+              final double width = lerpDouble(
+                _collapsedWidth,
+                _expandedWidth,
+                value,
+              )!;
+              final double height = lerpDouble(
+                _collapsedHeight,
+                _expandedHeight,
+                value,
+              )!;
+              final double radius = lerpDouble(
+                _collapsedHeight / 2,
+                28,
+                value,
+              )!;
+              final SmoothRectangleBorder toolbarShape = SmoothRectangleBorder(
+                borderRadius: BorderRadius.circular(radius),
+                smoothness: 0.8,
+                side: BorderSide(
+                  color: AppColors.white.withValues(alpha: 0.18),
+                  width: 0.5,
+                ),
+              );
+              return GestureDetector(
+                key: const ValueKey<String>(
+                  'generation-submission-more-hit-region',
+                ),
+                behavior: HitTestBehavior.translucent,
+                onTapUp: _expanded
+                    ? (TapUpDetails details) {
+                        _handleExpandedMenuTap(details.localPosition);
+                      }
+                    : null,
+                child: SizedBox(
+                  width: width,
+                  height: height,
+                  child: ClipPath(
+                    clipper: ShapeBorderClipper(shape: toolbarShape),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                      child: DecoratedBox(
+                        decoration: ShapeDecoration(
+                          color: AppColors.blackOverlay(0.42),
+                          shape: toolbarShape,
+                        ),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: <Widget>[
+                            IgnorePointer(
+                              ignoring: _expanded,
+                              child: FadeTransition(
+                                opacity: _toolsOpacity,
+                                child: ScaleTransition(
+                                  scale: Tween<double>(
+                                    begin: 1,
+                                    end: 0.94,
+                                  ).animate(_expandCurve),
+                                  child: _CollapsedHeroTools(
+                                    showingOriginal: widget.showingOriginal,
+                                    onToggleImage: widget.onToggleImage,
+                                    isFavorite: widget.isFavorite,
+                                    onToggleFavorite: widget.onToggleFavorite,
+                                    onMorePressed: widget.onMoreActions == null
+                                        ? null
+                                        : () => _setExpanded(true),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            IgnorePointer(
+                              ignoring: !_expanded,
+                              child: FadeTransition(
+                                opacity: _menuOpacity,
+                                child: _ExpandedHeroMenu(
+                                  animation: _controller,
+                                  items: _items,
+                                  onSelected: (_HeroMoreActionItem item) {
+                                    unawaited(_selectAction(item));
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CollapsedHeroTools extends StatelessWidget {
+  const _CollapsedHeroTools({
+    required this.showingOriginal,
+    required this.onToggleImage,
+    required this.isFavorite,
+    required this.onToggleFavorite,
+    required this.onMorePressed,
   });
 
   final bool showingOriginal;
   final VoidCallback? onToggleImage;
   final bool isFavorite;
   final VoidCallback? onToggleFavorite;
+  final VoidCallback? onMorePressed;
 
   @override
   Widget build(BuildContext context) {
-    final SmoothRectangleBorder toolbarShape = SmoothRectangleBorder(
-      borderRadius: BorderRadius.circular(999),
-      smoothness: 0.8,
-      side: BorderSide(
-        color: AppColors.white.withValues(alpha: 0.18),
-        width: 0.5,
+    return Padding(
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          _ImageToggleButton(
+            showingOriginal: showingOriginal,
+            onPressed: onToggleImage,
+          ),
+          _FavoriteButton(isFavorite: isFavorite, onPressed: onToggleFavorite),
+          _HeroToolbarButton(
+            key: const ValueKey<String>('generation-submission-more-actions'),
+            icon: LucideIcons.moreHorizontal,
+            onPressed: onMorePressed,
+          ),
+        ],
       ),
     );
+  }
+}
 
-    return Center(
-      child: ClipPath(
-        clipper: ShapeBorderClipper(shape: toolbarShape),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: DecoratedBox(
-            decoration: ShapeDecoration(
-              color: AppColors.blackOverlay(0.42),
-              shape: toolbarShape,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  _ImageToggleButton(
-                    showingOriginal: showingOriginal,
-                    onPressed: onToggleImage,
-                  ),
-                  _FavoriteButton(
-                    isFavorite: isFavorite,
-                    onPressed: onToggleFavorite,
-                  ),
-                  const _HeroToolbarButton(
-                    key: ValueKey<String>('generation-submission-more-actions'),
-                    icon: LucideIcons.moreHorizontal,
-                    onPressed: _noop,
-                  ),
-                ],
+class _ExpandedHeroMenu extends StatelessWidget {
+  const _ExpandedHeroMenu({
+    required this.animation,
+    required this.items,
+    required this.onSelected,
+  });
+
+  final Animation<double> animation;
+  final List<_HeroMoreActionItem> items;
+  final ValueChanged<_HeroMoreActionItem> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: OverflowBox(
+        alignment: Alignment.topCenter,
+        minHeight: 230,
+        maxHeight: 230,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              for (int index = 0; index < items.length; index += 1)
+                _ExpandedHeroMenuItem(
+                  item: items[index],
+                  animation: _itemAnimation(index),
+                  onPressed: () => onSelected(items[index]),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Animation<double> _itemAnimation(int index) {
+    final double start = (0.42 + index * 0.055).clamp(0.0, 0.86);
+    final double end = (start + 0.34).clamp(start, 1.0);
+    return CurvedAnimation(
+      parent: animation,
+      curve: Interval(start, end, curve: Curves.easeOutCubic),
+      reverseCurve: Interval(0, 0.45, curve: Curves.easeInCubic),
+    );
+  }
+}
+
+class _ExpandedHeroMenuItem extends StatelessWidget {
+  const _ExpandedHeroMenuItem({
+    required this.item,
+    required this.animation,
+    required this.onPressed,
+  });
+
+  final _HeroMoreActionItem item;
+  final Animation<double> animation;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = item.enabled
+        ? item.destructive
+              ? AppColors.danger
+              : AppColors.white
+        : AppColors.white.withValues(alpha: 0.38);
+    return GestureDetector(
+      key: ValueKey<String>('generation-submission-more-${item.action.name}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: SizedBox(
+        height: 42,
+        child: AnimatedBuilder(
+          animation: animation,
+          builder: (BuildContext context, Widget? child) {
+            return Opacity(
+              opacity: animation.value,
+              child: Transform.translate(
+                offset: Offset(0, (1 - animation.value) * 10),
+                child: child,
               ),
-            ),
+            );
+          },
+          child: Row(
+            children: <Widget>[
+              SizedBox(
+                width: 34,
+                child: Icon(item.icon, color: color, size: 18),
+              ),
+              Expanded(
+                child: Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 }
-
-void _noop() {}
 
 class _ImageToggleButton extends StatelessWidget {
   const _ImageToggleButton({

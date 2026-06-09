@@ -614,12 +614,23 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   }
 
   @override
+  Future<SavedPhotoLibraryImage> saveImageToLibrary(
+    String path, {
+    required String fileName,
+  }) async {
+    return const SavedPhotoLibraryImage(assetId: 'asset-original-1');
+  }
+
+  @override
   Future<String?> resolveImagePath(String assetId) async {
     return null;
   }
 
   @override
   Future<void> setFavorite(String assetId, {required bool isFavorite}) async {}
+
+  @override
+  Future<void> openPhotoLibrary() async {}
 }
 
 class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {

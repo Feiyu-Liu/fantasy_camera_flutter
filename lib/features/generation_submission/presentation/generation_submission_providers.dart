@@ -410,6 +410,27 @@ class GenerationSubmissionController
     await _refreshFromRepository();
   }
 
+  Future<void> openPhotoLibrary(String jobId) async {
+    await _submissionService.openPhotoLibrary(jobId);
+    await _refreshFromRepository();
+  }
+
+  Future<void> saveOriginalToPhotoLibrary(String jobId) async {
+    await _submissionService.saveOriginalToPhotoLibrary(jobId);
+    await _refreshFromRepository();
+  }
+
+  Future<void> submitNegativeFeedback(String jobId) async {
+    await _submissionService.submitNegativeFeedback(jobId);
+    await _refreshFromRepository();
+  }
+
+  Future<void> removeJob(String jobId) async {
+    await _submissionService.removeRecord(jobId);
+    _deletedJobIds.add(jobId);
+    await _refreshFromRepository();
+  }
+
   void _refreshCreditBalanceAfterTaskCreation(
     GenerationSubmissionState nextState,
   ) {

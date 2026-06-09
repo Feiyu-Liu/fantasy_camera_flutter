@@ -375,6 +375,151 @@ class GenerationSubmissionService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> openPhotoLibrary(String recordId) async {
+    final GenerationRecord? record = await _generationRecordRepository.findById(
+      recordId,
+    );
+    if (record == null) {
+      _debugLog(
+        'open photo library skipped record=$recordId reason=missing-record',
+      );
+      return;
+    }
+    _debugLog(
+      'open photo library start record=$recordId resultAsset=${record.resultAssetId ?? 'none'} originalAsset=${record.originalAssetId ?? 'none'}',
+    );
+    await _photoLibraryAssetStore.openPhotoLibrary();
+    _debugLog('open photo library success record=$recordId');
+  }
+
+  Future<void> saveOriginalToPhotoLibrary(String recordId) async {
+    final GenerationRecord? record = await _generationRecordRepository.findById(
+      recordId,
+    );
+    if (record == null) {
+      _debugLog('save original skipped record=$recordId reason=missing-record');
+      return;
+    }
+    if (!_canSaveOriginalToPhotoLibrary(record)) {
+      _debugLog(
+        'save original skipped record=$recordId reason=not-camera-local source=${record.originalSourceType} availability=${record.originalAvailability}',
+      );
+      return;
+    }
+
+    final String? sourcePath = await _sourcePathForRecord(record);
+    if (sourcePath == null || sourcePath.isEmpty) {
+      _debugLog('save original skipped record=$recordId reason=missing-source');
+      return;
+    }
+
+    try {
+      _debugLog('save original start record=$recordId path=$sourcePath');
+      final SavedPhotoLibraryImage savedImage = await _photoLibraryAssetStore
+          .saveImageToLibrary(
+            sourcePath,
+            fileName: AppConfig.generationOriginalFileName(
+              recordId,
+              sourcePath,
+            ),
+          );
+      _debugLog(
+        'save original success record=$recordId asset=${savedImage.assetId}',
+      );
+    } on Object catch (error) {
+      _debugLog('save original failure record=$recordId error=$error');
+      rethrow;
+    }
+  }
+
+  Future<void> submitNegativeFeedback(String recordId) async {
+    final GenerationRecord? record = await _generationRecordRepository.findById(
+      recordId,
+    );
+    if (record == null) {
+      _debugLog(
+        'negative feedback skipped record=$recordId reason=missing-record',
+      );
+      return;
+    }
+    final String? taskId = record.taskId;
+    if (taskId == null || taskId.isEmpty) {
+      _debugLog(
+        'negative feedback skipped record=$recordId reason=missing-task',
+      );
+      return;
+    }
+    try {
+      _debugLog('negative feedback start record=$recordId task=$taskId');
+      await _feedbackRepository.submitFeedback(
+        FeedbackInput(
+          taskId: taskId,
+          rating: FeedbackRating.negative,
+          tags: const <String>['dislike_result'],
+          metadata: const <String, Object?>{'entry': 'gallery_more_menu'},
+        ),
+      );
+      _debugLog('negative feedback success record=$recordId task=$taskId');
+    } on BackendApiFailure catch (error) {
+      _debugLog(
+        'negative feedback backend failure record=$recordId task=$taskId code=${error.code} status=${error.statusCode} message=${error.message}',
+      );
+      rethrow;
+    } on Object catch (error) {
+      _debugLog(
+        'negative feedback local failure record=$recordId task=$taskId error=$error',
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> removeRecord(String recordId) async {
+    final GenerationRecord? record = await _generationRecordRepository.findById(
+      recordId,
+    );
+    if (record == null) {
+      _debugLog('remove skipped record=$recordId reason=missing-record');
+      return;
+    }
+
+    _debugLog(
+      'remove start record=$recordId status=${record.pipelineStatus} resultAsset=${record.resultAssetId ?? 'none'}',
+    );
+    _stopTaskPolling(recordId);
+    _cancelResultRetry(recordId);
+    _submissionOperations.remove(recordId);
+    _resultUrlOperations.remove(recordId);
+    _resultProcessingOperations.remove(recordId);
+
+    if (record.originalSourceType ==
+            GenerationRecordOriginalSourceType.camera.name &&
+        record.originalLocalPath != null) {
+      await _originalFileStore.deleteOriginal(record.originalLocalPath!);
+    }
+    final String? resultLocalCachePath = record.resultLocalCachePath;
+    if (resultLocalCachePath != null && resultLocalCachePath.isNotEmpty) {
+      await _deleteTemporaryResultFile(
+        recordId: recordId,
+        path: resultLocalCachePath,
+      );
+    }
+    final String? runtimeResultPath =
+        _runtimeState[recordId]?.processedResultPath;
+    if (runtimeResultPath != null &&
+        runtimeResultPath.isNotEmpty &&
+        runtimeResultPath != resultLocalCachePath &&
+        record.resultAssetId == null) {
+      await _deleteTemporaryResultFile(
+        recordId: recordId,
+        path: runtimeResultPath,
+      );
+    }
+    _runtimeState.remove(recordId);
+    await _generationRecordRepository.deleteRecord(recordId);
+    _debugLog('remove success record=$recordId');
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _cancelAllPolling();
@@ -424,6 +569,15 @@ class GenerationSubmissionService extends ChangeNotifier {
         'favorite feedback local failure record=$recordId task=$taskId error=$error',
       );
     }
+  }
+
+  bool _canSaveOriginalToPhotoLibrary(GenerationRecord record) {
+    return record.originalSourceType ==
+            GenerationRecordOriginalSourceType.camera.name &&
+        record.originalAvailability ==
+            GenerationRecordOriginalAvailability.available.name &&
+        record.originalLocalPath != null &&
+        record.originalLocalPath!.isNotEmpty;
   }
 
   Future<void> _submitRecord(GenerationRecord record) async {
@@ -1198,6 +1352,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         promptSelection: _promptSelectionForRecord(record),
         processedResultPath: processedResultPath,
         resultAssetId: record.resultAssetId,
+        canSaveOriginalToPhotoLibrary: _canSaveOriginalToPhotoLibrary(record),
         isResultFavorite: record.resultIsFavorite,
         resultFavoriteFeedbackSubmittedAt:
             record.resultFavoriteFeedbackSubmittedAt,
@@ -1233,6 +1388,7 @@ class GenerationSubmissionService extends ChangeNotifier {
       sourceExif: runtime?.sourceExif,
       processedResultPath: processedResultPath,
       resultAssetId: record.resultAssetId,
+      canSaveOriginalToPhotoLibrary: _canSaveOriginalToPhotoLibrary(record),
       isResultFavorite: record.resultIsFavorite,
       resultFavoriteFeedbackSubmittedAt:
           record.resultFavoriteFeedbackSubmittedAt,
