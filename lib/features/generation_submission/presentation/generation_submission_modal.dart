@@ -16,6 +16,7 @@ import '../../../theme/app_colors.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../data/generation_submission_adapters.dart';
 import '../domain/generation_submission_job.dart';
+import 'generation_hero_photo_view_page_options.dart';
 import 'generation_submission_providers.dart';
 
 Future<void> showGenerationSubmissionDebugModal(BuildContext context) {
@@ -54,6 +55,10 @@ class _GenerationSubmissionDebugModalState
   bool _showOriginalImage = false;
   bool _pickingGalleryImage = false;
   bool _galleryExportProgressDialogVisible = false;
+  String? _resultArrivalAnimationJobId;
+  final Set<String> _pendingResultArrivalPrecacheJobIds = <String>{};
+  final Set<String> _animatedResultArrivalJobIds = <String>{};
+  Timer? _resultArrivalAnimationTimer;
   late final ValueNotifier<double> _galleryExportProgress =
       ValueNotifier<double>(0);
   List<GenerationSubmissionJob> _jobs = const <GenerationSubmissionJob>[];
@@ -74,9 +79,21 @@ class _GenerationSubmissionDebugModalState
         if (!mounted) {
           return;
         }
+        final GenerationSubmissionJob? resultArrivalPrecacheJob =
+            _nextResultArrivalPrecacheJob(previous?.jobs ?? _jobs, next.jobs);
         setState(() {
           _jobs = next.jobs;
+          if (resultArrivalPrecacheJob != null) {
+            _pendingResultArrivalPrecacheJobIds.add(
+              resultArrivalPrecacheJob.id,
+            );
+          }
         });
+        if (resultArrivalPrecacheJob != null) {
+          unawaited(
+            _precacheAndStartResultArrivalAnimation(resultArrivalPrecacheJob),
+          );
+        }
       },
     );
   }
@@ -85,6 +102,8 @@ class _GenerationSubmissionDebugModalState
   void dispose() {
     _jobsSubscription?.close();
     _jobsSubscription = null;
+    _resultArrivalAnimationTimer?.cancel();
+    _resultArrivalAnimationTimer = null;
     unawaited(_galleryExportProgressSubscription?.cancel());
     _galleryExportProgressSubscription = null;
     _galleryExportProgress.dispose();
@@ -143,17 +162,25 @@ class _GenerationSubmissionDebugModalState
             topPadding: heroTopPadding,
             loading: _loadingResultJobId == selectedJob?.id,
             showOriginalImage: _showOriginalImage,
+            resultArrivalAnimationJobId: _resultArrivalAnimationJobId,
+            pendingResultArrivalPrecacheJobIds:
+                _pendingResultArrivalPrecacheJobIds,
             onPageChanged: _selectJobAtPage,
             onToggleImage: selectedJob == null
                 ? null
                 : () {
                     setState(() {
                       _showOriginalImage = !_showOriginalImage;
+                      _clearResultArrivalAnimationNow();
                     });
                   },
             onToggleFavorite: selectedJob == null
                 ? null
                 : () => unawaited(_toggleFavorite(selectedJob)),
+            onMoreActions: selectedJob == null
+                ? null
+                : (_HeroMoreAction action) =>
+                      unawaited(_performMoreAction(action, selectedJob)),
           ),
         );
         return Stack(
@@ -177,6 +204,9 @@ class _GenerationSubmissionDebugModalState
                       onConfirmJob: _confirmJob,
                       onCancelJob: (GenerationSubmissionJob job) {
                         unawaited(_cancelJob(job));
+                      },
+                      onRetryJob: (GenerationSubmissionJob job) {
+                        unawaited(_retryJob(job));
                       },
                     ),
                   ),
@@ -208,6 +238,129 @@ class _GenerationSubmissionDebugModalState
       }
     }
     return jobs.first;
+  }
+
+  GenerationSubmissionJob? _nextResultArrivalPrecacheJob(
+    List<GenerationSubmissionJob> previousJobs,
+    List<GenerationSubmissionJob> nextJobs,
+  ) {
+    if (_showOriginalImage) {
+      return null;
+    }
+    final String? selectedJobId =
+        _selectedJobId ?? (nextJobs.isEmpty ? null : nextJobs.first.id);
+    if (selectedJobId == null ||
+        _pendingResultArrivalPrecacheJobIds.contains(selectedJobId) ||
+        _animatedResultArrivalJobIds.contains(selectedJobId)) {
+      return null;
+    }
+    final GenerationSubmissionJob? previousJob = _findJobById(
+      previousJobs,
+      selectedJobId,
+    );
+    final GenerationSubmissionJob? nextJob = _findJobById(
+      nextJobs,
+      selectedJobId,
+    );
+    if (previousJob == null || nextJob == null) {
+      return null;
+    }
+    if (_hasLocalSavedResult(previousJob) || !_hasLocalSavedResult(nextJob)) {
+      return null;
+    }
+    return nextJob;
+  }
+
+  GenerationSubmissionJob? _findJobById(
+    List<GenerationSubmissionJob> jobs,
+    String id,
+  ) {
+    for (final GenerationSubmissionJob job in jobs) {
+      if (job.id == id) {
+        return job;
+      }
+    }
+    return null;
+  }
+
+  bool _hasLocalSavedResult(GenerationSubmissionJob job) {
+    return job.status == GenerationSubmissionStatus.resultSaved &&
+        job.processedResultPath != null;
+  }
+
+  Future<void> _precacheAndStartResultArrivalAnimation(
+    GenerationSubmissionJob job,
+  ) async {
+    final String? processedResultPath = job.processedResultPath;
+    if (processedResultPath == null) {
+      _finishPendingResultArrivalPrecache(job.id);
+      return;
+    }
+
+    final _HeroFileImageSource imageSource = _HeroFileImageSource(
+      path: processedResultPath,
+      key: const ValueKey<String>(
+        'generation-submission-processed-result-image',
+      ),
+      failureLogLabel: 'processed result image',
+      failureMessage: 'Processed result image could not be loaded',
+    );
+    final bool precached = await ref.read(heroImagePrecacheProvider)(
+      imageSource.imageProvider,
+    );
+    if (!mounted) {
+      return;
+    }
+
+    final bool stillSelected = _selectedJob(_jobs)?.id == job.id;
+    final bool shouldAnimate =
+        precached &&
+        stillSelected &&
+        !_showOriginalImage &&
+        !_animatedResultArrivalJobIds.contains(job.id) &&
+        _hasLocalSavedResult(_findJobById(_jobs, job.id) ?? job);
+
+    setState(() {
+      _pendingResultArrivalPrecacheJobIds.remove(job.id);
+      if (shouldAnimate) {
+        _animatedResultArrivalJobIds.add(job.id);
+        _resultArrivalAnimationJobId = job.id;
+      }
+    });
+
+    if (shouldAnimate) {
+      _clearResultArrivalAnimationAfterDelay(job.id);
+    }
+  }
+
+  void _finishPendingResultArrivalPrecache(String jobId) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _pendingResultArrivalPrecacheJobIds.remove(jobId);
+    });
+  }
+
+  void _clearResultArrivalAnimationAfterDelay(String jobId) {
+    _resultArrivalAnimationTimer?.cancel();
+    _resultArrivalAnimationTimer = Timer(
+      const Duration(milliseconds: 1500),
+      () {
+        if (!mounted || _resultArrivalAnimationJobId != jobId) {
+          return;
+        }
+        setState(() {
+          _resultArrivalAnimationJobId = null;
+        });
+      },
+    );
+  }
+
+  void _clearResultArrivalAnimationNow() {
+    _resultArrivalAnimationTimer?.cancel();
+    _resultArrivalAnimationTimer = null;
+    _resultArrivalAnimationJobId = null;
   }
 
   void _syncHeroPageToSelection(int index, {required bool animate}) {
@@ -248,7 +401,7 @@ class _GenerationSubmissionDebugModalState
   Future<void> _selectJobFromStripAsync(GenerationSubmissionJob job) async {
     final _HeroImageSource? imageSource = _heroImageSourceForJob(job);
     if (imageSource is _HeroFileImageSource) {
-      await _precacheHeroImage(imageSource.imageProvider);
+      await ref.read(heroImagePrecacheProvider)(imageSource.imageProvider);
     }
     if (!mounted) {
       return;
@@ -263,6 +416,7 @@ class _GenerationSubmissionDebugModalState
     setState(() {
       _selectedJobId = job.id;
       _showOriginalImage = false;
+      _clearResultArrivalAnimationNow();
     });
     if (syncHeroPage) {
       final List<GenerationSubmissionJob> jobs = ref
@@ -286,6 +440,7 @@ class _GenerationSubmissionDebugModalState
     setState(() {
       _selectedJobId = job.id;
       _showOriginalImage = false;
+      _clearResultArrivalAnimationNow();
     });
     await ref
         .read(generationSubmissionControllerProvider.notifier)
@@ -305,8 +460,21 @@ class _GenerationSubmissionDebugModalState
         _selectedJobId = null;
         _loadingResultJobId = null;
         _showOriginalImage = false;
+        _clearResultArrivalAnimationNow();
       });
     }
+  }
+
+  Future<void> _retryJob(GenerationSubmissionJob job) async {
+    _debugLog('retry job=${job.id}');
+    setState(() {
+      _selectedJobId = job.id;
+      _showOriginalImage = false;
+      _clearResultArrivalAnimationNow();
+    });
+    await ref
+        .read(generationSubmissionControllerProvider.notifier)
+        .retryJob(job.id);
   }
 
   Future<void> _toggleFavorite(GenerationSubmissionJob job) async {
@@ -314,6 +482,48 @@ class _GenerationSubmissionDebugModalState
     await ref
         .read(generationSubmissionControllerProvider.notifier)
         .toggleResultFavorite(job.id);
+  }
+
+  Future<void> _performMoreAction(
+    _HeroMoreAction action,
+    GenerationSubmissionJob job,
+  ) async {
+    final GenerationSubmissionController controller = ref.read(
+      generationSubmissionControllerProvider.notifier,
+    );
+    try {
+      switch (action) {
+        case _HeroMoreAction.viewInAlbum:
+          _debugLog('more action view in album job=${job.id}');
+          await controller.openPhotoLibrary(job.id);
+        case _HeroMoreAction.saveOriginal:
+          _debugLog('more action save original job=${job.id}');
+          await controller.saveOriginalToPhotoLibrary(job.id);
+        case _HeroMoreAction.retry:
+          _debugLog('more action retry job=${job.id}');
+          await _retryJob(job);
+        case _HeroMoreAction.dislike:
+          _debugLog('more action dislike job=${job.id}');
+          await controller.submitNegativeFeedback(job.id);
+        case _HeroMoreAction.remove:
+          _debugLog('more action remove job=${job.id}');
+          await controller.removeJob(job.id);
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            if (_selectedJobId == job.id) {
+              _selectedJobId = null;
+              _loadingResultJobId = null;
+              _showOriginalImage = false;
+            }
+          });
+      }
+    } on Object catch (error) {
+      _debugLog(
+        'more action failure job=${job.id} action=${action.name} error=$error',
+      );
+    }
   }
 
   Future<void> _loadResult(String jobId) async {
@@ -471,35 +681,6 @@ class _GenerationSubmissionDebugModalState
       key: const ValueKey<String>('generation-submission-result-image'),
       failureLogLabel: 'result image',
       failureMessage: 'Result image could not be loaded',
-    );
-  }
-
-  Future<void> _precacheHeroImage(ImageProvider imageProvider) {
-    final Completer<void> completer = Completer<void>();
-    final ImageStream stream = imageProvider.resolve(
-      const ImageConfiguration(),
-    );
-    late final ImageStreamListener listener;
-    listener = ImageStreamListener(
-      (ImageInfo image, bool synchronousCall) {
-        stream.removeListener(listener);
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
-      onError: (Object error, StackTrace? stackTrace) {
-        stream.removeListener(listener);
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
-    );
-    stream.addListener(listener);
-    return completer.future.timeout(
-      const Duration(milliseconds: 120),
-      onTimeout: () {
-        stream.removeListener(listener);
-      },
     );
   }
 }
@@ -695,6 +876,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
     required this.onSelectJob,
     required this.onConfirmJob,
     required this.onCancelJob,
+    required this.onRetryJob,
   });
 
   final List<GenerationSubmissionJob> jobs;
@@ -704,6 +886,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
   final ValueChanged<GenerationSubmissionJob> onSelectJob;
   final ValueChanged<GenerationSubmissionJob> onConfirmJob;
   final ValueChanged<GenerationSubmissionJob> onCancelJob;
+  final ValueChanged<GenerationSubmissionJob> onRetryJob;
 
   @override
   Widget build(BuildContext context) {
@@ -790,6 +973,9 @@ class _RelatedMomentsStrip extends StatelessWidget {
                                       .awaitingConfirmation
                               ? () => onCancelJob(job)
                               : null,
+                          onRetry: _canRetryJob(job)
+                              ? () => onRetryJob(job)
+                              : null,
                         ),
                       );
                     },
@@ -815,6 +1001,11 @@ class _RelatedMomentsStrip extends StatelessWidget {
     final String mode =
         job.promptSelection?.captureMode.toUpperCase() ?? 'MOMENT';
     return '$hour:$minute $period — $mode';
+  }
+
+  bool _canRetryJob(GenerationSubmissionJob job) {
+    return job.status == GenerationSubmissionStatus.failed ||
+        job.status == GenerationSubmissionStatus.resultProcessingFailed;
   }
 }
 
@@ -913,6 +1104,7 @@ class _JobThumbnail extends StatelessWidget {
     required this.onTap,
     required this.onConfirm,
     required this.onCancel,
+    required this.onRetry,
   });
 
   final double width;
@@ -922,9 +1114,14 @@ class _JobThumbnail extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onConfirm;
   final VoidCallback? onCancel;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
+    final String? thumbnailResultPath =
+        job.status == GenerationSubmissionStatus.resultSaved
+        ? job.processedResultPath
+        : null;
     return GestureDetector(
       key: ValueKey<String>('generation-submission-photo-${job.id}'),
       onTap: onTap,
@@ -941,18 +1138,39 @@ class _JobThumbnail extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            _ThumbnailImage(path: job.imagePath),
-            Positioned(
-              right: 6,
-              top: job.status == GenerationSubmissionStatus.awaitingConfirmation
-                  ? 6
-                  : null,
-              bottom:
-                  job.status == GenerationSubmissionStatus.awaitingConfirmation
-                  ? null
-                  : 6,
-              child: _StatusBadge(status: job.status),
+            _ThumbnailImage(
+              key: ValueKey<String>('generation-thumbnail-image-${job.id}'),
+              path: thumbnailResultPath ?? job.imagePath,
             ),
+            if (onRetry == null)
+              Positioned(
+                right: 6,
+                top:
+                    job.status ==
+                        GenerationSubmissionStatus.awaitingConfirmation
+                    ? 6
+                    : null,
+                bottom:
+                    job.status ==
+                        GenerationSubmissionStatus.awaitingConfirmation
+                    ? null
+                    : 6,
+                child: _StatusBadge(status: job.status),
+              ),
+            if (onRetry != null)
+              Positioned(
+                right: 6,
+                bottom: 6,
+                child: _ThumbnailActionButton(
+                  key: ValueKey<String>(
+                    'generation-submission-retry-${job.id}',
+                  ),
+                  color: AppColors.accentYellow,
+                  icon: LucideIcons.refreshCcw,
+                  iconColor: AppColors.black,
+                  onPressed: onRetry,
+                ),
+              ),
             if (job.status == GenerationSubmissionStatus.awaitingConfirmation)
               Positioned(
                 left: 6,
@@ -978,7 +1196,7 @@ class _JobThumbnail extends StatelessWidget {
 }
 
 class _ThumbnailImage extends StatelessWidget {
-  const _ThumbnailImage({required this.path});
+  const _ThumbnailImage({super.key, required this.path});
 
   final String path;
 
@@ -1161,11 +1379,13 @@ class _ThumbnailActionButton extends StatelessWidget {
     required this.color,
     required this.icon,
     required this.onPressed,
+    this.iconColor = AppColors.white,
   });
 
   final Color color;
   final IconData icon;
   final VoidCallback? onPressed;
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -1178,7 +1398,7 @@ class _ThumbnailActionButton extends StatelessWidget {
         ),
         child: SizedBox.square(
           dimension: 24,
-          child: Icon(icon, color: AppColors.white, size: 14),
+          child: Icon(icon, color: iconColor, size: 14),
         ),
       ),
     );
@@ -1196,9 +1416,12 @@ class _GalleryHeroPager extends StatefulWidget {
     required this.topPadding,
     required this.loading,
     required this.showOriginalImage,
+    required this.resultArrivalAnimationJobId,
+    required this.pendingResultArrivalPrecacheJobIds,
     required this.onPageChanged,
     required this.onToggleImage,
     required this.onToggleFavorite,
+    required this.onMoreActions,
   });
 
   final List<GenerationSubmissionJob> jobs;
@@ -1210,10 +1433,13 @@ class _GalleryHeroPager extends StatefulWidget {
   final double topPadding;
   final bool loading;
   final bool showOriginalImage;
+  final String? resultArrivalAnimationJobId;
+  final Set<String> pendingResultArrivalPrecacheJobIds;
   final void Function(int index, List<GenerationSubmissionJob> jobs)
   onPageChanged;
   final VoidCallback? onToggleImage;
   final VoidCallback? onToggleFavorite;
+  final ValueChanged<_HeroMoreAction>? onMoreActions;
 
   @override
   State<_GalleryHeroPager> createState() => _GalleryHeroPagerState();
@@ -1306,7 +1532,6 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
               return _pageOptions(widget.jobs[index]);
             },
           ),
-          _HeroImageKeyMarker(imageSource: _imageSourceForJob(selectedJob)),
           if (widget.loading)
             const Center(
               child: CupertinoActivityIndicator(
@@ -1319,6 +1544,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
             right: 0,
             bottom: 18,
             child: _HeroToolbar(
+              selectedJob: selectedJob,
               showingOriginal: widget.showOriginalImage,
               onToggleImage: _canToggleHeroImage(selectedJob)
                   ? widget.onToggleImage
@@ -1327,6 +1553,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
               onToggleFavorite: _canToggleFavorite(selectedJob)
                   ? widget.onToggleFavorite
                   : null,
+              onMoreActions: widget.onMoreActions,
             ),
           ),
         ],
@@ -1335,10 +1562,6 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
   }
 
   PhotoViewGalleryPageOptions _pageOptions(GenerationSubmissionJob job) {
-    const PhotoViewComputedScale minScale = PhotoViewComputedScale.contained;
-    const PhotoViewComputedScale initialScale =
-        PhotoViewComputedScale.contained;
-    final PhotoViewComputedScale maxScale = PhotoViewComputedScale.covered * 3;
     final PhotoViewController controller = _controllerForJob(job);
 
     final _HeroImageSource? imageSource = _imageSourceForJob(job);
@@ -1346,30 +1569,69 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       return PhotoViewGalleryPageOptions.customChild(
         child: _placeholderForJob(job),
         controller: controller,
-        initialScale: initialScale,
-        minScale: minScale,
-        maxScale: maxScale,
+        initialScale: PhotoViewComputedScale.contained,
+        minScale: PhotoViewComputedScale.contained,
+        maxScale: PhotoViewComputedScale.covered * 3,
         disableGestures: true,
       );
     }
-    _resolveImageSize(imageSource);
-
-    return PhotoViewGalleryPageOptions(
-      imageProvider: imageSource.imageProvider,
-      semanticLabel: imageSource.key.value,
-      controller: controller,
-      initialScale: initialScale,
-      minScale: minScale,
-      maxScale: maxScale,
-      basePosition: _basePositionForSource(imageSource),
-      filterQuality: FilterQuality.medium,
-      errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
-        debugPrint(
-          '[GenerationSubmissionModal] ${imageSource.failureLogLabel} load failure path=${imageSource.debugPath} error=$error',
-        );
-        return _HeroImageFailure(message: imageSource.failureMessage);
-      },
+    final _HeroImageSource originalImageSource = _originalImageSourceForJob(
+      job,
     );
+    _resolveImageSize(imageSource);
+    _resolveImageSize(originalImageSource);
+
+    final Size imageSize = _childSizeForSource(imageSource);
+
+    Widget errorBuilder(BuildContext context, Object error, StackTrace? stack) {
+      debugPrint(
+        '[GenerationSubmissionModal] ${imageSource.failureLogLabel} load failure path=${imageSource.debugPath} error=$error',
+      );
+      return _HeroImageFailure(message: imageSource.failureMessage);
+    }
+
+    if (_shouldAnimateResultArrival(job, imageSource)) {
+      return generationHeroBlurredSwapPageOptions(
+        originalImageProvider: originalImageSource.imageProvider,
+        replacementImageProvider: imageSource.imageProvider,
+        childSize: imageSize,
+        controller: controller,
+        basePosition: _basePositionForSource(imageSource),
+        semanticLabel: imageSource.key.value,
+        replacementMarkerKey: imageSource.key,
+        originalErrorBuilder:
+            (BuildContext context, Object error, StackTrace? stack) {
+              debugPrint(
+                '[GenerationSubmissionModal] ${originalImageSource.failureLogLabel} load failure path=${originalImageSource.debugPath} error=$error',
+              );
+              return _HeroImageFailure(
+                message: originalImageSource.failureMessage,
+              );
+            },
+        replacementErrorBuilder: errorBuilder,
+      );
+    }
+
+    return generationHeroImagePageOptions(
+      imageProvider: imageSource.imageProvider,
+      childSize: imageSize,
+      controller: controller,
+      basePosition: _basePositionForSource(imageSource),
+      semanticLabel: imageSource.key.value,
+      markerKey: imageSource.key,
+      errorBuilder: errorBuilder,
+    );
+  }
+
+  Size _childSizeForSource(_HeroImageSource imageSource) {
+    final Size? imageSize = _imageSizes[imageSource.debugPath];
+    if (imageSize != null && imageSize.width > 0 && imageSize.height > 0) {
+      return imageSize;
+    }
+    if (widget.previewSize.width > 0 && widget.previewSize.height > 0) {
+      return widget.previewSize;
+    }
+    return const Size(1, 1);
   }
 
   PhotoViewController _controllerForJob(GenerationSubmissionJob job) {
@@ -1484,30 +1746,19 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
 
   _HeroImageSource? _imageSourceForJob(GenerationSubmissionJob job) {
     if (widget.showOriginalImage) {
-      return _HeroFileImageSource(
-        path: job.imagePath,
-        key: const ValueKey<String>('generation-submission-original-image'),
-        failureLogLabel: 'original image',
-        failureMessage: 'Original image could not be loaded',
-      );
+      return _originalImageSourceForJob(job);
+    }
+
+    if (_shouldHoldOriginalForResultArrival(job)) {
+      return _originalImageSourceForJob(job);
     }
 
     if (_shouldUseOriginalAsHero(job)) {
-      return _HeroFileImageSource(
-        path: job.imagePath,
-        key: const ValueKey<String>('generation-submission-original-image'),
-        failureLogLabel: 'original image',
-        failureMessage: 'Original image could not be loaded',
-      );
+      return _originalImageSourceForJob(job);
     }
 
     if (job.status == GenerationSubmissionStatus.resultProcessingFailed) {
-      return _HeroFileImageSource(
-        path: job.imagePath,
-        key: const ValueKey<String>('generation-submission-original-image'),
-        failureLogLabel: 'original image',
-        failureMessage: 'Original image could not be loaded',
-      );
+      return _originalImageSourceForJob(job);
     }
 
     if (job.status != GenerationSubmissionStatus.completed &&
@@ -1538,6 +1789,31 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       failureLogLabel: 'result image',
       failureMessage: 'Result image could not be loaded',
     );
+  }
+
+  _HeroImageSource _originalImageSourceForJob(GenerationSubmissionJob job) {
+    return _HeroFileImageSource(
+      path: job.imagePath,
+      key: const ValueKey<String>('generation-submission-original-image'),
+      failureLogLabel: 'original image',
+      failureMessage: 'Original image could not be loaded',
+    );
+  }
+
+  bool _isOriginalHeroSource(_HeroImageSource? imageSource) {
+    return imageSource?.key.value == 'generation-submission-original-image';
+  }
+
+  bool _shouldAnimateResultArrival(
+    GenerationSubmissionJob job,
+    _HeroImageSource imageSource,
+  ) {
+    return widget.resultArrivalAnimationJobId == job.id &&
+        !_isOriginalHeroSource(imageSource);
+  }
+
+  bool _shouldHoldOriginalForResultArrival(GenerationSubmissionJob job) {
+    return widget.pendingResultArrivalPrecacheJobIds.contains(job.id);
   }
 
   Widget _placeholderForJob(GenerationSubmissionJob job) {
@@ -1649,21 +1925,6 @@ class _HeroNetworkImageSource extends _HeroImageSource {
   String get debugPath => path;
 }
 
-class _HeroImageKeyMarker extends StatelessWidget {
-  const _HeroImageKeyMarker({required this.imageSource});
-
-  final _HeroImageSource? imageSource;
-
-  @override
-  Widget build(BuildContext context) {
-    final _HeroImageSource? imageSource = this.imageSource;
-    if (imageSource == null) {
-      return const SizedBox.shrink();
-    }
-    return IgnorePointer(child: SizedBox.shrink(key: imageSource.key));
-  }
-}
-
 class _HeroImageFailure extends StatelessWidget {
   const _HeroImageFailure({required this.message});
 
@@ -1690,69 +1951,480 @@ class _HeroImageFailure extends StatelessWidget {
   }
 }
 
-class _HeroToolbar extends StatelessWidget {
+enum _HeroMoreAction { viewInAlbum, saveOriginal, retry, dislike, remove }
+
+class _HeroMoreActionItem {
+  const _HeroMoreActionItem({
+    required this.action,
+    required this.title,
+    required this.icon,
+    required this.enabled,
+    this.destructive = false,
+  });
+
+  final _HeroMoreAction action;
+  final String title;
+  final IconData icon;
+  final bool enabled;
+  final bool destructive;
+}
+
+class _HeroToolbar extends StatefulWidget {
   const _HeroToolbar({
+    required this.selectedJob,
     required this.showingOriginal,
     required this.onToggleImage,
     required this.isFavorite,
     required this.onToggleFavorite,
+    required this.onMoreActions,
+  });
+
+  final GenerationSubmissionJob selectedJob;
+  final bool showingOriginal;
+  final VoidCallback? onToggleImage;
+  final bool isFavorite;
+  final VoidCallback? onToggleFavorite;
+  final ValueChanged<_HeroMoreAction>? onMoreActions;
+
+  @override
+  State<_HeroToolbar> createState() => _HeroToolbarState();
+}
+
+class _HeroToolbarState extends State<_HeroToolbar>
+    with SingleTickerProviderStateMixin {
+  static const Duration _expandDuration = Duration(milliseconds: 280);
+  static const Duration _collapseDuration = Duration(milliseconds: 220);
+  static const double _collapsedWidth = 116;
+  static const double _collapsedHeight = 44;
+  static const double _expandedWidth = 220;
+  static const double _expandedHeight = 232;
+
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: _expandDuration,
+    reverseDuration: _collapseDuration,
+  );
+  late final Animation<double> _expandCurve = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+  late final Animation<double> _toolsOpacity = Tween<double>(begin: 1, end: 0)
+      .animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0, 0.34, curve: Curves.easeOut),
+          reverseCurve: const Interval(0.48, 1, curve: Curves.easeIn),
+        ),
+      );
+  late final Animation<double> _menuOpacity = Tween<double>(begin: 0, end: 1)
+      .animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0.42, 1, curve: Curves.easeOut),
+          reverseCurve: const Interval(0.72, 1, curve: Curves.easeOutCubic),
+        ),
+      );
+  bool _expanded = false;
+
+  @override
+  void didUpdateWidget(covariant _HeroToolbar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.onMoreActions != widget.onMoreActions && _expanded) {
+      _setExpanded(false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _setExpanded(bool expanded) {
+    if (_expanded == expanded) {
+      return;
+    }
+    setState(() {
+      _expanded = expanded;
+    });
+    final bool reduceMotion =
+        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    if (reduceMotion) {
+      _controller.value = expanded ? 1 : 0;
+      return;
+    }
+    if (expanded) {
+      unawaited(_controller.forward());
+    } else {
+      unawaited(_controller.reverse());
+    }
+  }
+
+  Future<void> _selectAction(_HeroMoreActionItem item) async {
+    debugPrint(
+      '[GenerationSubmissionModal] hero toolbar action selected action=${item.action.name} enabled=${item.enabled}',
+    );
+    if (!item.enabled) {
+      _setExpanded(false);
+      return;
+    }
+    _setExpanded(false);
+    await Future<void>.delayed(_collapseDuration);
+    if (!mounted) {
+      return;
+    }
+    widget.onMoreActions?.call(item.action);
+  }
+
+  void _handleExpandedMenuTap(Offset localPosition) {
+    if (!_expanded) {
+      return;
+    }
+    const double topPadding = 10;
+    const double itemHeight = 42;
+    final int index = ((localPosition.dy - topPadding) / itemHeight).floor();
+    final List<_HeroMoreActionItem> items = _items;
+    if (index < 0 || index >= items.length) {
+      return;
+    }
+    unawaited(_selectAction(items[index]));
+  }
+
+  List<_HeroMoreActionItem> get _items {
+    return <_HeroMoreActionItem>[
+      _HeroMoreActionItem(
+        action: _HeroMoreAction.viewInAlbum,
+        title: '在相册中查看',
+        icon: LucideIcons.images,
+        enabled: _canViewInAlbum,
+      ),
+      _HeroMoreActionItem(
+        action: _HeroMoreAction.saveOriginal,
+        title: '保存原图',
+        icon: LucideIcons.download,
+        enabled: widget.selectedJob.canSaveOriginalToPhotoLibrary,
+      ),
+      _HeroMoreActionItem(
+        action: _HeroMoreAction.retry,
+        title: '重试',
+        icon: LucideIcons.refreshCcw,
+        enabled: _canRetry,
+      ),
+      _HeroMoreActionItem(
+        action: _HeroMoreAction.dislike,
+        title: '不喜欢这张图片',
+        icon: LucideIcons.thumbsDown,
+        enabled: _canDislike,
+      ),
+      const _HeroMoreActionItem(
+        action: _HeroMoreAction.remove,
+        title: '移除',
+        icon: LucideIcons.trash2,
+        enabled: true,
+        destructive: true,
+      ),
+    ];
+  }
+
+  bool get _canViewInAlbum {
+    return (widget.selectedJob.resultAssetId != null &&
+            widget.selectedJob.resultAssetId!.isNotEmpty) ||
+        widget.selectedJob.imagePath.isNotEmpty;
+  }
+
+  bool get _canRetry {
+    return widget.selectedJob.status == GenerationSubmissionStatus.failed ||
+        widget.selectedJob.status ==
+            GenerationSubmissionStatus.resultProcessingFailed;
+  }
+
+  bool get _canDislike {
+    return widget.selectedJob.taskId != null &&
+        widget.selectedJob.taskId!.isNotEmpty;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _expandCurve,
+      builder: (BuildContext context, Widget? child) {
+        final double height = lerpDouble(
+          _collapsedHeight,
+          _expandedHeight,
+          _expandCurve.value,
+        )!;
+        return SizedBox(
+          height: height,
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            children: <Widget>[
+              if (_expanded)
+                Positioned.fill(
+                  child: GestureDetector(
+                    key: const ValueKey<String>(
+                      'generation-submission-more-dismiss-layer',
+                    ),
+                    behavior: HitTestBehavior.translucent,
+                    onTapDown: (_) => _setExpanded(false),
+                  ),
+                ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: AnimatedBuilder(
+                  animation: _expandCurve,
+                  builder: (BuildContext context, Widget? child) {
+                    final double value = _expandCurve.value;
+                    final double width = lerpDouble(
+                      _collapsedWidth,
+                      _expandedWidth,
+                      value,
+                    )!;
+                    final double height = lerpDouble(
+                      _collapsedHeight,
+                      _expandedHeight,
+                      value,
+                    )!;
+                    final double radius = lerpDouble(
+                      _collapsedHeight / 2,
+                      28,
+                      value,
+                    )!;
+                    final SmoothRectangleBorder toolbarShape =
+                        SmoothRectangleBorder(
+                          borderRadius: BorderRadius.circular(radius),
+                          smoothness: 0.8,
+                          side: BorderSide(
+                            color: AppColors.white.withValues(alpha: 0.18),
+                            width: 0.5,
+                          ),
+                        );
+                    return GestureDetector(
+                      key: const ValueKey<String>(
+                        'generation-submission-more-hit-region',
+                      ),
+                      behavior: HitTestBehavior.translucent,
+                      onTapUp: _expanded
+                          ? (TapUpDetails details) {
+                              _handleExpandedMenuTap(details.localPosition);
+                            }
+                          : null,
+                      child: SizedBox(
+                        width: width,
+                        height: height,
+                        child: ClipPath(
+                          clipper: ShapeBorderClipper(shape: toolbarShape),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                            child: DecoratedBox(
+                              decoration: ShapeDecoration(
+                                color: AppColors.blackOverlay(0.42),
+                                shape: toolbarShape,
+                              ),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: <Widget>[
+                                  IgnorePointer(
+                                    ignoring: _expanded,
+                                    child: FadeTransition(
+                                      opacity: _toolsOpacity,
+                                      child: ScaleTransition(
+                                        scale: Tween<double>(
+                                          begin: 1,
+                                          end: 0.94,
+                                        ).animate(_expandCurve),
+                                        child: _CollapsedHeroTools(
+                                          showingOriginal:
+                                              widget.showingOriginal,
+                                          onToggleImage: widget.onToggleImage,
+                                          isFavorite: widget.isFavorite,
+                                          onToggleFavorite:
+                                              widget.onToggleFavorite,
+                                          onMorePressed:
+                                              widget.onMoreActions == null
+                                              ? null
+                                              : () => _setExpanded(true),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IgnorePointer(
+                                    ignoring: !_expanded,
+                                    child: FadeTransition(
+                                      opacity: _menuOpacity,
+                                      child: _ExpandedHeroMenu(
+                                        animation: _controller,
+                                        items: _items,
+                                        onSelected: (_HeroMoreActionItem item) {
+                                          unawaited(_selectAction(item));
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CollapsedHeroTools extends StatelessWidget {
+  const _CollapsedHeroTools({
+    required this.showingOriginal,
+    required this.onToggleImage,
+    required this.isFavorite,
+    required this.onToggleFavorite,
+    required this.onMorePressed,
   });
 
   final bool showingOriginal;
   final VoidCallback? onToggleImage;
   final bool isFavorite;
   final VoidCallback? onToggleFavorite;
+  final VoidCallback? onMorePressed;
 
   @override
   Widget build(BuildContext context) {
-    final SmoothRectangleBorder toolbarShape = SmoothRectangleBorder(
-      borderRadius: BorderRadius.circular(999),
-      smoothness: 0.8,
-      side: BorderSide(
-        color: AppColors.white.withValues(alpha: 0.18),
-        width: 0.5,
+    return Padding(
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          _ImageToggleButton(
+            showingOriginal: showingOriginal,
+            onPressed: onToggleImage,
+          ),
+          _FavoriteButton(isFavorite: isFavorite, onPressed: onToggleFavorite),
+          _HeroToolbarButton(
+            key: const ValueKey<String>('generation-submission-more-actions'),
+            icon: LucideIcons.moreHorizontal,
+            onPressed: onMorePressed,
+          ),
+        ],
       ),
     );
+  }
+}
 
-    return Center(
-      child: ClipPath(
-        clipper: ShapeBorderClipper(shape: toolbarShape),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: DecoratedBox(
-            decoration: ShapeDecoration(
-              color: AppColors.blackOverlay(0.42),
-              shape: toolbarShape,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  _ImageToggleButton(
-                    showingOriginal: showingOriginal,
-                    onPressed: onToggleImage,
-                  ),
-                  _FavoriteButton(
-                    isFavorite: isFavorite,
-                    onPressed: onToggleFavorite,
-                  ),
-                  const _HeroToolbarButton(
-                    key: ValueKey<String>('generation-submission-more-actions'),
-                    icon: LucideIcons.moreHorizontal,
-                    onPressed: _noop,
-                  ),
-                ],
+class _ExpandedHeroMenu extends StatelessWidget {
+  const _ExpandedHeroMenu({
+    required this.animation,
+    required this.items,
+    required this.onSelected,
+  });
+
+  final Animation<double> animation;
+  final List<_HeroMoreActionItem> items;
+  final ValueChanged<_HeroMoreActionItem> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: OverflowBox(
+        alignment: Alignment.topCenter,
+        minHeight: 230,
+        maxHeight: 230,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              for (int index = 0; index < items.length; index += 1)
+                _ExpandedHeroMenuItem(
+                  item: items[index],
+                  animation: _itemAnimation(index),
+                  onPressed: () => onSelected(items[index]),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Animation<double> _itemAnimation(int index) {
+    final double start = (0.42 + index * 0.055).clamp(0.0, 0.86);
+    final double end = (start + 0.34).clamp(start, 1.0);
+    return CurvedAnimation(
+      parent: animation,
+      curve: Interval(start, end, curve: Curves.easeOutCubic),
+      reverseCurve: const Interval(0.74, 1, curve: Curves.easeOutCubic),
+    );
+  }
+}
+
+class _ExpandedHeroMenuItem extends StatelessWidget {
+  const _ExpandedHeroMenuItem({
+    required this.item,
+    required this.animation,
+    required this.onPressed,
+  });
+
+  final _HeroMoreActionItem item;
+  final Animation<double> animation;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = item.enabled
+        ? item.destructive
+              ? AppColors.danger
+              : AppColors.white
+        : AppColors.white.withValues(alpha: 0.38);
+    return GestureDetector(
+      key: ValueKey<String>('generation-submission-more-${item.action.name}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: SizedBox(
+        height: 42,
+        child: AnimatedBuilder(
+          animation: animation,
+          builder: (BuildContext context, Widget? child) {
+            return Opacity(
+              opacity: animation.value,
+              child: Transform.translate(
+                offset: Offset(0, (1 - animation.value) * 10),
+                child: child,
               ),
-            ),
+            );
+          },
+          child: Row(
+            children: <Widget>[
+              SizedBox(
+                width: 34,
+                child: Icon(item.icon, color: color, size: 18),
+              ),
+              Expanded(
+                child: Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 }
-
-void _noop() {}
 
 class _ImageToggleButton extends StatelessWidget {
   const _ImageToggleButton({

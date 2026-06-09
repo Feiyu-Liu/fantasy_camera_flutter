@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart' hide XFile;
 
@@ -19,6 +20,34 @@ import 'generation_record_providers.dart';
 final galleryImagePickerProvider = Provider<GalleryImagePicker>((Ref ref) {
   return PlatformGalleryImagePicker(fallbackImagePicker: ImagePicker());
 }, dependencies: const <ProviderOrFamily>[]);
+
+typedef HeroImagePrecache = Future<bool> Function(ImageProvider imageProvider);
+
+final heroImagePrecacheProvider = Provider<HeroImagePrecache>((Ref ref) {
+  return defaultHeroImagePrecache;
+}, dependencies: const <ProviderOrFamily>[]);
+
+Future<bool> defaultHeroImagePrecache(ImageProvider imageProvider) {
+  final Completer<bool> completer = Completer<bool>();
+  final ImageStream stream = imageProvider.resolve(const ImageConfiguration());
+  late final ImageStreamListener listener;
+  listener = ImageStreamListener(
+    (ImageInfo image, bool synchronousCall) {
+      stream.removeListener(listener);
+      if (!completer.isCompleted) {
+        completer.complete(true);
+      }
+    },
+    onError: (Object error, StackTrace? stackTrace) {
+      stream.removeListener(listener);
+      if (!completer.isCompleted) {
+        completer.complete(false);
+      }
+    },
+  );
+  stream.addListener(listener);
+  return completer.future;
+}
 
 final photoLibraryAssetStoreProvider = Provider<PhotoLibraryAssetStore>((
   Ref ref,
@@ -394,8 +423,40 @@ class GenerationSubmissionController
     await _refreshFromRepository();
   }
 
+  Future<void> resumeActiveRecords() async {
+    await _submissionService.resumeActiveRecords();
+    await _refreshFromRepository();
+  }
+
+  Future<void> retryJob(String jobId) async {
+    _deletedJobIds.remove(jobId);
+    await _submissionService.retryJob(jobId);
+    await _refreshFromRepository();
+  }
+
   Future<void> toggleResultFavorite(String jobId) async {
     await _submissionService.toggleResultFavorite(jobId);
+    await _refreshFromRepository();
+  }
+
+  Future<void> openPhotoLibrary(String jobId) async {
+    await _submissionService.openPhotoLibrary(jobId);
+    await _refreshFromRepository();
+  }
+
+  Future<void> saveOriginalToPhotoLibrary(String jobId) async {
+    await _submissionService.saveOriginalToPhotoLibrary(jobId);
+    await _refreshFromRepository();
+  }
+
+  Future<void> submitNegativeFeedback(String jobId) async {
+    await _submissionService.submitNegativeFeedback(jobId);
+    await _refreshFromRepository();
+  }
+
+  Future<void> removeJob(String jobId) async {
+    await _submissionService.removeRecord(jobId);
+    _deletedJobIds.add(jobId);
     await _refreshFromRepository();
   }
 

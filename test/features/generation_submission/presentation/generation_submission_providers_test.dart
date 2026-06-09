@@ -16,6 +16,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/data/gener
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_original_file_store.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_record.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
@@ -180,6 +181,41 @@ void main() {
     });
   });
 
+  test('concurrent confirms submit a job only once', () async {
+    final _FakeGenerationImageProcessor imageProcessor =
+        _FakeGenerationImageProcessor()
+          ..prepareDelay = const Duration(milliseconds: 20);
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository();
+    final ProviderContainer container = _container(
+      imageProcessor: imageProcessor,
+      uploadRepository: uploadRepository,
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    final GenerationSubmissionController notifier = container.read(
+      generationSubmissionControllerProvider.notifier,
+    );
+    final String jobId = await notifier.queueGalleryFile(
+      XFile('/tmp/photo.jpg'),
+    );
+
+    await Future.wait(<Future<void>>[
+      notifier.confirmJob(jobId),
+      notifier.confirmJob(jobId),
+    ]);
+
+    expect(imageProcessor.preparedSourcePaths, <String>['/tmp/photo.jpg']);
+    expect(uploadRepository.events, <String>[
+      'create:image/jpeg:4',
+      'upload:upload-1:4',
+      'complete:upload-1',
+    ]);
+    expect(taskRepository.createdInputs, hasLength(1));
+  });
+
   test('queues captured file into private original cache', () async {
     final _FakeGenerationOriginalFileStore originalFileStore =
         _FakeGenerationOriginalFileStore();
@@ -245,7 +281,7 @@ void main() {
     () async {
       final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
       final _FakeGenerationTaskRepository taskRepository =
-          _FakeGenerationTaskRepository();
+          _completedTaskRepository();
       final ProviderContainer container = _container(
         uploadRepository: uploadRepository,
         taskRepository: taskRepository,
@@ -521,6 +557,312 @@ void main() {
     expect(taskRepository.fetchTaskIds, <String>['task-1', 'task-1']);
   });
 
+  test('result not ready retries result url without marking failure', () async {
+    final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
+        _FakePhotoLibraryAssetStore();
+    final _FakeGenerationImageProcessor imageProcessor =
+        _FakeGenerationImageProcessor();
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..fetchTaskResponses.add(
+            _task(
+              status: GenerationTaskStatus.completed,
+              resultImageObjectId: 'result-1',
+            ),
+          )
+          ..resultUrlResponses.add(
+            const BackendApiFailure(
+              code: 'result_not_ready',
+              message: 'Generation result is not ready',
+              statusCode: 409,
+            ),
+          )
+          ..resultUrlResponses.add(
+            const ResultUrl(
+              url: 'https://example.com/result-1.jpg',
+              expiresInSeconds: 600,
+            ),
+          );
+    final ProviderContainer container = _container(
+      photoLibraryAssetStore: photoLibraryAssetStore,
+      imageProcessor: imageProcessor,
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .submitCapturedFile(XFile('/tmp/photo.jpg'));
+
+    final GenerationSubmissionJob deferredJob = await _waitForSingleJobStatus(
+      container,
+      GenerationSubmissionStatus.completed,
+    );
+    expect(deferredJob.resultSaveErrorCode, isNull);
+    expect(taskRepository.resultUrlTaskIds, <String>['task-1']);
+    expect(imageProcessor.processedResultUrls, isEmpty);
+
+    final GenerationSubmissionJob savedJob = await _waitForSingleJobStatus(
+      container,
+      GenerationSubmissionStatus.resultSaved,
+      timeout: const Duration(seconds: 5),
+    );
+    expect(savedJob.resultUrl, 'https://example.com/result-1.jpg');
+    expect(taskRepository.resultUrlTaskIds, <String>['task-1', 'task-1']);
+    expect(imageProcessor.processedResultUrls, <String>[
+      'https://example.com/result-1.jpg',
+    ]);
+    expect(photoLibraryAssetStore.events, hasLength(1));
+  });
+
+  test('result url backend failure still marks postprocess failure', () async {
+    final _FakeGenerationImageProcessor imageProcessor =
+        _FakeGenerationImageProcessor();
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..fetchTaskResponses.add(
+            _task(
+              status: GenerationTaskStatus.completed,
+              resultImageObjectId: 'result-1',
+            ),
+          )
+          ..resultUrlResponses.add(
+            const BackendApiFailure(
+              code: 'storage_error',
+              message: 'Could not sign result URL',
+              statusCode: 500,
+            ),
+          );
+    final ProviderContainer container = _container(
+      imageProcessor: imageProcessor,
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .submitCapturedFile(XFile('/tmp/photo.jpg'));
+
+    final GenerationSubmissionJob failedJob = await _waitForSingleJobStatus(
+      container,
+      GenerationSubmissionStatus.resultProcessingFailed,
+    );
+    expect(failedJob.resultSaveErrorCode, 'result_processing_failed');
+    expect(failedJob.resultSaveErrorMessage, contains('Result URL'));
+    expect(taskRepository.resultUrlTaskIds, <String>['task-1']);
+    expect(imageProcessor.processedResultUrls, isEmpty);
+  });
+
+  test('resumes polling task after service restart', () async {
+    final GenerationRecordDatabase database =
+        GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(database.close);
+    final GenerationRecordRepository repository = GenerationRecordRepository(
+      database,
+    );
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..fetchTaskResponses.add(
+            _task(
+              status: GenerationTaskStatus.completed,
+              resultImageObjectId: 'result-1',
+            ),
+          );
+    final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
+        _FakePhotoLibraryAssetStore();
+
+    await repository.createCameraRecord(
+      recordId: 'record-resume',
+      originalLocalPath: 'originals/record-resume.heic',
+      createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+      promptStyle: 'realistic',
+      captureMode: 'portrait',
+    );
+    await repository.updateTaskFields(
+      recordId: 'record-resume',
+      updatedAt: DateTime.parse('2026-05-29T00:00:01Z'),
+      taskId: 'task-1',
+      taskStatus: GenerationTaskStatus.pending.wireValue,
+    );
+    await repository.updatePipelineStatus(
+      recordId: 'record-resume',
+      status: GenerationRecordPipelineStatus.pollingTask,
+      updatedAt: DateTime.parse('2026-05-29T00:00:02Z'),
+    );
+
+    final GenerationSubmissionService service = GenerationSubmissionService(
+      uploadRepository: _FakeUploadRepository(),
+      generationTaskRepository: taskRepository,
+      feedbackRepository: _FakeFeedbackRepository(),
+      generationRecordRepository: repository,
+      originalFileStore: _FakeGenerationOriginalFileStore(),
+      photoLibraryAssetStore: photoLibraryAssetStore,
+      imageProcessor: _FakeGenerationImageProcessor(),
+    );
+    addTearDown(service.dispose);
+
+    await service.resumeActiveRecords();
+
+    final GenerationRecord? record = await repository.findById('record-resume');
+    expect(taskRepository.fetchTaskIds, <String>['task-1']);
+    expect(
+      record?.pipelineStatus,
+      GenerationRecordPipelineStatus.resultSaved.name,
+    );
+    expect(record?.resultAssetId, 'asset-result-1');
+    expect(photoLibraryAssetStore.events.single, contains('record-resume'));
+  });
+
+  test('concurrent resume active records polls a task only once', () async {
+    final GenerationRecordDatabase database =
+        GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(database.close);
+    final GenerationRecordRepository repository = GenerationRecordRepository(
+      database,
+    );
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..fetchTaskDelay = const Duration(milliseconds: 20)
+          ..fetchTaskResponses.add(
+            _task(
+              status: GenerationTaskStatus.completed,
+              resultImageObjectId: 'result-1',
+            ),
+          );
+    final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
+        _FakePhotoLibraryAssetStore();
+
+    await repository.createCameraRecord(
+      recordId: 'record-resume',
+      originalLocalPath: 'originals/record-resume.heic',
+      createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+      promptStyle: 'realistic',
+      captureMode: 'portrait',
+    );
+    await repository.updateTaskFields(
+      recordId: 'record-resume',
+      updatedAt: DateTime.parse('2026-05-29T00:00:01Z'),
+      taskId: 'task-1',
+      taskStatus: GenerationTaskStatus.pending.wireValue,
+    );
+    await repository.updatePipelineStatus(
+      recordId: 'record-resume',
+      status: GenerationRecordPipelineStatus.pollingTask,
+      updatedAt: DateTime.parse('2026-05-29T00:00:02Z'),
+    );
+
+    final GenerationSubmissionService service = GenerationSubmissionService(
+      uploadRepository: _FakeUploadRepository(),
+      generationTaskRepository: taskRepository,
+      feedbackRepository: _FakeFeedbackRepository(),
+      generationRecordRepository: repository,
+      originalFileStore: _FakeGenerationOriginalFileStore(),
+      photoLibraryAssetStore: photoLibraryAssetStore,
+      imageProcessor: _FakeGenerationImageProcessor(),
+    );
+    addTearDown(service.dispose);
+
+    await Future.wait(<Future<void>>[
+      service.resumeActiveRecords(),
+      service.resumeActiveRecords(),
+    ]);
+
+    expect(taskRepository.fetchTaskIds, <String>['task-1']);
+    expect(photoLibraryAssetStore.events, hasLength(1));
+  });
+
+  test('retry failed job resubmits from original image', () async {
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository();
+    final ProviderContainer container = _container(
+      uploadRepository: uploadRepository,
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .submitCapturedFile(XFile('/tmp/photo.jpg'));
+    final String jobId = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single
+        .id;
+    await container
+        .read(generationRecordRepositoryProvider)
+        .updatePipelineStatus(
+          recordId: jobId,
+          status: GenerationRecordPipelineStatus.generationFailed,
+          updatedAt: DateTime.now(),
+          errorCode: 'network_error',
+          errorMessage: 'Network failed',
+        );
+
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .retryJob(jobId);
+
+    final GenerationSubmissionJob job = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(job.status, GenerationSubmissionStatus.pollingTask);
+    expect(job.errorCode, isNull);
+    expect(uploadRepository.events, <String>[
+      'create:image/jpeg:4',
+      'upload:upload-1:4',
+      'complete:upload-1',
+      'create:image/jpeg:4',
+      'upload:upload-1:4',
+      'complete:upload-1',
+    ]);
+    expect(taskRepository.createdInputs, hasLength(2));
+  });
+
+  test(
+    'retry result processing failure reprocesses saved task result',
+    () async {
+      final _FakeGenerationTaskRepository taskRepository =
+          _completedTaskRepository();
+      final _FakeGenerationImageProcessor imageProcessor =
+          _FakeGenerationImageProcessor();
+      final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
+          _FakePhotoLibraryAssetStore();
+      final ProviderContainer container = _container(
+        imageProcessor: imageProcessor,
+        photoLibraryAssetStore: photoLibraryAssetStore,
+        taskRepository: taskRepository,
+      );
+      addTearDown(container.dispose);
+
+      final String jobId = await _createSavedResultJob(container);
+      await container
+          .read(generationRecordRepositoryProvider)
+          .updatePipelineStatus(
+            recordId: jobId,
+            status: GenerationRecordPipelineStatus.resultSaveFailed,
+            updatedAt: DateTime.now(),
+            errorCode: 'result_processing_failed',
+            errorMessage: 'HEIF failed',
+          );
+
+      await container
+          .read(generationSubmissionControllerProvider.notifier)
+          .retryJob(jobId);
+
+      final GenerationSubmissionJob job = container
+          .read(generationSubmissionControllerProvider)
+          .jobs
+          .single;
+      expect(job.status, GenerationSubmissionStatus.resultSaved);
+      expect(taskRepository.createdInputs, hasLength(1));
+      expect(taskRepository.resultUrlTaskIds, <String>['task-1', 'task-1']);
+      expect(imageProcessor.processedResultUrls, hasLength(2));
+      expect(photoLibraryAssetStore.events, hasLength(2));
+    },
+  );
+
   test(
     'favorite toggles iOS asset and submits first positive feedback',
     () async {
@@ -696,13 +1038,58 @@ void main() {
     expect(job.resultUrl, 'https://example.com/result-1.jpg');
     expect(job.resultUrlExpiresAt, isNotNull);
   });
+
+  test('concurrent result url loads share one backend request', () async {
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..createResultUrlDelay = const Duration(milliseconds: 20);
+    final ProviderContainer container = _container(
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+    final GenerationSubmissionController notifier = container.read(
+      generationSubmissionControllerProvider.notifier,
+    );
+
+    final String jobId = await notifier.queueGalleryFile(
+      XFile('/tmp/photo.jpg'),
+    );
+    await container
+        .read(generationRecordRepositoryProvider)
+        .updateTaskFields(
+          recordId: jobId,
+          updatedAt: DateTime.now(),
+          taskId: 'task-1',
+          taskStatus: GenerationTaskStatus.completed.wireValue,
+          resultImageObjectId: 'result-1',
+        );
+    await container
+        .read(generationRecordRepositoryProvider)
+        .updatePipelineStatus(
+          recordId: jobId,
+          status: GenerationRecordPipelineStatus.completed,
+          updatedAt: DateTime.now(),
+        );
+
+    final List<String?> urls = await Future.wait(<Future<String?>>[
+      notifier.loadResultUrl(jobId),
+      notifier.loadResultUrl(jobId),
+    ]);
+
+    expect(urls, <String?>[
+      'https://example.com/result-1.jpg',
+      'https://example.com/result-1.jpg',
+    ]);
+    expect(taskRepository.resultUrlTaskIds, <String>['task-1']);
+  });
 }
 
 Future<GenerationSubmissionJob> _waitForSingleJobStatus(
   ProviderContainer container,
-  GenerationSubmissionStatus status,
-) async {
-  final DateTime deadline = DateTime.now().add(const Duration(seconds: 3));
+  GenerationSubmissionStatus status, {
+  Duration timeout = const Duration(seconds: 3),
+}) async {
+  final DateTime deadline = DateTime.now().add(timeout);
   while (DateTime.now().isBefore(deadline)) {
     final List<GenerationSubmissionJob> jobs = container
         .read(generationSubmissionControllerProvider)
@@ -721,20 +1108,26 @@ Future<String> _createSavedResultJob(ProviderContainer container) async {
       .submitCapturedFile(XFile('/tmp/photo.jpg'));
   await Future<void>.delayed(Duration.zero);
 
-  final GenerationSubmissionController notifier = container.read(
-    generationSubmissionControllerProvider.notifier,
-  );
   final String jobId = container
       .read(generationSubmissionControllerProvider)
       .jobs
       .single
       .id;
 
-  await notifier.pollTaskNowForDebug(jobId);
-  expect(
-    container.read(generationSubmissionControllerProvider).jobs.single.status,
+  GenerationSubmissionJob job = await _waitForSingleJobStatus(
+    container,
     GenerationSubmissionStatus.resultSaved,
   );
+  if (job.status != GenerationSubmissionStatus.resultSaved) {
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .pollTaskNowForDebug(jobId);
+    job = await _waitForSingleJobStatus(
+      container,
+      GenerationSubmissionStatus.resultSaved,
+    );
+  }
+  expect(job.status, GenerationSubmissionStatus.resultSaved);
   return jobId;
 }
 
@@ -830,6 +1223,7 @@ class _FakeGenerationImageProcessor implements GenerationImageProcessor {
   final List<Map<String, Object>> processedSourceExif = <Map<String, Object>>[];
   Object? prepareFailure;
   Object? processFailure;
+  Duration prepareDelay = Duration.zero;
 
   @override
   Future<PreparedUploadImage> prepareUploadImage({
@@ -837,6 +1231,9 @@ class _FakeGenerationImageProcessor implements GenerationImageProcessor {
     required String sourcePath,
   }) async {
     preparedSourcePaths.add(sourcePath);
+    if (prepareDelay > Duration.zero) {
+      await Future<void>.delayed(prepareDelay);
+    }
     final Object? failure = prepareFailure;
     if (failure != null) {
       throw failure;
@@ -890,6 +1287,19 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   }
 
   @override
+  Future<SavedPhotoLibraryImage> saveImageToLibrary(
+    String path, {
+    required String fileName,
+  }) async {
+    events.add('save-library:$path:$fileName');
+    final Object? failure = this.failure;
+    if (failure != null) {
+      throw failure;
+    }
+    return const SavedPhotoLibraryImage(assetId: 'asset-original-1');
+  }
+
+  @override
   Future<String?> resolveImagePath(String assetId) async {
     resolvedAssetIds.add(assetId);
     return '/photos/$assetId.heic';
@@ -902,6 +1312,11 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
     if (failure != null) {
       throw failure;
     }
+  }
+
+  @override
+  Future<void> openPhotoLibrary() async {
+    events.add('open-photo-library');
   }
 }
 
@@ -987,7 +1402,10 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   final List<String> fetchTaskIds = <String>[];
   final List<GenerationTask> fetchTaskResponses = <GenerationTask>[];
   final List<String> resultUrlTaskIds = <String>[];
+  final List<Object> resultUrlResponses = <Object>[];
   BackendApiFailure? createTaskFailure;
+  Duration createResultUrlDelay = Duration.zero;
+  Duration fetchTaskDelay = Duration.zero;
 
   @override
   Future<CreatedGenerationTask> createTask(
@@ -1014,6 +1432,16 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   @override
   Future<ResultUrl> createResultUrl(String taskId) async {
     resultUrlTaskIds.add(taskId);
+    if (createResultUrlDelay > Duration.zero) {
+      await Future<void>.delayed(createResultUrlDelay);
+    }
+    if (resultUrlResponses.isNotEmpty) {
+      final Object response = resultUrlResponses.removeAt(0);
+      if (response is BackendApiFailure) {
+        throw response;
+      }
+      return response as ResultUrl;
+    }
     return const ResultUrl(
       url: 'https://example.com/result-1.jpg',
       expiresInSeconds: 600,
@@ -1023,6 +1451,9 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   @override
   Future<GenerationTask> fetchTask(String taskId) async {
     fetchTaskIds.add(taskId);
+    if (fetchTaskDelay > Duration.zero) {
+      await Future<void>.delayed(fetchTaskDelay);
+    }
     if (fetchTaskResponses.isEmpty) {
       return _task(status: GenerationTaskStatus.pending);
     }

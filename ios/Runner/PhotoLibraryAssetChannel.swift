@@ -36,6 +36,16 @@ final class PhotoLibraryAssetChannel: NSObject {
         return
       }
       saveImage(path: path, album: album, fileName: fileName, result: result)
+    case "saveImageToLibrary":
+      guard
+        let args = call.arguments as? [String: Any],
+        let path = args["path"] as? String,
+        let fileName = args["fileName"] as? String
+      else {
+        result(FlutterError(code: "bad_args", message: "Missing image save arguments.", details: nil))
+        return
+      }
+      saveImageToLibrary(path: path, fileName: fileName, result: result)
     case "pickImage":
       pickImage(result: result)
     case "cancelActivePick":
@@ -59,6 +69,8 @@ final class PhotoLibraryAssetChannel: NSObject {
         return
       }
       setFavorite(assetId: assetId, isFavorite: isFavorite, result: result)
+    case "openPhotoLibrary":
+      openPhotoLibrary(result: result)
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -175,6 +187,41 @@ final class PhotoLibraryAssetChannel: NSObject {
           }
         })
       }
+    }
+  }
+
+  private func saveImageToLibrary(
+    path: String,
+    fileName: String,
+    result: @escaping FlutterResult
+  ) {
+    requestReadWriteAccess { granted in
+      guard granted else {
+        result(FlutterError(code: "access_denied", message: "Photo library access denied.", details: nil))
+        return
+      }
+
+      let url = URL(fileURLWithPath: path)
+      var placeholderId: String?
+      PHPhotoLibrary.shared().performChanges({
+        let creationRequest = PHAssetCreationRequest.forAsset()
+        let options = PHAssetResourceCreationOptions()
+        options.originalFilename = fileName
+        creationRequest.addResource(with: .photo, fileURL: url, options: options)
+        placeholderId = creationRequest.placeholderForCreatedAsset?.localIdentifier
+      }, completionHandler: { success, error in
+        DispatchQueue.main.async {
+          if let error = error {
+            result(self.flutterError(code: "save_failed", error: error))
+            return
+          }
+          guard success, let placeholderId = placeholderId, !placeholderId.isEmpty else {
+            result(FlutterError(code: "missing_asset_id", message: "Photo save did not return an asset id.", details: nil))
+            return
+          }
+          result(placeholderId)
+        }
+      })
     }
   }
 
@@ -300,6 +347,22 @@ final class PhotoLibraryAssetChannel: NSObject {
           result(nil)
         }
       })
+    }
+  }
+
+  private func openPhotoLibrary(result: @escaping FlutterResult) {
+    DispatchQueue.main.async {
+      guard let url = URL(string: "photos-redirect://") else {
+        result(FlutterError(code: "bad_url", message: "Unable to create Photos URL.", details: nil))
+        return
+      }
+      UIApplication.shared.open(url, options: [:]) { success in
+        if success {
+          result(nil)
+        } else {
+          result(FlutterError(code: "open_failed", message: "Photos app could not be opened.", details: nil))
+        }
+      }
     }
   }
 

@@ -38,6 +38,7 @@ class GenerationSubmissionJob {
     this.sourceExif,
     this.processedResultPath,
     this.resultAssetId,
+    this.canSaveOriginalToPhotoLibrary = false,
     this.isResultFavorite = false,
     this.resultFavoriteFeedbackSubmittedAt,
     this.resultSaveErrorCode,
@@ -63,6 +64,7 @@ class GenerationSubmissionJob {
   final Map<String, Object>? sourceExif;
   final String? processedResultPath;
   final String? resultAssetId;
+  final bool canSaveOriginalToPhotoLibrary;
   final bool isResultFavorite;
   final DateTime? resultFavoriteFeedbackSubmittedAt;
   final String? resultSaveErrorCode;
@@ -99,6 +101,7 @@ class GenerationSubmissionJob {
     Map<String, Object>? sourceExif,
     String? processedResultPath,
     String? resultAssetId,
+    bool? canSaveOriginalToPhotoLibrary,
     bool? isResultFavorite,
     DateTime? resultFavoriteFeedbackSubmittedAt,
     String? resultSaveErrorCode,
@@ -126,6 +129,8 @@ class GenerationSubmissionJob {
       sourceExif: sourceExif ?? this.sourceExif,
       processedResultPath: processedResultPath ?? this.processedResultPath,
       resultAssetId: resultAssetId ?? this.resultAssetId,
+      canSaveOriginalToPhotoLibrary:
+          canSaveOriginalToPhotoLibrary ?? this.canSaveOriginalToPhotoLibrary,
       isResultFavorite: isResultFavorite ?? this.isResultFavorite,
       resultFavoriteFeedbackSubmittedAt:
           resultFavoriteFeedbackSubmittedAt ??

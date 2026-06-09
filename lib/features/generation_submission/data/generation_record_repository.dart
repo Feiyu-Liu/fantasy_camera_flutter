@@ -28,6 +28,17 @@ class GenerationRecordRepository {
     return query.get();
   }
 
+  Future<List<GenerationRecord>> listActiveRecords() async {
+    final List<GenerationRecord> records = await listRecords();
+    return records
+        .where((GenerationRecord record) {
+          return activeGenerationRecordStatuses.contains(
+            generationRecordPipelineStatusFromName(record.pipelineStatus),
+          );
+        })
+        .toList(growable: false);
+  }
+
   Stream<List<GenerationRecord>> watchActiveRecords() {
     return watchRecords().map((List<GenerationRecord> records) {
       return records
@@ -334,6 +345,38 @@ class GenerationRecordRepository {
         resultFavoriteFeedbackSubmittedAt: feedbackSubmittedAt == null
             ? const Value<DateTime?>.absent()
             : Value<DateTime?>(feedbackSubmittedAt),
+      ),
+    );
+  }
+
+  Future<void> resetForRetry({
+    required String recordId,
+    required DateTime updatedAt,
+  }) {
+    return _updateById(
+      recordId,
+      GenerationRecordsCompanion(
+        updatedAt: Value<DateTime>(updatedAt),
+        pipelineStatus: Value<String>(
+          GenerationRecordPipelineStatus.awaitingRetry.name,
+        ),
+        uploadSessionId: const Value<String?>(null),
+        sourceImageObjectId: const Value<String?>(null),
+        uploadContentType: const Value<String?>(null),
+        uploadSizeBytes: const Value<int?>(null),
+        uploadSha256: const Value<String?>(null),
+        taskId: const Value<String?>(null),
+        taskStatus: const Value<String?>(null),
+        resultImageObjectId: const Value<String?>(null),
+        resultLocalCachePath: const Value<String?>(null),
+        resultAssetId: const Value<String?>(null),
+        resultSavedAt: const Value<DateTime?>(null),
+        resultSizeBytes: const Value<int?>(null),
+        resultSha256: const Value<String?>(null),
+        resultHashStatus: const Value<String?>(null),
+        resultHashError: const Value<String?>(null),
+        errorCode: const Value<String?>(null),
+        errorMessage: const Value<String?>(null),
       ),
     );
   }

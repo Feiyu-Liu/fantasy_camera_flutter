@@ -25,6 +25,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/presentati
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_ui/my_ui.dart';
 
 void main() {
   testWidgets('modal shows captured photos with status icons', (
@@ -91,6 +92,10 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey<String>('generation-submission-status-failed')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-retry-failed')),
       findsOneWidget,
     );
   });
@@ -173,6 +178,41 @@ void main() {
     );
     expect(uploadRepository.createUploadCount, 0);
     expect(taskRepository.createTaskCount, 0);
+  });
+
+  testWidgets('tapping failed thumbnail retry restarts generation', (
+    WidgetTester tester,
+  ) async {
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository();
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(id: 'failed', status: GenerationSubmissionStatus.failed),
+    ];
+
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        jobs: jobs,
+        uploadRepository: uploadRepository,
+        taskRepository: taskRepository,
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-retry-failed')),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(uploadRepository.createUploadCount, 1);
+    expect(taskRepository.createTaskCount, 1);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-status-processing'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('modal shows gallery picker when no jobs exist', (
@@ -339,6 +379,155 @@ void main() {
     );
   });
 
+  testWidgets('saved result thumbnail directly shows processed image', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-thumbnail-result');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'saved-thumbnail',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-thumbnail-swap-saved-thumbnail'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-thumbnail-image-saved-thumbnail'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('hero animates only when selected result first arrives', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(id: 'arriving', status: GenerationSubmissionStatus.pollingTask),
+    ];
+    final File processedFile = _writeImageFile('processed-arriving-result');
+
+    await _pumpModalHost(tester, _ModalHost(key: hostKey, jobs: jobs));
+
+    expect(find.byType(BlurredImageSwapTransition), findsNothing);
+
+    await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+      _job(
+        id: 'arriving',
+        status: GenerationSubmissionStatus.resultSaved,
+        imagePath: jobs.single.imagePath,
+        processedResultPath: processedFile.path,
+      ),
+    ]);
+    for (int i = 0; i < 10; i += 1) {
+      await tester.pump(const Duration(milliseconds: 20));
+      if (find.byType(BlurredImageSwapTransition).evaluate().isNotEmpty) {
+        break;
+      }
+    }
+
+    final BlurredImageSwapTransition transition = tester.widget(
+      find.byType(BlurredImageSwapTransition),
+    );
+    expect(transition.showReplacement, isTrue);
+
+    await tester.pump(const Duration(milliseconds: 1500));
+    expect(find.byType(BlurredImageSwapTransition), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
+    );
+    await tester.pump();
+    expect(find.byType(BlurredImageSwapTransition), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
+    );
+    await tester.pump();
+    expect(find.byType(BlurredImageSwapTransition), findsNothing);
+  });
+
+  testWidgets(
+    'hero does not animate for completed result url before local save',
+    (WidgetTester tester) async {
+      final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+      final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+        _job(
+          id: 'arriving-url',
+          status: GenerationSubmissionStatus.pollingTask,
+        ),
+      ];
+
+      await _pumpModalHost(tester, _ModalHost(key: hostKey, jobs: jobs));
+
+      await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+        _job(
+          id: 'arriving-url',
+          status: GenerationSubmissionStatus.completed,
+          imagePath: jobs.single.imagePath,
+          resultUrl: 'https://example.com/result.jpg',
+        ),
+      ]);
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.byType(BlurredImageSwapTransition), findsNothing);
+    },
+  );
+
+  testWidgets('hero holds original until saved result is precached', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+    final Completer<bool> precacheCompleter = Completer<bool>();
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(id: 'precache', status: GenerationSubmissionStatus.pollingTask),
+    ];
+    final File processedFile = _writeImageFile('processed-precache-result');
+
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        key: hostKey,
+        jobs: jobs,
+        heroImagePrecache: (ImageProvider imageProvider) {
+          return precacheCompleter.future;
+        },
+      ),
+    );
+
+    await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+      _job(
+        id: 'precache',
+        status: GenerationSubmissionStatus.resultSaved,
+        imagePath: jobs.single.imagePath,
+        processedResultPath: processedFile.path,
+      ),
+    ]);
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(find.byType(BlurredImageSwapTransition), findsNothing);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-original-image'),
+      ),
+      findsOneWidget,
+    );
+
+    precacheCompleter.complete(true);
+    await tester.pump();
+
+    expect(find.byType(BlurredImageSwapTransition), findsOneWidget);
+  });
+
   testWidgets('saved result photo toggle switches to original image', (
     WidgetTester tester,
   ) async {
@@ -373,7 +562,7 @@ void main() {
     );
   });
 
-  testWidgets('result processing failure keeps thumbnail status off hero', (
+  testWidgets('result processing failure keeps error text off hero', (
     WidgetTester tester,
   ) async {
     final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
@@ -393,9 +582,210 @@ void main() {
           'generation-submission-status-result-processing-failed',
         ),
       ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-retry-failed-result'),
+      ),
       findsOneWidget,
     );
   });
+
+  testWidgets('hero more actions expand inside toolbar', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-more-actions');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'more-actions',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+
+    expect(find.text('在相册中查看'), findsOneWidget);
+    expect(find.text('保存原图'), findsOneWidget);
+    expect(find.text('重试'), findsOneWidget);
+    expect(find.text('不喜欢这张图片'), findsOneWidget);
+    expect(find.text('移除'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-more-dismiss-layer'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('hero more actions collapse when tapping outside', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-more-collapse');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'more-collapse',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    expect(find.text('在相册中查看'), findsOneWidget);
+
+    final Rect dismissRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-more-dismiss-layer'),
+      ),
+    );
+    await tester.tapAt(Offset(dismissRect.left + 8, dismissRect.top + 8));
+    await tester.pump(const Duration(milliseconds: 360));
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-more-dismiss-layer'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('more action opens photo library', (WidgetTester tester) async {
+    final File processedFile = _writeImageFile('processed-open-library');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'open-library',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    await _tapExpandedMoreAction(tester, 0);
+    await tester.pump(const Duration(milliseconds: 260));
+    await tester.pump();
+
+    expect(_FakePhotoLibraryAssetStore.openPhotoLibraryCount, 1);
+  });
+
+  testWidgets('more action saves camera original to photo library', (
+    WidgetTester tester,
+  ) async {
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'save-original',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    await _tapExpandedMoreAction(tester, 1);
+    await tester.pump(const Duration(milliseconds: 260));
+    await tester.pump();
+
+    expect(_FakePhotoLibraryAssetStore.librarySavePaths, hasLength(1));
+    expect(
+      _FakePhotoLibraryAssetStore.librarySaveFileNames.single,
+      startsWith('TesserCam-Original-save-original.'),
+    );
+  });
+
+  testWidgets('more action submits negative feedback', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-dislike');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'dislike',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    await _tapExpandedMoreAction(tester, 3);
+    await tester.pump(const Duration(milliseconds: 260));
+    await tester.pump();
+
+    expect(_FakeFeedbackRepository.inputs, hasLength(1));
+    expect(
+      _FakeFeedbackRepository.inputs.single.rating,
+      FeedbackRating.negative,
+    );
+    expect(_FakeFeedbackRepository.inputs.single.tags, <String>[
+      'dislike_result',
+    ]);
+  });
+
+  testWidgets(
+    'more action removes record from gallery without deleting asset',
+    (WidgetTester tester) async {
+      final File processedFile = _writeImageFile('processed-remove');
+      final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+        _job(
+          id: 'remove',
+          status: GenerationSubmissionStatus.resultSaved,
+          processedResultPath: processedFile.path,
+        ),
+      ];
+
+      await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('generation-submission-photo-remove'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('generation-submission-more-actions'),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 320));
+      await _tapExpandedMoreAction(tester, 4);
+      await tester.pump(const Duration(milliseconds: 260));
+      await tester.pump();
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('generation-submission-photo-remove'),
+        ),
+        findsNothing,
+      );
+      expect(_FakePhotoLibraryAssetStore.deletedAssetIds, isEmpty);
+    },
+  );
 
   testWidgets('tapping gallery picker queues selected image for confirmation', (
     WidgetTester tester,
@@ -565,16 +955,35 @@ Future<void> _pumpModalHost(WidgetTester tester, _ModalHost host) async {
   await tester.pump();
 }
 
+Future<void> _tapExpandedMoreAction(WidgetTester tester, int index) async {
+  final Finder hitRegion = find.byKey(
+    const ValueKey<String>('generation-submission-more-hit-region'),
+  );
+  for (int attempt = 0; attempt < 10; attempt += 1) {
+    final Rect rect = tester.getRect(hitRegion);
+    if (rect.height >= 200) {
+      break;
+    }
+    await tester.pump(const Duration(milliseconds: 40));
+  }
+  final Rect rect = tester.getRect(hitRegion);
+  expect(rect.height, greaterThanOrEqualTo(200));
+  await tester.tapAt(Offset(rect.center.dx, rect.top + 10 + index * 42 + 21));
+}
+
 class _ModalHost extends StatefulWidget {
   const _ModalHost({
+    super.key,
     required this.jobs,
     this.imagePicker,
+    this.heroImagePrecache,
     this.uploadRepository,
     this.taskRepository,
   });
 
   final List<GenerationSubmissionJob> jobs;
   final _FakeGalleryImagePicker? imagePicker;
+  final HeroImagePrecache? heroImagePrecache;
   final _FakeUploadRepository? uploadRepository;
   final _FakeGenerationTaskRepository? taskRepository;
 
@@ -593,8 +1002,17 @@ class _ModalHostState extends State<_ModalHost> {
 
   Future<List<GenerationRecord>> _seedRecords() async {
     _FakePhotoLibraryAssetStore.resultPaths.clear();
+    _FakePhotoLibraryAssetStore.librarySavePaths.clear();
+    _FakePhotoLibraryAssetStore.librarySaveFileNames.clear();
+    _FakePhotoLibraryAssetStore.deletedAssetIds.clear();
+    _FakePhotoLibraryAssetStore.openPhotoLibraryCount = 0;
+    _FakeFeedbackRepository.inputs.clear();
     await _seedJobs(widget.jobs, _recordRepository);
     return _recordRepository.listRecords();
+  }
+
+  Future<void> replaceJobs(List<GenerationSubmissionJob> jobs) async {
+    await _recordRepository.replaceJobs(jobs);
   }
 
   @override
@@ -623,6 +1041,12 @@ class _ModalHostState extends State<_ModalHost> {
         ),
         galleryImagePickerProvider.overrideWithValue(
           widget.imagePicker ?? _FakeGalleryImagePicker(null),
+        ),
+        heroImagePrecacheProvider.overrideWithValue(
+          widget.heroImagePrecache ??
+              (ImageProvider imageProvider) async {
+                return true;
+              },
         ),
         uploadRepositoryProvider.overrideWithValue(
           widget.uploadRepository ?? _FakeUploadRepository(),
@@ -688,11 +1112,25 @@ class _NotifyingGenerationRecordRepository extends GenerationRecordRepository {
   _NotifyingGenerationRecordRepository(super.database, this._recordsController);
 
   final StreamController<List<GenerationRecord>> _recordsController;
+  bool _suspendEmits = false;
 
   Future<void> _emitRecords() async {
-    if (!_recordsController.isClosed) {
+    if (!_suspendEmits && !_recordsController.isClosed) {
       _recordsController.add(await listRecords());
     }
+  }
+
+  Future<void> replaceJobs(List<GenerationSubmissionJob> jobs) async {
+    _suspendEmits = true;
+    try {
+      for (final GenerationRecord record in await listRecords()) {
+        await super.deleteRecord(record.recordId);
+      }
+      await _seedJobs(jobs, this);
+    } finally {
+      _suspendEmits = false;
+    }
+    await _emitRecords();
   }
 
   @override
@@ -1027,6 +1465,10 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   const _FakePhotoLibraryAssetStore();
 
   static final Map<String, String> resultPaths = <String, String>{};
+  static final List<String> librarySavePaths = <String>[];
+  static final List<String> librarySaveFileNames = <String>[];
+  static final List<String> deletedAssetIds = <String>[];
+  static int openPhotoLibraryCount = 0;
 
   @override
   Future<SavedPhotoLibraryImage> saveImage(
@@ -1038,19 +1480,37 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   }
 
   @override
+  Future<SavedPhotoLibraryImage> saveImageToLibrary(
+    String path, {
+    required String fileName,
+  }) async {
+    librarySavePaths.add(path);
+    librarySaveFileNames.add(fileName);
+    return const SavedPhotoLibraryImage(assetId: 'asset-original-1');
+  }
+
+  @override
   Future<String?> resolveImagePath(String assetId) async {
     return resultPaths[assetId];
   }
 
   @override
   Future<void> setFavorite(String assetId, {required bool isFavorite}) async {}
+
+  @override
+  Future<void> openPhotoLibrary() async {
+    openPhotoLibraryCount += 1;
+  }
 }
 
 class _FakeFeedbackRepository implements FeedbackRepository {
   const _FakeFeedbackRepository();
 
+  static final List<FeedbackInput> inputs = <FeedbackInput>[];
+
   @override
   Future<FeedbackSubmission> submitFeedback(FeedbackInput input) async {
+    inputs.add(input);
     return FeedbackSubmission(
       id: 'feedback-${input.taskId}',
       taskId: input.taskId,

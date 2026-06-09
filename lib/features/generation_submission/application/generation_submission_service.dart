@@ -46,9 +46,18 @@ class GenerationSubmissionService extends ChangeNotifier {
   final GenerationOriginalFileStore _originalFileStore;
   final PhotoLibraryAssetStore _photoLibraryAssetStore;
   final GenerationImageProcessor _imageProcessor;
+  final Map<String, Future<void>> _submissionOperations =
+      <String, Future<void>>{};
   final Map<String, Timer> _pollingTimers = <String, Timer>{};
+  final Map<String, Future<void>> _pollingOperations = <String, Future<void>>{};
+  final Map<String, Timer> _resultRetryTimers = <String, Timer>{};
+  final Map<String, Future<String?>> _resultUrlOperations =
+      <String, Future<String?>>{};
+  final Map<String, Future<void>> _resultProcessingOperations =
+      <String, Future<void>>{};
   final Map<String, _RuntimeGenerationRecordState> _runtimeState =
       <String, _RuntimeGenerationRecordState>{};
+  Future<void>? _resumeActiveRecordsOperation;
 
   int _nextJobId = 0;
 
@@ -194,6 +203,7 @@ class GenerationSubmissionService extends ChangeNotifier {
     }
     _debugLog('cancel record=$recordId');
     _stopTaskPolling(recordId);
+    _cancelResultRetry(recordId);
     if (record.originalSourceType ==
             GenerationRecordOriginalSourceType.camera.name &&
         record.originalLocalPath != null) {
@@ -221,7 +231,14 @@ class GenerationSubmissionService extends ChangeNotifier {
       return null;
     }
 
-    return _loadResultUrlForRecord(record);
+    try {
+      return await _loadResultUrlForRecord(record);
+    } on _ResultUrlNotReadyException {
+      _debugLog(
+        'result url deferred record=$recordId task=${record.taskId} reason=result-not-ready',
+      );
+      return null;
+    }
   }
 
   Future<void> pollTaskNowForDebug(String recordId) async {
@@ -233,6 +250,83 @@ class GenerationSubmissionService extends ChangeNotifier {
       return;
     }
     await _pollTask(recordId: recordId, taskId: taskId);
+  }
+
+  Future<void> resumeActiveRecords() async {
+    final Future<void>? running = _resumeActiveRecordsOperation;
+    if (running != null) {
+      _debugLog('resume active records skipped reason=in-flight');
+      return running;
+    }
+    final Future<void> operation = _resumeActiveRecordsOnce();
+    _resumeActiveRecordsOperation = operation;
+    try {
+      await operation;
+    } finally {
+      _resumeActiveRecordsOperation = null;
+    }
+  }
+
+  Future<void> _resumeActiveRecordsOnce() async {
+    final List<GenerationRecord> records = await _generationRecordRepository
+        .listActiveRecords();
+    _debugLog('resume active records count=${records.length}');
+    for (final GenerationRecord record in records) {
+      await _resumeRecord(record);
+    }
+    notifyListeners();
+  }
+
+  Future<void> retryJob(String recordId) async {
+    final GenerationRecord? record = await _generationRecordRepository.findById(
+      recordId,
+    );
+    if (record == null) {
+      _debugLog('retry skipped record=$recordId reason=missing-record');
+      return;
+    }
+
+    final GenerationRecordPipelineStatus status =
+        generationRecordPipelineStatusFromName(record.pipelineStatus);
+    if (status != GenerationRecordPipelineStatus.generationFailed &&
+        status != GenerationRecordPipelineStatus.resultSaveFailed) {
+      _debugLog(
+        'retry skipped record=$recordId reason=status-${record.pipelineStatus}',
+      );
+      return;
+    }
+
+    _debugLog('retry start record=$recordId status=${record.pipelineStatus}');
+    _stopTaskPolling(recordId);
+    _cancelResultRetry(recordId);
+    _runtimeState.remove(recordId);
+
+    if (status == GenerationRecordPipelineStatus.resultSaveFailed &&
+        record.taskId != null) {
+      await _generationRecordRepository.updatePipelineStatus(
+        recordId: recordId,
+        status: GenerationRecordPipelineStatus.completed,
+        updatedAt: DateTime.now(),
+        clearError: true,
+      );
+      await _processCompletedResult(recordId: recordId, taskId: record.taskId!);
+      notifyListeners();
+      return;
+    }
+
+    await _generationRecordRepository.resetForRetry(
+      recordId: recordId,
+      updatedAt: DateTime.now(),
+    );
+    final GenerationRecord? retryRecord = await _generationRecordRepository
+        .findById(recordId);
+    if (retryRecord == null) {
+      _debugLog('retry aborted record=$recordId reason=missing-after-reset');
+      notifyListeners();
+      return;
+    }
+    await _submitRecord(retryRecord);
+    notifyListeners();
   }
 
   Future<void> toggleResultFavorite(String recordId) async {
@@ -281,9 +375,155 @@ class GenerationSubmissionService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> openPhotoLibrary(String recordId) async {
+    final GenerationRecord? record = await _generationRecordRepository.findById(
+      recordId,
+    );
+    if (record == null) {
+      _debugLog(
+        'open photo library skipped record=$recordId reason=missing-record',
+      );
+      return;
+    }
+    _debugLog(
+      'open photo library start record=$recordId resultAsset=${record.resultAssetId ?? 'none'} originalAsset=${record.originalAssetId ?? 'none'}',
+    );
+    await _photoLibraryAssetStore.openPhotoLibrary();
+    _debugLog('open photo library success record=$recordId');
+  }
+
+  Future<void> saveOriginalToPhotoLibrary(String recordId) async {
+    final GenerationRecord? record = await _generationRecordRepository.findById(
+      recordId,
+    );
+    if (record == null) {
+      _debugLog('save original skipped record=$recordId reason=missing-record');
+      return;
+    }
+    if (!_canSaveOriginalToPhotoLibrary(record)) {
+      _debugLog(
+        'save original skipped record=$recordId reason=not-camera-local source=${record.originalSourceType} availability=${record.originalAvailability}',
+      );
+      return;
+    }
+
+    final String? sourcePath = await _sourcePathForRecord(record);
+    if (sourcePath == null || sourcePath.isEmpty) {
+      _debugLog('save original skipped record=$recordId reason=missing-source');
+      return;
+    }
+
+    try {
+      _debugLog('save original start record=$recordId path=$sourcePath');
+      final SavedPhotoLibraryImage savedImage = await _photoLibraryAssetStore
+          .saveImageToLibrary(
+            sourcePath,
+            fileName: AppConfig.generationOriginalFileName(
+              recordId,
+              sourcePath,
+            ),
+          );
+      _debugLog(
+        'save original success record=$recordId asset=${savedImage.assetId}',
+      );
+    } on Object catch (error) {
+      _debugLog('save original failure record=$recordId error=$error');
+      rethrow;
+    }
+  }
+
+  Future<void> submitNegativeFeedback(String recordId) async {
+    final GenerationRecord? record = await _generationRecordRepository.findById(
+      recordId,
+    );
+    if (record == null) {
+      _debugLog(
+        'negative feedback skipped record=$recordId reason=missing-record',
+      );
+      return;
+    }
+    final String? taskId = record.taskId;
+    if (taskId == null || taskId.isEmpty) {
+      _debugLog(
+        'negative feedback skipped record=$recordId reason=missing-task',
+      );
+      return;
+    }
+    try {
+      _debugLog('negative feedback start record=$recordId task=$taskId');
+      await _feedbackRepository.submitFeedback(
+        FeedbackInput(
+          taskId: taskId,
+          rating: FeedbackRating.negative,
+          tags: const <String>['dislike_result'],
+          metadata: const <String, Object?>{'entry': 'gallery_more_menu'},
+        ),
+      );
+      _debugLog('negative feedback success record=$recordId task=$taskId');
+    } on BackendApiFailure catch (error) {
+      _debugLog(
+        'negative feedback backend failure record=$recordId task=$taskId code=${error.code} status=${error.statusCode} message=${error.message}',
+      );
+      rethrow;
+    } on Object catch (error) {
+      _debugLog(
+        'negative feedback local failure record=$recordId task=$taskId error=$error',
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> removeRecord(String recordId) async {
+    final GenerationRecord? record = await _generationRecordRepository.findById(
+      recordId,
+    );
+    if (record == null) {
+      _debugLog('remove skipped record=$recordId reason=missing-record');
+      return;
+    }
+
+    _debugLog(
+      'remove start record=$recordId status=${record.pipelineStatus} resultAsset=${record.resultAssetId ?? 'none'}',
+    );
+    _stopTaskPolling(recordId);
+    _cancelResultRetry(recordId);
+    _submissionOperations.remove(recordId);
+    _resultUrlOperations.remove(recordId);
+    _resultProcessingOperations.remove(recordId);
+
+    if (record.originalSourceType ==
+            GenerationRecordOriginalSourceType.camera.name &&
+        record.originalLocalPath != null) {
+      await _originalFileStore.deleteOriginal(record.originalLocalPath!);
+    }
+    final String? resultLocalCachePath = record.resultLocalCachePath;
+    if (resultLocalCachePath != null && resultLocalCachePath.isNotEmpty) {
+      await _deleteTemporaryResultFile(
+        recordId: recordId,
+        path: resultLocalCachePath,
+      );
+    }
+    final String? runtimeResultPath =
+        _runtimeState[recordId]?.processedResultPath;
+    if (runtimeResultPath != null &&
+        runtimeResultPath.isNotEmpty &&
+        runtimeResultPath != resultLocalCachePath &&
+        record.resultAssetId == null) {
+      await _deleteTemporaryResultFile(
+        recordId: recordId,
+        path: runtimeResultPath,
+      );
+    }
+    _runtimeState.remove(recordId);
+    await _generationRecordRepository.deleteRecord(recordId);
+    _debugLog('remove success record=$recordId');
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _cancelAllPolling();
+    _cancelAllResultRetries();
     super.dispose();
   }
 
@@ -331,7 +571,32 @@ class GenerationSubmissionService extends ChangeNotifier {
     }
   }
 
+  bool _canSaveOriginalToPhotoLibrary(GenerationRecord record) {
+    return record.originalSourceType ==
+            GenerationRecordOriginalSourceType.camera.name &&
+        record.originalAvailability ==
+            GenerationRecordOriginalAvailability.available.name &&
+        record.originalLocalPath != null &&
+        record.originalLocalPath!.isNotEmpty;
+  }
+
   Future<void> _submitRecord(GenerationRecord record) async {
+    final String recordId = record.recordId;
+    final Future<void>? running = _submissionOperations[recordId];
+    if (running != null) {
+      _debugLog('submit skipped record=$recordId reason=in-flight');
+      return running;
+    }
+    final Future<void> operation = _submitRecordOnce(record);
+    _submissionOperations[recordId] = operation;
+    try {
+      await operation;
+    } finally {
+      _submissionOperations.remove(recordId);
+    }
+  }
+
+  Future<void> _submitRecordOnce(GenerationRecord record) async {
     final String recordId = record.recordId;
     String stage = 'queued';
     final String? sourcePath = await _sourcePathForRecord(record);
@@ -482,6 +747,89 @@ class GenerationSubmissionService extends ChangeNotifier {
     }
   }
 
+  Future<void> _resumeRecord(GenerationRecord record) async {
+    final GenerationRecordPipelineStatus status =
+        generationRecordPipelineStatusFromName(record.pipelineStatus);
+    final String recordId = record.recordId;
+    _debugLog(
+      'resume record=$recordId status=${record.pipelineStatus} task=${record.taskId ?? 'none'}',
+    );
+
+    switch (status) {
+      case GenerationRecordPipelineStatus.submitted:
+      case GenerationRecordPipelineStatus.pollingTask:
+        final String? taskId = record.taskId;
+        if (taskId == null || taskId.isEmpty) {
+          _debugLog('resume resubmit record=$recordId reason=missing-task');
+          await _generationRecordRepository.resetForRetry(
+            recordId: recordId,
+            updatedAt: DateTime.now(),
+          );
+          final GenerationRecord? retryRecord =
+              await _generationRecordRepository.findById(recordId);
+          if (retryRecord != null) {
+            await _submitRecord(retryRecord);
+          }
+          return;
+        }
+        await _resumeTaskPolling(recordId: recordId, taskId: taskId);
+      case GenerationRecordPipelineStatus.completed:
+      case GenerationRecordPipelineStatus.processingResultImage:
+      case GenerationRecordPipelineStatus.resultSaveFailed:
+        final String? taskId = record.taskId;
+        if (taskId == null || taskId.isEmpty) {
+          _debugLog(
+            'resume resubmit completed-like record=$recordId reason=missing-task',
+          );
+          await _generationRecordRepository.resetForRetry(
+            recordId: recordId,
+            updatedAt: DateTime.now(),
+          );
+          final GenerationRecord? retryRecord =
+              await _generationRecordRepository.findById(recordId);
+          if (retryRecord != null) {
+            await _submitRecord(retryRecord);
+          }
+          return;
+        }
+        if (status != GenerationRecordPipelineStatus.completed) {
+          await _generationRecordRepository.updatePipelineStatus(
+            recordId: recordId,
+            status: GenerationRecordPipelineStatus.completed,
+            updatedAt: DateTime.now(),
+            clearError: true,
+          );
+        }
+        await _processCompletedResult(recordId: recordId, taskId: taskId);
+      case GenerationRecordPipelineStatus.preparingUploadImage:
+      case GenerationRecordPipelineStatus.creatingUpload:
+      case GenerationRecordPipelineStatus.uploading:
+      case GenerationRecordPipelineStatus.completingUpload:
+      case GenerationRecordPipelineStatus.creatingTask:
+        _debugLog(
+          'resume resubmit record=$recordId reason=interrupted-${record.pipelineStatus}',
+        );
+        await _generationRecordRepository.resetForRetry(
+          recordId: recordId,
+          updatedAt: DateTime.now(),
+        );
+        final GenerationRecord? retryRecord = await _generationRecordRepository
+            .findById(recordId);
+        if (retryRecord != null) {
+          await _submitRecord(retryRecord);
+        }
+      case GenerationRecordPipelineStatus.awaitingConfirmation:
+      case GenerationRecordPipelineStatus.awaitingRetry:
+      case GenerationRecordPipelineStatus.localOriginalSaveFailed:
+      case GenerationRecordPipelineStatus.resultSaved:
+      case GenerationRecordPipelineStatus.generationFailed:
+      case GenerationRecordPipelineStatus.canceled:
+        _debugLog(
+          'resume skipped record=$recordId reason=${record.pipelineStatus}',
+        );
+    }
+  }
+
   bool _canLoadResultUrl(GenerationSubmissionStatus status) {
     return status == GenerationSubmissionStatus.completed ||
         status == GenerationSubmissionStatus.processingResultImage ||
@@ -497,6 +845,26 @@ class GenerationSubmissionService extends ChangeNotifier {
       _debugLog('result url cache hit record=$recordId task=${record.taskId}');
       return runtime.resultUrl;
     }
+
+    final Future<String?>? running = _resultUrlOperations[recordId];
+    if (running != null) {
+      _debugLog(
+        'result url skipped record=$recordId task=${record.taskId} reason=in-flight',
+      );
+      return running;
+    }
+    final Future<String?> operation = _loadResultUrlForRecordOnce(record);
+    _resultUrlOperations[recordId] = operation;
+    try {
+      return await operation;
+    } finally {
+      _resultUrlOperations.remove(recordId);
+    }
+  }
+
+  Future<String?> _loadResultUrlForRecordOnce(GenerationRecord record) async {
+    final String recordId = record.recordId;
+    final _RuntimeGenerationRecordState runtime = _runtimeFor(recordId);
 
     try {
       _debugLog(
@@ -525,6 +893,9 @@ class GenerationSubmissionService extends ChangeNotifier {
       _debugLog(
         'result url backend failure record=$recordId task=${record.taskId} code=${error.code} status=${error.statusCode} message=${error.message}',
       );
+      if (_isResultNotReadyFailure(error)) {
+        throw const _ResultUrlNotReadyException();
+      }
       await _generationRecordRepository.updatePipelineStatus(
         recordId: recordId,
         status: generationRecordPipelineStatusFromName(record.pipelineStatus),
@@ -549,15 +920,54 @@ class GenerationSubmissionService extends ChangeNotifier {
   }
 
   void _startTaskPolling({required String recordId, required String taskId}) {
-    _pollingTimers.remove(recordId)?.cancel();
+    if (_pollingTimers.containsKey(recordId)) {
+      _debugLog('polling already active record=$recordId task=$taskId');
+      return;
+    }
     _debugLog('polling start record=$recordId task=$taskId');
-    unawaited(_pollTask(recordId: recordId, taskId: taskId));
     _pollingTimers[recordId] = Timer.periodic(_taskPollInterval, (_) {
       unawaited(_pollTask(recordId: recordId, taskId: taskId));
     });
+    unawaited(_pollTask(recordId: recordId, taskId: taskId));
+  }
+
+  Future<void> _resumeTaskPolling({
+    required String recordId,
+    required String taskId,
+  }) async {
+    if (!_pollingTimers.containsKey(recordId)) {
+      _debugLog('polling resume start record=$recordId task=$taskId');
+      _pollingTimers[recordId] = Timer.periodic(_taskPollInterval, (_) {
+        unawaited(_pollTask(recordId: recordId, taskId: taskId));
+      });
+    } else {
+      _debugLog('polling already active record=$recordId task=$taskId');
+    }
+    await _pollTask(recordId: recordId, taskId: taskId);
   }
 
   Future<void> _pollTask({
+    required String recordId,
+    required String taskId,
+  }) async {
+    final Future<void>? running = _pollingOperations[recordId];
+    if (running != null) {
+      _debugLog('poll skipped record=$recordId task=$taskId reason=in-flight');
+      return running;
+    }
+    final Future<void> operation = _pollTaskOnce(
+      recordId: recordId,
+      taskId: taskId,
+    );
+    _pollingOperations[recordId] = operation;
+    try {
+      await operation;
+    } finally {
+      _pollingOperations.remove(recordId);
+    }
+  }
+
+  Future<void> _pollTaskOnce({
     required String recordId,
     required String taskId,
   }) async {
@@ -687,6 +1097,29 @@ class GenerationSubmissionService extends ChangeNotifier {
     required String recordId,
     required String taskId,
   }) async {
+    final Future<void>? running = _resultProcessingOperations[recordId];
+    if (running != null) {
+      _debugLog(
+        'process result skipped record=$recordId task=$taskId reason=in-flight',
+      );
+      return running;
+    }
+    final Future<void> operation = _processCompletedResultOnce(
+      recordId: recordId,
+      taskId: taskId,
+    );
+    _resultProcessingOperations[recordId] = operation;
+    try {
+      await operation;
+    } finally {
+      _resultProcessingOperations.remove(recordId);
+    }
+  }
+
+  Future<void> _processCompletedResultOnce({
+    required String recordId,
+    required String taskId,
+  }) async {
     final GenerationRecord? record = await _generationRecordRepository.findById(
       recordId,
     );
@@ -711,7 +1144,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         GenerationRecordPipelineStatus.processingResultImage,
         clearError: true,
       );
-      final String? resultUrl = await loadResultUrl(recordId);
+      final String? resultUrl = await _loadResultUrlForRecord(record);
       if (resultUrl == null) {
         throw StateError('Result URL was not available.');
       }
@@ -744,7 +1177,19 @@ class GenerationSubmissionService extends ChangeNotifier {
         resultSavedAt: savedAt,
         resultSizeBytes: result.bytes.length,
       );
+      _cancelResultRetry(recordId);
       await _deleteTemporaryResultFile(recordId: recordId, path: result.path);
+    } on _ResultUrlNotReadyException {
+      _debugLog(
+        'process result deferred record=$recordId task=$taskId reason=result-not-ready',
+      );
+      await _generationRecordRepository.updatePipelineStatus(
+        recordId: recordId,
+        status: GenerationRecordPipelineStatus.completed,
+        updatedAt: DateTime.now(),
+        clearError: true,
+      );
+      _scheduleResultProcessingRetry(recordId: recordId, taskId: taskId);
     } on Object catch (error) {
       _debugLog(
         'process result pipeline failure record=$recordId error=$error',
@@ -827,6 +1272,60 @@ class GenerationSubmissionService extends ChangeNotifier {
     _pollingTimers.clear();
   }
 
+  void _scheduleResultProcessingRetry({
+    required String recordId,
+    required String taskId,
+  }) {
+    if (_resultRetryTimers.containsKey(recordId)) {
+      _debugLog('result retry already scheduled record=$recordId task=$taskId');
+      return;
+    }
+    _debugLog('result retry scheduled record=$recordId task=$taskId');
+    _resultRetryTimers[recordId] = Timer(_taskPollInterval, () {
+      _resultRetryTimers.remove(recordId);
+      unawaited(
+        _retryProcessCompletedResult(recordId: recordId, taskId: taskId),
+      );
+    });
+  }
+
+  Future<void> _retryProcessCompletedResult({
+    required String recordId,
+    required String taskId,
+  }) async {
+    final GenerationRecord? record = await _generationRecordRepository.findById(
+      recordId,
+    );
+    if (record == null ||
+        record.taskId != taskId ||
+        record.pipelineStatus !=
+            GenerationRecordPipelineStatus.completed.name) {
+      _debugLog(
+        'result retry skipped record=$recordId task=$taskId reason=status-${record?.pipelineStatus ?? 'missing'}',
+      );
+      return;
+    }
+    await _processCompletedResult(recordId: recordId, taskId: taskId);
+    notifyListeners();
+  }
+
+  void _cancelResultRetry(String recordId) {
+    final Timer? timer = _resultRetryTimers.remove(recordId);
+    timer?.cancel();
+  }
+
+  void _cancelAllResultRetries() {
+    if (_resultRetryTimers.isNotEmpty) {
+      _debugLog(
+        'dispose cancel result retries count=${_resultRetryTimers.length}',
+      );
+    }
+    for (final Timer timer in _resultRetryTimers.values) {
+      timer.cancel();
+    }
+    _resultRetryTimers.clear();
+  }
+
   Future<GenerationSubmissionJob?> _jobForRecord(
     GenerationRecord record,
   ) async {
@@ -853,6 +1352,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         promptSelection: _promptSelectionForRecord(record),
         processedResultPath: processedResultPath,
         resultAssetId: record.resultAssetId,
+        canSaveOriginalToPhotoLibrary: _canSaveOriginalToPhotoLibrary(record),
         isResultFavorite: record.resultIsFavorite,
         resultFavoriteFeedbackSubmittedAt:
             record.resultFavoriteFeedbackSubmittedAt,
@@ -888,6 +1388,7 @@ class GenerationSubmissionService extends ChangeNotifier {
       sourceExif: runtime?.sourceExif,
       processedResultPath: processedResultPath,
       resultAssetId: record.resultAssetId,
+      canSaveOriginalToPhotoLibrary: _canSaveOriginalToPhotoLibrary(record),
       isResultFavorite: record.resultIsFavorite,
       resultFavoriteFeedbackSubmittedAt:
           record.resultFavoriteFeedbackSubmittedAt,
@@ -1062,6 +1563,10 @@ class GenerationSubmissionService extends ChangeNotifier {
         status == GenerationSubmissionStatus.failed;
   }
 
+  bool _isResultNotReadyFailure(BackendApiFailure error) {
+    return error.code == 'result_not_ready';
+  }
+
   _RuntimeGenerationRecordState _runtimeFor(String recordId) {
     return _runtimeState.putIfAbsent(
       recordId,
@@ -1072,6 +1577,10 @@ class GenerationSubmissionService extends ChangeNotifier {
   void _debugLog(String message) {
     debugPrint('[GenerationSubmissionService] $message');
   }
+}
+
+class _ResultUrlNotReadyException implements Exception {
+  const _ResultUrlNotReadyException();
 }
 
 class _RuntimeGenerationRecordState {

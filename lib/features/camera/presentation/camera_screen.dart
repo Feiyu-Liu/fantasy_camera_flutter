@@ -45,6 +45,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(
+        ref
+            .read(generationSubmissionControllerProvider.notifier)
+            .resumeActiveRecords(),
+      );
       unawaited(ref.read(cameraStateProvider.notifier).openDefaultCamera());
     });
   }

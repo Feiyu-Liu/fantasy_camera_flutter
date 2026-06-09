@@ -60,6 +60,22 @@ class AppConfig {
         '$generationResultFileExtension';
   }
 
+  // 用户手动保存原图到系统相册时使用的文件名规范。
+  static const String generationOriginalFileNamePrefix = 'TesserCam-Original';
+
+  static String generationOriginalFileName(String recordId, String path) {
+    final String extension = _fileExtension(path, fallback: 'heic');
+    return '$generationOriginalFileNamePrefix-$recordId.$extension';
+  }
+
+  static String _fileExtension(String path, {required String fallback}) {
+    final int dotIndex = path.lastIndexOf('.');
+    if (dotIndex < 0 || dotIndex == path.length - 1) {
+      return fallback;
+    }
+    return path.substring(dotIndex + 1).toLowerCase();
+  }
+
   // 上传前清洗图片的最长边目标像素。保持比例缩放到 2K 水平。
   static const int generationUploadImageMaxSide = 2048;
 
