@@ -338,7 +338,6 @@ class _GenerationSubmissionDebugModalState
                     child: _RelatedMomentsStrip(
                       jobs: jobs,
                       selectedJob: selectedJob,
-                      displayStates: _heroDisplayStates,
                       pickingGalleryImage: _pickingGalleryImage,
                       onPickGalleryImage: _pickGalleryImage,
                       onSelectJob: _selectJobFromStrip,
@@ -1031,7 +1030,6 @@ class _RelatedMomentsStrip extends StatelessWidget {
   const _RelatedMomentsStrip({
     required this.jobs,
     required this.selectedJob,
-    required this.displayStates,
     required this.pickingGalleryImage,
     required this.onPickGalleryImage,
     required this.onSelectJob,
@@ -1042,7 +1040,6 @@ class _RelatedMomentsStrip extends StatelessWidget {
 
   final List<GenerationSubmissionJob> jobs;
   final GenerationSubmissionJob? selectedJob;
-  final Map<String, _GalleryHeroDisplayState> displayStates;
   final bool pickingGalleryImage;
   final VoidCallback onPickGalleryImage;
   final ValueChanged<GenerationSubmissionJob> onSelectJob;
@@ -1122,7 +1119,6 @@ class _RelatedMomentsStrip extends StatelessWidget {
                           height: tileHeight,
                           job: job,
                           selected: selectedJob?.id == job.id,
-                          displayState: _displayStateForJob(job),
                           onTap: () => onSelectJob(job),
                           onConfirm:
                               job.status ==
@@ -1169,26 +1165,6 @@ class _RelatedMomentsStrip extends StatelessWidget {
   bool _canRetryJob(GenerationSubmissionJob job) {
     return job.status == GenerationSubmissionStatus.failed ||
         job.status == GenerationSubmissionStatus.resultProcessingFailed;
-  }
-
-  _GalleryHeroDisplayState _displayStateForJob(GenerationSubmissionJob job) {
-    final _GalleryHeroDisplayState? state = displayStates[job.id];
-    if (state != null) {
-      return state;
-    }
-    if ((job.status == GenerationSubmissionStatus.resultSaved &&
-            job.processedResultPath != null) ||
-        (job.status == GenerationSubmissionStatus.completed &&
-            job.resultUrl != null)) {
-      return const _GalleryHeroDisplayState(
-        displayedKind: _GalleryHeroImageKind.result,
-        phase: _GalleryHeroArrivalPhase.done,
-      );
-    }
-    return const _GalleryHeroDisplayState(
-      displayedKind: _GalleryHeroImageKind.original,
-      phase: _GalleryHeroArrivalPhase.idle,
-    );
   }
 }
 
@@ -1284,7 +1260,6 @@ class _JobThumbnail extends StatelessWidget {
     required this.height,
     required this.job,
     required this.selected,
-    required this.displayState,
     required this.onTap,
     required this.onConfirm,
     required this.onCancel,
@@ -1295,7 +1270,6 @@ class _JobThumbnail extends StatelessWidget {
   final double height;
   final GenerationSubmissionJob job;
   final bool selected;
-  final _GalleryHeroDisplayState displayState;
   final VoidCallback onTap;
   final VoidCallback? onConfirm;
   final VoidCallback? onCancel;
@@ -1303,11 +1277,11 @@ class _JobThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String? thumbnailResultPath =
-        displayState.displayedKind == _GalleryHeroImageKind.result &&
-            job.status == GenerationSubmissionStatus.resultSaved
-        ? job.processedResultPath
-        : null;
+    final String thumbnailImagePath =
+        job.status == GenerationSubmissionStatus.resultSaved &&
+            job.processedResultPath != null
+        ? job.processedResultPath!
+        : job.imagePath;
     return GestureDetector(
       key: ValueKey<String>('generation-submission-photo-${job.id}'),
       onTap: onTap,
@@ -1326,7 +1300,7 @@ class _JobThumbnail extends StatelessWidget {
           children: <Widget>[
             _ThumbnailImage(
               key: ValueKey<String>('generation-thumbnail-image-${job.id}'),
-              path: thumbnailResultPath ?? job.imagePath,
+              path: thumbnailImagePath,
             ),
             if (onRetry == null)
               Positioned(
@@ -2189,7 +2163,7 @@ class _HeroToolbar extends StatefulWidget {
 
 class _HeroToolbarState extends State<_HeroToolbar>
     with SingleTickerProviderStateMixin {
-  static const Duration _expandDuration = Duration(milliseconds: 280);
+  static const Duration _expandDuration = Duration(milliseconds: 500);
   static const Duration _collapseDuration = Duration(milliseconds: 220);
   static const double _collapsedWidth = 116;
   static const double _collapsedHeight = 44;
@@ -2203,7 +2177,7 @@ class _HeroToolbarState extends State<_HeroToolbar>
   );
   late final Animation<double> _expandCurve = CurvedAnimation(
     parent: _controller,
-    curve: Curves.easeOutCubic,
+    curve: const ElasticOutCurve(1.2),
     reverseCurve: Curves.easeInCubic,
   );
   late final Animation<double> _toolsOpacity = Tween<double>(begin: 1, end: 0)
