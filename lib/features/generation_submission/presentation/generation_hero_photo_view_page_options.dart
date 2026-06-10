@@ -33,9 +33,11 @@ PhotoViewGalleryPageOptions generationHeroBlurredSwapPageOptions({
   required PhotoViewController controller,
   required Alignment basePosition,
   required String semanticLabel,
+  required Key originalMarkerKey,
   required Key replacementMarkerKey,
   required ImageErrorWidgetBuilder originalErrorBuilder,
   required ImageErrorWidgetBuilder replacementErrorBuilder,
+  VoidCallback? onCompleted,
 }) {
   return _generationHeroPageOptions(
     controller: controller,
@@ -46,17 +48,24 @@ PhotoViewGalleryPageOptions generationHeroBlurredSwapPageOptions({
       size: childSize,
       markerKey: replacementMarkerKey,
       child: RepaintBoundary(
-        child: BlurredImageSwapTransition(
-          original: _GenerationHeroImage(
-            imageProvider: originalImageProvider,
-            errorBuilder: originalErrorBuilder,
-          ),
-          replacement: _GenerationHeroImage(
-            imageProvider: replacementImageProvider,
-            errorBuilder: replacementErrorBuilder,
-          ),
-          showReplacement: true,
-          animateInitialReplacement: true,
+        child: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            BlurredImageSwapTransition(
+              original: _GenerationHeroImage(
+                imageProvider: originalImageProvider,
+                errorBuilder: originalErrorBuilder,
+              ),
+              replacement: _GenerationHeroImage(
+                imageProvider: replacementImageProvider,
+                errorBuilder: replacementErrorBuilder,
+              ),
+              showReplacement: true,
+              animateInitialReplacement: true,
+              onCompleted: (_) => onCompleted?.call(),
+            ),
+            IgnorePointer(child: SizedBox.shrink(key: originalMarkerKey)),
+          ],
         ),
       ),
     ),
@@ -132,6 +141,7 @@ class _GenerationHeroImage extends StatelessWidget {
       image: imageProvider,
       fit: BoxFit.contain,
       filterQuality: FilterQuality.medium,
+      gaplessPlayback: true,
       errorBuilder: errorBuilder,
     );
   }
