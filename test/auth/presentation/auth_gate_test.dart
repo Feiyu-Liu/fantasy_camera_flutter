@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:camera_avfoundation/camera_avfoundation.dart';
@@ -30,6 +31,8 @@ import 'package:fantasy_camera_flutter/features/generation_submission/data/gener
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_original_file_store.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_record.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 
 void main() {
@@ -156,6 +159,69 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('camera gallery thumbnail prefers latest saved result image', (
+    WidgetTester tester,
+  ) async {
+    await usePortraitSurface(tester);
+    final _SeededGenerationService seededGeneration =
+        await _SeededGenerationService.create();
+    addTearDown(seededGeneration.dispose);
+    final String originalPath = _writeImageFile('camera-preview-original').path;
+    final String resultPath = _writeImageFile('camera-preview-result').path;
+    await seededGeneration.seedSavedResult(
+      recordId: 'record-result',
+      originalPath: originalPath,
+      resultPath: resultPath,
+    );
+    final List<GenerationRecord> records = await seededGeneration.repository
+        .listRecords();
+
+    await tester.pumpWidget(
+      FantasyCameraApp(
+        overrides: <Override>[
+          hasSupabaseConfigProvider.overrideWithValue(true),
+          authSessionProvider.overrideWith(
+            (_) => Stream<AuthSessionState>.value(
+              const AuthSessionState.signedIn(
+                AuthUser(id: 'user-1', email: 'user@example.com'),
+              ),
+            ),
+          ),
+          signedInCameraChoicesProvider.overrideWith(
+            (_) async => const <CameraChoice>[],
+          ),
+          creditsRepositoryProvider.overrideWithValue(
+            const _FakeCreditsRepository(),
+          ),
+          generationRecordDatabaseProvider.overrideWithValue(
+            seededGeneration.database,
+          ),
+          generationRecordsProvider.overrideWith((Ref ref) {
+            return Stream<List<GenerationRecord>>.value(records);
+          }),
+          generationSubmissionServiceProvider.overrideWith((Ref ref) {
+            return seededGeneration.service;
+          }),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(ValueKey<String>('camera-gallery-preview-$resultPath')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(ValueKey<String>('camera-gallery-preview-$originalPath')),
+      findsNothing,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
   });
 
   testWidgets('waits for camera choices before mounting camera screen', (
@@ -345,8 +411,78 @@ class _FakeCreditsRepository implements CreditsRepository {
   }
 }
 
+class _SeededGenerationService {
+  _SeededGenerationService._({
+    required this.database,
+    required this.repository,
+    required this.service,
+  });
+
+  final GenerationRecordDatabase database;
+  final GenerationRecordRepository repository;
+  final GenerationSubmissionService service;
+
+  static Future<_SeededGenerationService> create() async {
+    final GenerationRecordDatabase database =
+        GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+    final GenerationRecordRepository repository = GenerationRecordRepository(
+      database,
+    );
+    final GenerationSubmissionService service = GenerationSubmissionService(
+      uploadRepository: const _FakeUploadRepository(),
+      generationTaskRepository: const _FakeGenerationTaskRepository(),
+      feedbackRepository: const _FakeFeedbackRepository(),
+      generationRecordRepository: repository,
+      originalFileStore: const _FakeGenerationOriginalFileStore(),
+      photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
+      imageProcessor: const _FakeGenerationImageProcessor(),
+    );
+    return _SeededGenerationService._(
+      database: database,
+      repository: repository,
+      service: service,
+    );
+  }
+
+  Future<void> seedSavedResult({
+    required String recordId,
+    required String originalPath,
+    required String resultPath,
+  }) async {
+    final DateTime now = DateTime.parse('2026-05-29T00:00:00Z');
+    await repository.createCameraRecord(
+      recordId: recordId,
+      originalLocalPath: originalPath,
+      createdAt: now,
+      promptStyle: 'realistic',
+      captureMode: 'portrait',
+    );
+    _FakePhotoLibraryAssetStore.resultPaths['asset-result-$recordId'] =
+        resultPath;
+    await repository.updatePipelineStatus(
+      recordId: recordId,
+      status: GenerationRecordPipelineStatus.resultSaved,
+      updatedAt: now,
+    );
+    await repository.updateResultFields(
+      recordId: recordId,
+      updatedAt: now,
+      resultAvailability:
+          GenerationRecordResultAvailability.savedToPhotoLibrary,
+      resultAssetId: 'asset-result-$recordId',
+    );
+  }
+
+  void dispose() {
+    service.dispose();
+    database.close();
+  }
+}
+
 class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   const _FakePhotoLibraryAssetStore();
+
+  static final Map<String, String> resultPaths = <String, String>{};
 
   @override
   Future<SavedPhotoLibraryImage> saveImage(
@@ -367,7 +503,7 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
 
   @override
   Future<String?> resolveImagePath(String assetId) async {
-    return null;
+    return resultPaths[assetId];
   }
 
   @override
@@ -471,3 +607,81 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
     throw UnimplementedError();
   }
 }
+
+File _writeImageFile(String id) {
+  final File imageFile = File('${Directory.systemTemp.path}/$id.jpg');
+  if (!imageFile.existsSync()) {
+    imageFile.writeAsBytesSync(_onePixelPng);
+  }
+  return imageFile;
+}
+
+final Uint8List _onePixelPng = Uint8List.fromList(<int>[
+  0x89,
+  0x50,
+  0x4E,
+  0x47,
+  0x0D,
+  0x0A,
+  0x1A,
+  0x0A,
+  0x00,
+  0x00,
+  0x00,
+  0x0D,
+  0x49,
+  0x48,
+  0x44,
+  0x52,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x08,
+  0x06,
+  0x00,
+  0x00,
+  0x00,
+  0x1F,
+  0x15,
+  0xC4,
+  0x89,
+  0x00,
+  0x00,
+  0x00,
+  0x0A,
+  0x49,
+  0x44,
+  0x41,
+  0x54,
+  0x78,
+  0x9C,
+  0x63,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x05,
+  0x00,
+  0x01,
+  0x0D,
+  0x0A,
+  0x2D,
+  0xB4,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x49,
+  0x45,
+  0x4E,
+  0x44,
+  0xAE,
+  0x42,
+  0x60,
+  0x82,
+]);

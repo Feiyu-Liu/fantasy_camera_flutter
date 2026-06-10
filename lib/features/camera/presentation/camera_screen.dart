@@ -20,6 +20,7 @@ import '../../../theme/app_colors.dart';
 import '../../backend_api/domain/credit_balance.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
+import '../../generation_submission/domain/generation_submission_job.dart';
 import '../../generation_submission/presentation/generation_submission_providers.dart';
 import '../data/capture_orientation_reader.dart';
 import 'camera_message.dart';
@@ -93,6 +94,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final AsyncValue<CreditBalance> creditBalance = ref.watch(
       creditBalanceProvider,
     );
+    final GenerationSubmissionJob? latestGenerationJob = ref
+        .watch(generationSubmissionControllerProvider)
+        .latestJob;
     final DeviceOrientation captureOrientation =
         ref.watch(captureOrientationProvider).valueOrNull ??
         DeviceOrientation.portraitUp;
@@ -104,7 +108,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         dividerWidth: AppConfig.cameraUiDividerWidth,
       ),
       viewfinder: _buildViewfinder(cameraState),
-      galleryPreview: _buildGalleryPreview(cameraState),
+      galleryPreview: _buildGalleryPreview(cameraState, latestGenerationJob),
       trailingContent: _CreditsBalanceBadge(creditBalance: creditBalance),
       message: _localizedMessage(cameraState.message),
       controlsRotationTurns: controlsRotationTurns,
@@ -249,17 +253,41 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     await ref.read(cameraStateProvider.notifier).setScaledZoom(details.scale);
   }
 
-  Widget? _buildGalleryPreview(CameraState cameraState) {
+  Widget? _buildGalleryPreview(
+    CameraState cameraState,
+    GenerationSubmissionJob? latestGenerationJob,
+  ) {
     if (cameraState.isTakingPicture) {
       return const _CaptureProgressThumbnail();
     }
 
-    final String? path = cameraState.lastCapturedFile?.path;
+    final String? path = _galleryPreviewPath(latestGenerationJob);
     if (path == null || path.isEmpty) {
       return null;
     }
 
-    return Image.file(File(path), fit: BoxFit.cover);
+    return Image.file(
+      File(path),
+      key: ValueKey<String>('camera-gallery-preview-$path'),
+      fit: BoxFit.cover,
+      errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
+        debugPrint(
+          '[CameraScreen] gallery preview image load failure path=$path error=$error',
+        );
+        return const _MissingGalleryPreviewThumbnail();
+      },
+    );
+  }
+
+  String? _galleryPreviewPath(GenerationSubmissionJob? latestGenerationJob) {
+    if (latestGenerationJob == null) {
+      return null;
+    }
+    if (latestGenerationJob.status == GenerationSubmissionStatus.resultSaved &&
+        latestGenerationJob.processedResultPath != null) {
+      return latestGenerationJob.processedResultPath;
+    }
+    return latestGenerationJob.imagePath;
   }
 
   String? _localizedMessage(CameraMessage? message) {
@@ -562,6 +590,24 @@ class _CaptureProgressThumbnail extends StatelessWidget {
         child: SizedBox.square(
           dimension: 18,
           child: CupertinoActivityIndicator(color: AppColors.white),
+        ),
+      ),
+    );
+  }
+}
+
+class _MissingGalleryPreviewThumbnail extends StatelessWidget {
+  const _MissingGalleryPreviewThumbnail();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppColors.darkSurface,
+      child: Center(
+        child: Icon(
+          CupertinoIcons.photo,
+          color: AppColors.secondaryLabel.resolveFrom(context),
+          size: 20,
         ),
       ),
     );

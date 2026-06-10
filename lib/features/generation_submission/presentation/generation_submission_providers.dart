@@ -364,10 +364,6 @@ class GenerationSubmissionController
 
   @override
   GenerationSubmissionState build() {
-    final GenerationSubmissionService service = ref.watch(
-      generationSubmissionServiceProvider,
-    );
-    _submissionService = service;
     _recordRepository = ref.watch(generationRecordRepositoryProvider);
     final AsyncValue<List<GenerationRecord>> records = ref.watch(
       generationRecordsProvider,
