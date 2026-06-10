@@ -26,6 +26,7 @@ import 'package:fantasy_camera_flutter/features/camera/presentation/camera_state
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -337,6 +338,52 @@ void main() {
       isTrue,
     );
   });
+
+  test(
+    'suspended lifecycle resume does not reopen camera while gallery is active',
+    () async {
+      final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+      CameraPlatform.instance = camera;
+      final _TestContainer testContainer = _container(
+        choices: const <CameraChoice>[
+          CameraChoice(
+            description: CameraDescription(
+              name: 'back',
+              lensDirection: CameraLensDirection.back,
+              sensorOrientation: 0,
+            ),
+            label: 'Back Camera',
+            isVirtualDevice: false,
+            deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+          ),
+        ],
+      );
+      final ProviderContainer container = testContainer.container;
+      addTearDown(() async {
+        await testContainer.dispose();
+        await Future<void>.delayed(Duration.zero);
+      });
+
+      final CameraControllerNotifier notifier = container.read(
+        cameraStateProvider.notifier,
+      );
+      await notifier.openDefaultCamera();
+      notifier.suspendLifecycleCameraResume();
+      await notifier.pauseCamera();
+
+      await notifier.handleAppLifecycleState(AppLifecycleState.resumed);
+
+      expect(camera.disposeCount, 1);
+      expect(camera.createCameraCount, 1);
+      expect(container.read(cameraStateProvider).controller, isNull);
+
+      notifier.resumeLifecycleCameraResume();
+      await notifier.handleAppLifecycleState(AppLifecycleState.resumed);
+
+      expect(camera.createCameraCount, 2);
+      expect(container.read(cameraStateProvider).controller, isNotNull);
+    },
+  );
 
   test(
     'focusAndExposeAt forwards supported focus and exposure point',

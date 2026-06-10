@@ -15,6 +15,7 @@ import '../../../config/app_config.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/camera/camera_preview.dart';
+import '../../../shared/core/app_logger.dart';
 import '../../../theme/app_colors.dart';
 import '../../backend_api/domain/credit_balance.dart';
 import '../../backend_api/domain/prompt_config.dart';
@@ -45,11 +46,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(
-        ref
-            .read(generationSubmissionControllerProvider.notifier)
-            .resumeActiveRecords(),
-      );
+      unawaited(_resumeActiveGenerationRecords());
       unawaited(ref.read(cameraStateProvider.notifier).openDefaultCamera());
     });
   }
@@ -65,6 +62,16 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     unawaited(
       ref.read(cameraStateProvider.notifier).handleAppLifecycleState(state),
     );
+  }
+
+  Future<void> _resumeActiveGenerationRecords() async {
+    try {
+      await ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .resumeActiveRecords();
+    } on Object catch (error, stackTrace) {
+      logAppError('generation_resume_active_records_failed', error, stackTrace);
+    }
   }
 
   @override
@@ -145,13 +152,20 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final CameraControllerNotifier notifier = ref.read(
       cameraStateProvider.notifier,
     );
-    await notifier.pauseCamera();
-    if (!mounted) {
-      return;
-    }
-    await context.push(generationGalleryRoute);
-    if (!mounted) {
-      return;
+    notifier.suspendLifecycleCameraResume();
+    try {
+      await notifier.pauseCamera();
+      if (!mounted) {
+        return;
+      }
+      await context.push(generationGalleryRoute);
+      if (!mounted) {
+        return;
+      }
+    } finally {
+      if (mounted) {
+        notifier.resumeLifecycleCameraResume();
+      }
     }
     await notifier.openDefaultCamera();
   }

@@ -332,11 +332,35 @@ Map<String, Map<String, bool>> _cacheValuesForRoute(
 
 class GenerationSubmissionController
     extends Notifier<GenerationSubmissionState> {
-  late GenerationSubmissionService _submissionService;
-  late GenerationRecordRepository _recordRepository;
+  GenerationSubmissionService? _submissionService;
+  GenerationRecordRepository? _recordRepository;
   final Set<String> _observedCreatedTaskJobIds = <String>{};
   final Set<String> _deletedJobIds = <String>{};
   GenerationSubmissionState? _lastPublishedState;
+
+  GenerationSubmissionService get _service {
+    final GenerationSubmissionService? service = _submissionService;
+    if (service != null) {
+      return service;
+    }
+    final GenerationSubmissionService initialized = ref.read(
+      generationSubmissionServiceProvider,
+    );
+    _submissionService = initialized;
+    return initialized;
+  }
+
+  GenerationRecordRepository get _repository {
+    final GenerationRecordRepository? repository = _recordRepository;
+    if (repository != null) {
+      return repository;
+    }
+    final GenerationRecordRepository initialized = ref.read(
+      generationRecordRepositoryProvider,
+    );
+    _recordRepository = initialized;
+    return initialized;
+  }
 
   @override
   GenerationSubmissionState build() {
@@ -370,7 +394,7 @@ class GenerationSubmissionController
     XFile file, {
     PromptSelectionSnapshot? promptSelection,
   }) async {
-    final String? recordId = await _submissionService.queueCapturedFile(
+    final String? recordId = await _service.queueCapturedFile(
       file,
       promptSelection: promptSelection,
     );
@@ -386,7 +410,7 @@ class GenerationSubmissionController
     String? originalAssetId,
     PromptSelectionSnapshot? promptSelection,
   }) async {
-    final String recordId = await _submissionService.queueGalleryFile(
+    final String recordId = await _service.queueGalleryFile(
       file,
       originalAssetId: originalAssetId,
       promptSelection: promptSelection,
@@ -397,65 +421,65 @@ class GenerationSubmissionController
   }
 
   Future<void> submitCapturedFile(XFile file) async {
-    await _submissionService.submitCapturedFile(file);
+    await _service.submitCapturedFile(file);
     await _refreshFromRepository();
   }
 
   Future<void> confirmJob(String jobId) async {
-    await _submissionService.confirmJob(jobId);
+    await _service.confirmJob(jobId);
     await _refreshFromRepository();
   }
 
   Future<void> cancelJob(String jobId) async {
-    await _submissionService.cancelJob(jobId);
+    await _service.cancelJob(jobId);
     _deletedJobIds.add(jobId);
     await _refreshFromRepository();
   }
 
   Future<String?> loadResultUrl(String jobId) async {
-    final String? result = await _submissionService.loadResultUrl(jobId);
+    final String? result = await _service.loadResultUrl(jobId);
     await _refreshFromRepository();
     return result;
   }
 
   Future<void> pollTaskNowForDebug(String jobId) async {
-    await _submissionService.pollTaskNowForDebug(jobId);
+    await _service.pollTaskNowForDebug(jobId);
     await _refreshFromRepository();
   }
 
   Future<void> resumeActiveRecords() async {
-    await _submissionService.resumeActiveRecords();
+    await _service.resumeActiveRecords();
     await _refreshFromRepository();
   }
 
   Future<void> retryJob(String jobId) async {
     _deletedJobIds.remove(jobId);
-    await _submissionService.retryJob(jobId);
+    await _service.retryJob(jobId);
     await _refreshFromRepository();
   }
 
   Future<void> toggleResultFavorite(String jobId) async {
-    await _submissionService.toggleResultFavorite(jobId);
+    await _service.toggleResultFavorite(jobId);
     await _refreshFromRepository();
   }
 
   Future<void> openPhotoLibrary(String jobId) async {
-    await _submissionService.openPhotoLibrary(jobId);
+    await _service.openPhotoLibrary(jobId);
     await _refreshFromRepository();
   }
 
   Future<void> saveOriginalToPhotoLibrary(String jobId) async {
-    await _submissionService.saveOriginalToPhotoLibrary(jobId);
+    await _service.saveOriginalToPhotoLibrary(jobId);
     await _refreshFromRepository();
   }
 
   Future<void> submitNegativeFeedback(String jobId) async {
-    await _submissionService.submitNegativeFeedback(jobId);
+    await _service.submitNegativeFeedback(jobId);
     await _refreshFromRepository();
   }
 
   Future<void> removeJob(String jobId) async {
-    await _submissionService.removeRecord(jobId);
+    await _service.removeRecord(jobId);
     _deletedJobIds.add(jobId);
     await _refreshFromRepository();
   }
@@ -473,10 +497,10 @@ class GenerationSubmissionController
   }
 
   Future<void> _refreshFromRepository() async {
-    final List<GenerationRecord> records = await _recordRepository
-        .listRecords();
-    final GenerationSubmissionState nextState = await _submissionService
-        .stateForRecords(records);
+    final List<GenerationRecord> records = await _repository.listRecords();
+    final GenerationSubmissionState nextState = await _service.stateForRecords(
+      records,
+    );
     final GenerationSubmissionState filteredNextState = _withoutDeletedJobs(
       nextState,
     );
@@ -487,7 +511,7 @@ class GenerationSubmissionController
 
   Future<void> _publishRecords(List<GenerationRecord> records) async {
     final GenerationSubmissionState nextState = _mergedWithCurrentState(
-      await _submissionService.stateForRecords(records),
+      await _service.stateForRecords(records),
     );
     _refreshCreditBalanceAfterTaskCreation(nextState);
     _lastPublishedState = nextState;

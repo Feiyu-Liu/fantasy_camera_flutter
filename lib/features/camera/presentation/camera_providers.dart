@@ -60,6 +60,7 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
   StreamSubscription<AVFoundationPhotoCaptureWillCaptureEvent>?
   _photoCaptureSubscription;
   bool _isDisposed = false;
+  bool _openCameraOnLifecycleResume = true;
   int _controllerGeneration = 0;
 
   List<CameraChoice> get _cameraChoices => ref.read(cameraChoicesProvider);
@@ -94,11 +95,10 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
 
   Future<void> handleAppLifecycleState(AppLifecycleState lifecycleState) async {
     if (lifecycleState == AppLifecycleState.resumed) {
-      unawaited(
-        ref
-            .read(generationSubmissionControllerProvider.notifier)
-            .resumeActiveRecords(),
-      );
+      unawaited(_resumeActiveGenerationRecords());
+      if (!_openCameraOnLifecycleResume) {
+        return;
+      }
       await openDefaultCamera();
       return;
     }
@@ -143,6 +143,24 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
         _markCameraPaused();
       }
     }
+  }
+
+  Future<void> _resumeActiveGenerationRecords() async {
+    try {
+      await ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .resumeActiveRecords();
+    } on Object catch (error, stackTrace) {
+      logAppError('generation_resume_active_records_failed', error, stackTrace);
+    }
+  }
+
+  void suspendLifecycleCameraResume() {
+    _openCameraOnLifecycleResume = false;
+  }
+
+  void resumeLifecycleCameraResume() {
+    _openCameraOnLifecycleResume = true;
   }
 
   void handleScaleStart() {
