@@ -548,7 +548,10 @@ void main() {
             'save:/tmp/photo.jpg.cleaned.jpg.result.heic:TesserCam:TesserCam-$jobId.heic',
       ),
     );
-    expect(photoLibraryAssetStore.resolvedAssetIds, <String>['asset-result-1']);
+    expect(photoLibraryAssetStore.resolvedAssetIds, <String>[
+      'asset-result-1',
+      'asset-result-1',
+    ]);
     final GenerationRecord? record = await container
         .read(generationRecordRepositoryProvider)
         .findById(jobId);

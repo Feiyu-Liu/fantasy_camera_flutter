@@ -439,9 +439,21 @@ void main() {
       find.byType(BlurredImageSwapTransition),
     );
     expect(transition.showReplacement, isTrue);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-original-image'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.pump(const Duration(milliseconds: 1500));
     expect(find.byType(BlurredImageSwapTransition), findsNothing);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-processed-result-image'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(
       find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
@@ -488,6 +500,7 @@ void main() {
   ) async {
     final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
     final Completer<bool> precacheCompleter = Completer<bool>();
+    final List<ImageProvider> precachedImages = <ImageProvider>[];
     final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
       _job(id: 'precache', status: GenerationSubmissionStatus.pollingTask),
     ];
@@ -499,6 +512,7 @@ void main() {
         key: hostKey,
         jobs: jobs,
         heroImagePrecache: (ImageProvider imageProvider) {
+          precachedImages.add(imageProvider);
           return precacheCompleter.future;
         },
       ),
@@ -521,9 +535,67 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey<String>('generation-thumbnail-image-precache')),
+      findsOneWidget,
+    );
+    expect(precachedImages, hasLength(2));
 
     precacheCompleter.complete(true);
     await tester.pump();
+
+    expect(find.byType(BlurredImageSwapTransition), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-original-image'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('hero keeps original before local result can animate', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(id: 'published', status: GenerationSubmissionStatus.pollingTask),
+    ];
+    final File processedFile = _writeImageFile('processed-published-result');
+
+    await _pumpModalHost(tester, _ModalHost(key: hostKey, jobs: jobs));
+
+    await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+      _job(
+        id: 'published',
+        status: GenerationSubmissionStatus.completed,
+        imagePath: jobs.single.imagePath,
+        taskId: 'task-published',
+      ),
+    ]);
+    await tester.pump();
+
+    expect(find.byType(BlurredImageSwapTransition), findsNothing);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-original-image'),
+      ),
+      findsOneWidget,
+    );
+
+    await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+      _job(
+        id: 'published',
+        status: GenerationSubmissionStatus.resultSaved,
+        imagePath: jobs.single.imagePath,
+        processedResultPath: processedFile.path,
+      ),
+    ]);
+    for (int i = 0; i < 10; i += 1) {
+      await tester.pump(const Duration(milliseconds: 20));
+      if (find.byType(BlurredImageSwapTransition).evaluate().isNotEmpty) {
+        break;
+      }
+    }
 
     expect(find.byType(BlurredImageSwapTransition), findsOneWidget);
   });

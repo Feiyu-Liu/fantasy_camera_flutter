@@ -48,17 +48,30 @@ class _GenerationSubmissionGalleryContent extends ConsumerStatefulWidget {
       _GenerationSubmissionDebugModalState();
 }
 
+enum _GalleryHeroImageKind { original, result }
+
+enum _GalleryHeroArrivalPhase { idle, precaching, animating, done }
+
+class _GalleryHeroDisplayState {
+  const _GalleryHeroDisplayState({
+    required this.displayedKind,
+    required this.phase,
+  });
+
+  final _GalleryHeroImageKind displayedKind;
+  final _GalleryHeroArrivalPhase phase;
+}
+
 class _GenerationSubmissionDebugModalState
     extends ConsumerState<_GenerationSubmissionGalleryContent> {
   String? _selectedJobId;
   String? _loadingResultJobId;
-  bool _showOriginalImage = false;
   bool _pickingGalleryImage = false;
   bool _galleryExportProgressDialogVisible = false;
-  String? _resultArrivalAnimationJobId;
-  final Set<String> _pendingResultArrivalPrecacheJobIds = <String>{};
-  final Set<String> _animatedResultArrivalJobIds = <String>{};
-  Timer? _resultArrivalAnimationTimer;
+  final Map<String, _GalleryHeroDisplayState> _heroDisplayStates =
+      <String, _GalleryHeroDisplayState>{};
+  final Set<String> _knownLocalSavedResultJobIds = <String>{};
+  bool _hasProcessedInitialJobs = false;
   late final ValueNotifier<double> _galleryExportProgress =
       ValueNotifier<double>(0);
   List<GenerationSubmissionJob> _jobs = const <GenerationSubmissionJob>[];
@@ -73,21 +86,33 @@ class _GenerationSubmissionDebugModalState
     super.initState();
     _galleryImagePicker = ref.read(galleryImagePickerProvider);
     _jobs = ref.read(generationSubmissionControllerProvider).jobs;
+    _knownLocalSavedResultJobIds.addAll(_localSavedResultJobIds(_jobs));
+    _hasProcessedInitialJobs = _jobs.isNotEmpty;
     _jobsSubscription = ref.listenManual<GenerationSubmissionState>(
       generationSubmissionControllerProvider,
       (GenerationSubmissionState? previous, GenerationSubmissionState next) {
         if (!mounted) {
           return;
         }
+        final bool isInitialJobsUpdate = !_hasProcessedInitialJobs;
         final GenerationSubmissionJob? resultArrivalPrecacheJob =
-            _nextResultArrivalPrecacheJob(previous?.jobs ?? _jobs, next.jobs);
+            isInitialJobsUpdate
+            ? null
+            : _nextUnseenSelectedResultArrivalJob(next.jobs);
         setState(() {
           _jobs = next.jobs;
+          _hasProcessedInitialJobs = true;
           if (resultArrivalPrecacheJob != null) {
-            _pendingResultArrivalPrecacheJobIds.add(
-              resultArrivalPrecacheJob.id,
-            );
+            _heroDisplayStates[resultArrivalPrecacheJob.id] =
+                const _GalleryHeroDisplayState(
+                  displayedKind: _GalleryHeroImageKind.original,
+                  phase: _GalleryHeroArrivalPhase.precaching,
+                );
           }
+          _syncHeroDisplayStatesWithJobs(next.jobs);
+          _knownLocalSavedResultJobIds.addAll(
+            _localSavedResultJobIds(next.jobs),
+          );
         });
         if (resultArrivalPrecacheJob != null) {
           unawaited(
@@ -98,12 +123,129 @@ class _GenerationSubmissionDebugModalState
     );
   }
 
+  void _syncHeroDisplayStatesWithJobs(List<GenerationSubmissionJob> jobs) {
+    final Set<String> jobIds = jobs
+        .map((GenerationSubmissionJob job) => job.id)
+        .toSet();
+    _heroDisplayStates.removeWhere((String jobId, _) {
+      return !jobIds.contains(jobId);
+    });
+    for (final GenerationSubmissionJob job in jobs) {
+      final _GalleryHeroDisplayState? current = _heroDisplayStates[job.id];
+      if (!_hasLocalSavedResult(job)) {
+        if (current != null &&
+            current.phase != _GalleryHeroArrivalPhase.precaching &&
+            current.phase != _GalleryHeroArrivalPhase.animating) {
+          _heroDisplayStates.remove(job.id);
+        }
+        continue;
+      }
+      if (current == null && _knownLocalSavedResultJobIds.contains(job.id)) {
+        _heroDisplayStates[job.id] = const _GalleryHeroDisplayState(
+          displayedKind: _GalleryHeroImageKind.result,
+          phase: _GalleryHeroArrivalPhase.done,
+        );
+      }
+    }
+  }
+
+  _GalleryHeroDisplayState _heroDisplayStateForJob(
+    GenerationSubmissionJob job,
+  ) {
+    final _GalleryHeroDisplayState? state = _heroDisplayStates[job.id];
+    if (state != null) {
+      return state;
+    }
+    if (_hasDisplayableResult(job)) {
+      return const _GalleryHeroDisplayState(
+        displayedKind: _GalleryHeroImageKind.result,
+        phase: _GalleryHeroArrivalPhase.done,
+      );
+    }
+    return const _GalleryHeroDisplayState(
+      displayedKind: _GalleryHeroImageKind.original,
+      phase: _GalleryHeroArrivalPhase.idle,
+    );
+  }
+
+  void _setHeroDisplayState(
+    String jobId,
+    _GalleryHeroDisplayState displayState,
+  ) {
+    _heroDisplayStates[jobId] = displayState;
+  }
+
+  void _resetHeroDisplayStateToResultIfAvailable(GenerationSubmissionJob job) {
+    if (_hasDisplayableResult(job)) {
+      _setHeroDisplayState(
+        job.id,
+        const _GalleryHeroDisplayState(
+          displayedKind: _GalleryHeroImageKind.result,
+          phase: _GalleryHeroArrivalPhase.done,
+        ),
+      );
+      return;
+    }
+    _heroDisplayStates.remove(job.id);
+  }
+
+  void _toggleHeroDisplayState(GenerationSubmissionJob job) {
+    final _GalleryHeroDisplayState current = _heroDisplayStateForJob(job);
+    final bool showOriginal =
+        current.displayedKind == _GalleryHeroImageKind.result;
+    _setHeroDisplayState(
+      job.id,
+      _GalleryHeroDisplayState(
+        displayedKind: showOriginal
+            ? _GalleryHeroImageKind.original
+            : _GalleryHeroImageKind.result,
+        phase: _GalleryHeroArrivalPhase.done,
+      ),
+    );
+  }
+
+  void _handleResultArrivalAnimationCompleted(String jobId) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _heroDisplayStates[jobId] = const _GalleryHeroDisplayState(
+        displayedKind: _GalleryHeroImageKind.result,
+        phase: _GalleryHeroArrivalPhase.done,
+      );
+    });
+  }
+
+  void _clearResultArrivalStateForJob(String jobId) {
+    final _GalleryHeroDisplayState? current = _heroDisplayStates[jobId];
+    if (current == null) {
+      return;
+    }
+    if (current.phase == _GalleryHeroArrivalPhase.precaching ||
+        current.phase == _GalleryHeroArrivalPhase.animating) {
+      _heroDisplayStates[jobId] = const _GalleryHeroDisplayState(
+        displayedKind: _GalleryHeroImageKind.original,
+        phase: _GalleryHeroArrivalPhase.idle,
+      );
+    }
+  }
+
+  bool _isResultArrivalInFlight(String jobId) {
+    final _GalleryHeroArrivalPhase? phase = _heroDisplayStates[jobId]?.phase;
+    return phase == _GalleryHeroArrivalPhase.precaching ||
+        phase == _GalleryHeroArrivalPhase.animating;
+  }
+
+  bool _hasAnimatedResultArrival(String jobId) {
+    final _GalleryHeroDisplayState? state = _heroDisplayStates[jobId];
+    return state?.displayedKind == _GalleryHeroImageKind.result &&
+        state?.phase == _GalleryHeroArrivalPhase.done;
+  }
+
   @override
   void dispose() {
     _jobsSubscription?.close();
     _jobsSubscription = null;
-    _resultArrivalAnimationTimer?.cancel();
-    _resultArrivalAnimationTimer = null;
     unawaited(_galleryExportProgressSubscription?.cancel());
     _galleryExportProgressSubscription = null;
     _galleryExportProgress.dispose();
@@ -161,19 +303,17 @@ class _GenerationSubmissionDebugModalState
             viewportSize: Size(heroWidth, heroViewportHeight),
             topPadding: heroTopPadding,
             loading: _loadingResultJobId == selectedJob?.id,
-            showOriginalImage: _showOriginalImage,
-            resultArrivalAnimationJobId: _resultArrivalAnimationJobId,
-            pendingResultArrivalPrecacheJobIds:
-                _pendingResultArrivalPrecacheJobIds,
+            displayStates: _heroDisplayStates,
             onPageChanged: _selectJobAtPage,
             onToggleImage: selectedJob == null
                 ? null
                 : () {
                     setState(() {
-                      _showOriginalImage = !_showOriginalImage;
-                      _clearResultArrivalAnimationNow();
+                      _toggleHeroDisplayState(selectedJob);
                     });
                   },
+            onResultArrivalAnimationCompleted:
+                _handleResultArrivalAnimationCompleted,
             onToggleFavorite: selectedJob == null
                 ? null
                 : () => unawaited(_toggleFavorite(selectedJob)),
@@ -198,6 +338,7 @@ class _GenerationSubmissionDebugModalState
                     child: _RelatedMomentsStrip(
                       jobs: jobs,
                       selectedJob: selectedJob,
+                      displayStates: _heroDisplayStates,
                       pickingGalleryImage: _pickingGalleryImage,
                       onPickGalleryImage: _pickGalleryImage,
                       onSelectJob: _selectJobFromStrip,
@@ -240,35 +381,34 @@ class _GenerationSubmissionDebugModalState
     return jobs.first;
   }
 
-  GenerationSubmissionJob? _nextResultArrivalPrecacheJob(
-    List<GenerationSubmissionJob> previousJobs,
+  GenerationSubmissionJob? _nextUnseenSelectedResultArrivalJob(
     List<GenerationSubmissionJob> nextJobs,
   ) {
-    if (_showOriginalImage) {
-      return null;
-    }
     final String? selectedJobId =
         _selectedJobId ?? (nextJobs.isEmpty ? null : nextJobs.first.id);
     if (selectedJobId == null ||
-        _pendingResultArrivalPrecacheJobIds.contains(selectedJobId) ||
-        _animatedResultArrivalJobIds.contains(selectedJobId)) {
+        _isResultArrivalInFlight(selectedJobId) ||
+        _hasAnimatedResultArrival(selectedJobId)) {
       return null;
     }
-    final GenerationSubmissionJob? previousJob = _findJobById(
-      previousJobs,
-      selectedJobId,
-    );
     final GenerationSubmissionJob? nextJob = _findJobById(
       nextJobs,
       selectedJobId,
     );
-    if (previousJob == null || nextJob == null) {
+    if (nextJob == null) {
       return null;
     }
-    if (_hasLocalSavedResult(previousJob) || !_hasLocalSavedResult(nextJob)) {
+    if (_knownLocalSavedResultJobIds.contains(nextJob.id) ||
+        !_hasLocalSavedResult(nextJob)) {
       return null;
     }
     return nextJob;
+  }
+
+  Iterable<String> _localSavedResultJobIds(List<GenerationSubmissionJob> jobs) {
+    return jobs
+        .where(_hasLocalSavedResult)
+        .map((GenerationSubmissionJob job) => job.id);
   }
 
   GenerationSubmissionJob? _findJobById(
@@ -288,6 +428,14 @@ class _GenerationSubmissionDebugModalState
         job.processedResultPath != null;
   }
 
+  bool _hasDisplayableResult(GenerationSubmissionJob job) {
+    if (_hasLocalSavedResult(job)) {
+      return true;
+    }
+    return job.status == GenerationSubmissionStatus.completed &&
+        job.resultUrl != null;
+  }
+
   Future<void> _precacheAndStartResultArrivalAnimation(
     GenerationSubmissionJob job,
   ) async {
@@ -297,7 +445,13 @@ class _GenerationSubmissionDebugModalState
       return;
     }
 
-    final _HeroFileImageSource imageSource = _HeroFileImageSource(
+    final _HeroFileImageSource originalImageSource = _HeroFileImageSource(
+      path: job.imagePath,
+      key: const ValueKey<String>('generation-submission-original-image'),
+      failureLogLabel: 'original image',
+      failureMessage: 'Original image could not be loaded',
+    );
+    final _HeroFileImageSource resultImageSource = _HeroFileImageSource(
       path: processedResultPath,
       key: const ValueKey<String>(
         'generation-submission-processed-result-image',
@@ -305,32 +459,41 @@ class _GenerationSubmissionDebugModalState
       failureLogLabel: 'processed result image',
       failureMessage: 'Processed result image could not be loaded',
     );
-    final bool precached = await ref.read(heroImagePrecacheProvider)(
-      imageSource.imageProvider,
-    );
+    final HeroImagePrecache precache = ref.read(heroImagePrecacheProvider);
+    final List<bool> precacheResults = await Future.wait(<Future<bool>>[
+      precache(originalImageSource.imageProvider),
+      precache(resultImageSource.imageProvider),
+    ]);
     if (!mounted) {
       return;
     }
 
+    final bool precached = precacheResults.every((bool result) => result);
     final bool stillSelected = _selectedJob(_jobs)?.id == job.id;
+    final bool stillHasLocalResult = _hasLocalSavedResult(
+      _findJobById(_jobs, job.id) ?? job,
+    );
     final bool shouldAnimate =
-        precached &&
-        stillSelected &&
-        !_showOriginalImage &&
-        !_animatedResultArrivalJobIds.contains(job.id) &&
-        _hasLocalSavedResult(_findJobById(_jobs, job.id) ?? job);
+        precached && stillSelected && stillHasLocalResult;
 
     setState(() {
-      _pendingResultArrivalPrecacheJobIds.remove(job.id);
       if (shouldAnimate) {
-        _animatedResultArrivalJobIds.add(job.id);
-        _resultArrivalAnimationJobId = job.id;
+        _heroDisplayStates[job.id] = const _GalleryHeroDisplayState(
+          displayedKind: _GalleryHeroImageKind.original,
+          phase: _GalleryHeroArrivalPhase.animating,
+        );
+      } else if (stillHasLocalResult) {
+        _heroDisplayStates[job.id] = const _GalleryHeroDisplayState(
+          displayedKind: _GalleryHeroImageKind.result,
+          phase: _GalleryHeroArrivalPhase.done,
+        );
+      } else {
+        _heroDisplayStates[job.id] = const _GalleryHeroDisplayState(
+          displayedKind: _GalleryHeroImageKind.original,
+          phase: _GalleryHeroArrivalPhase.idle,
+        );
       }
     });
-
-    if (shouldAnimate) {
-      _clearResultArrivalAnimationAfterDelay(job.id);
-    }
   }
 
   void _finishPendingResultArrivalPrecache(String jobId) {
@@ -338,29 +501,8 @@ class _GenerationSubmissionDebugModalState
       return;
     }
     setState(() {
-      _pendingResultArrivalPrecacheJobIds.remove(jobId);
+      _clearResultArrivalStateForJob(jobId);
     });
-  }
-
-  void _clearResultArrivalAnimationAfterDelay(String jobId) {
-    _resultArrivalAnimationTimer?.cancel();
-    _resultArrivalAnimationTimer = Timer(
-      const Duration(milliseconds: 1500),
-      () {
-        if (!mounted || _resultArrivalAnimationJobId != jobId) {
-          return;
-        }
-        setState(() {
-          _resultArrivalAnimationJobId = null;
-        });
-      },
-    );
-  }
-
-  void _clearResultArrivalAnimationNow() {
-    _resultArrivalAnimationTimer?.cancel();
-    _resultArrivalAnimationTimer = null;
-    _resultArrivalAnimationJobId = null;
   }
 
   void _syncHeroPageToSelection(int index, {required bool animate}) {
@@ -415,8 +557,9 @@ class _GenerationSubmissionDebugModalState
     );
     setState(() {
       _selectedJobId = job.id;
-      _showOriginalImage = false;
-      _clearResultArrivalAnimationNow();
+      if (!_isResultArrivalInFlight(job.id)) {
+        _resetHeroDisplayStateToResultIfAvailable(job);
+      }
     });
     if (syncHeroPage) {
       final List<GenerationSubmissionJob> jobs = ref
@@ -439,8 +582,10 @@ class _GenerationSubmissionDebugModalState
     _debugLog('confirm job=${job.id}');
     setState(() {
       _selectedJobId = job.id;
-      _showOriginalImage = false;
-      _clearResultArrivalAnimationNow();
+      _heroDisplayStates[job.id] = const _GalleryHeroDisplayState(
+        displayedKind: _GalleryHeroImageKind.original,
+        phase: _GalleryHeroArrivalPhase.idle,
+      );
     });
     await ref
         .read(generationSubmissionControllerProvider.notifier)
@@ -459,8 +604,7 @@ class _GenerationSubmissionDebugModalState
       setState(() {
         _selectedJobId = null;
         _loadingResultJobId = null;
-        _showOriginalImage = false;
-        _clearResultArrivalAnimationNow();
+        _heroDisplayStates.remove(job.id);
       });
     }
   }
@@ -469,8 +613,10 @@ class _GenerationSubmissionDebugModalState
     _debugLog('retry job=${job.id}');
     setState(() {
       _selectedJobId = job.id;
-      _showOriginalImage = false;
-      _clearResultArrivalAnimationNow();
+      _heroDisplayStates[job.id] = const _GalleryHeroDisplayState(
+        displayedKind: _GalleryHeroImageKind.original,
+        phase: _GalleryHeroArrivalPhase.idle,
+      );
     });
     await ref
         .read(generationSubmissionControllerProvider.notifier)
@@ -515,7 +661,7 @@ class _GenerationSubmissionDebugModalState
             if (_selectedJobId == job.id) {
               _selectedJobId = null;
               _loadingResultJobId = null;
-              _showOriginalImage = false;
+              _heroDisplayStates.remove(job.id);
             }
           });
       }
@@ -543,6 +689,12 @@ class _GenerationSubmissionDebugModalState
     setState(() {
       if (_loadingResultJobId == jobId) {
         _loadingResultJobId = null;
+      }
+      if (url != null && _selectedJob(_jobs)?.id == jobId) {
+        _heroDisplayStates[jobId] = const _GalleryHeroDisplayState(
+          displayedKind: _GalleryHeroImageKind.result,
+          phase: _GalleryHeroArrivalPhase.done,
+        );
       }
     });
   }
@@ -647,7 +799,10 @@ class _GenerationSubmissionDebugModalState
   }
 
   _HeroImageSource? _heroImageSourceForJob(GenerationSubmissionJob job) {
-    if (_showOriginalImage ||
+    final _GalleryHeroDisplayState displayState = _heroDisplayStateForJob(job);
+    if (displayState.displayedKind == _GalleryHeroImageKind.original ||
+        displayState.phase == _GalleryHeroArrivalPhase.precaching ||
+        displayState.phase == _GalleryHeroArrivalPhase.animating ||
         job.status == GenerationSubmissionStatus.resultProcessingFailed ||
         (job.status != GenerationSubmissionStatus.completed &&
             job.status != GenerationSubmissionStatus.resultSaved)) {
@@ -673,7 +828,12 @@ class _GenerationSubmissionDebugModalState
 
     final String? resultUrl = job.resultUrl;
     if (resultUrl == null) {
-      return null;
+      return _HeroFileImageSource(
+        path: job.imagePath,
+        key: const ValueKey<String>('generation-submission-original-image'),
+        failureLogLabel: 'original image',
+        failureMessage: 'Original image could not be loaded',
+      );
     }
 
     return _HeroNetworkImageSource(
@@ -871,6 +1031,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
   const _RelatedMomentsStrip({
     required this.jobs,
     required this.selectedJob,
+    required this.displayStates,
     required this.pickingGalleryImage,
     required this.onPickGalleryImage,
     required this.onSelectJob,
@@ -881,6 +1042,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
 
   final List<GenerationSubmissionJob> jobs;
   final GenerationSubmissionJob? selectedJob;
+  final Map<String, _GalleryHeroDisplayState> displayStates;
   final bool pickingGalleryImage;
   final VoidCallback onPickGalleryImage;
   final ValueChanged<GenerationSubmissionJob> onSelectJob;
@@ -960,6 +1122,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
                           height: tileHeight,
                           job: job,
                           selected: selectedJob?.id == job.id,
+                          displayState: _displayStateForJob(job),
                           onTap: () => onSelectJob(job),
                           onConfirm:
                               job.status ==
@@ -1006,6 +1169,26 @@ class _RelatedMomentsStrip extends StatelessWidget {
   bool _canRetryJob(GenerationSubmissionJob job) {
     return job.status == GenerationSubmissionStatus.failed ||
         job.status == GenerationSubmissionStatus.resultProcessingFailed;
+  }
+
+  _GalleryHeroDisplayState _displayStateForJob(GenerationSubmissionJob job) {
+    final _GalleryHeroDisplayState? state = displayStates[job.id];
+    if (state != null) {
+      return state;
+    }
+    if ((job.status == GenerationSubmissionStatus.resultSaved &&
+            job.processedResultPath != null) ||
+        (job.status == GenerationSubmissionStatus.completed &&
+            job.resultUrl != null)) {
+      return const _GalleryHeroDisplayState(
+        displayedKind: _GalleryHeroImageKind.result,
+        phase: _GalleryHeroArrivalPhase.done,
+      );
+    }
+    return const _GalleryHeroDisplayState(
+      displayedKind: _GalleryHeroImageKind.original,
+      phase: _GalleryHeroArrivalPhase.idle,
+    );
   }
 }
 
@@ -1101,6 +1284,7 @@ class _JobThumbnail extends StatelessWidget {
     required this.height,
     required this.job,
     required this.selected,
+    required this.displayState,
     required this.onTap,
     required this.onConfirm,
     required this.onCancel,
@@ -1111,6 +1295,7 @@ class _JobThumbnail extends StatelessWidget {
   final double height;
   final GenerationSubmissionJob job;
   final bool selected;
+  final _GalleryHeroDisplayState displayState;
   final VoidCallback onTap;
   final VoidCallback? onConfirm;
   final VoidCallback? onCancel;
@@ -1119,7 +1304,8 @@ class _JobThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String? thumbnailResultPath =
-        job.status == GenerationSubmissionStatus.resultSaved
+        displayState.displayedKind == _GalleryHeroImageKind.result &&
+            job.status == GenerationSubmissionStatus.resultSaved
         ? job.processedResultPath
         : null;
     return GestureDetector(
@@ -1415,11 +1601,10 @@ class _GalleryHeroPager extends StatefulWidget {
     required this.viewportSize,
     required this.topPadding,
     required this.loading,
-    required this.showOriginalImage,
-    required this.resultArrivalAnimationJobId,
-    required this.pendingResultArrivalPrecacheJobIds,
+    required this.displayStates,
     required this.onPageChanged,
     required this.onToggleImage,
+    required this.onResultArrivalAnimationCompleted,
     required this.onToggleFavorite,
     required this.onMoreActions,
   });
@@ -1432,12 +1617,11 @@ class _GalleryHeroPager extends StatefulWidget {
   final Size viewportSize;
   final double topPadding;
   final bool loading;
-  final bool showOriginalImage;
-  final String? resultArrivalAnimationJobId;
-  final Set<String> pendingResultArrivalPrecacheJobIds;
+  final Map<String, _GalleryHeroDisplayState> displayStates;
   final void Function(int index, List<GenerationSubmissionJob> jobs)
   onPageChanged;
   final VoidCallback? onToggleImage;
+  final ValueChanged<String> onResultArrivalAnimationCompleted;
   final VoidCallback? onToggleFavorite;
   final ValueChanged<_HeroMoreAction>? onMoreActions;
 
@@ -1545,7 +1729,9 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
             bottom: 18,
             child: _HeroToolbar(
               selectedJob: selectedJob,
-              showingOriginal: widget.showOriginalImage,
+              showingOriginal:
+                  _displayStateForJob(selectedJob).displayedKind ==
+                  _GalleryHeroImageKind.original,
               onToggleImage: _canToggleHeroImage(selectedJob)
                   ? widget.onToggleImage
                   : null,
@@ -1581,7 +1767,10 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
     _resolveImageSize(imageSource);
     _resolveImageSize(originalImageSource);
 
-    final Size imageSize = _childSizeForSource(imageSource);
+    final bool shouldAnimateResultArrival = _shouldAnimateResultArrival(job);
+    final Size imageSize = shouldAnimateResultArrival
+        ? _childSizeForSource(originalImageSource)
+        : _childSizeForSource(imageSource);
 
     Widget errorBuilder(BuildContext context, Object error, StackTrace? stack) {
       debugPrint(
@@ -1590,15 +1779,18 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       return _HeroImageFailure(message: imageSource.failureMessage);
     }
 
-    if (_shouldAnimateResultArrival(job, imageSource)) {
+    if (shouldAnimateResultArrival) {
       return generationHeroBlurredSwapPageOptions(
         originalImageProvider: originalImageSource.imageProvider,
         replacementImageProvider: imageSource.imageProvider,
         childSize: imageSize,
         controller: controller,
-        basePosition: _basePositionForSource(imageSource),
+        basePosition: _basePositionForSource(originalImageSource),
         semanticLabel: imageSource.key.value,
-        replacementMarkerKey: imageSource.key,
+        originalMarkerKey: originalImageSource.key,
+        replacementMarkerKey: ValueKey<String>(
+          '${imageSource.key.value}-arrival-animation-${job.id}',
+        ),
         originalErrorBuilder:
             (BuildContext context, Object error, StackTrace? stack) {
               debugPrint(
@@ -1609,6 +1801,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
               );
             },
         replacementErrorBuilder: errorBuilder,
+        onCompleted: () => widget.onResultArrivalAnimationCompleted(job.id),
       );
     }
 
@@ -1745,11 +1938,9 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
   }
 
   _HeroImageSource? _imageSourceForJob(GenerationSubmissionJob job) {
-    if (widget.showOriginalImage) {
-      return _originalImageSourceForJob(job);
-    }
-
-    if (_shouldHoldOriginalForResultArrival(job)) {
+    final _GalleryHeroDisplayState displayState = _displayStateForJob(job);
+    if (displayState.displayedKind == _GalleryHeroImageKind.original &&
+        displayState.phase != _GalleryHeroArrivalPhase.animating) {
       return _originalImageSourceForJob(job);
     }
 
@@ -1780,7 +1971,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
 
     final String? resultUrl = job.resultUrl;
     if (resultUrl == null) {
-      return null;
+      return _originalImageSourceForJob(job);
     }
 
     return _HeroNetworkImageSource(
@@ -1800,20 +1991,26 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
     );
   }
 
-  bool _isOriginalHeroSource(_HeroImageSource? imageSource) {
-    return imageSource?.key.value == 'generation-submission-original-image';
+  bool _shouldAnimateResultArrival(GenerationSubmissionJob job) {
+    return _displayStateForJob(job).phase == _GalleryHeroArrivalPhase.animating;
   }
 
-  bool _shouldAnimateResultArrival(
-    GenerationSubmissionJob job,
-    _HeroImageSource imageSource,
-  ) {
-    return widget.resultArrivalAnimationJobId == job.id &&
-        !_isOriginalHeroSource(imageSource);
-  }
-
-  bool _shouldHoldOriginalForResultArrival(GenerationSubmissionJob job) {
-    return widget.pendingResultArrivalPrecacheJobIds.contains(job.id);
+  _GalleryHeroDisplayState _displayStateForJob(GenerationSubmissionJob job) {
+    final _GalleryHeroDisplayState? state = widget.displayStates[job.id];
+    if (state != null) {
+      return state;
+    }
+    if (job.status == GenerationSubmissionStatus.resultSaved &&
+        job.processedResultPath != null) {
+      return const _GalleryHeroDisplayState(
+        displayedKind: _GalleryHeroImageKind.result,
+        phase: _GalleryHeroArrivalPhase.done,
+      );
+    }
+    return const _GalleryHeroDisplayState(
+      displayedKind: _GalleryHeroImageKind.original,
+      phase: _GalleryHeroArrivalPhase.idle,
+    );
   }
 
   Widget _placeholderForJob(GenerationSubmissionJob job) {

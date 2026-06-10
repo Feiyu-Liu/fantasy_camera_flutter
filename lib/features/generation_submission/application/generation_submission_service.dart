@@ -1170,6 +1170,18 @@ class GenerationSubmissionService extends ChangeNotifier {
       _debugLog(
         'save processed result success record=$recordId bytes=${result.bytes.length} asset=${savedImage.assetId}',
       );
+      final String? savedResultPath = await _photoLibraryAssetStore
+          .resolveImagePath(savedImage.assetId);
+      if (savedResultPath != null && savedResultPath.isNotEmpty) {
+        _runtimeFor(recordId).processedResultPath = savedResultPath;
+        _debugLog(
+          'resolve saved result success record=$recordId asset=${savedImage.assetId} path=$savedResultPath',
+        );
+      } else {
+        _debugLog(
+          'resolve saved result unavailable record=$recordId asset=${savedImage.assetId}',
+        );
+      }
       await _generationRecordRepository.markResultSaved(
         recordId: recordId,
         updatedAt: savedAt,
