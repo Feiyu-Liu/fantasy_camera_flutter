@@ -1,0 +1,726 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../../theme/app_colors.dart';
+
+class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key});
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  bool _gridLinesEnabled = true;
+  bool _highEfficiencyEnabled = false;
+  bool _volumeShutterEnabled = true;
+  bool _autoSyncEnabled = true;
+  bool _hapticFeedbackEnabled = true;
+  bool _saveOriginalsEnabled = false;
+  bool _cellularUploadsEnabled = false;
+  _AppearanceMode _appearanceMode = _AppearanceMode.editorialLight;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoPageScaffold(
+      backgroundColor: AppColors.settingsBackground,
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: <Widget>[
+            _SettingsNavigationBar(onBackPressed: () => context.pop()),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                physics: const BouncingScrollPhysics(),
+                children: <Widget>[
+                  const _ProfileHeader(),
+                  _AppearanceSection(
+                    selectedMode: _appearanceMode,
+                    onModeSelected: (_AppearanceMode mode) {
+                      setState(() => _appearanceMode = mode);
+                    },
+                  ),
+                  const _SectionDivider(),
+                  const _SectionTitle('CAMERA PREFERENCES'),
+                  _SettingsToggleRow(
+                    switchKey: const ValueKey<String>(
+                      'settings-grid-lines-switch',
+                    ),
+                    title: 'Grid Lines',
+                    subtitle: 'Golden Ratio',
+                    value: _gridLinesEnabled,
+                    onChanged: (bool value) {
+                      setState(() => _gridLinesEnabled = value);
+                    },
+                  ),
+                  _SettingsToggleRow(
+                    switchKey: const ValueKey<String>(
+                      'settings-high-efficiency-switch',
+                    ),
+                    title: 'High Efficiency',
+                    subtitle: 'HEIF/HEVC Formats',
+                    value: _highEfficiencyEnabled,
+                    onChanged: (bool value) {
+                      setState(() => _highEfficiencyEnabled = value);
+                    },
+                  ),
+                  _SettingsToggleRow(
+                    switchKey: const ValueKey<String>(
+                      'settings-volume-shutter-switch',
+                    ),
+                    title: 'Volume Shutter',
+                    subtitle: 'Use side buttons to capture',
+                    value: _volumeShutterEnabled,
+                    onChanged: (bool value) {
+                      setState(() => _volumeShutterEnabled = value);
+                    },
+                  ),
+                  const _SectionDivider(),
+                  const _SectionTitle('STORAGE & CLOUD'),
+                  const _CloudStorageCard(),
+                  _SettingsToggleRow(
+                    switchKey: const ValueKey<String>(
+                      'settings-auto-sync-switch',
+                    ),
+                    title: 'Auto-Sync',
+                    subtitle: 'Sync via Wi-Fi only',
+                    value: _autoSyncEnabled,
+                    onChanged: (bool value) {
+                      setState(() => _autoSyncEnabled = value);
+                    },
+                  ),
+                  _SettingsActionRow(
+                    title: 'Clear Cache',
+                    subtitle: '1.2 GB temporary files',
+                    onPressed: () => HapticFeedback.selectionClick(),
+                  ),
+                  const _SectionDivider(),
+                  const _SectionTitle('PREFERENCES'),
+                  _SettingsToggleRow(
+                    switchKey: const ValueKey<String>(
+                      'settings-haptic-feedback-switch',
+                    ),
+                    title: 'Haptic Feedback',
+                    subtitle: 'Subtle taps for controls',
+                    value: _hapticFeedbackEnabled,
+                    onChanged: (bool value) {
+                      setState(() => _hapticFeedbackEnabled = value);
+                    },
+                  ),
+                  _SettingsToggleRow(
+                    switchKey: const ValueKey<String>(
+                      'settings-save-originals-switch',
+                    ),
+                    title: 'Keep Originals',
+                    subtitle: 'Store camera sources locally',
+                    value: _saveOriginalsEnabled,
+                    onChanged: (bool value) {
+                      setState(() => _saveOriginalsEnabled = value);
+                    },
+                  ),
+                  _SettingsToggleRow(
+                    switchKey: const ValueKey<String>(
+                      'settings-cellular-uploads-switch',
+                    ),
+                    title: 'Cellular Uploads',
+                    subtitle: 'Allow generation off Wi-Fi',
+                    value: _cellularUploadsEnabled,
+                    onChanged: (bool value) {
+                      setState(() => _cellularUploadsEnabled = value);
+                    },
+                  ),
+                  const _SectionDivider(),
+                  const _SectionTitle('ABOUT'),
+                  _SettingsActionRow(
+                    title: 'Subscription',
+                    subtitle: 'TesserCam Pro',
+                    onPressed: () => HapticFeedback.selectionClick(),
+                  ),
+                  _SettingsActionRow(
+                    title: 'Privacy',
+                    subtitle: 'Data and photo handling',
+                    onPressed: () => HapticFeedback.selectionClick(),
+                  ),
+                  _SettingsActionRow(
+                    title: 'App Version',
+                    subtitle: '1.0.0',
+                    onPressed: () => HapticFeedback.selectionClick(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsNavigationBar extends StatelessWidget {
+  const _SettingsNavigationBar({required this.onBackPressed});
+
+  final VoidCallback onBackPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.black, width: 0.5)),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: Stack(
+          alignment: Alignment.center,
+          children: <Widget>[
+            Positioned(
+              left: 12,
+              child: CupertinoButton(
+                key: const ValueKey<String>('settings-back-button'),
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(44, 44),
+                onPressed: onBackPressed,
+                child: const Icon(
+                  CupertinoIcons.chevron_left,
+                  color: AppColors.black,
+                  size: 20,
+                ),
+              ),
+            ),
+            const Text(
+              'SETTINGS',
+              textScaler: TextScaler.noScaling,
+              style: TextStyle(
+                color: AppColors.black,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.black, width: 0.5)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(18, 34, 18, 36),
+        child: Column(
+          children: <Widget>[
+            _AvatarPlaceholder(),
+            SizedBox(height: 18),
+            Text(
+              'Julian Vane',
+              textAlign: TextAlign.center,
+              textScaler: TextScaler.noScaling,
+              style: TextStyle(
+                color: AppColors.black,
+                fontFamily: 'Times New Roman',
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                height: 1,
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'PRO MEMBER SINCE 2023',
+              textAlign: TextAlign.center,
+              textScaler: TextScaler.noScaling,
+              style: TextStyle(
+                color: AppColors.settingsMutedText,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 3.2,
+                height: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AvatarPlaceholder extends StatelessWidget {
+  const _AvatarPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 72,
+      height: 72,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.settingsAvatarBackground,
+        border: Border.all(color: AppColors.black, width: 1),
+      ),
+      child: const Icon(LucideIcons.user, color: AppColors.black, size: 27),
+    );
+  }
+}
+
+enum _AppearanceMode { editorialLight, studioDark }
+
+class _AppearanceSection extends StatelessWidget {
+  const _AppearanceSection({
+    required this.selectedMode,
+    required this.onModeSelected,
+  });
+
+  final _AppearanceMode selectedMode;
+  final ValueChanged<_AppearanceMode> onModeSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'APPEARANCE',
+            textScaler: TextScaler.noScaling,
+            style: TextStyle(
+              color: AppColors.settingsMutedText,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 22),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _AppearanceOptionCard(
+                  key: const ValueKey<String>(
+                    'settings-appearance-editorial-light',
+                  ),
+                  title: 'Light',
+                  mode: _AppearanceMode.editorialLight,
+                  selected: selectedMode == _AppearanceMode.editorialLight,
+                  onSelected: onModeSelected,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _AppearanceOptionCard(
+                  key: const ValueKey<String>(
+                    'settings-appearance-studio-dark',
+                  ),
+                  title: 'Dark',
+                  mode: _AppearanceMode.studioDark,
+                  selected: selectedMode == _AppearanceMode.studioDark,
+                  onSelected: onModeSelected,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AppearanceOptionCard extends StatelessWidget {
+  const _AppearanceOptionCard({
+    required this.title,
+    required this.mode,
+    required this.selected,
+    required this.onSelected,
+    super.key,
+  });
+
+  final String title;
+  final _AppearanceMode mode;
+  final bool selected;
+  final ValueChanged<_AppearanceMode> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color foreground = selected ? AppColors.white : AppColors.black;
+    final Color background = selected ? AppColors.black : AppColors.white;
+    final Color previewColor = selected
+        ? AppColors.white
+        : AppColors.darkSurface;
+    final Color borderColor = AppColors.black;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: title,
+      child: CupertinoButton(
+        padding: EdgeInsets.zero,
+        minimumSize: Size.zero,
+        onPressed: () {
+          HapticFeedback.selectionClick();
+          onSelected(mode);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOutCubic,
+          height: 126,
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 17),
+          decoration: BoxDecoration(
+            color: background,
+            border: Border.all(color: borderColor, width: 0.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Container(
+                height: 40,
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 24),
+                color: previewColor,
+              ),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textScaler: TextScaler.noScaling,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  height: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 19),
+      child: Text(
+        title,
+        textScaler: TextScaler.noScaling,
+        style: const TextStyle(
+          color: AppColors.settingsMutedText,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 2.0,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionDivider extends StatelessWidget {
+  const _SectionDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: AppColors.black, width: 0.5)),
+      ),
+      child: SizedBox(height: 1),
+    );
+  }
+}
+
+class _SettingsToggleRow extends StatelessWidget {
+  const _SettingsToggleRow({
+    required this.switchKey,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final Key switchKey;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsRowFrame(
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: _SettingsRowText(title: title, subtitle: subtitle),
+          ),
+          const SizedBox(width: 10),
+          _BlockSwitch(key: switchKey, value: value, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsActionRow extends StatelessWidget {
+  const _SettingsActionRow({
+    required this.title,
+    required this.subtitle,
+    required this.onPressed,
+  });
+
+  final String title;
+  final String subtitle;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      onPressed: onPressed,
+      child: _SettingsRowFrame(
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: _SettingsRowText(title: title, subtitle: subtitle),
+            ),
+            const Icon(
+              CupertinoIcons.chevron_right,
+              color: AppColors.settingsMutedText,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsRowFrame extends StatelessWidget {
+  const _SettingsRowFrame({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AppColors.settingsRowDivider, width: 0.5),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 15, 16, 20),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _SettingsRowText extends StatelessWidget {
+  const _SettingsRowText({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textScaler: TextScaler.noScaling,
+          style: const TextStyle(
+            color: AppColors.black,
+            fontSize: 15.5,
+            fontWeight: FontWeight.w400,
+            height: 1.05,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textScaler: TextScaler.noScaling,
+          style: const TextStyle(
+            color: AppColors.settingsMutedText,
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            height: 1.05,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BlockSwitch extends StatelessWidget {
+  const _BlockSwitch({required this.value, required this.onChanged, super.key});
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      toggled: value,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onChanged(!value);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 130),
+          curve: Curves.easeOutCubic,
+          width: 40,
+          height: 22,
+          padding: const EdgeInsets.all(2),
+          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+          decoration: BoxDecoration(
+            color: value
+                ? AppColors.accentYellow
+                : AppColors.settingsDisabledSwitch,
+            border: Border.all(color: AppColors.black, width: 0.5),
+          ),
+          child: const SizedBox(
+            width: 16,
+            height: 16,
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: AppColors.black),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CloudStorageCard extends StatelessWidget {
+  const _CloudStorageCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          border: Border.all(color: AppColors.black, width: 1),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.fromLTRB(18, 20, 18, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      'Cloud Storage',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textScaler: TextScaler.noScaling,
+                      style: TextStyle(
+                        color: AppColors.black,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '128.4 GB of 200 GB',
+                          textScaler: TextScaler.noScaling,
+                          style: TextStyle(
+                            color: AppColors.settingsMutedText,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w400,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 15),
+              _StorageProgress(value: 0.64),
+              SizedBox(height: 15),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'Manage Subscription',
+                  textScaler: TextScaler.noScaling,
+                  style: TextStyle(
+                    color: AppColors.settingsMutedText,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StorageProgress extends StatelessWidget {
+  const _StorageProgress({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        return Stack(
+          children: <Widget>[
+            Container(
+              height: 4,
+              width: constraints.maxWidth,
+              color: AppColors.settingsProgressBackground,
+            ),
+            Container(
+              height: 4,
+              width: constraints.maxWidth * value.clamp(0, 1),
+              color: AppColors.black,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}

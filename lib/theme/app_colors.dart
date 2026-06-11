@@ -22,6 +22,13 @@ abstract final class AppColors {
   static const Color surface = Color(0xFFF9F9F9);
   static const Color surfaceMuted = Color(0xFFF5F5F5);
 
+  static const Color settingsBackground = Color(0xFFFDFDFD);
+  static const Color settingsAvatarBackground = Color(0xFFF1F1F1);
+  static const Color settingsMutedText = Color(0xFF777777);
+  static const Color settingsRowDivider = Color(0xFFEFEFEF);
+  static const Color settingsDisabledSwitch = Color(0xFFE2E2E2);
+  static const Color settingsProgressBackground = Color(0xFFECECEC);
+
   static const Color darkSurface = Color(0xFF111111);
   static const Color authInputBackground = Color(0xFF151515);
   static const Color authInputBorder = Color(0xFF2A2A2A);
