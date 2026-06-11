@@ -998,7 +998,7 @@ class _GalleryCloseButton extends StatelessWidget {
     final double topInset = MediaQuery.paddingOf(context).top;
     return Positioned(
       left: 14,
-      top: (topInset - 4).clamp(8.0, 54.0),
+      top: ((topInset - 44) / 2).clamp(6.0, 20.0),
       child: CupertinoButton(
         key: const ValueKey<String>('generation-submission-modal-close'),
         padding: EdgeInsets.zero,
@@ -1018,7 +1018,7 @@ class _GalleryCloseButton extends StatelessWidget {
           ),
           child: SizedBox.square(
             dimension: 36,
-            child: Icon(CupertinoIcons.xmark, color: AppColors.black, size: 18),
+            child: Icon(LucideIcons.x, color: AppColors.black, size: 18),
           ),
         ),
       ),
@@ -1243,11 +1243,7 @@ class _GalleryPickerTile extends StatelessWidget {
                     'generation-submission-gallery-picker-loading',
                   ),
                 )
-              : const Icon(
-                  CupertinoIcons.add,
-                  color: AppColors.black,
-                  size: 24,
-                ),
+              : const Icon(LucideIcons.plus, color: AppColors.black, size: 24),
         ),
       ),
     );
@@ -1302,19 +1298,11 @@ class _JobThumbnail extends StatelessWidget {
               key: ValueKey<String>('generation-thumbnail-image-${job.id}'),
               path: thumbnailImagePath,
             ),
-            if (onRetry == null)
+            if (onRetry == null &&
+                job.status != GenerationSubmissionStatus.awaitingConfirmation)
               Positioned(
                 right: 6,
-                top:
-                    job.status ==
-                        GenerationSubmissionStatus.awaitingConfirmation
-                    ? 6
-                    : null,
-                bottom:
-                    job.status ==
-                        GenerationSubmissionStatus.awaitingConfirmation
-                    ? null
-                    : 6,
+                bottom: 6,
                 child: _StatusBadge(status: job.status),
               ),
             if (onRetry != null)
@@ -1387,7 +1375,7 @@ class _MissingOriginalImagePlaceholder extends StatelessWidget {
       color: AppColors.surfaceMuted,
       child: Center(
         child: Icon(
-          CupertinoIcons.photo,
+          LucideIcons.image,
           color: AppColors.secondaryLabel.resolveFrom(context),
           size: 24,
         ),
@@ -1458,13 +1446,13 @@ class _StatusBadge extends StatelessWidget {
   Widget _statusIcon() {
     return switch (status) {
       GenerationSubmissionStatus.awaitingConfirmation => Icon(
-        CupertinoIcons.question_circle_fill,
+        LucideIcons.circleHelp,
         key: const ValueKey<String>('generation-submission-status-awaiting'),
         color: AppColors.white,
         size: 16,
       ),
       GenerationSubmissionStatus.resultSaved => Icon(
-        CupertinoIcons.check_mark_circled_solid,
+        LucideIcons.circleCheck,
         key: const ValueKey<String>(
           'generation-submission-status-result-saved',
         ),
@@ -1472,7 +1460,7 @@ class _StatusBadge extends StatelessWidget {
         size: 16,
       ),
       GenerationSubmissionStatus.resultProcessingFailed => Icon(
-        CupertinoIcons.exclamationmark_circle_fill,
+        LucideIcons.circleAlert,
         key: const ValueKey<String>(
           'generation-submission-status-result-processing-failed',
         ),
@@ -1480,13 +1468,13 @@ class _StatusBadge extends StatelessWidget {
         size: 16,
       ),
       GenerationSubmissionStatus.completed => Icon(
-        CupertinoIcons.check_mark_circled_solid,
+        LucideIcons.circleCheck,
         key: const ValueKey<String>('generation-submission-status-completed'),
         color: AppColors.success,
         size: 16,
       ),
       GenerationSubmissionStatus.failed => Icon(
-        CupertinoIcons.exclamationmark_circle_fill,
+        LucideIcons.circleAlert,
         key: const ValueKey<String>('generation-submission-status-failed'),
         color: AppColors.danger,
         size: 16,
@@ -1519,13 +1507,13 @@ class _ConfirmationActions extends StatelessWidget {
         _ThumbnailActionButton(
           key: ValueKey<String>('generation-submission-cancel-$jobId'),
           color: AppColors.danger,
-          icon: CupertinoIcons.xmark,
+          icon: LucideIcons.x,
           onPressed: onCancel,
         ),
         _ThumbnailActionButton(
           key: ValueKey<String>('generation-submission-confirm-$jobId'),
           color: AppColors.success,
-          icon: CupertinoIcons.check_mark,
+          icon: LucideIcons.check,
           onPressed: onConfirm,
         ),
       ],

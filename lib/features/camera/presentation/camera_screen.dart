@@ -605,7 +605,7 @@ class _MissingGalleryPreviewThumbnail extends StatelessWidget {
       color: AppColors.darkSurface,
       child: Center(
         child: Icon(
-          CupertinoIcons.photo,
+          LucideIcons.image,
           color: AppColors.secondaryLabel.resolveFrom(context),
           size: 20,
         ),

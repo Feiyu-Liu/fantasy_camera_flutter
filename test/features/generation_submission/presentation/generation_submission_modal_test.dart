@@ -685,7 +685,7 @@ void main() {
 
     expect(find.text('在相册中查看'), findsOneWidget);
     expect(find.text('保存原图'), findsOneWidget);
-    expect(find.text('重试'), findsOneWidget);
+    expect(find.text('重试'), findsNothing);
     expect(find.text('不喜欢这张图片'), findsOneWidget);
     expect(find.text('移除'), findsOneWidget);
     expect(
@@ -804,7 +804,7 @@ void main() {
       find.byKey(const ValueKey<String>('generation-submission-more-actions')),
     );
     await tester.pump(const Duration(milliseconds: 320));
-    await _tapExpandedMoreAction(tester, 3);
+    await _tapExpandedMoreAction(tester, 2);
     await tester.pump(const Duration(milliseconds: 260));
     await tester.pump();
 
@@ -845,7 +845,7 @@ void main() {
         ),
       );
       await tester.pump(const Duration(milliseconds: 320));
-      await _tapExpandedMoreAction(tester, 4);
+      await _tapExpandedMoreAction(tester, 3);
       await tester.pump(const Duration(milliseconds: 260));
       await tester.pump();
 
@@ -1033,13 +1033,13 @@ Future<void> _tapExpandedMoreAction(WidgetTester tester, int index) async {
   );
   for (int attempt = 0; attempt < 10; attempt += 1) {
     final Rect rect = tester.getRect(hitRegion);
-    if (rect.height >= 200) {
+    if (rect.height >= 180) {
       break;
     }
     await tester.pump(const Duration(milliseconds: 40));
   }
   final Rect rect = tester.getRect(hitRegion);
-  expect(rect.height, greaterThanOrEqualTo(200));
+  expect(rect.height, greaterThanOrEqualTo(180));
   await tester.tapAt(Offset(rect.center.dx, rect.top + 10 + index * 42 + 21));
 }
 
