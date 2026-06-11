@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart' hide XFile;
 
+import '../../../auth/presentation/auth_providers.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
 import '../application/generation_submission_service.dart';
@@ -97,6 +98,7 @@ final generationSubmissionServiceProvider =
         return service;
       },
       dependencies: <ProviderOrFamily>[
+        accessTokenProvider,
         uploadRepositoryProvider,
         generationTaskRepositoryProvider,
         feedbackRepositoryProvider,
@@ -111,6 +113,7 @@ final generationSubmissionControllerProvider =
     NotifierProvider<GenerationSubmissionController, GenerationSubmissionState>(
       GenerationSubmissionController.new,
       dependencies: <ProviderOrFamily>[
+        accessTokenProvider,
         generationSubmissionServiceProvider,
         generationRecordRepositoryProvider,
         generationRecordsProvider,

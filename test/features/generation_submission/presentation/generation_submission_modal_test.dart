@@ -22,6 +22,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/domain/gen
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_modal.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
+import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -56,7 +57,7 @@ void main() {
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-status-awaiting'),
+        const ValueKey<String>('generation-submission-confirm-awaiting'),
       ),
       findsOneWidget,
     );
@@ -685,7 +686,7 @@ void main() {
 
     expect(find.text('在相册中查看'), findsOneWidget);
     expect(find.text('保存原图'), findsOneWidget);
-    expect(find.text('重试'), findsNothing);
+    expect(find.text('重试'), findsOneWidget);
     expect(find.text('不喜欢这张图片'), findsOneWidget);
     expect(find.text('移除'), findsOneWidget);
     expect(
@@ -804,7 +805,7 @@ void main() {
       find.byKey(const ValueKey<String>('generation-submission-more-actions')),
     );
     await tester.pump(const Duration(milliseconds: 320));
-    await _tapExpandedMoreAction(tester, 2);
+    await _tapExpandedMoreAction(tester, 3);
     await tester.pump(const Duration(milliseconds: 260));
     await tester.pump();
 
@@ -845,7 +846,7 @@ void main() {
         ),
       );
       await tester.pump(const Duration(milliseconds: 320));
-      await _tapExpandedMoreAction(tester, 3);
+      await _tapExpandedMoreAction(tester, 4);
       await tester.pump(const Duration(milliseconds: 260));
       await tester.pump();
 
@@ -887,12 +888,7 @@ void main() {
     );
     for (int i = 0; i < 20; i += 1) {
       await tester.pump(const Duration(milliseconds: 50));
-      if (find
-          .byKey(
-            const ValueKey<String>('generation-submission-status-awaiting'),
-          )
-          .evaluate()
-          .isNotEmpty) {
+      if (_confirmButtonFinder().evaluate().isNotEmpty) {
         break;
       }
     }
@@ -902,12 +898,7 @@ void main() {
       find.byKey(const ValueKey<String>('generation-submission-photo-list')),
       findsOneWidget,
     );
-    expect(
-      find.byKey(
-        const ValueKey<String>('generation-submission-status-awaiting'),
-      ),
-      findsOneWidget,
-    );
+    expect(_confirmButtonFinder(), findsOneWidget);
     expect(
       find.byKey(
         const ValueKey<String>('generation-submission-status-processing'),
@@ -980,7 +971,7 @@ void main() {
     imagePicker.emitProgress(0.4);
     await tester.pump();
 
-    expect(find.text('Downloading from iCloud'), findsOneWidget);
+    expect(find.text('正在从 iCloud 下载'), findsOneWidget);
     expect(find.text('40%'), findsOneWidget);
     expect(
       find.byKey(
@@ -993,24 +984,22 @@ void main() {
     await imagePicker.pickFinished;
     for (int i = 0; i < 20; i += 1) {
       await tester.pump(const Duration(milliseconds: 50));
-      if (find.text('Downloading from iCloud').evaluate().isEmpty &&
-          find
-              .byKey(
-                const ValueKey<String>('generation-submission-status-awaiting'),
-              )
-              .evaluate()
-              .isNotEmpty) {
+      if (find.text('正在从 iCloud 下载').evaluate().isEmpty &&
+          _confirmButtonFinder().evaluate().isNotEmpty) {
         break;
       }
     }
 
-    expect(find.text('Downloading from iCloud'), findsNothing);
-    expect(
-      find.byKey(
-        const ValueKey<String>('generation-submission-status-awaiting'),
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('正在从 iCloud 下载'), findsNothing);
+    expect(_confirmButtonFinder(), findsOneWidget);
+  });
+}
+
+Finder _confirmButtonFinder() {
+  return find.byWidgetPredicate((Widget widget) {
+    final Key? key = widget.key;
+    return key is ValueKey<String> &&
+        key.value.startsWith('generation-submission-confirm-');
   });
 }
 
@@ -1020,7 +1009,14 @@ Future<void> _pumpModalHost(WidgetTester tester, _ModalHost host) async {
     await tester.pump();
     await tester.pump();
   });
-  await tester.pumpWidget(host);
+  await tester.pumpWidget(
+    CupertinoApp(
+      locale: defaultAppLocale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: host,
+    ),
+  );
   await tester.pump();
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 1));
@@ -1031,15 +1027,16 @@ Future<void> _tapExpandedMoreAction(WidgetTester tester, int index) async {
   final Finder hitRegion = find.byKey(
     const ValueKey<String>('generation-submission-more-hit-region'),
   );
+  final double requiredHeight = 10 + (index + 1) * 42;
   for (int attempt = 0; attempt < 10; attempt += 1) {
     final Rect rect = tester.getRect(hitRegion);
-    if (rect.height >= 180) {
+    if (rect.height >= requiredHeight) {
       break;
     }
     await tester.pump(const Duration(milliseconds: 40));
   }
   final Rect rect = tester.getRect(hitRegion);
-  expect(rect.height, greaterThanOrEqualTo(180));
+  expect(rect.height, greaterThanOrEqualTo(requiredHeight));
   await tester.tapAt(Offset(rect.center.dx, rect.top + 10 + index * 42 + 21));
 }
 

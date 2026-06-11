@@ -12,6 +12,7 @@ import 'package:photo_view/photo_view_gallery.dart';
 import 'package:progressive_blur/progressive_blur.dart';
 import 'package:smooth_corner/smooth_corner.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../../theme/app_colors.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../data/generation_submission_adapters.dart';
@@ -438,6 +439,7 @@ class _GenerationSubmissionDebugModalState
   Future<void> _precacheAndStartResultArrivalAnimation(
     GenerationSubmissionJob job,
   ) async {
+    final AppLocalizations l10n = context.l10n;
     final String? processedResultPath = job.processedResultPath;
     if (processedResultPath == null) {
       _finishPendingResultArrivalPrecache(job.id);
@@ -448,7 +450,7 @@ class _GenerationSubmissionDebugModalState
       path: job.imagePath,
       key: const ValueKey<String>('generation-submission-original-image'),
       failureLogLabel: 'original image',
-      failureMessage: 'Original image could not be loaded',
+      failureMessage: l10n.generationSubmissionOriginalImageLoadFailed,
     );
     final _HeroFileImageSource resultImageSource = _HeroFileImageSource(
       path: processedResultPath,
@@ -456,7 +458,7 @@ class _GenerationSubmissionDebugModalState
         'generation-submission-processed-result-image',
       ),
       failureLogLabel: 'processed result image',
-      failureMessage: 'Processed result image could not be loaded',
+      failureMessage: l10n.generationSubmissionProcessedResultImageLoadFailed,
     );
     final HeroImagePrecache precache = ref.read(heroImagePrecacheProvider);
     final List<bool> precacheResults = await Future.wait(<Future<bool>>[
@@ -798,6 +800,7 @@ class _GenerationSubmissionDebugModalState
   }
 
   _HeroImageSource? _heroImageSourceForJob(GenerationSubmissionJob job) {
+    final AppLocalizations l10n = context.l10n;
     final _GalleryHeroDisplayState displayState = _heroDisplayStateForJob(job);
     if (displayState.displayedKind == _GalleryHeroImageKind.original ||
         displayState.phase == _GalleryHeroArrivalPhase.precaching ||
@@ -809,7 +812,7 @@ class _GenerationSubmissionDebugModalState
         path: job.imagePath,
         key: const ValueKey<String>('generation-submission-original-image'),
         failureLogLabel: 'original image',
-        failureMessage: 'Original image could not be loaded',
+        failureMessage: l10n.generationSubmissionOriginalImageLoadFailed,
       );
     }
 
@@ -821,7 +824,7 @@ class _GenerationSubmissionDebugModalState
           'generation-submission-processed-result-image',
         ),
         failureLogLabel: 'processed result image',
-        failureMessage: 'Processed result image could not be loaded',
+        failureMessage: l10n.generationSubmissionProcessedResultImageLoadFailed,
       );
     }
 
@@ -831,7 +834,7 @@ class _GenerationSubmissionDebugModalState
         path: job.imagePath,
         key: const ValueKey<String>('generation-submission-original-image'),
         failureLogLabel: 'original image',
-        failureMessage: 'Original image could not be loaded',
+        failureMessage: l10n.generationSubmissionOriginalImageLoadFailed,
       );
     }
 
@@ -839,7 +842,7 @@ class _GenerationSubmissionDebugModalState
       url: resultUrl,
       key: const ValueKey<String>('generation-submission-result-image'),
       failureLogLabel: 'result image',
-      failureMessage: 'Result image could not be loaded',
+      failureMessage: l10n.generationSubmissionResultImageLoadFailed,
     );
   }
 }
@@ -936,7 +939,7 @@ class _GalleryExportProgressDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoAlertDialog(
-      title: const Text('Downloading from iCloud'),
+      title: Text(context.l10n.generationSubmissionDownloadingFromICloud),
       content: Padding(
         padding: const EdgeInsets.only(top: 12),
         child: ValueListenableBuilder<double>(
@@ -947,7 +950,7 @@ class _GalleryExportProgressDialog extends StatelessWidget {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                const Text('Preparing your photo...'),
+                Text(context.l10n.generationSubmissionPreparingPhoto),
                 const SizedBox(height: 14),
                 _GalleryExportProgressBar(progress: clampedProgress),
                 const SizedBox(height: 10),
@@ -1065,12 +1068,12 @@ class _RelatedMomentsStrip extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Text(
-                'RELATED MOMENTS',
-                key: ValueKey<String>('generation-gallery-related-title'),
-                style: TextStyle(
+                context.l10n.generationSubmissionRelatedMoments,
+                key: const ValueKey<String>('generation-gallery-related-title'),
+                style: const TextStyle(
                   color: AppColors.black,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -1083,7 +1086,13 @@ class _RelatedMomentsStrip extends StatelessWidget {
               child: LayoutBuilder(
                 builder: (BuildContext context, BoxConstraints constraints) {
                   final double itemHeight = constraints.maxHeight;
-                  final double tileHeight = (itemHeight - 22).clamp(0.0, 280.0);
+                  const double captionGap = 10;
+                  const double captionHeight = 12;
+                  final double tileHeight =
+                      (itemHeight - captionGap - captionHeight).clamp(
+                        0.0,
+                        280.0,
+                      );
                   final double tileWidth = tileHeight * 0.72;
                   return ListView.separated(
                     key: const ValueKey<String>(
@@ -1099,7 +1108,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
                           width: tileWidth,
                           height: itemHeight,
                           imageHeight: tileHeight,
-                          caption: 'IMPORT — NEW',
+                          caption: context.l10n.generationSubmissionImportNew,
                           child: _GalleryPickerTile(
                             width: tileWidth,
                             height: tileHeight,
@@ -1113,7 +1122,12 @@ class _RelatedMomentsStrip extends StatelessWidget {
                         width: tileWidth,
                         height: itemHeight,
                         imageHeight: tileHeight,
-                        caption: _captionForJob(job),
+                        caption: _captionForJob(
+                          job,
+                          defaultMode: context
+                              .l10n
+                              .generationSubmissionDefaultMomentMode,
+                        ),
                         child: _JobThumbnail(
                           width: tileWidth,
                           height: tileHeight,
@@ -1148,7 +1162,10 @@ class _RelatedMomentsStrip extends StatelessWidget {
     );
   }
 
-  String _captionForJob(GenerationSubmissionJob job) {
+  String _captionForJob(
+    GenerationSubmissionJob job, {
+    required String defaultMode,
+  }) {
     final DateTime createdAt = job.createdAt;
     final int hour = createdAt.hour == 0
         ? 12
@@ -1158,7 +1175,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
     final String minute = createdAt.minute.toString().padLeft(2, '0');
     final String period = createdAt.hour >= 12 ? 'PM' : 'AM';
     final String mode =
-        job.promptSelection?.captureMode.toUpperCase() ?? 'MOMENT';
+        job.promptSelection?.captureMode.toUpperCase() ?? defaultMode;
     return '$hour:$minute $period — $mode';
   }
 
@@ -1201,6 +1218,7 @@ class _GalleryMomentItem extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textMuted,
               fontSize: 10,
+              height: 1.2,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.1,
             ),
@@ -1396,7 +1414,9 @@ class _PromptSnapshotBadge extends StatelessWidget {
     final int activeCount = selection.switches.values
         .where((bool selected) => selected)
         .length;
-    final String label = activeCount == 0 ? 'DEFAULT' : '+$activeCount';
+    final String label = activeCount == 0
+        ? context.l10n.generationSubmissionDefaultPromptBadge
+        : '+$activeCount';
 
     return Align(
       alignment: Alignment.topLeft,
@@ -1638,11 +1658,11 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
         color: AppColors.white,
         child: Padding(
           padding: EdgeInsets.only(top: widget.topPadding),
-          child: const Center(
+          child: Center(
             child: Text(
-              'SELECT A MOMENT',
-              key: ValueKey<String>('generation-gallery-empty-hero'),
-              style: TextStyle(
+              context.l10n.generationSubmissionSelectMoment,
+              key: const ValueKey<String>('generation-gallery-empty-hero'),
+              style: const TextStyle(
                 color: AppColors.textPlaceholder,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -1927,7 +1947,8 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
           'generation-submission-processed-result-image',
         ),
         failureLogLabel: 'processed result image',
-        failureMessage: 'Processed result image could not be loaded',
+        failureMessage:
+            context.l10n.generationSubmissionProcessedResultImageLoadFailed,
       );
     }
 
@@ -1940,7 +1961,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       url: resultUrl,
       key: const ValueKey<String>('generation-submission-result-image'),
       failureLogLabel: 'result image',
-      failureMessage: 'Result image could not be loaded',
+      failureMessage: context.l10n.generationSubmissionResultImageLoadFailed,
     );
   }
 
@@ -1949,7 +1970,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       path: job.imagePath,
       key: const ValueKey<String>('generation-submission-original-image'),
       failureLogLabel: 'original image',
-      failureMessage: 'Original image could not be loaded',
+      failureMessage: context.l10n.generationSubmissionOriginalImageLoadFailed,
     );
   }
 
@@ -1979,9 +2000,9 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
     final String text;
     if (job.status == GenerationSubmissionStatus.completed ||
         job.status == GenerationSubmissionStatus.resultSaved) {
-      text = 'TAP TO LOAD RESULT';
+      text = context.l10n.generationSubmissionTapToLoadResult;
     } else {
-      text = _statusText(job.status).toUpperCase();
+      text = _statusText(context.l10n, job.status).toUpperCase();
     }
 
     return Center(
@@ -2020,21 +2041,27 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
         job.resultAssetId!.isNotEmpty;
   }
 
-  static String _statusText(GenerationSubmissionStatus status) {
+  static String _statusText(
+    AppLocalizations localizations,
+    GenerationSubmissionStatus status,
+  ) {
     return switch (status) {
-      GenerationSubmissionStatus.failed => 'Generation failed',
+      GenerationSubmissionStatus.failed =>
+        localizations.generationSubmissionStatusGenerationFailed,
       GenerationSubmissionStatus.awaitingConfirmation =>
-        'Waiting for confirmation',
+        localizations.generationSubmissionStatusWaitingForConfirmation,
       GenerationSubmissionStatus.preparingUploadImage =>
-        'Preparing upload image',
+        localizations.generationSubmissionStatusPreparingUploadImage,
       GenerationSubmissionStatus.processingResultImage =>
-        'Processing result image',
-      GenerationSubmissionStatus.resultSaved => 'Result saved',
+        localizations.generationSubmissionStatusProcessingResultImage,
+      GenerationSubmissionStatus.resultSaved =>
+        localizations.generationSubmissionStatusResultSaved,
       GenerationSubmissionStatus.resultProcessingFailed =>
-        'Result processing failed',
+        localizations.generationSubmissionStatusResultProcessingFailed,
       GenerationSubmissionStatus.submitted ||
-      GenerationSubmissionStatus.pollingTask => 'Waiting for generation result',
-      _ => 'Preparing generation task',
+      GenerationSubmissionStatus.pollingTask =>
+        localizations.generationSubmissionStatusWaitingForGenerationResult,
+      _ => localizations.generationSubmissionStatusPreparingGenerationTask,
     };
   }
 }
@@ -2251,34 +2278,35 @@ class _HeroToolbarState extends State<_HeroToolbar>
   }
 
   List<_HeroMoreActionItem> get _items {
+    final AppLocalizations l10n = context.l10n;
     return <_HeroMoreActionItem>[
       _HeroMoreActionItem(
         action: _HeroMoreAction.viewInAlbum,
-        title: '在相册中查看',
+        title: l10n.generationSubmissionActionViewInAlbum,
         icon: LucideIcons.images,
         enabled: _canViewInAlbum,
       ),
       _HeroMoreActionItem(
         action: _HeroMoreAction.saveOriginal,
-        title: '保存原图',
+        title: l10n.generationSubmissionActionSaveOriginal,
         icon: LucideIcons.download,
         enabled: widget.selectedJob.canSaveOriginalToPhotoLibrary,
       ),
       _HeroMoreActionItem(
         action: _HeroMoreAction.retry,
-        title: '重试',
+        title: l10n.generationSubmissionActionRetry,
         icon: LucideIcons.refreshCcw,
         enabled: _canRetry,
       ),
       _HeroMoreActionItem(
         action: _HeroMoreAction.dislike,
-        title: '不喜欢这张图片',
+        title: l10n.generationSubmissionActionDislikeImage,
         icon: LucideIcons.thumbsDown,
         enabled: _canDislike,
       ),
-      const _HeroMoreActionItem(
+      _HeroMoreActionItem(
         action: _HeroMoreAction.remove,
-        title: '移除',
+        title: l10n.generationSubmissionActionRemove,
         icon: LucideIcons.trash2,
         enabled: true,
         destructive: true,

@@ -15,5 +15,7 @@ abstract interface class AppLocalizationsAware {
 }
 
 extension AppLocalizationsX on BuildContext {
-  AppLocalizations get l10n => AppLocalizations.of(this);
+  AppLocalizations get l10n =>
+      Localizations.of<AppLocalizations>(this, AppLocalizations) ??
+      appLocalizationsFor(defaultAppLocale);
 }

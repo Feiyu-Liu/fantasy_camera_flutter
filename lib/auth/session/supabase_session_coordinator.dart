@@ -1,12 +1,14 @@
 import 'dart:async';
 
+import '../../l10n/l10n.dart';
 import '../../shared/core/app_logger.dart';
 import '../data/auth_gateway.dart';
 import '../domain/access_token_provider.dart';
 import '../domain/auth_session_snapshot.dart';
 import '../domain/auth_session_state.dart';
 
-class SupabaseSessionCoordinator implements AccessTokenProvider {
+class SupabaseSessionCoordinator
+    implements AccessTokenProvider, AppLocalizationsAware {
   SupabaseSessionCoordinator({required AuthGateway authGateway})
     : _authGateway = authGateway {
     _authSubscription = _authGateway.authStateChanges.listen(
@@ -23,6 +25,7 @@ class SupabaseSessionCoordinator implements AccessTokenProvider {
 
   StreamSubscription<AuthGatewayEvent>? _authSubscription;
   AuthSessionState _state = const AuthSessionState.restoring();
+  AppLocalizations _localizations = appLocalizationsFor(defaultAppLocale);
   Future<AuthSessionSnapshot?>? _refreshFuture;
   bool _signingOut = false;
 
@@ -31,6 +34,11 @@ class SupabaseSessionCoordinator implements AccessTokenProvider {
   Stream<AuthSessionState> get states async* {
     yield _state;
     yield* _stateController.stream;
+  }
+
+  @override
+  void bindLocalizations(AppLocalizations localizations) {
+    _localizations = localizations;
   }
 
   Future<void> restore() async {
@@ -103,8 +111,8 @@ class SupabaseSessionCoordinator implements AccessTokenProvider {
       final AuthSessionSnapshot? session = await _authGateway.refreshSession();
       if (session == null) {
         _setState(
-          const AuthSessionState.sessionExpired(
-            message: 'Session expired. Please sign in again.',
+          AuthSessionState.sessionExpired(
+            message: _localizations.authSessionExpired,
           ),
         );
         return null;
@@ -114,8 +122,8 @@ class SupabaseSessionCoordinator implements AccessTokenProvider {
     } on Object catch (error, stackTrace) {
       logAppError('auth_refresh_failed', error, stackTrace);
       _setState(
-        const AuthSessionState.sessionExpired(
-          message: 'Session expired. Please sign in again.',
+        AuthSessionState.sessionExpired(
+          message: _localizations.authSessionExpired,
         ),
       );
       return null;
@@ -130,8 +138,8 @@ class SupabaseSessionCoordinator implements AccessTokenProvider {
     final AuthSessionSnapshot? session = await action();
     if (session == null) {
       _setState(
-        const AuthSessionState.signedOut(
-          message: 'Account created. Please sign in.',
+        AuthSessionState.signedOut(
+          message: _localizations.authAccountCreatedSignIn,
         ),
       );
       return;
@@ -153,8 +161,8 @@ class SupabaseSessionCoordinator implements AccessTokenProvider {
           _setState(const AuthSessionState.signedOut());
         } else {
           _setState(
-            const AuthSessionState.sessionExpired(
-              message: 'Session expired. Please sign in again.',
+            AuthSessionState.sessionExpired(
+              message: _localizations.authSessionExpired,
             ),
           );
         }

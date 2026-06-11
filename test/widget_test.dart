@@ -16,9 +16,6 @@ void main() {
     await tester.pumpWidget(const FantasyCameraApp());
     await tester.pump();
 
-    expect(
-      find.textContaining('Missing Supabase configuration'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('缺少 Supabase 配置'), findsOneWidget);
   });
 }

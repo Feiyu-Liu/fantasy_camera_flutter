@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/l10n.dart';
 import '../../theme/app_colors.dart';
 import 'auth_providers.dart';
 
@@ -32,6 +33,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
 
   @override
   Widget build(BuildContext context) {
+    final AppLocalizations l10n = context.l10n;
     final AuthControllerState state = ref.watch(authControllerProvider);
     final String? message = state.errorMessage ?? widget.sessionMessage;
     return CupertinoPageScaffold(
@@ -46,10 +48,10 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  const Text(
-                    'Fantasy Camera',
+                  Text(
+                    l10n.appName,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AppColors.white,
                       fontSize: 32,
                       fontWeight: FontWeight.w700,
@@ -57,7 +59,9 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _isSignUp ? 'Create your account' : 'Sign in to continue',
+                    _isSignUp
+                        ? l10n.authCreateAccountSubtitle
+                        : l10n.authSignInSubtitle,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: AppColors.textSecondary,
@@ -69,7 +73,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                     key: const ValueKey<String>('auth_email_field'),
                     controller: _emailController,
                     enabled: !state.isSubmitting,
-                    placeholder: 'Email',
+                    placeholder: l10n.authEmailPlaceholder,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
                     autofillHints: const <String>[AutofillHints.email],
@@ -81,7 +85,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                     key: const ValueKey<String>('auth_password_field'),
                     controller: _passwordController,
                     enabled: !state.isSubmitting,
-                    placeholder: 'Password',
+                    placeholder: l10n.authPasswordPlaceholder,
                     obscureText: true,
                     textInputAction: TextInputAction.done,
                     autofillHints: const <String>[AutofillHints.password],
@@ -119,7 +123,9 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                             ),
                           )
                         : Text(
-                            _isSignUp ? 'Create account' : 'Sign in',
+                            _isSignUp
+                                ? l10n.authCreateAccountButton
+                                : l10n.authSignInButton,
                             style: const TextStyle(
                               color: AppColors.black,
                               fontWeight: FontWeight.w600,
@@ -138,8 +144,8 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                           },
                     child: Text(
                       _isSignUp
-                          ? 'Already have an account? Sign in'
-                          : 'New here? Create account',
+                          ? l10n.authAlreadyHaveAccountSignIn
+                          : l10n.authNewHereCreateAccount,
                       style: TextStyle(
                         color: state.isSubmitting
                             ? AppColors.disabledText
@@ -166,12 +172,12 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                           border: Border.all(color: AppColors.disabledDark),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const SizedBox(
+                        child: SizedBox(
                           height: 52,
                           child: Center(
                             child: Text(
-                              'Continue with Apple',
-                              style: TextStyle(
+                              l10n.authContinueWithApple,
+                              style: const TextStyle(
                                 color: AppColors.white,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -228,13 +234,13 @@ class _AuthPageState extends ConsumerState<AuthPage> {
     String? passwordError;
 
     if (email.isEmpty) {
-      emailError = 'Email is required.';
+      emailError = context.l10n.authEmailRequired;
     } else if (!email.contains('@')) {
-      emailError = 'Enter a valid email.';
+      emailError = context.l10n.authEmailInvalid;
     }
 
     if (password.length < 6) {
-      passwordError = 'Use at least 6 characters.';
+      passwordError = context.l10n.authPasswordMinLength;
     }
 
     setState(() {

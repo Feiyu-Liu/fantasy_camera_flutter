@@ -12,6 +12,75 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appTitle => 'Fantasy Camera';
 
   @override
+  String get appName => 'Fantasy Camera';
+
+  @override
+  String get authAccountCreatedSignIn => '账号已创建，请登录。';
+
+  @override
+  String get authAlreadyHaveAccountSignIn => '已有账号？登录';
+
+  @override
+  String get authAppleSignInFailed => 'Apple 登录失败。';
+
+  @override
+  String get authAuthenticationFailed => '认证失败，请重试。';
+
+  @override
+  String get authCameraDevicesLoadFailed => '无法加载相机设备。';
+
+  @override
+  String get authContinueWithApple => '通过 Apple 继续';
+
+  @override
+  String get authCreateAccountButton => '创建账号';
+
+  @override
+  String get authCreateAccountSubtitle => '创建你的账号';
+
+  @override
+  String get authEmailInvalid => '请输入有效的邮箱。';
+
+  @override
+  String get authEmailPlaceholder => '邮箱';
+
+  @override
+  String get authEmailRequired => '请输入邮箱。';
+
+  @override
+  String get authInvalidCredentials => '邮箱或密码不正确。如果这是新账号，请先创建账号，并按要求确认邮箱。';
+
+  @override
+  String get authMissingSupabaseConfig =>
+      '缺少 Supabase 配置。请先通过 dart-defines 设置 SUPABASE_URL 和 SUPABASE_PUBLISHABLE_KEY。';
+
+  @override
+  String get authNewHereCreateAccount => '新用户？创建账号';
+
+  @override
+  String get authPasswordMinLength => '请至少输入 6 个字符。';
+
+  @override
+  String get authPasswordPlaceholder => '密码';
+
+  @override
+  String get authSessionExpired => '会话已过期，请重新登录。';
+
+  @override
+  String get authSessionRestoreFailed => '无法恢复会话，请登录。';
+
+  @override
+  String get authSignInButton => '登录';
+
+  @override
+  String get authSignInSubtitle => '登录以继续';
+
+  @override
+  String cameraCreditsBalanceSemanticsLabel(Object value) {
+    return '积分 $value';
+  }
+
+  @override
   String get cameraNoCameraFound => '未找到相机。';
 
   @override
@@ -21,4 +90,98 @@ class AppLocalizationsZh extends AppLocalizations {
   String cameraErrorMessage(Object message) {
     return '相机错误：$message';
   }
+
+  @override
+  String get generationSubmissionDownloadingFromICloud => '正在从 iCloud 下载';
+
+  @override
+  String get generationSubmissionPreparingPhoto => '正在准备照片...';
+
+  @override
+  String get generationSubmissionRelatedMoments => '相关时刻';
+
+  @override
+  String get generationSubmissionImportNew => '从相册导入';
+
+  @override
+  String get generationSubmissionDefaultMomentMode => '时刻';
+
+  @override
+  String get generationSubmissionDefaultPromptBadge => '默认';
+
+  @override
+  String get generationSubmissionSelectMoment => '选择一个时刻';
+
+  @override
+  String get generationSubmissionProcessedResultImageLoadFailed =>
+      '处理后的结果图无法加载';
+
+  @override
+  String get generationSubmissionResultImageLoadFailed => '结果图无法加载';
+
+  @override
+  String get generationSubmissionOriginalImageLoadFailed => '原图无法加载';
+
+  @override
+  String get generationSubmissionTapToLoadResult => '轻点加载结果';
+
+  @override
+  String get generationSubmissionStatusGenerationFailed => '生成失败';
+
+  @override
+  String get generationSubmissionStatusWaitingForConfirmation => '等待确认';
+
+  @override
+  String get generationSubmissionStatusPreparingUploadImage => '正在准备上传图片';
+
+  @override
+  String get generationSubmissionStatusProcessingResultImage => '正在处理结果图';
+
+  @override
+  String get generationSubmissionStatusResultSaved => '结果已保存';
+
+  @override
+  String get generationSubmissionStatusResultProcessingFailed => '结果处理失败';
+
+  @override
+  String get generationSubmissionStatusWaitingForGenerationResult => '等待生成结果';
+
+  @override
+  String get generationSubmissionStatusPreparingGenerationTask => '正在准备生成任务';
+
+  @override
+  String get generationSubmissionActionViewInAlbum => '在相册中查看';
+
+  @override
+  String get generationSubmissionActionSaveOriginal => '保存原图';
+
+  @override
+  String get generationSubmissionActionRetry => '重试';
+
+  @override
+  String get generationSubmissionActionDislikeImage => '不喜欢这张图片';
+
+  @override
+  String get generationSubmissionActionRemove => '移除';
+
+  @override
+  String get promptSwitchRecomposeTitle => '重构图';
+
+  @override
+  String get promptSwitchBeautifyFaceTitle => '人物优化';
+
+  @override
+  String get promptSwitchCleanFrameTitle => '画面净化';
+
+  @override
+  String get promptSwitchBackgroundBlurTitle => '背景虚化';
+
+  @override
+  String get promptStyleRealisticTitle => '写实';
+
+  @override
+  String get promptCaptureModePortraitTitle => '人像';
+
+  @override
+  String get promptCaptureModeGeneralTitle => '通用';
 }

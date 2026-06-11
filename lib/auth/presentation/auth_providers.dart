@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config/app_config.dart';
 import '../../features/camera/domain/camera_choice.dart';
 import '../../features/camera/presentation/camera_providers.dart';
+import '../../l10n/l10n.dart';
 import '../../shared/core/app_logger.dart';
 import '../data/apple_sign_in_gateway.dart';
 import '../data/auth_gateway.dart';
@@ -17,6 +18,10 @@ import '../session/supabase_session_coordinator.dart';
 final hasSupabaseConfigProvider = Provider<bool>((Ref ref) {
   return AppConfig.hasSupabaseConfig;
 });
+
+final appLocalizationsProvider = Provider<AppLocalizations>((Ref ref) {
+  return appLocalizationsFor(defaultAppLocale);
+}, dependencies: const <ProviderOrFamily>[]);
 
 final supabaseClientProvider = Provider<SupabaseClient>((Ref ref) {
   return Supabase.instance.client;
@@ -39,23 +44,42 @@ final sessionCoordinatorProvider = Provider<SupabaseSessionCoordinator>((
   final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
     authGateway: ref.watch(authGatewayProvider),
   );
+  coordinator.bindLocalizations(ref.watch(appLocalizationsProvider));
   unawaited(coordinator.restore());
   ref.onDispose(() {
     unawaited(coordinator.dispose());
   });
   return coordinator;
-});
+}, dependencies: <ProviderOrFamily>[appLocalizationsProvider]);
 
-final accessTokenProvider = Provider<AccessTokenProvider>((Ref ref) {
-  return ref.watch(sessionCoordinatorProvider);
-});
+final accessTokenProvider = Provider<AccessTokenProvider>(
+  (Ref ref) {
+    return ref.watch(sessionCoordinatorProvider);
+  },
+  dependencies: <ProviderOrFamily>[
+    appLocalizationsProvider,
+    sessionCoordinatorProvider,
+  ],
+);
 
-final authSessionProvider = StreamProvider<AuthSessionState>((Ref ref) {
-  return ref.watch(sessionCoordinatorProvider).states;
-});
+final authSessionProvider = StreamProvider<AuthSessionState>(
+  (Ref ref) {
+    return ref.watch(sessionCoordinatorProvider).states;
+  },
+  dependencies: <ProviderOrFamily>[
+    appLocalizationsProvider,
+    sessionCoordinatorProvider,
+  ],
+);
 
 final authControllerProvider =
-    NotifierProvider<AuthController, AuthControllerState>(AuthController.new);
+    NotifierProvider<AuthController, AuthControllerState>(
+      AuthController.new,
+      dependencies: <ProviderOrFamily>[
+        appLocalizationsProvider,
+        sessionCoordinatorProvider,
+      ],
+    );
 
 class AuthControllerState {
   const AuthControllerState({this.isSubmitting = false, this.errorMessage});
@@ -131,7 +155,7 @@ class AuthController extends Notifier<AuthControllerState> {
       logAppError('apple_sign_in_failed', error, stackTrace);
       state = state.copyWith(
         isSubmitting: false,
-        errorMessage: 'Apple sign in failed.',
+        errorMessage: ref.read(appLocalizationsProvider).authAppleSignInFailed,
       );
       return;
     }
@@ -159,11 +183,11 @@ class AuthController extends Notifier<AuthControllerState> {
   String _messageFor(Object error) {
     if (error is AuthException) {
       if (error.code == 'invalid_credentials') {
-        return 'Email or password is incorrect. If this is a new account, create it first and confirm the email if required.';
+        return ref.read(appLocalizationsProvider).authInvalidCredentials;
       }
       return error.message;
     }
-    return 'Authentication failed. Please try again.';
+    return ref.read(appLocalizationsProvider).authAuthenticationFailed;
   }
 }
 

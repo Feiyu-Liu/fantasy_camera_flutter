@@ -281,6 +281,38 @@ Map<String, bool> defaultSwitchValuesFor(
   };
 }
 
+List<PromptStyleDefinition> localizedPromptStyles(
+  List<PromptStyleDefinition> styles, {
+  required String Function(String id, String fallback) styleTitle,
+  required String Function(String id, String fallback) captureModeTitle,
+  required String Function(String id, String fallback) switchTitle,
+}) {
+  return <PromptStyleDefinition>[
+    for (final PromptStyleDefinition style in styles)
+      PromptStyleDefinition(
+        id: style.id,
+        title: styleTitle(style.id, style.title),
+        captureModes: <PromptCaptureModeDefinition>[
+          for (final PromptCaptureModeDefinition captureMode
+              in style.captureModes)
+            PromptCaptureModeDefinition(
+              id: captureMode.id,
+              title: captureModeTitle(captureMode.id, captureMode.title),
+              switches: <PromptSwitchDefinition>[
+                for (final PromptSwitchDefinition promptSwitch
+                    in captureMode.switches)
+                  PromptSwitchDefinition(
+                    id: promptSwitch.id,
+                    title: switchTitle(promptSwitch.id, promptSwitch.title),
+                    defaultValue: promptSwitch.defaultValue,
+                  ),
+              ],
+            ),
+        ],
+      ),
+  ];
+}
+
 String _readString(JsonObject json, String key) {
   final Object? value = json[key];
   if (value is String && value.isNotEmpty) {

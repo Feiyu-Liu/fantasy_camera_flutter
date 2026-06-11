@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/camera/presentation/camera_providers.dart';
 import '../../features/camera/presentation/camera_screen.dart';
+import '../../l10n/l10n.dart';
 import '../../theme/app_colors.dart';
 import '../domain/auth_session_state.dart';
 import 'auth_page.dart';
@@ -31,9 +32,8 @@ class AuthGate extends ConsumerWidget {
         return AuthPage(sessionMessage: state.message);
       },
       loading: () => const _AuthLoadingPage(),
-      error: (_, _) => const AuthPage(
-        sessionMessage: 'Session could not be restored. Please sign in.',
-      ),
+      error: (_, _) =>
+          AuthPage(sessionMessage: context.l10n.authSessionRestoreFailed),
     );
   }
 }
@@ -55,7 +55,7 @@ class _SignedInCameraEntry extends ConsumerWidget {
       },
       loading: () => const _AuthLoadingPage(),
       error: (_, _) =>
-          const AuthPage(sessionMessage: 'Camera devices could not be loaded.'),
+          AuthPage(sessionMessage: context.l10n.authCameraDevicesLoadFailed),
     );
   }
 }
@@ -82,16 +82,16 @@ class _ConfigErrorPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const CupertinoPageScaffold(
+    return CupertinoPageScaffold(
       backgroundColor: AppColors.black,
       child: SafeArea(
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Center(
             child: Text(
-              'Missing Supabase configuration. Start with SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY dart-defines.',
+              context.l10n.authMissingSupabaseConfig,
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.white, fontSize: 16),
+              style: const TextStyle(color: AppColors.white, fontSize: 16),
             ),
           ),
         ),

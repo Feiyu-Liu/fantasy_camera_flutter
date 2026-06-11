@@ -91,6 +91,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final PromptSelectionState promptSelection = ref.watch(
       promptSelectionControllerProvider,
     );
+    final PromptSelectionState localizedPromptSelection = _localizedPromptState(
+      promptSelection,
+    );
     final AsyncValue<CreditBalance> creditBalance = ref.watch(
       creditBalanceProvider,
     );
@@ -113,9 +116,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       message: _localizedMessage(cameraState.message),
       controlsRotationTurns: controlsRotationTurns,
       aspectRatioLabel: '4:3',
-      modes: _cameraModesForPrompt(promptSelection),
-      selectedModeId: promptSelection.selectedCaptureModeId,
-      modeExtensions: _cameraModeExtensionsForPrompt(promptSelection),
+      modes: _cameraModesForPrompt(localizedPromptSelection),
+      selectedModeId: localizedPromptSelection.selectedCaptureModeId,
+      modeExtensions: _cameraModeExtensionsForPrompt(localizedPromptSelection),
       zoomStops: _zoomStops(cameraState),
       currentDisplayZoom: cameraState.rawToDisplayZoom(
         cameraState.currentRawZoom,
@@ -297,6 +300,43 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     return message?.localize(context.l10n);
   }
 
+  PromptSelectionState _localizedPromptState(PromptSelectionState state) {
+    final AppLocalizations l10n = context.l10n;
+    final List<PromptStyleDefinition> styles = localizedPromptStyles(
+      state.styles,
+      styleTitle: (String id, String fallback) {
+        return switch (id) {
+          defaultPromptStyle => l10n.promptStyleRealisticTitle,
+          _ => fallback,
+        };
+      },
+      captureModeTitle: (String id, String fallback) {
+        return switch (id) {
+          defaultCaptureMode => l10n.promptCaptureModePortraitTitle,
+          'general' => l10n.promptCaptureModeGeneralTitle,
+          _ => fallback,
+        };
+      },
+      switchTitle: (String id, String fallback) {
+        return switch (id) {
+          'recompose' => l10n.promptSwitchRecomposeTitle,
+          'beautifyFace' => l10n.promptSwitchBeautifyFaceTitle,
+          'cleanFrame' => l10n.promptSwitchCleanFrameTitle,
+          'backgroundBlur' => l10n.promptSwitchBackgroundBlurTitle,
+          _ => fallback,
+        };
+      },
+    );
+    return state.copyWith(
+      styles: styles,
+      switches: promptSwitchesForDefinitions(
+        styles,
+        promptStyle: state.selectedPromptStyleId,
+        captureMode: state.selectedCaptureModeId,
+      ),
+    );
+  }
+
   bool _canFlipCamera(CameraState cameraState) {
     if (!cameraState.canFlipCamera) {
       return false;
@@ -434,7 +474,7 @@ class _CreditsBalanceBadge extends StatelessWidget {
 
     return Center(
       child: Semantics(
-        label: '积分 $value',
+        label: context.l10n.cameraCreditsBalanceSemanticsLabel(value),
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 160),
           child: Row(

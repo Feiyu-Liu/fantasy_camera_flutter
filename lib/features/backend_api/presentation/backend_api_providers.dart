@@ -16,30 +16,64 @@ final fantasyApiClientProvider = Provider<FantasyApiClient>((Ref ref) {
     dio: ref.watch(backendDioProvider),
     accessTokenProvider: ref.watch(accessTokenProvider),
   );
-});
+}, dependencies: <ProviderOrFamily>[backendDioProvider, accessTokenProvider]);
 
-final appConfigRepositoryProvider = Provider<AppConfigRepository>((Ref ref) {
-  return WorkerAppConfigRepository(ref.watch(fantasyApiClientProvider));
-}, dependencies: <ProviderOrFamily>[fantasyApiClientProvider]);
+final appConfigRepositoryProvider = Provider<AppConfigRepository>(
+  (Ref ref) {
+    return WorkerAppConfigRepository(ref.watch(fantasyApiClientProvider));
+  },
+  dependencies: <ProviderOrFamily>[
+    accessTokenProvider,
+    fantasyApiClientProvider,
+  ],
+);
 
-final creditsRepositoryProvider = Provider<CreditsRepository>((Ref ref) {
-  return WorkerCreditsRepository(ref.watch(fantasyApiClientProvider));
-}, dependencies: <ProviderOrFamily>[fantasyApiClientProvider]);
+final creditsRepositoryProvider = Provider<CreditsRepository>(
+  (Ref ref) {
+    return WorkerCreditsRepository(ref.watch(fantasyApiClientProvider));
+  },
+  dependencies: <ProviderOrFamily>[
+    accessTokenProvider,
+    fantasyApiClientProvider,
+  ],
+);
 
-final creditBalanceProvider = FutureProvider<CreditBalance>((Ref ref) {
-  return ref.watch(creditsRepositoryProvider).fetchBalance();
-}, dependencies: <ProviderOrFamily>[creditsRepositoryProvider]);
+final creditBalanceProvider = FutureProvider<CreditBalance>(
+  (Ref ref) {
+    return ref.watch(creditsRepositoryProvider).fetchBalance();
+  },
+  dependencies: <ProviderOrFamily>[
+    accessTokenProvider,
+    creditsRepositoryProvider,
+  ],
+);
 
-final uploadRepositoryProvider = Provider<UploadRepository>((Ref ref) {
-  return WorkerUploadRepository(ref.watch(fantasyApiClientProvider));
-}, dependencies: <ProviderOrFamily>[fantasyApiClientProvider]);
+final uploadRepositoryProvider = Provider<UploadRepository>(
+  (Ref ref) {
+    return WorkerUploadRepository(ref.watch(fantasyApiClientProvider));
+  },
+  dependencies: <ProviderOrFamily>[
+    accessTokenProvider,
+    fantasyApiClientProvider,
+  ],
+);
 
-final generationTaskRepositoryProvider = Provider<GenerationTaskRepository>((
-  Ref ref,
-) {
-  return WorkerGenerationTaskRepository(ref.watch(fantasyApiClientProvider));
-}, dependencies: <ProviderOrFamily>[fantasyApiClientProvider]);
+final generationTaskRepositoryProvider = Provider<GenerationTaskRepository>(
+  (Ref ref) {
+    return WorkerGenerationTaskRepository(ref.watch(fantasyApiClientProvider));
+  },
+  dependencies: <ProviderOrFamily>[
+    accessTokenProvider,
+    fantasyApiClientProvider,
+  ],
+);
 
-final feedbackRepositoryProvider = Provider<FeedbackRepository>((Ref ref) {
-  return WorkerFeedbackRepository(ref.watch(fantasyApiClientProvider));
-}, dependencies: <ProviderOrFamily>[fantasyApiClientProvider]);
+final feedbackRepositoryProvider = Provider<FeedbackRepository>(
+  (Ref ref) {
+    return WorkerFeedbackRepository(ref.watch(fantasyApiClientProvider));
+  },
+  dependencies: <ProviderOrFamily>[
+    accessTokenProvider,
+    fantasyApiClientProvider,
+  ],
+);
