@@ -129,6 +129,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         cameraState.currentRawZoom,
       ),
       zoomEnabled: cameraState.canScaleZoom,
+      galleryEnabled: !cameraState.isTakingPicture,
       shutterEnabled: cameraState.canShowShutter,
       shutterBusy: false,
       flashMode: _flashUiMode(cameraState),

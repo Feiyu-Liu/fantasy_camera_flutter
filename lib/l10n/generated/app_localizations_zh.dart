@@ -98,7 +98,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get generationSubmissionPreparingPhoto => '正在准备照片...';
 
   @override
-  String get generationSubmissionRelatedMoments => '相关时刻';
+  String get generationSubmissionRelatedMoments => '此时此刻';
 
   @override
   String get generationSubmissionImportNew => '从相册导入';
@@ -110,7 +110,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get generationSubmissionDefaultPromptBadge => '默认';
 
   @override
-  String get generationSubmissionSelectMoment => '选择一个时刻';
+  String get generationSubmissionSelectMoment => '拍摄或选择照片';
 
   @override
   String get generationSubmissionProcessedResultImageLoadFailed =>

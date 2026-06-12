@@ -21,6 +21,7 @@ class CameraPhotoUi extends StatelessWidget {
     this.currentDisplayZoom = 1.0,
     this.controlsRotationTurns = 0,
     this.zoomEnabled = true,
+    this.galleryEnabled = true,
     this.shutterEnabled = true,
     this.shutterBusy = false,
     this.flashMode = CameraFlashUiMode.off,
@@ -66,6 +67,7 @@ class CameraPhotoUi extends StatelessWidget {
   final double currentDisplayZoom;
   final double controlsRotationTurns;
   final bool zoomEnabled;
+  final bool galleryEnabled;
   final bool shutterEnabled;
   final bool shutterBusy;
   final CameraFlashUiMode flashMode;
@@ -152,6 +154,7 @@ class CameraPhotoUi extends StatelessWidget {
                       tokens: tokens,
                       galleryPreview: galleryPreview,
                       controlsRotationTurns: controlsRotationTurns,
+                      galleryEnabled: galleryEnabled,
                       shutterEnabled: shutterEnabled,
                       shutterBusy: shutterBusy,
                       cameraFacing: cameraFacing,
@@ -1148,6 +1151,7 @@ class CameraPhotoBottomControls extends StatelessWidget {
     super.key,
     this.galleryPreview,
     this.controlsRotationTurns = 0,
+    this.galleryEnabled = true,
     this.shutterEnabled = true,
     this.shutterBusy = false,
     this.cameraFacing = CameraFacingUi.unknown,
@@ -1161,6 +1165,7 @@ class CameraPhotoBottomControls extends StatelessWidget {
   final CameraUiTokens tokens;
   final Widget? galleryPreview;
   final double controlsRotationTurns;
+  final bool galleryEnabled;
   final bool shutterEnabled;
   final bool shutterBusy;
   final CameraFacingUi cameraFacing;
@@ -1189,7 +1194,7 @@ class CameraPhotoBottomControls extends StatelessWidget {
                     tokens: tokens,
                     preview: galleryPreview,
                     rotationTurns: controlsRotationTurns,
-                    onPressed: onGalleryPressed,
+                    onPressed: galleryEnabled ? onGalleryPressed : null,
                   ),
                 ),
                 CameraPhotoShutterButton(

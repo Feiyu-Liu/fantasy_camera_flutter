@@ -269,7 +269,7 @@ abstract class AppLocalizations {
   /// No description provided for @generationSubmissionRelatedMoments.
   ///
   /// In en, this message translates to:
-  /// **'RELATED MOMENTS'**
+  /// **'THIS MOMENT'**
   String get generationSubmissionRelatedMoments;
 
   /// No description provided for @generationSubmissionImportNew.
@@ -293,7 +293,7 @@ abstract class AppLocalizations {
   /// No description provided for @generationSubmissionSelectMoment.
   ///
   /// In en, this message translates to:
-  /// **'SELECT A MOMENT'**
+  /// **'CAPTURE OR CHOOSE A PHOTO'**
   String get generationSubmissionSelectMoment;
 
   /// No description provided for @generationSubmissionProcessedResultImageLoadFailed.

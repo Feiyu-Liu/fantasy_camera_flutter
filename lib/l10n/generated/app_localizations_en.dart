@@ -103,7 +103,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get generationSubmissionPreparingPhoto => 'Preparing your photo...';
 
   @override
-  String get generationSubmissionRelatedMoments => 'RELATED MOMENTS';
+  String get generationSubmissionRelatedMoments => 'THIS MOMENT';
 
   @override
   String get generationSubmissionImportNew => 'IMPORT FROM ALBUM';
@@ -115,7 +115,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get generationSubmissionDefaultPromptBadge => 'DEFAULT';
 
   @override
-  String get generationSubmissionSelectMoment => 'SELECT A MOMENT';
+  String get generationSubmissionSelectMoment => 'CAPTURE OR CHOOSE A PHOTO';
 
   @override
   String get generationSubmissionProcessedResultImageLoadFailed =>
