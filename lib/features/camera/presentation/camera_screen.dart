@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:my_ui/my_ui.dart';
 
 import '../../../app/app_router.dart';
 import '../../../config/app_config.dart';
@@ -23,6 +22,9 @@ import '../../backend_api/presentation/backend_api_providers.dart';
 import '../../generation_submission/domain/generation_submission_job.dart';
 import '../../generation_submission/presentation/generation_submission_providers.dart';
 import '../data/capture_orientation_reader.dart';
+import 'camera_ui/camera_photo_ui.dart';
+import 'camera_ui/camera_ui_tokens.dart';
+import 'camera_ui/camera_ui_models.dart';
 import 'camera_message.dart';
 import 'camera_providers.dart';
 import 'camera_state.dart';
@@ -107,12 +109,15 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       captureOrientation,
     );
     return CameraPhotoUi(
-      theme: const CameraPhotoUiTheme(
+      tokens: const CameraUiTokens(
         dividerWidth: AppConfig.cameraUiDividerWidth,
       ),
       viewfinder: _buildViewfinder(cameraState),
       galleryPreview: _buildGalleryPreview(cameraState, latestGenerationJob),
-      trailingContent: _CreditsBalanceBadge(creditBalance: creditBalance),
+      trailingContent: _CameraTopRightActions(
+        creditBalance: creditBalance,
+        onSettingsPressed: _openSettings,
+      ),
       message: _localizedMessage(cameraState.message),
       controlsRotationTurns: controlsRotationTurns,
       aspectRatioLabel: '4:3',
@@ -124,6 +129,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         cameraState.currentRawZoom,
       ),
       zoomEnabled: cameraState.canScaleZoom,
+      galleryEnabled: !cameraState.isTakingPicture,
       shutterEnabled: cameraState.canShowShutter,
       shutterBusy: false,
       flashMode: _flashUiMode(cameraState),
@@ -166,6 +172,28 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         return;
       }
       await context.push(generationGalleryRoute);
+      if (!mounted) {
+        return;
+      }
+    } finally {
+      if (mounted) {
+        notifier.resumeLifecycleCameraResume();
+      }
+    }
+    await notifier.openDefaultCamera();
+  }
+
+  Future<void> _openSettings() async {
+    final CameraControllerNotifier notifier = ref.read(
+      cameraStateProvider.notifier,
+    );
+    notifier.suspendLifecycleCameraResume();
+    try {
+      await notifier.pauseCamera();
+      if (!mounted) {
+        return;
+      }
+      await context.push(settingsRoute);
       if (!mounted) {
         return;
       }
@@ -499,6 +527,56 @@ class _CreditsBalanceBadge extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CameraTopRightActions extends StatelessWidget {
+  const _CameraTopRightActions({
+    required this.creditBalance,
+    required this.onSettingsPressed,
+  });
+
+  final AsyncValue<CreditBalance> creditBalance;
+  final VoidCallback onSettingsPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Expanded(child: _CreditsBalanceBadge(creditBalance: creditBalance)),
+        _CameraSettingsButton(onPressed: onSettingsPressed),
+      ],
+    );
+  }
+}
+
+class _CameraSettingsButton extends StatelessWidget {
+  const _CameraSettingsButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Settings',
+      child: CupertinoButton(
+        key: const ValueKey<String>('camera-settings-button'),
+        padding: EdgeInsets.zero,
+        minimumSize: const Size(34, 44),
+        onPressed: () {
+          HapticFeedback.selectionClick();
+          onPressed();
+        },
+        child: const SizedBox(
+          width: 34,
+          height: 44,
+          child: Center(
+            child: Icon(LucideIcons.settings, color: AppColors.black, size: 19),
           ),
         ),
       ),

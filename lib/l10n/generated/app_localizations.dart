@@ -269,7 +269,7 @@ abstract class AppLocalizations {
   /// No description provided for @generationSubmissionRelatedMoments.
   ///
   /// In en, this message translates to:
-  /// **'RELATED MOMENTS'**
+  /// **'THIS MOMENT'**
   String get generationSubmissionRelatedMoments;
 
   /// No description provided for @generationSubmissionImportNew.
@@ -293,7 +293,7 @@ abstract class AppLocalizations {
   /// No description provided for @generationSubmissionSelectMoment.
   ///
   /// In en, this message translates to:
-  /// **'SELECT A MOMENT'**
+  /// **'CAPTURE OR CHOOSE A PHOTO'**
   String get generationSubmissionSelectMoment;
 
   /// No description provided for @generationSubmissionProcessedResultImageLoadFailed.
@@ -439,6 +439,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'General'**
   String get promptCaptureModeGeneralTitle;
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'SETTINGS'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsFallbackUserName.
+  ///
+  /// In en, this message translates to:
+  /// **'Julian Vane'**
+  String get settingsFallbackUserName;
+
+  /// No description provided for @settingsCreditsValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} CREDITS'**
+  String settingsCreditsValue(int value);
+
+  /// No description provided for @settingsCreditsLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'-- CREDITS'**
+  String get settingsCreditsLoading;
+
+  /// No description provided for @settingsCreditsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'CREDITS UNAVAILABLE'**
+  String get settingsCreditsUnavailable;
+
+  /// No description provided for @settingsSectionAppearance.
+  ///
+  /// In en, this message translates to:
+  /// **'APPEARANCE'**
+  String get settingsSectionAppearance;
+
+  /// No description provided for @settingsAppearanceLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get settingsAppearanceLight;
+
+  /// No description provided for @settingsAppearanceDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get settingsAppearanceDark;
+
+  /// No description provided for @settingsSectionCapture.
+  ///
+  /// In en, this message translates to:
+  /// **'CAPTURE'**
+  String get settingsSectionCapture;
+
+  /// No description provided for @settingsConfirmBeforeGenerationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm before generation'**
+  String get settingsConfirmBeforeGenerationTitle;
+
+  /// No description provided for @settingsConfirmBeforeGenerationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Review a photo before upload'**
+  String get settingsConfirmBeforeGenerationSubtitle;
+
+  /// No description provided for @settingsSectionGeneral.
+  ///
+  /// In en, this message translates to:
+  /// **'GENERAL'**
+  String get settingsSectionGeneral;
+
+  /// No description provided for @settingsLanguageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get settingsLanguageTitle;
+
+  /// No description provided for @settingsLanguageSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'System default'**
+  String get settingsLanguageSubtitle;
+
+  /// No description provided for @settingsClearOriginalCacheTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear original cache'**
+  String get settingsClearOriginalCacheTitle;
+
+  /// No description provided for @settingsClearOriginalCacheSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove local camera originals'**
+  String get settingsClearOriginalCacheSubtitle;
+
+  /// No description provided for @settingsManageSubscriptionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage subscription'**
+  String get settingsManageSubscriptionTitle;
+
+  /// No description provided for @settingsManageSubscriptionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan and billing'**
+  String get settingsManageSubscriptionSubtitle;
+
+  /// No description provided for @settingsSectionInformation.
+  ///
+  /// In en, this message translates to:
+  /// **'INFORMATION'**
+  String get settingsSectionInformation;
+
+  /// No description provided for @settingsPrivacyPolicyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get settingsPrivacyPolicyTitle;
+
+  /// No description provided for @settingsPrivacyPolicySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Data and photo handling'**
+  String get settingsPrivacyPolicySubtitle;
+
+  /// No description provided for @settingsTermsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms of Use'**
+  String get settingsTermsTitle;
+
+  /// No description provided for @settingsTermsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Service rules and rights'**
+  String get settingsTermsSubtitle;
+
+  /// No description provided for @settingsAboutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get settingsAboutTitle;
+
+  /// No description provided for @settingsAboutSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'App version and credits'**
+  String get settingsAboutSubtitle;
+
+  /// No description provided for @settingsContactDeveloperTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact developer'**
+  String get settingsContactDeveloperTitle;
+
+  /// No description provided for @settingsContactDeveloperSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Send feedback or support request'**
+  String get settingsContactDeveloperSubtitle;
+
+  /// No description provided for @settingsSectionAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'ACCOUNT'**
+  String get settingsSectionAccount;
+
+  /// No description provided for @settingsDeleteAccountTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete account'**
+  String get settingsDeleteAccountTitle;
+
+  /// No description provided for @settingsDeleteAccountSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Permanently remove your account'**
+  String get settingsDeleteAccountSubtitle;
+
+  /// No description provided for @settingsSignOutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get settingsSignOutTitle;
+
+  /// No description provided for @settingsSignOutSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Return to the sign-in screen'**
+  String get settingsSignOutSubtitle;
 }
 
 class _AppLocalizationsDelegate

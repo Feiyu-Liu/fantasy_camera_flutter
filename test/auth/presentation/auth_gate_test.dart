@@ -15,7 +15,6 @@ import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:my_ui/my_ui.dart';
 
 import 'package:fantasy_camera_flutter/app/fantasy_camera_app.dart';
 import 'package:fantasy_camera_flutter/auth/domain/auth_session_state.dart';
@@ -25,6 +24,7 @@ import 'package:fantasy_camera_flutter/auth/presentation/auth_providers.dart';
 import 'package:fantasy_camera_flutter/features/camera/data/camera_device_repository.dart';
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_choice.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_providers.dart';
+import 'package:fantasy_camera_flutter/features/camera/presentation/camera_ui/camera_photo_ui.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_submission_service.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_repository.dart';
@@ -34,6 +34,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/data/gener
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_record.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
+import 'package:fantasy_camera_flutter/settings/presentation/settings_page.dart';
 
 void main() {
   Future<void> usePortraitSurface(WidgetTester tester) async {
@@ -159,6 +160,43 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('camera top right settings button opens settings page', (
+    WidgetTester tester,
+  ) async {
+    await usePortraitSurface(tester);
+    await tester.pumpWidget(
+      FantasyCameraApp(
+        overrides: <Override>[
+          hasSupabaseConfigProvider.overrideWithValue(true),
+          authSessionProvider.overrideWith(
+            (_) => Stream<AuthSessionState>.value(
+              const AuthSessionState.signedIn(
+                AuthUser(id: 'user-1', email: 'user@example.com'),
+              ),
+            ),
+          ),
+          signedInCameraChoicesProvider.overrideWith(
+            (_) async => const <CameraChoice>[],
+          ),
+          creditsRepositoryProvider.overrideWithValue(
+            const _FakeCreditsRepository(),
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('camera-settings-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.text('SETTINGS'), findsOneWidget);
   });
 
   testWidgets('camera gallery thumbnail prefers latest saved result image', (

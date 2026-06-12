@@ -3,9 +3,11 @@ import 'package:go_router/go_router.dart';
 
 import '../auth/presentation/auth_gate.dart';
 import '../features/generation_submission/presentation/generation_submission_modal.dart';
+import '../settings/presentation/settings_page.dart';
 
 const String appHomeRoute = '/';
 const String generationGalleryRoute = '/generation-gallery';
+const String settingsRoute = '/settings';
 
 GoRouter createAppRouter() {
   return GoRouter(
@@ -22,6 +24,12 @@ GoRouter createAppRouter() {
           return const CupertinoPage<void>(
             child: GenerationSubmissionGalleryPage(),
           );
+        },
+      ),
+      GoRoute(
+        path: settingsRoute,
+        pageBuilder: (BuildContext context, GoRouterState state) {
+          return const CupertinoPage<void>(child: SettingsPage());
         },
       ),
     ],
