@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -24,184 +26,200 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final double topInset = MediaQuery.paddingOf(context).top;
+    final double navigationHeight = topInset + 50;
     return CupertinoPageScaffold(
       backgroundColor: AppColors.settingsBackground,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: <Widget>[
-            _SettingsNavigationBar(onBackPressed: () => context.pop()),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                physics: const BouncingScrollPhysics(),
-                children: <Widget>[
-                  const _ProfileHeader(),
-                  _AppearanceSection(
-                    selectedMode: _appearanceMode,
-                    onModeSelected: (_AppearanceMode mode) {
-                      setState(() => _appearanceMode = mode);
-                    },
-                  ),
-                  const _SectionDivider(),
-                  const _SectionTitle('CAMERA PREFERENCES'),
-                  _SettingsToggleRow(
-                    switchKey: const ValueKey<String>(
-                      'settings-grid-lines-switch',
-                    ),
-                    title: 'Grid Lines',
-                    subtitle: 'Golden Ratio',
-                    value: _gridLinesEnabled,
-                    onChanged: (bool value) {
-                      setState(() => _gridLinesEnabled = value);
-                    },
-                  ),
-                  _SettingsToggleRow(
-                    switchKey: const ValueKey<String>(
-                      'settings-high-efficiency-switch',
-                    ),
-                    title: 'High Efficiency',
-                    subtitle: 'HEIF/HEVC Formats',
-                    value: _highEfficiencyEnabled,
-                    onChanged: (bool value) {
-                      setState(() => _highEfficiencyEnabled = value);
-                    },
-                  ),
-                  _SettingsToggleRow(
-                    switchKey: const ValueKey<String>(
-                      'settings-volume-shutter-switch',
-                    ),
-                    title: 'Volume Shutter',
-                    subtitle: 'Use side buttons to capture',
-                    value: _volumeShutterEnabled,
-                    onChanged: (bool value) {
-                      setState(() => _volumeShutterEnabled = value);
-                    },
-                  ),
-                  const _SectionDivider(),
-                  const _SectionTitle('STORAGE & CLOUD'),
-                  const _CloudStorageCard(),
-                  _SettingsToggleRow(
-                    switchKey: const ValueKey<String>(
-                      'settings-auto-sync-switch',
-                    ),
-                    title: 'Auto-Sync',
-                    subtitle: 'Sync via Wi-Fi only',
-                    value: _autoSyncEnabled,
-                    onChanged: (bool value) {
-                      setState(() => _autoSyncEnabled = value);
-                    },
-                  ),
-                  _SettingsActionRow(
-                    title: 'Clear Cache',
-                    subtitle: '1.2 GB temporary files',
-                    onPressed: () => HapticFeedback.selectionClick(),
-                  ),
-                  const _SectionDivider(),
-                  const _SectionTitle('PREFERENCES'),
-                  _SettingsToggleRow(
-                    switchKey: const ValueKey<String>(
-                      'settings-haptic-feedback-switch',
-                    ),
-                    title: 'Haptic Feedback',
-                    subtitle: 'Subtle taps for controls',
-                    value: _hapticFeedbackEnabled,
-                    onChanged: (bool value) {
-                      setState(() => _hapticFeedbackEnabled = value);
-                    },
-                  ),
-                  _SettingsToggleRow(
-                    switchKey: const ValueKey<String>(
-                      'settings-save-originals-switch',
-                    ),
-                    title: 'Keep Originals',
-                    subtitle: 'Store camera sources locally',
-                    value: _saveOriginalsEnabled,
-                    onChanged: (bool value) {
-                      setState(() => _saveOriginalsEnabled = value);
-                    },
-                  ),
-                  _SettingsToggleRow(
-                    switchKey: const ValueKey<String>(
-                      'settings-cellular-uploads-switch',
-                    ),
-                    title: 'Cellular Uploads',
-                    subtitle: 'Allow generation off Wi-Fi',
-                    value: _cellularUploadsEnabled,
-                    onChanged: (bool value) {
-                      setState(() => _cellularUploadsEnabled = value);
-                    },
-                  ),
-                  const _SectionDivider(),
-                  const _SectionTitle('ABOUT'),
-                  _SettingsActionRow(
-                    title: 'Subscription',
-                    subtitle: 'TesserCam Pro',
-                    onPressed: () => HapticFeedback.selectionClick(),
-                  ),
-                  _SettingsActionRow(
-                    title: 'Privacy',
-                    subtitle: 'Data and photo handling',
-                    onPressed: () => HapticFeedback.selectionClick(),
-                  ),
-                  _SettingsActionRow(
-                    title: 'App Version',
-                    subtitle: '1.0.0',
-                    onPressed: () => HapticFeedback.selectionClick(),
-                  ),
-                  const SizedBox(height: 16),
-                ],
+      child: Stack(
+        children: <Widget>[
+          ListView(
+            padding: EdgeInsets.only(top: navigationHeight),
+            physics: const BouncingScrollPhysics(),
+            children: <Widget>[
+              const _ProfileHeader(),
+              _AppearanceSection(
+                selectedMode: _appearanceMode,
+                onModeSelected: (_AppearanceMode mode) {
+                  setState(() => _appearanceMode = mode);
+                },
               ),
+              const _SectionDivider(),
+              const _SectionTitle('CAMERA PREFERENCES'),
+              _SettingsToggleRow(
+                switchKey: const ValueKey<String>('settings-grid-lines-switch'),
+                title: 'Grid Lines',
+                subtitle: 'Golden Ratio',
+                value: _gridLinesEnabled,
+                onChanged: (bool value) {
+                  setState(() => _gridLinesEnabled = value);
+                },
+              ),
+              _SettingsToggleRow(
+                switchKey: const ValueKey<String>(
+                  'settings-high-efficiency-switch',
+                ),
+                title: 'High Efficiency',
+                subtitle: 'HEIF/HEVC Formats',
+                value: _highEfficiencyEnabled,
+                onChanged: (bool value) {
+                  setState(() => _highEfficiencyEnabled = value);
+                },
+              ),
+              _SettingsToggleRow(
+                switchKey: const ValueKey<String>(
+                  'settings-volume-shutter-switch',
+                ),
+                title: 'Volume Shutter',
+                subtitle: 'Use side buttons to capture',
+                value: _volumeShutterEnabled,
+                onChanged: (bool value) {
+                  setState(() => _volumeShutterEnabled = value);
+                },
+              ),
+              const _SectionDivider(),
+              const _SectionTitle('STORAGE & CLOUD'),
+              const _CloudStorageCard(),
+              _SettingsToggleRow(
+                switchKey: const ValueKey<String>('settings-auto-sync-switch'),
+                title: 'Auto-Sync',
+                subtitle: 'Sync via Wi-Fi only',
+                value: _autoSyncEnabled,
+                onChanged: (bool value) {
+                  setState(() => _autoSyncEnabled = value);
+                },
+              ),
+              _SettingsActionRow(
+                title: 'Clear Cache',
+                subtitle: '1.2 GB temporary files',
+                onPressed: () => HapticFeedback.selectionClick(),
+              ),
+              const _SectionDivider(),
+              const _SectionTitle('PREFERENCES'),
+              _SettingsToggleRow(
+                switchKey: const ValueKey<String>(
+                  'settings-haptic-feedback-switch',
+                ),
+                title: 'Haptic Feedback',
+                subtitle: 'Subtle taps for controls',
+                value: _hapticFeedbackEnabled,
+                onChanged: (bool value) {
+                  setState(() => _hapticFeedbackEnabled = value);
+                },
+              ),
+              _SettingsToggleRow(
+                switchKey: const ValueKey<String>(
+                  'settings-save-originals-switch',
+                ),
+                title: 'Keep Originals',
+                subtitle: 'Store camera sources locally',
+                value: _saveOriginalsEnabled,
+                onChanged: (bool value) {
+                  setState(() => _saveOriginalsEnabled = value);
+                },
+              ),
+              _SettingsToggleRow(
+                switchKey: const ValueKey<String>(
+                  'settings-cellular-uploads-switch',
+                ),
+                title: 'Cellular Uploads',
+                subtitle: 'Allow generation off Wi-Fi',
+                value: _cellularUploadsEnabled,
+                onChanged: (bool value) {
+                  setState(() => _cellularUploadsEnabled = value);
+                },
+              ),
+              const _SectionDivider(),
+              const _SectionTitle('ABOUT'),
+              _SettingsActionRow(
+                title: 'Subscription',
+                subtitle: 'TesserCam Pro',
+                onPressed: () => HapticFeedback.selectionClick(),
+              ),
+              _SettingsActionRow(
+                title: 'Privacy',
+                subtitle: 'Data and photo handling',
+                onPressed: () => HapticFeedback.selectionClick(),
+              ),
+              _SettingsActionRow(
+                title: 'App Version',
+                subtitle: '1.0.0',
+                onPressed: () => HapticFeedback.selectionClick(),
+              ),
+              SizedBox(height: MediaQuery.paddingOf(context).bottom + 16),
+            ],
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _SettingsNavigationBar(
+              topInset: topInset,
+              onBackPressed: () => context.pop(),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _SettingsNavigationBar extends StatelessWidget {
-  const _SettingsNavigationBar({required this.onBackPressed});
+  const _SettingsNavigationBar({
+    required this.topInset,
+    required this.onBackPressed,
+  });
 
+  final double topInset;
   final VoidCallback onBackPressed;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.black, width: 0.5)),
-      ),
-      child: SizedBox(
-        width: double.infinity,
-        height: 50,
-        child: Stack(
-          alignment: Alignment.center,
-          children: <Widget>[
-            Positioned(
-              left: 12,
-              child: CupertinoButton(
-                key: const ValueKey<String>('settings-back-button'),
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(44, 44),
-                onPressed: onBackPressed,
-                child: const Icon(
-                  CupertinoIcons.chevron_left,
-                  color: AppColors.black,
-                  size: 20,
-                ),
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.settingsBackground.withValues(alpha: 0.72),
+            border: const Border(
+              bottom: BorderSide(color: AppColors.black, width: 0.5),
+            ),
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            height: topInset + 50,
+            child: Padding(
+              padding: EdgeInsets.only(top: topInset),
+              child: Stack(
+                alignment: Alignment.center,
+                children: <Widget>[
+                  Positioned(
+                    left: 12,
+                    child: CupertinoButton(
+                      key: const ValueKey<String>('settings-back-button'),
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(44, 44),
+                      onPressed: onBackPressed,
+                      child: const Icon(
+                        CupertinoIcons.chevron_left,
+                        color: AppColors.black,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  const Text(
+                    'SETTINGS',
+                    textScaler: TextScaler.noScaling,
+                    style: TextStyle(
+                      color: AppColors.black,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 4,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const Text(
-              'SETTINGS',
-              textScaler: TextScaler.noScaling,
-              style: TextStyle(
-                color: AppColors.black,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 4,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -44,9 +44,16 @@ void main() {
     expect(find.text('Julian Vane'), findsOneWidget);
     expect(find.text('PRO MEMBER SINCE 2023'), findsOneWidget);
     expect(find.text('APPEARANCE'), findsOneWidget);
-    expect(find.text('Editorial Light'), findsOneWidget);
-    expect(find.text('Studio Dark'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('settings-appearance-editorial-light')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('settings-appearance-studio-dark')),
+      findsOneWidget,
+    );
     expect(find.text('CAMERA PREFERENCES'), findsOneWidget);
+    expect(find.byType(BackdropFilter), findsOneWidget);
 
     await scrollDownUntilTextVisible(tester, 'STORAGE & CLOUD');
 
@@ -60,6 +67,7 @@ void main() {
     await scrollDownUntilTextVisible(tester, 'PREFERENCES');
 
     expect(find.text('PREFERENCES'), findsOneWidget);
+    await scrollDownUntilTextVisible(tester, 'Haptic Feedback');
     expect(find.text('Haptic Feedback'), findsOneWidget);
 
     await scrollDownUntilTextVisible(tester, 'ABOUT');
