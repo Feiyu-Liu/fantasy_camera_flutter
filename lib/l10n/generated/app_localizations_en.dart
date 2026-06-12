@@ -44,7 +44,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authEmailInvalid => 'Enter a valid email.';
 
   @override
+  String get authEmailLabel => 'E-mail address';
+
+  @override
   String get authEmailPlaceholder => 'Email';
+
+  @override
+  String get authEditorialAccessBadge => 'Editorial access';
+
+  @override
+  String get authEditorialSubtitle => 'Enter your credentials to continue';
+
+  @override
+  String get authEditorialTitleLine1 => 'The Lens';
+
+  @override
+  String get authEditorialTitleLine2 => 'Awaits';
+
+  @override
+  String get authForgotKeyButton => 'Forgot key?';
 
   @override
   String get authEmailRequired => 'Email is required.';
@@ -61,10 +79,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authNewHereCreateAccount => 'New here? Create account';
 
   @override
+  String get authOrDividerLabel => 'or';
+
+  @override
   String get authPasswordMinLength => 'Use at least 6 characters.';
 
   @override
+  String get authPasswordLabel => 'Secret key';
+
+  @override
   String get authPasswordPlaceholder => 'Password';
+
+  @override
+  String get authSecretKeyPlaceholder => '••••••••';
 
   @override
   String get authSessionExpired => 'Session expired. Please sign in again.';

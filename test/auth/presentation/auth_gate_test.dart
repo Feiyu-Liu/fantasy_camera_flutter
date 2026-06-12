@@ -58,7 +58,10 @@ void main() {
     await tester.pump();
 
     expect(find.byType(AuthPage), findsOneWidget);
-    expect(find.text('登录以继续'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('auth_email_field')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('shows camera screen when signed in', (

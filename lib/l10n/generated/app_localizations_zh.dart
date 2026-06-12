@@ -42,7 +42,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get authEmailInvalid => '请输入有效的邮箱。';
 
   @override
+  String get authEmailLabel => '邮箱地址';
+
+  @override
   String get authEmailPlaceholder => '邮箱';
+
+  @override
+  String get authEditorialAccessBadge => '编辑访问';
+
+  @override
+  String get authEditorialSubtitle => '输入凭据以继续';
+
+  @override
+  String get authEditorialTitleLine1 => '镜头';
+
+  @override
+  String get authEditorialTitleLine2 => '已就绪';
+
+  @override
+  String get authForgotKeyButton => '忘记密码？';
 
   @override
   String get authEmailRequired => '请输入邮箱。';
@@ -58,10 +76,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get authNewHereCreateAccount => '新用户？创建账号';
 
   @override
+  String get authOrDividerLabel => '或';
+
+  @override
   String get authPasswordMinLength => '请至少输入 6 个字符。';
 
   @override
+  String get authPasswordLabel => '密码';
+
+  @override
   String get authPasswordPlaceholder => '密码';
+
+  @override
+  String get authSecretKeyPlaceholder => '••••••••';
 
   @override
   String get authSessionExpired => '会话已过期，请重新登录。';

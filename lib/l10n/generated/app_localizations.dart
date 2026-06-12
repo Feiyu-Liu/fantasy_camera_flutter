@@ -164,11 +164,47 @@ abstract class AppLocalizations {
   /// **'Enter a valid email.'**
   String get authEmailInvalid;
 
+  /// No description provided for @authEmailLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'E-mail address'**
+  String get authEmailLabel;
+
   /// No description provided for @authEmailPlaceholder.
   ///
   /// In en, this message translates to:
   /// **'Email'**
   String get authEmailPlaceholder;
+
+  /// No description provided for @authEditorialAccessBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Editorial access'**
+  String get authEditorialAccessBadge;
+
+  /// No description provided for @authEditorialSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your credentials to continue'**
+  String get authEditorialSubtitle;
+
+  /// No description provided for @authEditorialTitleLine1.
+  ///
+  /// In en, this message translates to:
+  /// **'The Lens'**
+  String get authEditorialTitleLine1;
+
+  /// No description provided for @authEditorialTitleLine2.
+  ///
+  /// In en, this message translates to:
+  /// **'Awaits'**
+  String get authEditorialTitleLine2;
+
+  /// No description provided for @authForgotKeyButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot key?'**
+  String get authForgotKeyButton;
 
   /// No description provided for @authEmailRequired.
   ///
@@ -194,17 +230,35 @@ abstract class AppLocalizations {
   /// **'New here? Create account'**
   String get authNewHereCreateAccount;
 
+  /// No description provided for @authOrDividerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'or'**
+  String get authOrDividerLabel;
+
   /// No description provided for @authPasswordMinLength.
   ///
   /// In en, this message translates to:
   /// **'Use at least 6 characters.'**
   String get authPasswordMinLength;
 
+  /// No description provided for @authPasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Secret key'**
+  String get authPasswordLabel;
+
   /// No description provided for @authPasswordPlaceholder.
   ///
   /// In en, this message translates to:
   /// **'Password'**
   String get authPasswordPlaceholder;
+
+  /// No description provided for @authSecretKeyPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'••••••••'**
+  String get authSecretKeyPlaceholder;
 
   /// No description provided for @authSessionExpired.
   ///

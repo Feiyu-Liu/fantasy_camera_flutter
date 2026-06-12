@@ -36,6 +36,11 @@ abstract final class AppColors {
   static const Color disabledText = Color(0xFF777777);
   static const Color disabledSurfaceDark = Color(0xFF222222);
   static const Color authError = Color(0xFFFFB4A8);
+  static const Color authEditorialBackground = Color(0xFFFBFBFA);
+  static const Color authEditorialMuted = Color(0xFF7C7C80);
+  static const Color authEditorialPlaceholder = Color(0xFFC9C9C9);
+  static const Color authEditorialDisabled = Color(0xFFC6C6C6);
+  static const Color authEditorialError = Color(0xFFB3261E);
 
   static const Color shadowBlack10 = Color(0x1A000000);
   static const Color textShadowBlack50 = Color(0x80000000);

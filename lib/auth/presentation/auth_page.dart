@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../l10n/l10n.dart';
 import '../../theme/app_colors.dart';
@@ -33,107 +34,46 @@ class _AuthPageState extends ConsumerState<AuthPage> {
 
   @override
   Widget build(BuildContext context) {
-    final AppLocalizations l10n = context.l10n;
     final AuthControllerState state = ref.watch(authControllerProvider);
     final String? message = state.errorMessage ?? widget.sessionMessage;
     return CupertinoPageScaffold(
-      backgroundColor: AppColors.black,
-      child: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+      backgroundColor: AppColors.authEditorialBackground,
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final MediaQueryData mediaQuery = MediaQuery.of(context);
+          final EdgeInsets pagePadding = EdgeInsets.fromLTRB(
+            18,
+            mediaQuery.viewPadding.top + 24,
+            18,
+            mediaQuery.viewPadding.bottom + 24,
+          );
+          final double minContentHeight =
+              constraints.maxHeight - pagePadding.vertical;
+          return SingleChildScrollView(
+            padding: pagePadding,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Text(
-                    l10n.appName,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _isSignUp
-                        ? l10n.authCreateAccountSubtitle
-                        : l10n.authSignInSubtitle,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  _CupertinoAuthTextField(
-                    key: const ValueKey<String>('auth_email_field'),
-                    controller: _emailController,
-                    enabled: !state.isSubmitting,
-                    placeholder: l10n.authEmailPlaceholder,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const <String>[AutofillHints.email],
-                    errorText: _emailError,
-                    onChanged: (_) => _clearFieldErrors(),
-                  ),
-                  const SizedBox(height: 14),
-                  _CupertinoAuthTextField(
-                    key: const ValueKey<String>('auth_password_field'),
-                    controller: _passwordController,
-                    enabled: !state.isSubmitting,
-                    placeholder: l10n.authPasswordPlaceholder,
-                    obscureText: true,
-                    textInputAction: TextInputAction.done,
-                    autofillHints: const <String>[AutofillHints.password],
-                    onSubmitted: (_) => _submitPassword(state),
-                    errorText: _passwordError,
-                    onChanged: (_) => _clearFieldErrors(),
-                  ),
-                  if (message != null && message.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 14),
-                    Text(
-                      message,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.authError,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 22),
-                  CupertinoButton(
-                    key: const ValueKey<String>('auth_password_submit'),
-                    onPressed: state.isSubmitting
-                        ? null
-                        : () => _submitPassword(state),
-                    color: AppColors.white,
-                    disabledColor: AppColors.disabledDark,
-                    minimumSize: const Size.fromHeight(52),
-                    borderRadius: BorderRadius.circular(8),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: state.isSubmitting
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CupertinoActivityIndicator(
-                              color: AppColors.black,
-                            ),
-                          )
-                        : Text(
-                            _isSignUp
-                                ? l10n.authCreateAccountButton
-                                : l10n.authSignInButton,
-                            style: const TextStyle(
-                              color: AppColors.black,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                  ),
-                  CupertinoButton(
-                    onPressed: state.isSubmitting
+              constraints: BoxConstraints(
+                minHeight: minContentHeight.isFinite
+                    ? minContentHeight.clamp(0, double.infinity)
+                    : 0,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 430),
+                  child: _EditorialAuthForm(
+                    isSignUp: _isSignUp,
+                    state: state,
+                    message: message,
+                    emailController: _emailController,
+                    passwordController: _passwordController,
+                    emailError: _emailError,
+                    passwordError: _passwordError,
+                    supportsAppleSignIn: _supportsAppleSignIn,
+                    onEmailChanged: (_) => _clearFieldErrors(),
+                    onPasswordChanged: (_) => _clearFieldErrors(),
+                    onPasswordSubmitted: (_) => _submitPassword(state),
+                    onSubmit: () => _submitPassword(state),
+                    onToggleMode: state.isSubmitting
                         ? null
                         : () {
                             setState(() {
@@ -142,56 +82,17 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                               _passwordError = null;
                             });
                           },
-                    child: Text(
-                      _isSignUp
-                          ? l10n.authAlreadyHaveAccountSignIn
-                          : l10n.authNewHereCreateAccount,
-                      style: TextStyle(
-                        color: state.isSubmitting
-                            ? AppColors.disabledText
-                            : AppColors.link,
-                      ),
-                    ),
+                    onAppleSignIn: state.isSubmitting || !_supportsAppleSignIn
+                        ? null
+                        : ref
+                              .read(authControllerProvider.notifier)
+                              .signInWithApple,
                   ),
-                  if (_supportsAppleSignIn) ...<Widget>[
-                    const SizedBox(height: 12),
-                    CupertinoButton(
-                      key: const ValueKey<String>('auth_apple_submit'),
-                      onPressed: state.isSubmitting
-                          ? null
-                          : ref
-                                .read(authControllerProvider.notifier)
-                                .signInWithApple,
-                      minimumSize: const Size.fromHeight(52),
-                      borderRadius: BorderRadius.circular(8),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      color: AppColors.darkSurface,
-                      disabledColor: AppColors.disabledSurfaceDark,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.disabledDark),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: SizedBox(
-                          height: 52,
-                          child: Center(
-                            child: Text(
-                              l10n.authContinueWithApple,
-                              style: const TextStyle(
-                                color: AppColors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -251,9 +152,365 @@ class _AuthPageState extends ConsumerState<AuthPage> {
   }
 }
 
-class _CupertinoAuthTextField extends StatelessWidget {
-  const _CupertinoAuthTextField({
+class _EditorialAuthForm extends StatelessWidget {
+  const _EditorialAuthForm({
+    required this.isSignUp,
+    required this.state,
+    required this.emailController,
+    required this.passwordController,
+    required this.supportsAppleSignIn,
+    required this.onEmailChanged,
+    required this.onPasswordChanged,
+    required this.onPasswordSubmitted,
+    required this.onSubmit,
+    required this.onToggleMode,
+    required this.onAppleSignIn,
+    this.message,
+    this.emailError,
+    this.passwordError,
+  });
+
+  final bool isSignUp;
+  final AuthControllerState state;
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+  final bool supportsAppleSignIn;
+  final String? message;
+  final String? emailError;
+  final String? passwordError;
+  final ValueChanged<String> onEmailChanged;
+  final ValueChanged<String> onPasswordChanged;
+  final ValueChanged<String> onPasswordSubmitted;
+  final VoidCallback onSubmit;
+  final VoidCallback? onToggleMode;
+  final VoidCallback? onAppleSignIn;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppLocalizations l10n = context.l10n;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const _AuthEditorialTitle(),
+        const SizedBox(height: 44),
+        _EditorialAuthTextField(
+          key: const ValueKey<String>('auth_email_field'),
+          controller: emailController,
+          enabled: !state.isSubmitting,
+          label: l10n.authEmailLabel.toUpperCase(),
+          placeholder: l10n.authEmailPlaceholder,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          autofillHints: const <String>[AutofillHints.email],
+          errorText: emailError,
+          onChanged: onEmailChanged,
+        ),
+        const SizedBox(height: 24),
+        _EditorialAuthTextField(
+          key: const ValueKey<String>('auth_password_field'),
+          controller: passwordController,
+          enabled: !state.isSubmitting,
+          label: l10n.authPasswordLabel.toUpperCase(),
+          placeholder: l10n.authSecretKeyPlaceholder,
+          obscureText: true,
+          textInputAction: TextInputAction.done,
+          autofillHints: const <String>[AutofillHints.password],
+          onSubmitted: onPasswordSubmitted,
+          errorText: passwordError,
+          onChanged: onPasswordChanged,
+        ),
+        if (message != null && message!.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 18),
+          Text(
+            message!,
+            style: const TextStyle(
+              color: AppColors.authEditorialError,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
+            ),
+          ),
+        ],
+        const SizedBox(height: 34),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: <Widget>[
+            _EditorialTextAction(
+              label: l10n.authForgotKeyButton.toUpperCase(),
+              onPressed: state.isSubmitting ? null : () {},
+            ),
+            _EditorialTextAction(
+              label:
+                  (isSignUp
+                          ? l10n.authAlreadyHaveAccountSignIn
+                          : l10n.authCreateAccountButton)
+                      .toUpperCase(),
+              onPressed: onToggleMode,
+            ),
+          ],
+        ),
+        const SizedBox(height: 22),
+        _EditorialSubmitButton(
+          isSignUp: isSignUp,
+          isSubmitting: state.isSubmitting,
+          onPressed: state.isSubmitting ? null : onSubmit,
+        ),
+        const SizedBox(height: 24),
+        const _EditorialOrDivider(),
+        const SizedBox(height: 24),
+        _AuthProviderRow(
+          state: state,
+          supportsAppleSignIn: supportsAppleSignIn,
+          onAppleSignIn: onAppleSignIn,
+        ),
+      ],
+    );
+  }
+}
+
+class _AuthEditorialTitle extends StatelessWidget {
+  const _AuthEditorialTitle();
+
+  @override
+  Widget build(BuildContext context) {
+    final AppLocalizations l10n = context.l10n;
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(
+          color: AppColors.black,
+          fontFamily: 'Times New Roman',
+          fontSize: 46,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
+          height: 0.94,
+        ),
+        children: <InlineSpan>[
+          TextSpan(
+            text:
+                '${l10n.authEditorialTitleLine1}\n${l10n.authEditorialTitleLine2}',
+          ),
+          const TextSpan(
+            text: '.',
+            style: TextStyle(color: AppColors.accentYellow),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditorialSubmitButton extends StatelessWidget {
+  const _EditorialSubmitButton({
+    required this.isSignUp,
+    required this.isSubmitting,
+    required this.onPressed,
+  });
+
+  final bool isSignUp;
+  final bool isSubmitting;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppLocalizations l10n = context.l10n;
+    return CupertinoButton(
+      key: const ValueKey<String>('auth_password_submit'),
+      onPressed: onPressed,
+      color: AppColors.black,
+      disabledColor: AppColors.disabledDark,
+      minimumSize: Size.zero,
+      borderRadius: BorderRadius.zero,
+      padding: EdgeInsets.zero,
+      child: SizedBox(
+        height: 52,
+        child: Center(
+          child: isSubmitting
+              ? const CupertinoActivityIndicator(color: AppColors.white)
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      (isSignUp
+                              ? l10n.authCreateAccountButton
+                              : l10n.authSignInButton)
+                          .toUpperCase(),
+                      style: const TextStyle(
+                        color: AppColors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 3,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Icon(
+                      LucideIcons.arrowRight,
+                      color: AppColors.accentYellow,
+                      size: 18,
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorialTextAction extends StatelessWidget {
+  const _EditorialTextAction({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      onPressed: onPressed,
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      child: Text(
+        label,
+        style: TextStyle(
+          color: onPressed == null ? AppColors.disabledText : AppColors.black,
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 2.8,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorialOrDivider extends StatelessWidget {
+  const _EditorialOrDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        const Expanded(child: _EditorialDividerLine()),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Text(
+            context.l10n.authOrDividerLabel,
+            style: const TextStyle(
+              color: AppColors.black,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.6,
+              height: 1,
+            ),
+          ),
+        ),
+        const Expanded(child: _EditorialDividerLine()),
+      ],
+    );
+  }
+}
+
+class _EditorialDividerLine extends StatelessWidget {
+  const _EditorialDividerLine();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      height: 0.5,
+      child: ColoredBox(color: AppColors.black),
+    );
+  }
+}
+
+class _AuthProviderRow extends StatelessWidget {
+  const _AuthProviderRow({
+    required this.state,
+    required this.supportsAppleSignIn,
+    required this.onAppleSignIn,
+  });
+
+  final AuthControllerState state;
+  final bool supportsAppleSignIn;
+  final VoidCallback? onAppleSignIn;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool enabled = !state.isSubmitting;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        _SquareAuthIconButton(
+          icon: LucideIcons.apple,
+          semanticLabel: context.l10n.authContinueWithApple,
+          onPressed: supportsAppleSignIn && enabled ? onAppleSignIn : null,
+        ),
+        const SizedBox(width: 34),
+        _SquareAuthIconButton(
+          icon: LucideIcons.badgeCheck,
+          semanticLabel: context.l10n.authEditorialAccessBadge,
+          onPressed: null,
+        ),
+        const SizedBox(width: 34),
+        _SquareAuthIconButton(
+          icon: LucideIcons.camera,
+          semanticLabel: context.l10n.appName,
+          onPressed: null,
+        ),
+      ],
+    );
+  }
+}
+
+class _SquareAuthIconButton extends StatelessWidget {
+  const _SquareAuthIconButton({
+    required this.icon,
+    required this.semanticLabel,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String semanticLabel;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool enabled = onPressed != null;
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      enabled: enabled,
+      child: CupertinoButton(
+        onPressed: onPressed,
+        minimumSize: Size.zero,
+        padding: EdgeInsets.zero,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: enabled
+                  ? AppColors.black
+                  : AppColors.authEditorialDisabled,
+              width: 0.8,
+            ),
+          ),
+          child: SizedBox.square(
+            dimension: 48,
+            child: Icon(
+              icon,
+              color: enabled
+                  ? AppColors.black
+                  : AppColors.authEditorialDisabled,
+              size: 22,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorialAuthTextField extends StatelessWidget {
+  const _EditorialAuthTextField({
     required this.controller,
+    required this.label,
     required this.placeholder,
     this.enabled = true,
     this.obscureText = false,
@@ -267,6 +524,7 @@ class _CupertinoAuthTextField extends StatelessWidget {
   });
 
   final TextEditingController controller;
+  final String label;
   final String placeholder;
   final bool enabled;
   final bool obscureText;
@@ -283,6 +541,17 @@ class _CupertinoAuthTextField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.black,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 3,
+            height: 1,
+          ),
+        ),
+        const SizedBox(height: 14),
         CupertinoTextField(
           controller: controller,
           enabled: enabled,
@@ -293,15 +562,27 @@ class _CupertinoAuthTextField extends StatelessWidget {
           onChanged: onChanged,
           onSubmitted: onSubmitted,
           placeholder: placeholder,
-          placeholderStyle: const TextStyle(color: AppColors.textSecondary),
-          style: const TextStyle(color: AppColors.white),
-          cursorColor: AppColors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
-          decoration: BoxDecoration(
-            color: AppColors.authInputBackground,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: hasError ? AppColors.authError : AppColors.authInputBorder,
+          placeholderStyle: const TextStyle(
+            color: AppColors.authEditorialPlaceholder,
+            fontFamily: 'Times New Roman',
+            fontSize: 18,
+            fontStyle: FontStyle.italic,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0,
+          ),
+          style: const TextStyle(
+            color: AppColors.black,
+            fontFamily: 'Times New Roman',
+            fontSize: 18,
+            fontStyle: FontStyle.italic,
+            fontWeight: FontWeight.w600,
+          ),
+          cursorColor: AppColors.black,
+          padding: const EdgeInsets.fromLTRB(0, 0, 0, 13),
+          decoration: const BoxDecoration(
+            color: AppColors.authEditorialBackground,
+            border: Border(
+              bottom: BorderSide(color: AppColors.black, width: 0.8),
             ),
           ),
         ),
@@ -309,7 +590,12 @@ class _CupertinoAuthTextField extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             errorText!,
-            style: const TextStyle(color: AppColors.authError, fontSize: 12),
+            style: const TextStyle(
+              color: AppColors.authEditorialError,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              height: 1.25,
+            ),
           ),
         ],
       ],
