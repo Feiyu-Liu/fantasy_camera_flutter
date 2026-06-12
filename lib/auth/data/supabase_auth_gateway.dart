@@ -7,16 +7,20 @@ import '../domain/auth_session_snapshot.dart';
 import '../domain/auth_user.dart';
 import 'apple_sign_in_gateway.dart';
 import 'auth_gateway.dart';
+import 'google_sign_in_gateway.dart';
 
 class SupabaseAuthGateway implements AuthGateway {
   SupabaseAuthGateway({
     required SupabaseClient client,
     required AppleSignInGateway appleSignInGateway,
+    required GoogleSignInGateway googleSignInGateway,
   }) : _client = client,
-       _appleSignInGateway = appleSignInGateway;
+       _appleSignInGateway = appleSignInGateway,
+       _googleSignInGateway = googleSignInGateway;
 
   final SupabaseClient _client;
   final AppleSignInGateway _appleSignInGateway;
+  final GoogleSignInGateway _googleSignInGateway;
 
   @override
   AuthSessionSnapshot? get currentSession =>
@@ -76,6 +80,23 @@ class SupabaseAuthGateway implements AuthGateway {
       nonce: credential.rawNonce,
     );
     await _persistAppleNameIfAvailable(credential);
+    return _snapshotFromSession(response.session);
+  }
+
+  @override
+  Future<AuthSessionSnapshot?> signInWithGoogle() async {
+    final GoogleSignInCredentialPayload credential;
+    try {
+      credential = await _googleSignInGateway.requestCredential();
+    } on GoogleSignInRequestCanceledException {
+      throw const GoogleSignInCanceledException();
+    }
+
+    final AuthResponse response = await _client.auth.signInWithIdToken(
+      provider: OAuthProvider.google,
+      idToken: credential.idToken,
+      accessToken: credential.accessToken,
+    );
     return _snapshotFromSession(response.session);
   }
 

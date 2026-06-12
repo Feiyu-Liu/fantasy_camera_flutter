@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../config/app_config.dart';
 import '../../l10n/l10n.dart';
 import '../../theme/app_colors.dart';
 import 'auth_providers.dart';
@@ -69,6 +70,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                     emailError: _emailError,
                     passwordError: _passwordError,
                     supportsAppleSignIn: _supportsAppleSignIn,
+                    supportsGoogleSignIn: AppConfig.hasGoogleSignInConfig,
                     onEmailChanged: (_) => _clearFieldErrors(),
                     onPasswordChanged: (_) => _clearFieldErrors(),
                     onPasswordSubmitted: (_) => _submitPassword(state),
@@ -87,6 +89,12 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                         : ref
                               .read(authControllerProvider.notifier)
                               .signInWithApple,
+                    onGoogleSignIn:
+                        state.isSubmitting || !AppConfig.hasGoogleSignInConfig
+                        ? null
+                        : ref
+                              .read(authControllerProvider.notifier)
+                              .signInWithGoogle,
                   ),
                 ),
               ),
@@ -159,12 +167,14 @@ class _EditorialAuthForm extends StatelessWidget {
     required this.emailController,
     required this.passwordController,
     required this.supportsAppleSignIn,
+    required this.supportsGoogleSignIn,
     required this.onEmailChanged,
     required this.onPasswordChanged,
     required this.onPasswordSubmitted,
     required this.onSubmit,
     required this.onToggleMode,
     required this.onAppleSignIn,
+    required this.onGoogleSignIn,
     this.message,
     this.emailError,
     this.passwordError,
@@ -175,6 +185,7 @@ class _EditorialAuthForm extends StatelessWidget {
   final TextEditingController emailController;
   final TextEditingController passwordController;
   final bool supportsAppleSignIn;
+  final bool supportsGoogleSignIn;
   final String? message;
   final String? emailError;
   final String? passwordError;
@@ -184,6 +195,7 @@ class _EditorialAuthForm extends StatelessWidget {
   final VoidCallback onSubmit;
   final VoidCallback? onToggleMode;
   final VoidCallback? onAppleSignIn;
+  final VoidCallback? onGoogleSignIn;
 
   @override
   Widget build(BuildContext context) {
@@ -261,7 +273,9 @@ class _EditorialAuthForm extends StatelessWidget {
         _AuthProviderRow(
           state: state,
           supportsAppleSignIn: supportsAppleSignIn,
+          supportsGoogleSignIn: supportsGoogleSignIn,
           onAppleSignIn: onAppleSignIn,
+          onGoogleSignIn: onGoogleSignIn,
         ),
       ],
     );
@@ -425,12 +439,16 @@ class _AuthProviderRow extends StatelessWidget {
   const _AuthProviderRow({
     required this.state,
     required this.supportsAppleSignIn,
+    required this.supportsGoogleSignIn,
     required this.onAppleSignIn,
+    required this.onGoogleSignIn,
   });
 
   final AuthControllerState state;
   final bool supportsAppleSignIn;
+  final bool supportsGoogleSignIn;
   final VoidCallback? onAppleSignIn;
+  final VoidCallback? onGoogleSignIn;
 
   @override
   Widget build(BuildContext context) {
@@ -439,18 +457,21 @@ class _AuthProviderRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: <Widget>[
         _SquareAuthIconButton(
+          key: const ValueKey<String>('auth_apple_button'),
           icon: LucideIcons.apple,
           semanticLabel: context.l10n.authContinueWithApple,
           onPressed: supportsAppleSignIn && enabled ? onAppleSignIn : null,
         ),
         const SizedBox(width: 34),
         _SquareAuthIconButton(
-          icon: LucideIcons.badgeCheck,
-          semanticLabel: context.l10n.authEditorialAccessBadge,
-          onPressed: null,
+          key: const ValueKey<String>('auth_google_button'),
+          icon: LucideIcons.globe2,
+          semanticLabel: context.l10n.authContinueWithGoogle,
+          onPressed: supportsGoogleSignIn && enabled ? onGoogleSignIn : null,
         ),
         const SizedBox(width: 34),
         _SquareAuthIconButton(
+          key: const ValueKey<String>('auth_placeholder_button'),
           icon: LucideIcons.camera,
           semanticLabel: context.l10n.appName,
           onPressed: null,
@@ -465,6 +486,7 @@ class _SquareAuthIconButton extends StatelessWidget {
     required this.icon,
     required this.semanticLabel,
     required this.onPressed,
+    super.key,
   });
 
   final IconData icon;

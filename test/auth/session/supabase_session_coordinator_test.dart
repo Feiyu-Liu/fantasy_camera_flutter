@@ -138,6 +138,9 @@ class _FakeAuthGateway implements AuthGateway {
   Future<AuthSessionSnapshot?> signInWithApple() async => current;
 
   @override
+  Future<AuthSessionSnapshot?> signInWithGoogle() async => current;
+
+  @override
   Future<AuthSessionSnapshot?> signInWithPassword({
     required String email,
     required String password,

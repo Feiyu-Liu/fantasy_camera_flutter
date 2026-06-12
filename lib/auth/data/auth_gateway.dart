@@ -28,6 +28,8 @@ abstract interface class AuthGateway {
 
   Future<AuthSessionSnapshot?> signInWithApple();
 
+  Future<AuthSessionSnapshot?> signInWithGoogle();
+
   Future<AuthSessionSnapshot?> refreshSession();
 
   Future<void> signOut();
@@ -35,4 +37,8 @@ abstract interface class AuthGateway {
 
 class AppleSignInCanceledException implements Exception {
   const AppleSignInCanceledException();
+}
+
+class GoogleSignInCanceledException implements Exception {
+  const GoogleSignInCanceledException();
 }

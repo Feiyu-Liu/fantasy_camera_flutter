@@ -23,6 +23,18 @@ class AppConfig {
     'SUPABASE_PUBLISHABLE_KEY',
   );
 
+  // Google Sign-In iOS OAuth client ID. Inject with
+  // `--dart-define=GOOGLE_IOS_CLIENT_ID=...`.
+  static const String googleIosClientId = String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID',
+  );
+
+  // Google Sign-In web OAuth client ID. This is used as the server client ID
+  // so Google returns an ID token acceptable to Supabase.
+  static const String googleWebClientId = String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+  );
+
   // Cloudflare Worker API base URL。通过 `--dart-define=WORKER_API_BASE_URL=...` 注入。
   static const String workerApiBaseUrl = String.fromEnvironment(
     'WORKER_API_BASE_URL',
@@ -94,6 +106,9 @@ class AppConfig {
   // Supabase 是否具备可用配置；用于决定认证模块是否初始化远端能力。
   static bool get hasSupabaseConfig =>
       supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty;
+
+  static bool get hasGoogleSignInConfig =>
+      googleIosClientId.isNotEmpty && googleWebClientId.isNotEmpty;
 
   // Worker API 是否具备可用配置；用于决定后端 API client 是否可发起请求。
   static bool get hasWorkerApiConfig => workerApiBaseUrl.isNotEmpty;

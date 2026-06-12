@@ -35,6 +35,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authContinueWithApple => 'Continue with Apple';
 
   @override
+  String get authContinueWithGoogle => 'Continue with Google';
+
+  @override
   String get authCreateAccountButton => 'Create account';
 
   @override
@@ -63,6 +66,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authForgotKeyButton => 'Forgot key?';
+
+  @override
+  String get authGoogleSignInFailed => 'Google sign in failed.';
 
   @override
   String get authEmailRequired => 'Email is required.';

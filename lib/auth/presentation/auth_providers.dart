@@ -10,6 +10,7 @@ import '../../l10n/l10n.dart';
 import '../../shared/core/app_logger.dart';
 import '../data/apple_sign_in_gateway.dart';
 import '../data/auth_gateway.dart';
+import '../data/google_sign_in_gateway.dart';
 import '../data/supabase_auth_gateway.dart';
 import '../domain/access_token_provider.dart';
 import '../domain/auth_session_state.dart';
@@ -31,10 +32,18 @@ final appleSignInGatewayProvider = Provider<AppleSignInGateway>((Ref ref) {
   return const NativeAppleSignInGateway();
 });
 
+final googleSignInGatewayProvider = Provider<GoogleSignInGateway>((Ref ref) {
+  return NativeGoogleSignInGateway(
+    iosClientId: AppConfig.googleIosClientId,
+    webClientId: AppConfig.googleWebClientId,
+  );
+});
+
 final authGatewayProvider = Provider<AuthGateway>((Ref ref) {
   return SupabaseAuthGateway(
     client: ref.watch(supabaseClientProvider),
     appleSignInGateway: ref.watch(appleSignInGatewayProvider),
+    googleSignInGateway: ref.watch(googleSignInGatewayProvider),
   );
 });
 
@@ -156,6 +165,29 @@ class AuthController extends Notifier<AuthControllerState> {
       state = state.copyWith(
         isSubmitting: false,
         errorMessage: ref.read(appLocalizationsProvider).authAppleSignInFailed,
+      );
+      return;
+    }
+    state = state.copyWith(isSubmitting: false, clearErrorMessage: true);
+  }
+
+  Future<void> signInWithGoogle() async {
+    if (state.isSubmitting) {
+      return;
+    }
+    state = state.copyWith(isSubmitting: true, clearErrorMessage: true);
+    try {
+      await ref.read(sessionCoordinatorProvider).markSigningIn(() {
+        return ref.read(authGatewayProvider).signInWithGoogle();
+      });
+    } on GoogleSignInCanceledException {
+      state = state.copyWith(isSubmitting: false, clearErrorMessage: true);
+      return;
+    } on Object catch (error, stackTrace) {
+      logAppError('google_sign_in_failed', error, stackTrace);
+      state = state.copyWith(
+        isSubmitting: false,
+        errorMessage: ref.read(appLocalizationsProvider).authGoogleSignInFailed,
       );
       return;
     }

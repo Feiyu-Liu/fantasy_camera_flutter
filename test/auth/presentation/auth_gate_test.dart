@@ -62,6 +62,10 @@ void main() {
       find.byKey(const ValueKey<String>('auth_email_field')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey<String>('auth_google_button')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('shows camera screen when signed in', (

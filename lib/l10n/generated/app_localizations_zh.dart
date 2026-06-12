@@ -33,6 +33,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get authContinueWithApple => '通过 Apple 继续';
 
   @override
+  String get authContinueWithGoogle => '通过 Google 继续';
+
+  @override
   String get authCreateAccountButton => '创建账号';
 
   @override
@@ -61,6 +64,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get authForgotKeyButton => '忘记密码？';
+
+  @override
+  String get authGoogleSignInFailed => 'Google 登录失败。';
 
   @override
   String get authEmailRequired => '请输入邮箱。';

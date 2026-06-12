@@ -146,6 +146,12 @@ abstract class AppLocalizations {
   /// **'Continue with Apple'**
   String get authContinueWithApple;
 
+  /// No description provided for @authContinueWithGoogle.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Google'**
+  String get authContinueWithGoogle;
+
   /// No description provided for @authCreateAccountButton.
   ///
   /// In en, this message translates to:
@@ -205,6 +211,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Forgot key?'**
   String get authForgotKeyButton;
+
+  /// No description provided for @authGoogleSignInFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Google sign in failed.'**
+  String get authGoogleSignInFailed;
 
   /// No description provided for @authEmailRequired.
   ///
