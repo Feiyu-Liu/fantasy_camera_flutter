@@ -269,10 +269,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsClearOriginalCacheSubtitle => '移除本地相机原图';
 
   @override
-  String get settingsManageSubscriptionTitle => '订阅管理';
+  String get settingsManageSubscriptionTitle => '购买积分';
 
   @override
-  String get settingsManageSubscriptionSubtitle => '套餐与账单';
+  String get settingsManageSubscriptionSubtitle => '积分包与恢复购买';
 
   @override
   String get settingsSectionInformation => '信息';
@@ -315,4 +315,38 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsSignOutSubtitle => '返回登录页';
+
+  @override
+  String get billingTitle => '积分';
+
+  @override
+  String get billingHeroTitle => '补充\n创作积分';
+
+  @override
+  String get billingHeroSubtitle => '积分用于生成图片。购买完成后会由服务器验证并写入余额。';
+
+  @override
+  String billingCreditPackTitle(int credits) {
+    return '$credits 积分';
+  }
+
+  @override
+  String get billingCreditPackSubtitle => '一次性积分包';
+
+  @override
+  String get billingRestorePurchases => '恢复购买';
+
+  @override
+  String get billingProductsUnavailable => '当前没有可购买的积分包。';
+
+  @override
+  String get billingRetry => '重试';
+
+  @override
+  String billingGrantedCreditsMessage(int credits) {
+    return '+$credits 积分';
+  }
+
+  @override
+  String get billingLegalNote => '购买由 App Store 处理。继续购买即表示你同意使用条款与隐私政策。';
 }

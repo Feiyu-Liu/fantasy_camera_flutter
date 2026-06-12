@@ -89,6 +89,25 @@ void main() {
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
           ),
+          generationSubmissionServiceProvider.overrideWith((Ref ref) {
+            final GenerationSubmissionService service =
+                GenerationSubmissionService(
+                  uploadRepository: const _FakeUploadRepository(),
+                  generationTaskRepository:
+                      const _FakeGenerationTaskRepository(),
+                  feedbackRepository: const _FakeFeedbackRepository(),
+                  generationRecordRepository: GenerationRecordRepository(
+                    GenerationRecordDatabase.forExecutor(
+                      NativeDatabase.memory(),
+                    ),
+                  ),
+                  originalFileStore: const _FakeGenerationOriginalFileStore(),
+                  photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
+                  imageProcessor: const _FakeGenerationImageProcessor(),
+                );
+            ref.onDispose(service.dispose);
+            return service;
+          }),
         ],
       ),
     );
@@ -190,6 +209,25 @@ void main() {
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
           ),
+          generationSubmissionServiceProvider.overrideWith((Ref ref) {
+            final GenerationSubmissionService service =
+                GenerationSubmissionService(
+                  uploadRepository: const _FakeUploadRepository(),
+                  generationTaskRepository:
+                      const _FakeGenerationTaskRepository(),
+                  feedbackRepository: const _FakeFeedbackRepository(),
+                  generationRecordRepository: GenerationRecordRepository(
+                    GenerationRecordDatabase.forExecutor(
+                      NativeDatabase.memory(),
+                    ),
+                  ),
+                  originalFileStore: const _FakeGenerationOriginalFileStore(),
+                  photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
+                  imageProcessor: const _FakeGenerationImageProcessor(),
+                );
+            ref.onDispose(service.dispose);
+            return service;
+          }),
         ],
       ),
     );
@@ -203,7 +241,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsPage), findsOneWidget);
-    expect(find.text('SETTINGS'), findsOneWidget);
+    expect(find.text('设置'), findsOneWidget);
   });
 
   testWidgets('camera gallery thumbnail prefers latest saved result image', (

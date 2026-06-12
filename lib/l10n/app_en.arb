@@ -101,8 +101,8 @@
   "settingsLanguageSubtitle": "System default",
   "settingsClearOriginalCacheTitle": "Clear original cache",
   "settingsClearOriginalCacheSubtitle": "Remove local camera originals",
-  "settingsManageSubscriptionTitle": "Manage subscription",
-  "settingsManageSubscriptionSubtitle": "Plan and billing",
+  "settingsManageSubscriptionTitle": "Buy credits",
+  "settingsManageSubscriptionSubtitle": "Credit packs and restore",
   "settingsSectionInformation": "INFORMATION",
   "settingsPrivacyPolicyTitle": "Privacy Policy",
   "settingsPrivacyPolicySubtitle": "Data and photo handling",
@@ -116,5 +116,29 @@
   "settingsDeleteAccountTitle": "Delete account",
   "settingsDeleteAccountSubtitle": "Permanently remove your account",
   "settingsSignOutTitle": "Sign out",
-  "settingsSignOutSubtitle": "Return to the sign-in screen"
+  "settingsSignOutSubtitle": "Return to the sign-in screen",
+  "billingTitle": "CREDITS",
+  "billingHeroTitle": "Refill\nCreation Credits",
+  "billingHeroSubtitle": "Credits are used to generate images. Purchases are verified by the server before they update your balance.",
+  "billingCreditPackTitle": "{credits} credits",
+  "@billingCreditPackTitle": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "billingCreditPackSubtitle": "One-time credit pack",
+  "billingRestorePurchases": "Restore purchases",
+  "billingProductsUnavailable": "No credit packs are available right now.",
+  "billingRetry": "Retry",
+  "billingGrantedCreditsMessage": "+{credits} credits",
+  "@billingGrantedCreditsMessage": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "billingLegalNote": "Purchases are processed by the App Store. By continuing, you agree to the Terms of Use and Privacy Policy."
 }

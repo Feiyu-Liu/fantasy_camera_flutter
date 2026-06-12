@@ -101,8 +101,8 @@
   "settingsLanguageSubtitle": "跟随系统",
   "settingsClearOriginalCacheTitle": "清除原图缓存",
   "settingsClearOriginalCacheSubtitle": "移除本地相机原图",
-  "settingsManageSubscriptionTitle": "订阅管理",
-  "settingsManageSubscriptionSubtitle": "套餐与账单",
+  "settingsManageSubscriptionTitle": "购买积分",
+  "settingsManageSubscriptionSubtitle": "积分包与恢复购买",
   "settingsSectionInformation": "信息",
   "settingsPrivacyPolicyTitle": "隐私政策",
   "settingsPrivacyPolicySubtitle": "数据与照片处理说明",
@@ -116,5 +116,29 @@
   "settingsDeleteAccountTitle": "注销账号",
   "settingsDeleteAccountSubtitle": "永久移除当前账号",
   "settingsSignOutTitle": "退出登录",
-  "settingsSignOutSubtitle": "返回登录页"
+  "settingsSignOutSubtitle": "返回登录页",
+  "billingTitle": "积分",
+  "billingHeroTitle": "补充\n创作积分",
+  "billingHeroSubtitle": "积分用于生成图片。购买完成后会由服务器验证并写入余额。",
+  "billingCreditPackTitle": "{credits} 积分",
+  "@billingCreditPackTitle": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "billingCreditPackSubtitle": "一次性积分包",
+  "billingRestorePurchases": "恢复购买",
+  "billingProductsUnavailable": "当前没有可购买的积分包。",
+  "billingRetry": "重试",
+  "billingGrantedCreditsMessage": "+{credits} 积分",
+  "@billingGrantedCreditsMessage": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "billingLegalNote": "购买由 App Store 处理。继续购买即表示你同意使用条款与隐私政策。"
 }

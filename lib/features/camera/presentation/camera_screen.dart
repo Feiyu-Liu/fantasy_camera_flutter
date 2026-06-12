@@ -116,6 +116,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       galleryPreview: _buildGalleryPreview(cameraState, latestGenerationJob),
       trailingContent: _CameraTopRightActions(
         creditBalance: creditBalance,
+        onCreditsPressed: _openCreditPurchase,
         onSettingsPressed: _openSettings,
       ),
       message: _localizedMessage(cameraState.message),
@@ -184,16 +185,27 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   }
 
   Future<void> _openSettings() async {
+    await _pushRouteWithPausedCamera(settingsRoute);
+  }
+
+  Future<void> _openCreditPurchase() async {
+    await _pushRouteWithPausedCamera(creditPurchaseRoute);
+  }
+
+  Future<void> _pushRouteWithPausedCamera(String route) async {
     final CameraControllerNotifier notifier = ref.read(
       cameraStateProvider.notifier,
     );
     notifier.suspendLifecycleCameraResume();
     try {
-      await notifier.pauseCamera();
+      final CameraState cameraState = ref.read(cameraStateProvider);
+      if (cameraState.controller != null) {
+        await notifier.pauseCamera();
+      }
       if (!mounted) {
         return;
       }
-      await context.push(settingsRoute);
+      await context.push(route);
       if (!mounted) {
         return;
       }
@@ -488,9 +500,13 @@ int _captureModeSortRank(String id) {
 }
 
 class _CreditsBalanceBadge extends StatelessWidget {
-  const _CreditsBalanceBadge({required this.creditBalance});
+  const _CreditsBalanceBadge({
+    required this.creditBalance,
+    required this.onPressed,
+  });
 
   final AsyncValue<CreditBalance> creditBalance;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -500,33 +516,42 @@ class _CreditsBalanceBadge extends StatelessWidget {
       loading: () => '...',
     );
 
-    return Center(
-      child: Semantics(
-        label: context.l10n.cameraCreditsBalanceSemanticsLabel(value),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 160),
-          child: Row(
-            key: ValueKey<String>(value),
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              const _CreditCoinIcon(),
-              const SizedBox(width: 5),
-              Flexible(
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  textScaler: TextScaler.noScaling,
-                  style: const TextStyle(
-                    color: AppColors.black,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      onPressed: () {
+        HapticFeedback.selectionClick();
+        onPressed();
+      },
+      child: Center(
+        child: Semantics(
+          button: true,
+          label: context.l10n.cameraCreditsBalanceSemanticsLabel(value),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 160),
+            child: Row(
+              key: ValueKey<String>(value),
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                const _CreditCoinIcon(),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    textScaler: TextScaler.noScaling,
+                    style: const TextStyle(
+                      color: AppColors.black,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -537,17 +562,24 @@ class _CreditsBalanceBadge extends StatelessWidget {
 class _CameraTopRightActions extends StatelessWidget {
   const _CameraTopRightActions({
     required this.creditBalance,
+    required this.onCreditsPressed,
     required this.onSettingsPressed,
   });
 
   final AsyncValue<CreditBalance> creditBalance;
+  final VoidCallback onCreditsPressed;
   final VoidCallback onSettingsPressed;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: <Widget>[
-        Expanded(child: _CreditsBalanceBadge(creditBalance: creditBalance)),
+        Expanded(
+          child: _CreditsBalanceBadge(
+            creditBalance: creditBalance,
+            onPressed: onCreditsPressed,
+          ),
+        ),
         _CameraSettingsButton(onPressed: onSettingsPressed),
       ],
     );

@@ -285,10 +285,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Remove local camera originals';
 
   @override
-  String get settingsManageSubscriptionTitle => 'Manage subscription';
+  String get settingsManageSubscriptionTitle => 'Buy credits';
 
   @override
-  String get settingsManageSubscriptionSubtitle => 'Plan and billing';
+  String get settingsManageSubscriptionSubtitle => 'Credit packs and restore';
 
   @override
   String get settingsSectionInformation => 'INFORMATION';
@@ -332,4 +332,41 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsSignOutSubtitle => 'Return to the sign-in screen';
+
+  @override
+  String get billingTitle => 'CREDITS';
+
+  @override
+  String get billingHeroTitle => 'Refill\nCreation Credits';
+
+  @override
+  String get billingHeroSubtitle =>
+      'Credits are used to generate images. Purchases are verified by the server before they update your balance.';
+
+  @override
+  String billingCreditPackTitle(int credits) {
+    return '$credits credits';
+  }
+
+  @override
+  String get billingCreditPackSubtitle => 'One-time credit pack';
+
+  @override
+  String get billingRestorePurchases => 'Restore purchases';
+
+  @override
+  String get billingProductsUnavailable =>
+      'No credit packs are available right now.';
+
+  @override
+  String get billingRetry => 'Retry';
+
+  @override
+  String billingGrantedCreditsMessage(int credits) {
+    return '+$credits credits';
+  }
+
+  @override
+  String get billingLegalNote =>
+      'Purchases are processed by the App Store. By continuing, you agree to the Terms of Use and Privacy Policy.';
 }

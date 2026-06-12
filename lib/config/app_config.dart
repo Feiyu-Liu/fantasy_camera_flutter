@@ -40,6 +40,17 @@ class AppConfig {
     'WORKER_API_BASE_URL',
   );
 
+  // RevenueCat iOS public SDK key。客户端 public key 可见，但不能使用 secret API key。
+  static const String revenueCatIosPublicSdkKey = String.fromEnvironment(
+    'REVENUECAT_IOS_PUBLIC_SDK_KEY',
+  );
+
+  // RevenueCat 中用于积分包的 offering id。为空时使用 current offering。
+  static const String revenueCatOfferingId = String.fromEnvironment(
+    'REVENUECAT_OFFERING_ID',
+    defaultValue: 'credits',
+  );
+
   // 相机采集会话分辨率。`max` 会让平台相机插件选择支持的最高非方形格式。
   static const ResolutionPreset cameraPreviewResolutionPreset =
       ResolutionPreset.max;
@@ -112,4 +123,7 @@ class AppConfig {
 
   // Worker API 是否具备可用配置；用于决定后端 API client 是否可发起请求。
   static bool get hasWorkerApiConfig => workerApiBaseUrl.isNotEmpty;
+
+  static bool get hasRevenueCatIosConfig =>
+      revenueCatIosPublicSdkKey.isNotEmpty;
 }

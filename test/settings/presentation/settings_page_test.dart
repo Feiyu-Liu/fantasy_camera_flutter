@@ -98,7 +98,7 @@ void main() {
     expect(find.text('通用'), findsOneWidget);
     expect(find.text('语言切换'), findsOneWidget);
     expect(find.text('清除原图缓存'), findsOneWidget);
-    expect(find.text('订阅管理'), findsOneWidget);
+    expect(find.text('购买积分'), findsOneWidget);
 
     await scrollDownUntilTextVisible(tester, '信息');
 

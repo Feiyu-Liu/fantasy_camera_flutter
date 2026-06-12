@@ -605,13 +605,13 @@ abstract class AppLocalizations {
   /// No description provided for @settingsManageSubscriptionTitle.
   ///
   /// In en, this message translates to:
-  /// **'Manage subscription'**
+  /// **'Buy credits'**
   String get settingsManageSubscriptionTitle;
 
   /// No description provided for @settingsManageSubscriptionSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Plan and billing'**
+  /// **'Credit packs and restore'**
   String get settingsManageSubscriptionSubtitle;
 
   /// No description provided for @settingsSectionInformation.
@@ -697,6 +697,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Return to the sign-in screen'**
   String get settingsSignOutSubtitle;
+
+  /// No description provided for @billingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'CREDITS'**
+  String get billingTitle;
+
+  /// No description provided for @billingHeroTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Refill\nCreation Credits'**
+  String get billingHeroTitle;
+
+  /// No description provided for @billingHeroSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Credits are used to generate images. Purchases are verified by the server before they update your balance.'**
+  String get billingHeroSubtitle;
+
+  /// No description provided for @billingCreditPackTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{credits} credits'**
+  String billingCreditPackTitle(int credits);
+
+  /// No description provided for @billingCreditPackSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time credit pack'**
+  String get billingCreditPackSubtitle;
+
+  /// No description provided for @billingRestorePurchases.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore purchases'**
+  String get billingRestorePurchases;
+
+  /// No description provided for @billingProductsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No credit packs are available right now.'**
+  String get billingProductsUnavailable;
+
+  /// No description provided for @billingRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get billingRetry;
+
+  /// No description provided for @billingGrantedCreditsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'+{credits} credits'**
+  String billingGrantedCreditsMessage(int credits);
+
+  /// No description provided for @billingLegalNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchases are processed by the App Store. By continuing, you agree to the Terms of Use and Privacy Policy.'**
+  String get billingLegalNote;
 }
 
 class _AppLocalizationsDelegate

@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../auth/domain/auth_user.dart';
 import '../../auth/presentation/auth_providers.dart';
+import '../../app/app_router.dart';
 import '../../features/backend_api/domain/credit_balance.dart';
 import '../../features/backend_api/presentation/backend_api_providers.dart';
 import '../../l10n/l10n.dart';
@@ -82,7 +83,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               _SettingsActionRow(
                 title: l10n.settingsManageSubscriptionTitle,
                 subtitle: l10n.settingsManageSubscriptionSubtitle,
-                onPressed: _handlePlaceholderAction,
+                onPressed: _openCreditPurchase,
               ),
               const _SectionDivider(),
               _SectionTitle(l10n.settingsSectionInformation),
@@ -162,6 +163,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   void _handlePlaceholderAction() {
     HapticFeedback.selectionClick();
+  }
+
+  void _openCreditPurchase() {
+    HapticFeedback.selectionClick();
+    context.push(creditPurchaseRoute);
   }
 }
 
