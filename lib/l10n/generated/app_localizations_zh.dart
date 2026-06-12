@@ -184,4 +184,102 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get promptCaptureModeGeneralTitle => '通用';
+
+  @override
+  String get settingsTitle => '设置';
+
+  @override
+  String get settingsFallbackUserName => 'Julian Vane';
+
+  @override
+  String settingsCreditsValue(int value) {
+    return '$value 积分';
+  }
+
+  @override
+  String get settingsCreditsLoading => '-- 积分';
+
+  @override
+  String get settingsCreditsUnavailable => '积分不可用';
+
+  @override
+  String get settingsSectionAppearance => '外观';
+
+  @override
+  String get settingsAppearanceLight => '浅色';
+
+  @override
+  String get settingsAppearanceDark => '深色';
+
+  @override
+  String get settingsSectionCapture => '拍摄';
+
+  @override
+  String get settingsConfirmBeforeGenerationTitle => '拍摄后生图二次确认';
+
+  @override
+  String get settingsConfirmBeforeGenerationSubtitle => '上传前先确认照片';
+
+  @override
+  String get settingsSectionGeneral => '通用';
+
+  @override
+  String get settingsLanguageTitle => '语言切换';
+
+  @override
+  String get settingsLanguageSubtitle => '跟随系统';
+
+  @override
+  String get settingsClearOriginalCacheTitle => '清除原图缓存';
+
+  @override
+  String get settingsClearOriginalCacheSubtitle => '移除本地相机原图';
+
+  @override
+  String get settingsManageSubscriptionTitle => '订阅管理';
+
+  @override
+  String get settingsManageSubscriptionSubtitle => '套餐与账单';
+
+  @override
+  String get settingsSectionInformation => '信息';
+
+  @override
+  String get settingsPrivacyPolicyTitle => '隐私政策';
+
+  @override
+  String get settingsPrivacyPolicySubtitle => '数据与照片处理说明';
+
+  @override
+  String get settingsTermsTitle => '使用条款';
+
+  @override
+  String get settingsTermsSubtitle => '服务规则与权利说明';
+
+  @override
+  String get settingsAboutTitle => '关于';
+
+  @override
+  String get settingsAboutSubtitle => '版本与致谢';
+
+  @override
+  String get settingsContactDeveloperTitle => '联系开发者';
+
+  @override
+  String get settingsContactDeveloperSubtitle => '发送反馈或支持请求';
+
+  @override
+  String get settingsSectionAccount => '账号';
+
+  @override
+  String get settingsDeleteAccountTitle => '注销账号';
+
+  @override
+  String get settingsDeleteAccountSubtitle => '永久移除当前账号';
+
+  @override
+  String get settingsSignOutTitle => '退出登录';
+
+  @override
+  String get settingsSignOutSubtitle => '返回登录页';
 }

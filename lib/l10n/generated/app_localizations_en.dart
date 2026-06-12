@@ -197,4 +197,106 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get promptCaptureModeGeneralTitle => 'General';
+
+  @override
+  String get settingsTitle => 'SETTINGS';
+
+  @override
+  String get settingsFallbackUserName => 'Julian Vane';
+
+  @override
+  String settingsCreditsValue(int value) {
+    return '$value CREDITS';
+  }
+
+  @override
+  String get settingsCreditsLoading => '-- CREDITS';
+
+  @override
+  String get settingsCreditsUnavailable => 'CREDITS UNAVAILABLE';
+
+  @override
+  String get settingsSectionAppearance => 'APPEARANCE';
+
+  @override
+  String get settingsAppearanceLight => 'Light';
+
+  @override
+  String get settingsAppearanceDark => 'Dark';
+
+  @override
+  String get settingsSectionCapture => 'CAPTURE';
+
+  @override
+  String get settingsConfirmBeforeGenerationTitle =>
+      'Confirm before generation';
+
+  @override
+  String get settingsConfirmBeforeGenerationSubtitle =>
+      'Review a photo before upload';
+
+  @override
+  String get settingsSectionGeneral => 'GENERAL';
+
+  @override
+  String get settingsLanguageTitle => 'Language';
+
+  @override
+  String get settingsLanguageSubtitle => 'System default';
+
+  @override
+  String get settingsClearOriginalCacheTitle => 'Clear original cache';
+
+  @override
+  String get settingsClearOriginalCacheSubtitle =>
+      'Remove local camera originals';
+
+  @override
+  String get settingsManageSubscriptionTitle => 'Manage subscription';
+
+  @override
+  String get settingsManageSubscriptionSubtitle => 'Plan and billing';
+
+  @override
+  String get settingsSectionInformation => 'INFORMATION';
+
+  @override
+  String get settingsPrivacyPolicyTitle => 'Privacy Policy';
+
+  @override
+  String get settingsPrivacyPolicySubtitle => 'Data and photo handling';
+
+  @override
+  String get settingsTermsTitle => 'Terms of Use';
+
+  @override
+  String get settingsTermsSubtitle => 'Service rules and rights';
+
+  @override
+  String get settingsAboutTitle => 'About';
+
+  @override
+  String get settingsAboutSubtitle => 'App version and credits';
+
+  @override
+  String get settingsContactDeveloperTitle => 'Contact developer';
+
+  @override
+  String get settingsContactDeveloperSubtitle =>
+      'Send feedback or support request';
+
+  @override
+  String get settingsSectionAccount => 'ACCOUNT';
+
+  @override
+  String get settingsDeleteAccountTitle => 'Delete account';
+
+  @override
+  String get settingsDeleteAccountSubtitle => 'Permanently remove your account';
+
+  @override
+  String get settingsSignOutTitle => 'Sign out';
+
+  @override
+  String get settingsSignOutSubtitle => 'Return to the sign-in screen';
 }

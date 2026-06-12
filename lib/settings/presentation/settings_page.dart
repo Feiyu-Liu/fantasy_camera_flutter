@@ -1,31 +1,36 @@
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../auth/domain/auth_user.dart';
+import '../../auth/presentation/auth_providers.dart';
+import '../../features/backend_api/domain/credit_balance.dart';
+import '../../features/backend_api/presentation/backend_api_providers.dart';
+import '../../l10n/l10n.dart';
 import '../../theme/app_colors.dart';
 
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
-  bool _gridLinesEnabled = true;
-  bool _highEfficiencyEnabled = false;
-  bool _volumeShutterEnabled = true;
-  bool _autoSyncEnabled = true;
-  bool _hapticFeedbackEnabled = true;
-  bool _saveOriginalsEnabled = false;
-  bool _cellularUploadsEnabled = false;
+class _SettingsPageState extends ConsumerState<SettingsPage> {
+  bool _confirmBeforeGenerationEnabled = true;
   _AppearanceMode _appearanceMode = _AppearanceMode.editorialLight;
 
   @override
   Widget build(BuildContext context) {
+    final AppLocalizations l10n = context.l10n;
+    final AsyncValue<CreditBalance> creditBalance = ref.watch(
+      creditBalanceProvider,
+    );
+    final AuthUser? user = ref.watch(authSessionProvider).valueOrNull?.user;
     final double topInset = MediaQuery.paddingOf(context).top;
     final double navigationHeight = topInset + 50;
     return CupertinoPageScaffold(
@@ -36,114 +41,82 @@ class _SettingsPageState extends State<SettingsPage> {
             padding: EdgeInsets.only(top: navigationHeight),
             physics: const BouncingScrollPhysics(),
             children: <Widget>[
-              const _ProfileHeader(),
+              _ProfileHeader(
+                userName: _displayNameFor(user, l10n),
+                creditsLabel: _creditsLabelFor(creditBalance, l10n),
+              ),
               _AppearanceSection(
+                title: l10n.settingsSectionAppearance,
+                lightTitle: l10n.settingsAppearanceLight,
+                darkTitle: l10n.settingsAppearanceDark,
                 selectedMode: _appearanceMode,
                 onModeSelected: (_AppearanceMode mode) {
                   setState(() => _appearanceMode = mode);
                 },
               ),
               const _SectionDivider(),
-              const _SectionTitle('CAMERA PREFERENCES'),
-              _SettingsToggleRow(
-                switchKey: const ValueKey<String>('settings-grid-lines-switch'),
-                title: 'Grid Lines',
-                subtitle: 'Golden Ratio',
-                value: _gridLinesEnabled,
-                onChanged: (bool value) {
-                  setState(() => _gridLinesEnabled = value);
-                },
-              ),
+              _SectionTitle(l10n.settingsSectionCapture),
               _SettingsToggleRow(
                 switchKey: const ValueKey<String>(
-                  'settings-high-efficiency-switch',
+                  'settings-confirm-before-generation-switch',
                 ),
-                title: 'High Efficiency',
-                subtitle: 'HEIF/HEVC Formats',
-                value: _highEfficiencyEnabled,
+                title: l10n.settingsConfirmBeforeGenerationTitle,
+                subtitle: l10n.settingsConfirmBeforeGenerationSubtitle,
+                value: _confirmBeforeGenerationEnabled,
                 onChanged: (bool value) {
-                  setState(() => _highEfficiencyEnabled = value);
-                },
-              ),
-              _SettingsToggleRow(
-                switchKey: const ValueKey<String>(
-                  'settings-volume-shutter-switch',
-                ),
-                title: 'Volume Shutter',
-                subtitle: 'Use side buttons to capture',
-                value: _volumeShutterEnabled,
-                onChanged: (bool value) {
-                  setState(() => _volumeShutterEnabled = value);
+                  setState(() => _confirmBeforeGenerationEnabled = value);
                 },
               ),
               const _SectionDivider(),
-              const _SectionTitle('STORAGE & CLOUD'),
-              const _CloudStorageCard(),
-              _SettingsToggleRow(
-                switchKey: const ValueKey<String>('settings-auto-sync-switch'),
-                title: 'Auto-Sync',
-                subtitle: 'Sync via Wi-Fi only',
-                value: _autoSyncEnabled,
-                onChanged: (bool value) {
-                  setState(() => _autoSyncEnabled = value);
-                },
+              _SectionTitle(l10n.settingsSectionGeneral),
+              _SettingsActionRow(
+                title: l10n.settingsLanguageTitle,
+                subtitle: l10n.settingsLanguageSubtitle,
+                onPressed: _handlePlaceholderAction,
               ),
               _SettingsActionRow(
-                title: 'Clear Cache',
-                subtitle: '1.2 GB temporary files',
-                onPressed: () => HapticFeedback.selectionClick(),
+                title: l10n.settingsClearOriginalCacheTitle,
+                subtitle: l10n.settingsClearOriginalCacheSubtitle,
+                onPressed: _handlePlaceholderAction,
+              ),
+              _SettingsActionRow(
+                title: l10n.settingsManageSubscriptionTitle,
+                subtitle: l10n.settingsManageSubscriptionSubtitle,
+                onPressed: _handlePlaceholderAction,
               ),
               const _SectionDivider(),
-              const _SectionTitle('PREFERENCES'),
-              _SettingsToggleRow(
-                switchKey: const ValueKey<String>(
-                  'settings-haptic-feedback-switch',
-                ),
-                title: 'Haptic Feedback',
-                subtitle: 'Subtle taps for controls',
-                value: _hapticFeedbackEnabled,
-                onChanged: (bool value) {
-                  setState(() => _hapticFeedbackEnabled = value);
-                },
+              _SectionTitle(l10n.settingsSectionInformation),
+              _SettingsActionRow(
+                title: l10n.settingsPrivacyPolicyTitle,
+                subtitle: l10n.settingsPrivacyPolicySubtitle,
+                onPressed: _handlePlaceholderAction,
               ),
-              _SettingsToggleRow(
-                switchKey: const ValueKey<String>(
-                  'settings-save-originals-switch',
-                ),
-                title: 'Keep Originals',
-                subtitle: 'Store camera sources locally',
-                value: _saveOriginalsEnabled,
-                onChanged: (bool value) {
-                  setState(() => _saveOriginalsEnabled = value);
-                },
+              _SettingsActionRow(
+                title: l10n.settingsTermsTitle,
+                subtitle: l10n.settingsTermsSubtitle,
+                onPressed: _handlePlaceholderAction,
               ),
-              _SettingsToggleRow(
-                switchKey: const ValueKey<String>(
-                  'settings-cellular-uploads-switch',
-                ),
-                title: 'Cellular Uploads',
-                subtitle: 'Allow generation off Wi-Fi',
-                value: _cellularUploadsEnabled,
-                onChanged: (bool value) {
-                  setState(() => _cellularUploadsEnabled = value);
-                },
+              _SettingsActionRow(
+                title: l10n.settingsAboutTitle,
+                subtitle: l10n.settingsAboutSubtitle,
+                onPressed: _handlePlaceholderAction,
+              ),
+              _SettingsActionRow(
+                title: l10n.settingsContactDeveloperTitle,
+                subtitle: l10n.settingsContactDeveloperSubtitle,
+                onPressed: _handlePlaceholderAction,
               ),
               const _SectionDivider(),
-              const _SectionTitle('ABOUT'),
+              _SectionTitle(l10n.settingsSectionAccount),
               _SettingsActionRow(
-                title: 'Subscription',
-                subtitle: 'TesserCam Pro',
-                onPressed: () => HapticFeedback.selectionClick(),
+                title: l10n.settingsDeleteAccountTitle,
+                subtitle: l10n.settingsDeleteAccountSubtitle,
+                onPressed: _handlePlaceholderAction,
               ),
               _SettingsActionRow(
-                title: 'Privacy',
-                subtitle: 'Data and photo handling',
-                onPressed: () => HapticFeedback.selectionClick(),
-              ),
-              _SettingsActionRow(
-                title: 'App Version',
-                subtitle: '1.0.0',
-                onPressed: () => HapticFeedback.selectionClick(),
+                title: l10n.settingsSignOutTitle,
+                subtitle: l10n.settingsSignOutSubtitle,
+                onPressed: _handlePlaceholderAction,
               ),
               SizedBox(height: MediaQuery.paddingOf(context).bottom + 16),
             ],
@@ -154,6 +127,7 @@ class _SettingsPageState extends State<SettingsPage> {
             right: 0,
             child: _SettingsNavigationBar(
               topInset: topInset,
+              title: l10n.settingsTitle,
               onBackPressed: () => context.pop(),
             ),
           ),
@@ -161,15 +135,45 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
   }
+
+  String _displayNameFor(AuthUser? user, AppLocalizations l10n) {
+    final String? email = user?.email.trim();
+    if (email != null && email.isNotEmpty) {
+      final String emailPrefix = email.split('@').first.trim();
+      if (emailPrefix.isNotEmpty) {
+        return emailPrefix;
+      }
+      return email;
+    }
+    return l10n.settingsFallbackUserName;
+  }
+
+  String _creditsLabelFor(
+    AsyncValue<CreditBalance> creditBalance,
+    AppLocalizations l10n,
+  ) {
+    return creditBalance.when(
+      data: (CreditBalance balance) =>
+          l10n.settingsCreditsValue(balance.balance),
+      error: (_, _) => l10n.settingsCreditsUnavailable,
+      loading: () => l10n.settingsCreditsLoading,
+    );
+  }
+
+  void _handlePlaceholderAction() {
+    HapticFeedback.selectionClick();
+  }
 }
 
 class _SettingsNavigationBar extends StatelessWidget {
   const _SettingsNavigationBar({
     required this.topInset,
+    required this.title,
     required this.onBackPressed,
   });
 
   final double topInset;
+  final String title;
   final VoidCallback onBackPressed;
 
   @override
@@ -206,10 +210,10 @@ class _SettingsNavigationBar extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Text(
-                    'SETTINGS',
+                  Text(
+                    title,
                     textScaler: TextScaler.noScaling,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AppColors.black,
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
@@ -227,25 +231,28 @@ class _SettingsNavigationBar extends StatelessWidget {
 }
 
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader();
+  const _ProfileHeader({required this.userName, required this.creditsLabel});
+
+  final String userName;
+  final String creditsLabel;
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
+    return DecoratedBox(
+      decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.black, width: 0.5)),
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(18, 34, 18, 36),
+        padding: const EdgeInsets.fromLTRB(18, 34, 18, 36),
         child: Column(
           children: <Widget>[
-            _AvatarPlaceholder(),
-            SizedBox(height: 18),
+            const _AvatarPlaceholder(),
+            const SizedBox(height: 18),
             Text(
-              'Julian Vane',
+              userName,
               textAlign: TextAlign.center,
               textScaler: TextScaler.noScaling,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppColors.black,
                 fontFamily: 'Times New Roman',
                 fontSize: 28,
@@ -253,18 +260,34 @@ class _ProfileHeader extends StatelessWidget {
                 height: 1,
               ),
             ),
-            SizedBox(height: 12),
-            Text(
-              'PRO MEMBER SINCE 2023',
-              textAlign: TextAlign.center,
-              textScaler: TextScaler.noScaling,
-              style: TextStyle(
-                color: AppColors.settingsMutedText,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 3.2,
-                height: 1,
-              ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Icon(
+                  LucideIcons.tickets,
+                  color: AppColors.settingsMutedText,
+                  size: 14,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    creditsLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    textScaler: TextScaler.noScaling,
+                    style: const TextStyle(
+                      color: AppColors.settingsMutedText,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 2.4,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -295,10 +318,16 @@ enum _AppearanceMode { editorialLight, studioDark }
 
 class _AppearanceSection extends StatelessWidget {
   const _AppearanceSection({
+    required this.title,
+    required this.lightTitle,
+    required this.darkTitle,
     required this.selectedMode,
     required this.onModeSelected,
   });
 
+  final String title;
+  final String lightTitle;
+  final String darkTitle;
   final _AppearanceMode selectedMode;
   final ValueChanged<_AppearanceMode> onModeSelected;
 
@@ -309,10 +338,10 @@ class _AppearanceSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const Text(
-            'APPEARANCE',
+          Text(
+            title,
             textScaler: TextScaler.noScaling,
-            style: TextStyle(
+            style: const TextStyle(
               color: AppColors.settingsMutedText,
               fontSize: 11.5,
               fontWeight: FontWeight.w700,
@@ -328,7 +357,7 @@ class _AppearanceSection extends StatelessWidget {
                   key: const ValueKey<String>(
                     'settings-appearance-editorial-light',
                   ),
-                  title: 'Light',
+                  title: lightTitle,
                   mode: _AppearanceMode.editorialLight,
                   selected: selectedMode == _AppearanceMode.editorialLight,
                   onSelected: onModeSelected,
@@ -340,7 +369,7 @@ class _AppearanceSection extends StatelessWidget {
                   key: const ValueKey<String>(
                     'settings-appearance-studio-dark',
                   ),
-                  title: 'Dark',
+                  title: darkTitle,
                   mode: _AppearanceMode.studioDark,
                   selected: selectedMode == _AppearanceMode.studioDark,
                   onSelected: onModeSelected,
@@ -632,113 +661,6 @@ class _BlockSwitch extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _CloudStorageCard extends StatelessWidget {
-  const _CloudStorageCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          border: Border.all(color: AppColors.black, width: 1),
-        ),
-        child: const Padding(
-          padding: EdgeInsets.fromLTRB(18, 20, 18, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      'Cloud Storage',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textScaler: TextScaler.noScaling,
-                      style: TextStyle(
-                        color: AppColors.black,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w400,
-                        height: 1,
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 10),
-                  Flexible(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          '128.4 GB of 200 GB',
-                          textScaler: TextScaler.noScaling,
-                          style: TextStyle(
-                            color: AppColors.settingsMutedText,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w400,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 15),
-              _StorageProgress(value: 0.64),
-              SizedBox(height: 15),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  'Manage Subscription',
-                  textScaler: TextScaler.noScaling,
-                  style: TextStyle(
-                    color: AppColors.settingsMutedText,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    height: 1,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StorageProgress extends StatelessWidget {
-  const _StorageProgress({required this.value});
-
-  final double value;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        return Stack(
-          children: <Widget>[
-            Container(
-              height: 4,
-              width: constraints.maxWidth,
-              color: AppColors.settingsProgressBackground,
-            ),
-            Container(
-              height: 4,
-              width: constraints.maxWidth * value.clamp(0, 1),
-              color: AppColors.black,
-            ),
-          ],
-        );
-      },
     );
   }
 }

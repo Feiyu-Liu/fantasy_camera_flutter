@@ -66,5 +66,44 @@
   "promptSwitchBackgroundBlurTitle": "背景虚化",
   "promptStyleRealisticTitle": "写实",
   "promptCaptureModePortraitTitle": "人像",
-  "promptCaptureModeGeneralTitle": "通用"
+  "promptCaptureModeGeneralTitle": "通用",
+  "settingsTitle": "设置",
+  "settingsFallbackUserName": "Julian Vane",
+  "settingsCreditsValue": "{value} 积分",
+  "@settingsCreditsValue": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsCreditsLoading": "-- 积分",
+  "settingsCreditsUnavailable": "积分不可用",
+  "settingsSectionAppearance": "外观",
+  "settingsAppearanceLight": "浅色",
+  "settingsAppearanceDark": "深色",
+  "settingsSectionCapture": "拍摄",
+  "settingsConfirmBeforeGenerationTitle": "拍摄后生图二次确认",
+  "settingsConfirmBeforeGenerationSubtitle": "上传前先确认照片",
+  "settingsSectionGeneral": "通用",
+  "settingsLanguageTitle": "语言切换",
+  "settingsLanguageSubtitle": "跟随系统",
+  "settingsClearOriginalCacheTitle": "清除原图缓存",
+  "settingsClearOriginalCacheSubtitle": "移除本地相机原图",
+  "settingsManageSubscriptionTitle": "订阅管理",
+  "settingsManageSubscriptionSubtitle": "套餐与账单",
+  "settingsSectionInformation": "信息",
+  "settingsPrivacyPolicyTitle": "隐私政策",
+  "settingsPrivacyPolicySubtitle": "数据与照片处理说明",
+  "settingsTermsTitle": "使用条款",
+  "settingsTermsSubtitle": "服务规则与权利说明",
+  "settingsAboutTitle": "关于",
+  "settingsAboutSubtitle": "版本与致谢",
+  "settingsContactDeveloperTitle": "联系开发者",
+  "settingsContactDeveloperSubtitle": "发送反馈或支持请求",
+  "settingsSectionAccount": "账号",
+  "settingsDeleteAccountTitle": "注销账号",
+  "settingsDeleteAccountSubtitle": "永久移除当前账号",
+  "settingsSignOutTitle": "退出登录",
+  "settingsSignOutSubtitle": "返回登录页"
 }
