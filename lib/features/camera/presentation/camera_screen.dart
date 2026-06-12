@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:my_ui/my_ui.dart';
 
 import '../../../app/app_router.dart';
 import '../../../config/app_config.dart';
@@ -23,6 +22,9 @@ import '../../backend_api/presentation/backend_api_providers.dart';
 import '../../generation_submission/domain/generation_submission_job.dart';
 import '../../generation_submission/presentation/generation_submission_providers.dart';
 import '../data/capture_orientation_reader.dart';
+import 'camera_ui/camera_photo_ui.dart';
+import 'camera_ui/camera_ui_tokens.dart';
+import 'camera_ui/camera_ui_models.dart';
 import 'camera_message.dart';
 import 'camera_providers.dart';
 import 'camera_state.dart';
@@ -107,7 +109,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       captureOrientation,
     );
     return CameraPhotoUi(
-      theme: const CameraPhotoUiTheme(
+      tokens: const CameraUiTokens(
         dividerWidth: AppConfig.cameraUiDividerWidth,
       ),
       viewfinder: _buildViewfinder(cameraState),
