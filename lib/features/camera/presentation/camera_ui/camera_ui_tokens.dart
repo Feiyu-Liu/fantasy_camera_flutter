@@ -1,12 +1,14 @@
 import 'package:flutter/cupertino.dart';
 
+import '../../../../theme/app_colors.dart';
+
 class CameraUiTokens {
   const CameraUiTokens({
     this.backgroundColor = const Color(0xFFFFFFFF),
     this.viewfinderColor = const Color(0xFF000000),
     this.primaryTextColor = const Color(0xFF000000),
     this.inverseTextColor = const Color(0xFFFFFFFF),
-    this.accentColor = const Color(0xFFEAC45B),
+    this.accentColor = AppColors.accentYellow,
     this.inactiveColor = const Color(0xFF888888),
     this.dividerColor = const Color(0xFF000000),
     this.dividerWidth = 0.5,

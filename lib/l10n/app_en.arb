@@ -118,7 +118,7 @@
   "settingsSignOutTitle": "Sign out",
   "settingsSignOutSubtitle": "Return to the sign-in screen",
   "billingTitle": "CREDITS",
-  "billingHeroTitle": "Refill\nCreation Credits",
+  "billingHeroTitle": "Get Creation Credits",
   "billingHeroSubtitle": "Credits are used to generate images. Purchases are verified by the server before they update your balance.",
   "billingCreditPackTitle": "{credits} credits",
   "@billingCreditPackTitle": {
@@ -129,6 +129,7 @@
     }
   },
   "billingCreditPackSubtitle": "One-time credit pack",
+  "billingPurchaseButton": "Purchase",
   "billingRestorePurchases": "Restore purchases",
   "billingProductsUnavailable": "No credit packs are available right now.",
   "billingRetry": "Retry",

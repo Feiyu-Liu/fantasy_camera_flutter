@@ -20,6 +20,8 @@ class CreditPurchasePage extends ConsumerStatefulWidget {
 }
 
 class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
+  String? _selectedProductId;
+
   @override
   void initState() {
     super.initState();
@@ -32,6 +34,13 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
   Widget build(BuildContext context) {
     final BillingControllerState state = ref.watch(billingControllerProvider);
     final double topInset = MediaQuery.paddingOf(context).top;
+    final BillingProduct? selectedProduct = state.products.isEmpty
+        ? null
+        : state.products.firstWhere(
+            (BillingProduct product) => product.productId == _selectedProductId,
+            orElse: () => state.products.first,
+          );
+    final String? selectedProductId = selectedProduct?.productId;
     return CupertinoPageScaffold(
       backgroundColor: AppColors.settingsBackground,
       child: Stack(
@@ -55,29 +64,35 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
                     ref.read(billingControllerProvider.notifier).loadProducts();
                   },
                 )
-              else
+              else ...<Widget>[
                 for (final BillingProduct product in state.products)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _CreditPackRow(
                       product: product,
                       isBusy: state.isPurchasing,
+                      isSelected: product.productId == selectedProductId,
                       onPressed: () {
                         HapticFeedback.selectionClick();
-                        ref
-                            .read(billingControllerProvider.notifier)
-                            .purchase(product);
+                        setState(() {
+                          _selectedProductId = product.productId;
+                        });
                       },
                     ),
                   ),
-              const SizedBox(height: 8),
-              _RestoreButton(
-                isBusy: state.isPurchasing,
-                onPressed: () {
-                  HapticFeedback.selectionClick();
-                  ref.read(billingControllerProvider.notifier).restore();
-                },
-              ),
+                const SizedBox(height: 2),
+                _PurchaseButton(
+                  isBusy: state.isPurchasing,
+                  onPressed: selectedProduct == null
+                      ? null
+                      : () {
+                          HapticFeedback.selectionClick();
+                          ref
+                              .read(billingControllerProvider.notifier)
+                              .purchase(selectedProduct);
+                        },
+                ),
+              ],
               if (state.errorMessage case final String message)
                 _MessageBanner(message: message, danger: true),
               if (state.lastGrantedCredits case final int credits)
@@ -85,8 +100,20 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
                   message: context.l10n.billingGrantedCreditsMessage(credits),
                   danger: false,
                 ),
-              const SizedBox(height: 28),
-              const _LegalLinks(),
+              const SizedBox(height: 10),
+              _PurchaseFooterLinks(
+                isBusy: state.isPurchasing,
+                onRestorePressed: () {
+                  HapticFeedback.selectionClick();
+                  ref.read(billingControllerProvider.notifier).restore();
+                },
+                onPrivacyPressed: () {
+                  HapticFeedback.selectionClick();
+                },
+                onTermsPressed: () {
+                  HapticFeedback.selectionClick();
+                },
+              ),
             ],
           ),
           Positioned(
@@ -177,30 +204,37 @@ class _PurchaseHero extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(4, 18, 4, 24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
-            const Icon(LucideIcons.tickets, color: AppColors.black, size: 28),
-            const SizedBox(height: 18),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                border: Border.fromBorderSide(
+                  BorderSide(color: AppColors.black, width: 1),
+                ),
+              ),
+              child: SizedBox(
+                width: 92,
+                height: 92,
+                child: Center(
+                  child: Icon(
+                    LucideIcons.star,
+                    color: AppColors.black,
+                    size: 36,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 28),
             Text(
               context.l10n.billingHeroTitle,
+              textAlign: TextAlign.center,
               textScaler: TextScaler.noScaling,
               style: const TextStyle(
                 color: AppColors.black,
-                fontFamily: 'Times New Roman',
-                fontSize: 36,
+                fontSize: 28,
                 fontWeight: FontWeight.w700,
-                height: 0.92,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              context.l10n.billingHeroSubtitle,
-              textScaler: TextScaler.noScaling,
-              style: const TextStyle(
-                color: AppColors.settingsMutedText,
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                height: 1.25,
+                height: 1.05,
               ),
             ),
           ],
@@ -214,11 +248,13 @@ class _CreditPackRow extends StatelessWidget {
   const _CreditPackRow({
     required this.product,
     required this.isBusy,
+    required this.isSelected,
     required this.onPressed,
   });
 
   final BillingProduct product;
   final bool isBusy;
+  final bool isSelected;
   final VoidCallback onPressed;
 
   @override
@@ -229,7 +265,7 @@ class _CreditPackRow extends StatelessWidget {
       onPressed: isBusy ? null : onPressed,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: isSelected ? AppColors.accentYellow : AppColors.white,
           border: Border.all(color: AppColors.black, width: 0.5),
         ),
         child: Padding(
@@ -281,11 +317,11 @@ class _CreditPackRow extends StatelessWidget {
   }
 }
 
-class _RestoreButton extends StatelessWidget {
-  const _RestoreButton({required this.isBusy, required this.onPressed});
+class _PurchaseButton extends StatelessWidget {
+  const _PurchaseButton({required this.isBusy, required this.onPressed});
 
   final bool isBusy;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -293,17 +329,120 @@ class _RestoreButton extends StatelessWidget {
       padding: EdgeInsets.zero,
       minimumSize: Size.zero,
       onPressed: isBusy ? null : onPressed,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Text(
-          context.l10n.billingRestorePurchases,
-          textScaler: TextScaler.noScaling,
-          style: const TextStyle(
-            color: AppColors.black,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            decoration: TextDecoration.underline,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: isBusy || onPressed == null
+              ? AppColors.disabledDark
+              : AppColors.black,
+          border: Border.all(color: AppColors.black, width: 0.5),
+        ),
+        child: SizedBox(
+          height: 52,
+          child: Center(
+            child: isBusy
+                ? const CupertinoActivityIndicator(color: AppColors.white)
+                : Text(
+                    context.l10n.billingPurchaseButton,
+                    textScaler: TextScaler.noScaling,
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PurchaseFooterLinks extends StatelessWidget {
+  const _PurchaseFooterLinks({
+    required this.isBusy,
+    required this.onRestorePressed,
+    required this.onPrivacyPressed,
+    required this.onTermsPressed,
+  });
+
+  final bool isBusy;
+  final VoidCallback onRestorePressed;
+  final VoidCallback onPrivacyPressed;
+  final VoidCallback onTermsPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        _FooterLinkButton(
+          label: context.l10n.billingRestorePurchases,
+          onPressed: isBusy ? null : onRestorePressed,
+        ),
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                children: <Widget>[
+                  _FooterLinkButton(
+                    label: context.l10n.settingsPrivacyPolicyTitle,
+                    onPressed: onPrivacyPressed,
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      '|',
+                      textScaler: TextScaler.noScaling,
+                      style: TextStyle(
+                        color: AppColors.settingsMutedText,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  _FooterLinkButton(
+                    label: context.l10n.settingsTermsTitle,
+                    onPressed: onTermsPressed,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FooterLinkButton extends StatelessWidget {
+  const _FooterLinkButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      onPressed: onPressed,
+      child: Text(
+        label,
+        textScaler: TextScaler.noScaling,
+        style: TextStyle(
+          color: onPressed == null
+              ? AppColors.settingsMutedText.withValues(alpha: 0.45)
+              : AppColors.settingsMutedText,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          decoration: onPressed == null
+              ? TextDecoration.none
+              : TextDecoration.underline,
+          decorationColor: onPressed == null
+              ? AppColors.settingsMutedText.withValues(alpha: 0)
+              : AppColors.settingsMutedText,
+          decorationThickness: 0.7,
         ),
       ),
     );
@@ -374,24 +513,6 @@ class _MessageBanner extends StatelessWidget {
           fontSize: 12.5,
           fontWeight: FontWeight.w600,
         ),
-      ),
-    );
-  }
-}
-
-class _LegalLinks extends StatelessWidget {
-  const _LegalLinks();
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      context.l10n.billingLegalNote,
-      textAlign: TextAlign.center,
-      textScaler: TextScaler.noScaling,
-      style: const TextStyle(
-        color: AppColors.settingsMutedText,
-        fontSize: 11,
-        height: 1.35,
       ),
     );
   }

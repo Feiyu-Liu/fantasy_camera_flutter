@@ -320,7 +320,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get billingTitle => '积分';
 
   @override
-  String get billingHeroTitle => '补充\n创作积分';
+  String get billingHeroTitle => '获取创作积分';
 
   @override
   String get billingHeroSubtitle => '积分用于生成图片。购买完成后会由服务器验证并写入余额。';
@@ -332,6 +332,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get billingCreditPackSubtitle => '一次性积分包';
+
+  @override
+  String get billingPurchaseButton => '购买';
 
   @override
   String get billingRestorePurchases => '恢复购买';

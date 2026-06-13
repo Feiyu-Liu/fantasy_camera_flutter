@@ -337,7 +337,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get billingTitle => 'CREDITS';
 
   @override
-  String get billingHeroTitle => 'Refill\nCreation Credits';
+  String get billingHeroTitle => 'Get Creation Credits';
 
   @override
   String get billingHeroSubtitle =>
@@ -350,6 +350,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get billingCreditPackSubtitle => 'One-time credit pack';
+
+  @override
+  String get billingPurchaseButton => 'Purchase';
 
   @override
   String get billingRestorePurchases => 'Restore purchases';

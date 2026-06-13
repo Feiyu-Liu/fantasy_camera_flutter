@@ -707,7 +707,7 @@ abstract class AppLocalizations {
   /// No description provided for @billingHeroTitle.
   ///
   /// In en, this message translates to:
-  /// **'Refill\nCreation Credits'**
+  /// **'Get Creation Credits'**
   String get billingHeroTitle;
 
   /// No description provided for @billingHeroSubtitle.
@@ -727,6 +727,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'One-time credit pack'**
   String get billingCreditPackSubtitle;
+
+  /// No description provided for @billingPurchaseButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase'**
+  String get billingPurchaseButton;
 
   /// No description provided for @billingRestorePurchases.
   ///

@@ -118,7 +118,7 @@
   "settingsSignOutTitle": "退出登录",
   "settingsSignOutSubtitle": "返回登录页",
   "billingTitle": "积分",
-  "billingHeroTitle": "补充\n创作积分",
+  "billingHeroTitle": "获取创作积分",
   "billingHeroSubtitle": "积分用于生成图片。购买完成后会由服务器验证并写入余额。",
   "billingCreditPackTitle": "{credits} 积分",
   "@billingCreditPackTitle": {
@@ -129,6 +129,7 @@
     }
   },
   "billingCreditPackSubtitle": "一次性积分包",
+  "billingPurchaseButton": "购买",
   "billingRestorePurchases": "恢复购买",
   "billingProductsUnavailable": "当前没有可购买的积分包。",
   "billingRetry": "重试",
