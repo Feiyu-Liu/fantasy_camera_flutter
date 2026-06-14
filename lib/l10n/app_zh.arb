@@ -94,7 +94,7 @@
   "settingsAppearanceLight": "浅色",
   "settingsAppearanceDark": "深色",
   "settingsSectionCapture": "拍摄",
-  "settingsConfirmBeforeGenerationTitle": "拍摄后生图二次确认",
+  "settingsConfirmBeforeGenerationTitle": "拍摄后图片生成确认",
   "settingsConfirmBeforeGenerationSubtitle": "上传前先确认照片",
   "settingsSectionGeneral": "通用",
   "settingsLanguageTitle": "语言切换",

@@ -248,7 +248,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsSectionCapture => '拍摄';
 
   @override
-  String get settingsConfirmBeforeGenerationTitle => '拍摄后生图二次确认';
+  String get settingsConfirmBeforeGenerationTitle => '拍摄后图片生成确认';
 
   @override
   String get settingsConfirmBeforeGenerationSubtitle => '上传前先确认照片';

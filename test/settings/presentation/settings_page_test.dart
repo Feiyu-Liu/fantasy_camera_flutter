@@ -90,7 +90,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('拍摄'), findsOneWidget);
-    expect(find.text('拍摄后生图二次确认'), findsOneWidget);
+    expect(find.text('拍摄后图片生成确认'), findsOneWidget);
     expect(find.byType(BackdropFilter), findsOneWidget);
 
     await scrollDownUntilTextVisible(tester, '通用');
