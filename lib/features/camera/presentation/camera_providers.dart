@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/app_config.dart';
 import '../../../features/backend_api/domain/prompt_config.dart';
 import '../../../features/generation_submission/presentation/generation_submission_providers.dart';
+import '../../../settings/application/app_settings.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/core/app_logger.dart';
 import '../data/camera_device_repository.dart';
@@ -49,6 +50,7 @@ final cameraStateProvider =
       CameraControllerNotifier.new,
       dependencies: <ProviderOrFamily>[
         cameraChoicesProvider,
+        appSettingsControllerProvider,
         generationSubmissionControllerProvider,
         promptSelectionControllerProvider,
       ],
@@ -309,15 +311,37 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       final PromptSelectionSnapshot promptSelection = ref
           .read(promptSelectionControllerProvider)
           .snapshot;
-      await ref
-          .read(generationSubmissionControllerProvider.notifier)
-          .queueCapturedFile(file, promptSelection: promptSelection);
+      final GenerationSubmissionController submissionController = ref.read(
+        generationSubmissionControllerProvider.notifier,
+      );
+      final AppSettingsState appSettings = await ref
+          .read(appSettingsControllerProvider.notifier)
+          .ensureLoaded();
+      final bool confirmBeforeGeneration =
+          appSettings.confirmBeforeGenerationEnabled;
+      final String? recordId = await submissionController.queueCapturedFile(
+        file,
+        promptSelection: promptSelection,
+      );
+      if (!confirmBeforeGeneration && recordId != null) {
+        unawaited(_confirmCapturedRecord(recordId));
+      }
       return file;
     } on CameraException catch (e) {
       _showCameraException(e);
       return null;
     } finally {
       state = state.copyWith(isTakingPicture: false);
+    }
+  }
+
+  Future<void> _confirmCapturedRecord(String recordId) async {
+    try {
+      await ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .confirmJob(recordId);
+    } on Object catch (error, stackTrace) {
+      logAppError('camera_auto_confirm_generation_failed', error, stackTrace);
     }
   }
 

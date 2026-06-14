@@ -12,6 +12,7 @@ import '../../app/app_router.dart';
 import '../../features/backend_api/domain/credit_balance.dart';
 import '../../features/backend_api/presentation/backend_api_providers.dart';
 import '../../l10n/l10n.dart';
+import '../application/app_settings.dart';
 import '../../theme/app_colors.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -22,7 +23,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  bool _confirmBeforeGenerationEnabled = true;
   _AppearanceMode _appearanceMode = _AppearanceMode.editorialLight;
 
   @override
@@ -30,6 +30,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final AppLocalizations l10n = context.l10n;
     final AsyncValue<CreditBalance> creditBalance = ref.watch(
       creditBalanceProvider,
+    );
+    final AppSettingsState appSettings = ref.watch(
+      appSettingsControllerProvider,
     );
     final AuthUser? user = ref.watch(authSessionProvider).valueOrNull?.user;
     final double topInset = MediaQuery.paddingOf(context).top;
@@ -63,9 +66,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 title: l10n.settingsConfirmBeforeGenerationTitle,
                 subtitle: l10n.settingsConfirmBeforeGenerationSubtitle,
-                value: _confirmBeforeGenerationEnabled,
+                value: appSettings.confirmBeforeGenerationEnabled,
                 onChanged: (bool value) {
-                  setState(() => _confirmBeforeGenerationEnabled = value);
+                  ref
+                      .read(appSettingsControllerProvider.notifier)
+                      .setConfirmBeforeGenerationEnabled(value);
                 },
               ),
               const _SectionDivider(),

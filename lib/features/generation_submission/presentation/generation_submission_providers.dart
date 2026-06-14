@@ -419,8 +419,11 @@ class GenerationSubmissionController
     return recordId;
   }
 
-  Future<void> submitCapturedFile(XFile file) async {
-    await _service.submitCapturedFile(file);
+  Future<void> submitCapturedFile(
+    XFile file, {
+    PromptSelectionSnapshot? promptSelection,
+  }) async {
+    await _service.submitCapturedFile(file, promptSelection: promptSelection);
     await _refreshFromRepository();
   }
 

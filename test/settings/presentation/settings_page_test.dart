@@ -6,6 +6,7 @@ import 'package:fantasy_camera_flutter/features/backend_api/data/backend_reposit
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
+import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
 import 'package:fantasy_camera_flutter/settings/presentation/settings_page.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,7 +14,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
-  Future<void> pumpSettingsPage(WidgetTester tester) async {
+  Future<void> pumpSettingsPage(
+    WidgetTester tester, {
+    _FakeAppSettingsRepository? appSettingsRepository,
+  }) async {
+    final _FakeAppSettingsRepository settingsRepository =
+        appSettingsRepository ?? _FakeAppSettingsRepository();
     await tester.binding.setSurfaceSize(const Size(393, 852));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
@@ -29,6 +35,7 @@ void main() {
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
           ),
+          appSettingsRepositoryProvider.overrideWithValue(settingsRepository),
         ],
         child: CupertinoApp(
           locale: defaultAppLocale,
@@ -121,7 +128,12 @@ void main() {
   testWidgets('switch rows can toggle local state', (
     WidgetTester tester,
   ) async {
-    await pumpSettingsPage(tester);
+    final _FakeAppSettingsRepository appSettingsRepository =
+        _FakeAppSettingsRepository();
+    await pumpSettingsPage(
+      tester,
+      appSettingsRepository: appSettingsRepository,
+    );
 
     final Finder confirmSwitch = find.byKey(
       const ValueKey<String>('settings-confirm-before-generation-switch'),
@@ -134,6 +146,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(confirmSwitch, findsOneWidget);
+    expect(appSettingsRepository.confirmBeforeGenerationEnabled, isFalse);
   });
 
   testWidgets('appearance cards can switch selected mode', (
@@ -173,6 +186,9 @@ void main() {
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
           ),
+          appSettingsRepositoryProvider.overrideWithValue(
+            _FakeAppSettingsRepository(),
+          ),
         ],
         child: CupertinoApp.router(
           locale: defaultAppLocale,
@@ -195,6 +211,20 @@ void main() {
     expect(find.byType(SettingsPage), findsOneWidget);
     expect(find.text('设置'), findsOneWidget);
   });
+}
+
+class _FakeAppSettingsRepository implements AppSettingsRepository {
+  bool confirmBeforeGenerationEnabled = true;
+
+  @override
+  Future<bool> loadConfirmBeforeGenerationEnabled() async {
+    return confirmBeforeGenerationEnabled;
+  }
+
+  @override
+  Future<void> saveConfirmBeforeGenerationEnabled(bool value) async {
+    confirmBeforeGenerationEnabled = value;
+  }
 }
 
 class _FakeCreditsRepository implements CreditsRepository {

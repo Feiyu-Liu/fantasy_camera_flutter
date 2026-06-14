@@ -157,8 +157,14 @@ class GenerationSubmissionService extends ChangeNotifier {
     return recordId;
   }
 
-  Future<void> submitCapturedFile(XFile file) async {
-    final String? recordId = await queueCapturedFile(file);
+  Future<void> submitCapturedFile(
+    XFile file, {
+    PromptSelectionSnapshot? promptSelection,
+  }) async {
+    final String? recordId = await queueCapturedFile(
+      file,
+      promptSelection: promptSelection,
+    );
     if (recordId != null) {
       await confirmJob(recordId);
     }

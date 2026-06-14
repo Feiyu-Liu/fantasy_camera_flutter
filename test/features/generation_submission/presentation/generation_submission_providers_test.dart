@@ -181,6 +181,34 @@ void main() {
     });
   });
 
+  test('submit captured file keeps provided prompt selection', () async {
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository();
+    final ProviderContainer container = _container(
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .submitCapturedFile(
+          XFile('/tmp/photo.jpg'),
+          promptSelection: const PromptSelectionSnapshot(
+            promptStyle: 'realistic',
+            captureMode: 'general',
+            switches: <String, bool>{},
+          ),
+        );
+
+    final GenerationSubmissionJob job = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(job.status, GenerationSubmissionStatus.pollingTask);
+    expect(taskRepository.createdInputs.single.promptStyle, 'realistic');
+    expect(taskRepository.createdInputs.single.captureMode, 'general');
+  });
+
   test('concurrent confirms submit a job only once', () async {
     final _FakeGenerationImageProcessor imageProcessor =
         _FakeGenerationImageProcessor()

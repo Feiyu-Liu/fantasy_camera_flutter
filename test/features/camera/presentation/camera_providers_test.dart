@@ -19,11 +19,13 @@ import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_sessio
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_message.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_providers.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_screen.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_state.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
+import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -258,6 +260,128 @@ void main() {
     },
   );
 
+  test(
+    'takePicture queues captured file when confirmation is enabled',
+    () async {
+      final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+      CameraPlatform.instance = camera;
+      final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+      final _FakeGenerationTaskRepository taskRepository =
+          _FakeGenerationTaskRepository();
+      final _TestContainer testContainer = _container(
+        choices: const <CameraChoice>[
+          CameraChoice(
+            description: CameraDescription(
+              name: 'back',
+              lensDirection: CameraLensDirection.back,
+              sensorOrientation: 0,
+            ),
+            label: 'Back Camera',
+            isVirtualDevice: false,
+            deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+          ),
+        ],
+        appSettingsRepository: _FakeAppSettingsRepository(
+          confirmBeforeGenerationEnabled: true,
+        ),
+        uploadRepository: uploadRepository,
+        taskRepository: taskRepository,
+      );
+      final ProviderContainer container = testContainer.container;
+      addTearDown(() async {
+        await testContainer.dispose();
+        await Future<void>.delayed(Duration.zero);
+      });
+
+      final CameraControllerNotifier notifier = container.read(
+        cameraStateProvider.notifier,
+      );
+      await notifier.openDefaultCamera();
+
+      final Future<XFile?> takePictureFuture = notifier.takePicture();
+      camera.completeTakePicture();
+      await takePictureFuture;
+
+      final GenerationSubmissionJob job = container
+          .read(generationSubmissionControllerProvider)
+          .jobs
+          .single;
+      expect(job.status, GenerationSubmissionStatus.awaitingConfirmation);
+      expect(uploadRepository.events, isEmpty);
+      expect(taskRepository.createdInputs, isEmpty);
+    },
+  );
+
+  test(
+    'takePicture submits captured file when confirmation is disabled',
+    () async {
+      final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+      CameraPlatform.instance = camera;
+      final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+      final _FakeGenerationImageProcessor imageProcessor =
+          _FakeGenerationImageProcessor()
+            ..prepareCompleter = Completer<PreparedUploadImage>();
+      final _FakeGenerationTaskRepository taskRepository =
+          _FakeGenerationTaskRepository();
+      final _TestContainer testContainer = _container(
+        choices: const <CameraChoice>[
+          CameraChoice(
+            description: CameraDescription(
+              name: 'back',
+              lensDirection: CameraLensDirection.back,
+              sensorOrientation: 0,
+            ),
+            label: 'Back Camera',
+            isVirtualDevice: false,
+            deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+          ),
+        ],
+        appSettingsRepository: _FakeAppSettingsRepository(
+          confirmBeforeGenerationEnabled: false,
+        ),
+        imageProcessor: imageProcessor,
+        uploadRepository: uploadRepository,
+        taskRepository: taskRepository,
+      );
+      final ProviderContainer container = testContainer.container;
+      addTearDown(() async {
+        await testContainer.dispose();
+        await Future<void>.delayed(Duration.zero);
+      });
+
+      final CameraControllerNotifier notifier = container.read(
+        cameraStateProvider.notifier,
+      );
+      await notifier.openDefaultCamera();
+
+      final Future<XFile?> takePictureFuture = notifier.takePicture();
+      camera.completeTakePicture();
+      await takePictureFuture;
+
+      expect(container.read(cameraStateProvider).isTakingPicture, isFalse);
+      GenerationSubmissionJob job = container
+          .read(generationSubmissionControllerProvider)
+          .jobs
+          .single;
+      expect(job.status, GenerationSubmissionStatus.awaitingConfirmation);
+      expect(uploadRepository.events, isEmpty);
+
+      await imageProcessor.prepareStarted;
+      imageProcessor.completePrepare();
+      await _pumpEventQueue();
+
+      job = container.read(generationSubmissionControllerProvider).jobs.single;
+      expect(job.status, GenerationSubmissionStatus.pollingTask);
+      expect(uploadRepository.events, <String>[
+        'create:image/jpeg:4',
+        'upload:upload-1:4',
+        'complete:upload-1',
+      ]);
+      expect(taskRepository.createdInputs, hasLength(1));
+      expect(taskRepository.createdInputs.single.captureMode, 'portrait');
+    },
+  );
+
   test('pauseCamera disposes current controller and clears state', () async {
     final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
     CameraPlatform.instance = camera;
@@ -452,7 +576,19 @@ void main() {
   });
 }
 
-_TestContainer _container({required List<CameraChoice> choices}) {
+Future<void> _pumpEventQueue() async {
+  for (int index = 0; index < 5; index += 1) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
+_TestContainer _container({
+  required List<CameraChoice> choices,
+  AppSettingsRepository? appSettingsRepository,
+  GenerationImageProcessor? imageProcessor,
+  UploadRepository? uploadRepository,
+  GenerationTaskRepository? taskRepository,
+}) {
   final GenerationRecordDatabase database =
       GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
   final ProviderContainer container = ProviderContainer(
@@ -462,6 +598,9 @@ _TestContainer _container({required List<CameraChoice> choices}) {
       captureOrientationReaderProvider.overrideWithValue(
         const _FakeCaptureOrientationReader(),
       ),
+      appSettingsRepositoryProvider.overrideWithValue(
+        appSettingsRepository ?? _FakeAppSettingsRepository(),
+      ),
       generationOriginalFileStoreProvider.overrideWithValue(
         const _FakeGenerationOriginalFileStore(),
       ),
@@ -469,11 +608,13 @@ _TestContainer _container({required List<CameraChoice> choices}) {
         const _FakePhotoLibraryAssetStore(),
       ),
       generationImageProcessorProvider.overrideWithValue(
-        const _FakeGenerationImageProcessor(),
+        imageProcessor ?? _FakeGenerationImageProcessor(),
       ),
-      uploadRepositoryProvider.overrideWithValue(const _FakeUploadRepository()),
+      uploadRepositoryProvider.overrideWithValue(
+        uploadRepository ?? _FakeUploadRepository(),
+      ),
       generationTaskRepositoryProvider.overrideWithValue(
-        const _FakeGenerationTaskRepository(),
+        taskRepository ?? _FakeGenerationTaskRepository(),
       ),
       feedbackRepositoryProvider.overrideWithValue(
         const _FakeFeedbackRepository(),
@@ -648,6 +789,22 @@ class _FakeCaptureOrientationReader implements CaptureOrientationReader {
   }
 }
 
+class _FakeAppSettingsRepository implements AppSettingsRepository {
+  _FakeAppSettingsRepository({this.confirmBeforeGenerationEnabled = true});
+
+  bool confirmBeforeGenerationEnabled;
+
+  @override
+  Future<bool> loadConfirmBeforeGenerationEnabled() async {
+    return confirmBeforeGenerationEnabled;
+  }
+
+  @override
+  Future<void> saveConfirmBeforeGenerationEnabled(bool value) async {
+    confirmBeforeGenerationEnabled = value;
+  }
+}
+
 class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   const _FakePhotoLibraryAssetStore();
 
@@ -707,14 +864,34 @@ class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
 }
 
 class _FakeGenerationImageProcessor implements GenerationImageProcessor {
-  const _FakeGenerationImageProcessor();
+  final List<String> preparedSourcePaths = <String>[];
+  Completer<PreparedUploadImage>? prepareCompleter;
+  final Completer<void> _prepareStartedCompleter = Completer<void>();
+
+  Future<void> get prepareStarted => _prepareStartedCompleter.future;
 
   @override
   Future<PreparedUploadImage> prepareUploadImage({
     required String jobId,
     required String sourcePath,
-  }) {
-    throw UnimplementedError();
+  }) async {
+    preparedSourcePaths.add(sourcePath);
+    if (!_prepareStartedCompleter.isCompleted) {
+      _prepareStartedCompleter.complete();
+    }
+    final Completer<PreparedUploadImage>? completer = prepareCompleter;
+    if (completer != null) {
+      return completer.future;
+    }
+    return _preparedUploadImage(sourcePath);
+  }
+
+  void completePrepare() {
+    final Completer<PreparedUploadImage>? completer = prepareCompleter;
+    if (completer == null || completer.isCompleted) {
+      return;
+    }
+    completer.complete(_preparedUploadImage(preparedSourcePaths.single));
   }
 
   @override
@@ -727,42 +904,85 @@ class _FakeGenerationImageProcessor implements GenerationImageProcessor {
   }
 }
 
+PreparedUploadImage _preparedUploadImage(String sourcePath) {
+  return PreparedUploadImage(
+    path: '$sourcePath.cleaned.jpg',
+    bytes: Uint8List.fromList(<int>[1, 2, 3, 4]),
+    sourceExif: const <String, Object>{
+      'DateTimeOriginal': '2026:05:29 00:00:00',
+    },
+  );
+}
+
 class _FakeUploadRepository implements UploadRepository {
-  const _FakeUploadRepository();
+  final List<String> events = <String>[];
 
   @override
   Future<UploadSession> createUpload({
     required String contentType,
     required Uint8List bytes,
-  }) {
-    throw UnimplementedError();
+  }) async {
+    events.add('create:$contentType:${bytes.length}');
+    return UploadSession(
+      uploadSessionId: 'upload-1',
+      sourceImageObjectId: 'source-1',
+      provider: 'r2',
+      bucket: 'fantasy-camera',
+      expiresAt: DateTime.parse('2026-05-29T00:10:00Z'),
+      requiredHeaders: <String, String>{
+        'content-type': 'image/jpeg',
+        'content-length': '${bytes.length}',
+      },
+      url: 'https://example.com/upload',
+      expiresInSeconds: 600,
+    );
   }
 
   @override
   Future<void> uploadBytes({
     required UploadSession uploadSession,
     required Uint8List bytes,
-  }) {
-    throw UnimplementedError();
+  }) async {
+    events.add('upload:${uploadSession.uploadSessionId}:${bytes.length}');
   }
 
   @override
-  Future<JsonObject> completeUpload(String uploadSessionId) {
-    throw UnimplementedError();
+  Future<JsonObject> completeUpload(String uploadSessionId) async {
+    events.add('complete:$uploadSessionId');
+    return <String, Object?>{'id': uploadSessionId, 'status': 'uploaded'};
   }
 }
 
 class _FakeGenerationTaskRepository implements GenerationTaskRepository {
-  const _FakeGenerationTaskRepository();
+  final List<CreateGenerationTaskInput> createdInputs =
+      <CreateGenerationTaskInput>[];
 
   @override
-  Future<CreatedGenerationTask> createTask(CreateGenerationTaskInput input) {
-    throw UnimplementedError();
+  Future<CreatedGenerationTask> createTask(
+    CreateGenerationTaskInput input,
+  ) async {
+    createdInputs.add(input);
+    return const CreatedGenerationTask(
+      taskId: 'task-1',
+      status: GenerationTaskStatus.pending,
+      creditReservationId: 'reservation-1',
+      costCredits: 2,
+    );
   }
 
   @override
-  Future<GenerationTask> fetchTask(String taskId) {
-    throw UnimplementedError();
+  Future<GenerationTask> fetchTask(String taskId) async {
+    return GenerationTask(
+      id: taskId,
+      status: GenerationTaskStatus.pending,
+      promptStyle: 'realistic',
+      captureMode: 'portrait',
+      sourceImageObjectId: 'source-1',
+      costCredits: 2,
+      attemptCount: 1,
+      maxAttempts: 1,
+      createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+    );
   }
 
   @override
