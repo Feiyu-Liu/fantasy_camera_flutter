@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart' hide XFile;
 import '../../../auth/presentation/auth_providers.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
+import '../application/generation_original_cache_cleaner.dart';
 import '../application/generation_submission_service.dart';
 import '../data/generation_record_database.dart';
 import '../data/generation_record_repository.dart';
@@ -78,6 +79,20 @@ final generationOriginalFileStoreProvider =
     Provider<GenerationOriginalFileStore>(
       (Ref ref) => const ApplicationSupportGenerationOriginalFileStore(),
       dependencies: const <ProviderOrFamily>[],
+    );
+
+final generationOriginalCacheCleanerProvider =
+    Provider<GenerationOriginalCacheCleaner>(
+      (Ref ref) => GenerationOriginalCacheCleaner(
+        generationRecordRepository: ref.watch(
+          generationRecordRepositoryProvider,
+        ),
+        originalFileStore: ref.watch(generationOriginalFileStoreProvider),
+      ),
+      dependencies: <ProviderOrFamily>[
+        generationRecordRepositoryProvider,
+        generationOriginalFileStoreProvider,
+      ],
     );
 
 final generationSubmissionServiceProvider =

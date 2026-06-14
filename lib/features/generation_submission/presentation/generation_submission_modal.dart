@@ -349,6 +349,9 @@ class _GenerationSubmissionDebugModalState
                       onRetryJob: (GenerationSubmissionJob job) {
                         unawaited(_retryJob(job));
                       },
+                      onRemoveJob: (GenerationSubmissionJob job) {
+                        unawaited(_removeJob(job));
+                      },
                     ),
                   ),
                 ],
@@ -624,6 +627,23 @@ class _GenerationSubmissionDebugModalState
         .retryJob(job.id);
   }
 
+  Future<void> _removeJob(GenerationSubmissionJob job) async {
+    _debugLog('remove job=${job.id}');
+    await ref
+        .read(generationSubmissionControllerProvider.notifier)
+        .removeJob(job.id);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      if (_selectedJobId == job.id) {
+        _selectedJobId = null;
+        _loadingResultJobId = null;
+      }
+      _heroDisplayStates.remove(job.id);
+    });
+  }
+
   Future<void> _toggleFavorite(GenerationSubmissionJob job) async {
     _debugLog('toggle favorite job=${job.id}');
     await ref
@@ -654,17 +674,7 @@ class _GenerationSubmissionDebugModalState
           await controller.submitNegativeFeedback(job.id);
         case _HeroMoreAction.remove:
           _debugLog('more action remove job=${job.id}');
-          await controller.removeJob(job.id);
-          if (!mounted) {
-            return;
-          }
-          setState(() {
-            if (_selectedJobId == job.id) {
-              _selectedJobId = null;
-              _loadingResultJobId = null;
-              _heroDisplayStates.remove(job.id);
-            }
-          });
+          await _removeJob(job);
       }
     } on Object catch (error) {
       _debugLog(
@@ -1039,6 +1049,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
     required this.onConfirmJob,
     required this.onCancelJob,
     required this.onRetryJob,
+    required this.onRemoveJob,
   });
 
   final List<GenerationSubmissionJob> jobs;
@@ -1049,6 +1060,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
   final ValueChanged<GenerationSubmissionJob> onConfirmJob;
   final ValueChanged<GenerationSubmissionJob> onCancelJob;
   final ValueChanged<GenerationSubmissionJob> onRetryJob;
+  final ValueChanged<GenerationSubmissionJob> onRemoveJob;
 
   @override
   Widget build(BuildContext context) {
@@ -1148,6 +1160,9 @@ class _RelatedMomentsStrip extends StatelessWidget {
                               : null,
                           onRetry: _canRetryJob(job)
                               ? () => onRetryJob(job)
+                              : null,
+                          onRemove: _canRetryJob(job)
+                              ? () => onRemoveJob(job)
                               : null,
                         ),
                       );
@@ -1278,6 +1293,7 @@ class _JobThumbnail extends StatelessWidget {
     required this.onConfirm,
     required this.onCancel,
     required this.onRetry,
+    required this.onRemove,
   });
 
   final double width;
@@ -1288,6 +1304,7 @@ class _JobThumbnail extends StatelessWidget {
   final VoidCallback? onConfirm;
   final VoidCallback? onCancel;
   final VoidCallback? onRetry;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -1335,6 +1352,19 @@ class _JobThumbnail extends StatelessWidget {
                   icon: LucideIcons.refreshCcw,
                   iconColor: AppColors.black,
                   onPressed: onRetry,
+                ),
+              ),
+            if (onRemove != null)
+              Positioned(
+                left: 6,
+                bottom: 6,
+                child: _ThumbnailActionButton(
+                  key: ValueKey<String>(
+                    'generation-submission-remove-${job.id}',
+                  ),
+                  color: AppColors.danger,
+                  icon: LucideIcons.x,
+                  onPressed: onRemove,
                 ),
               ),
             if (job.status == GenerationSubmissionStatus.awaitingConfirmation)

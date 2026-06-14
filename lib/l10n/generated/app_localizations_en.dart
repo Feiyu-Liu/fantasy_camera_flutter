@@ -285,6 +285,32 @@ class AppLocalizationsEn extends AppLocalizations {
       'Remove local camera originals';
 
   @override
+  String get settingsClearOriginalCacheInProgress => 'Clearing...';
+
+  @override
+  String get settingsClearOriginalCacheDoneTitle => 'Cache cleared';
+
+  @override
+  String settingsClearOriginalCacheDoneMessage(int count) {
+    return 'Cleared $count camera originals.';
+  }
+
+  @override
+  String settingsClearOriginalCachePartialMessage(
+    int clearedCount,
+    int failedCount,
+  ) {
+    return 'Cleared $clearedCount camera originals. $failedCount failed.';
+  }
+
+  @override
+  String get settingsClearOriginalCacheFailedTitle => 'Clear failed';
+
+  @override
+  String get settingsClearOriginalCacheFailedMessage =>
+      'Original cache could not be cleared. Try again later.';
+
+  @override
   String get settingsManageSubscriptionTitle => 'Buy credits';
 
   @override
@@ -356,6 +382,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get billingRestorePurchases => 'Restore purchases';
+
+  @override
+  String get commonOK => 'OK';
 
   @override
   String get billingProductsUnavailable =>

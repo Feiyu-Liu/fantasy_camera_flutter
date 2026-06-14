@@ -416,7 +416,7 @@ class GenerationRecordRepository {
         .where((GenerationRecord record) {
           final GenerationRecordPipelineStatus status =
               generationRecordPipelineStatusFromName(record.pipelineStatus);
-          return !activeGenerationRecordStatuses.contains(status);
+          return clearableCameraOriginalPipelineStatuses.contains(status);
         })
         .toList(growable: false);
   }

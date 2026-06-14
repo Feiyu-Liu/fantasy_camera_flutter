@@ -152,6 +152,56 @@ void main() {
       updatedAt: createdAt,
     );
 
+    await repository.createCameraRecord(
+      recordId: 'awaiting-confirmation',
+      originalLocalPath: '/tmp/awaiting-confirmation.heic',
+      createdAt: createdAt,
+    );
+
+    await repository.createCameraRecord(
+      recordId: 'generation-failed',
+      originalLocalPath: '/tmp/generation-failed.heic',
+      createdAt: createdAt,
+    );
+    await repository.updatePipelineStatus(
+      recordId: 'generation-failed',
+      status: GenerationRecordPipelineStatus.generationFailed,
+      updatedAt: createdAt,
+    );
+
+    await repository.createCameraRecord(
+      recordId: 'awaiting-retry',
+      originalLocalPath: '/tmp/awaiting-retry.heic',
+      createdAt: createdAt,
+    );
+    await repository.updatePipelineStatus(
+      recordId: 'awaiting-retry',
+      status: GenerationRecordPipelineStatus.awaitingRetry,
+      updatedAt: createdAt,
+    );
+
+    await repository.createCameraRecord(
+      recordId: 'result-save-failed',
+      originalLocalPath: '/tmp/result-save-failed.heic',
+      createdAt: createdAt,
+    );
+    await repository.updatePipelineStatus(
+      recordId: 'result-save-failed',
+      status: GenerationRecordPipelineStatus.resultSaveFailed,
+      updatedAt: createdAt,
+    );
+
+    await repository.createCameraRecord(
+      recordId: 'canceled',
+      originalLocalPath: '/tmp/canceled.heic',
+      createdAt: createdAt,
+    );
+    await repository.updatePipelineStatus(
+      recordId: 'canceled',
+      status: GenerationRecordPipelineStatus.canceled,
+      updatedAt: createdAt,
+    );
+
     await repository.createGalleryRecord(
       recordId: 'gallery',
       createdAt: createdAt,
@@ -173,6 +223,7 @@ void main() {
 
     expect(records.map((GenerationRecord record) => record.recordId), <String>[
       'clearable',
+      'canceled',
     ]);
   });
 

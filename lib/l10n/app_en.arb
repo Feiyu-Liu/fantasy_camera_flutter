@@ -101,6 +101,29 @@
   "settingsLanguageSubtitle": "System default",
   "settingsClearOriginalCacheTitle": "Clear original cache",
   "settingsClearOriginalCacheSubtitle": "Remove local camera originals",
+  "settingsClearOriginalCacheInProgress": "Clearing...",
+  "settingsClearOriginalCacheDoneTitle": "Cache cleared",
+  "settingsClearOriginalCacheDoneMessage": "Cleared {count} camera originals.",
+  "@settingsClearOriginalCacheDoneMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsClearOriginalCachePartialMessage": "Cleared {clearedCount} camera originals. {failedCount} failed.",
+  "@settingsClearOriginalCachePartialMessage": {
+    "placeholders": {
+      "clearedCount": {
+        "type": "int"
+      },
+      "failedCount": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsClearOriginalCacheFailedTitle": "Clear failed",
+  "settingsClearOriginalCacheFailedMessage": "Original cache could not be cleared. Try again later.",
   "settingsManageSubscriptionTitle": "Buy credits",
   "settingsManageSubscriptionSubtitle": "Credit packs and restore",
   "settingsSectionInformation": "INFORMATION",
@@ -131,6 +154,7 @@
   "billingCreditPackSubtitle": "One-time credit pack",
   "billingPurchaseButton": "Purchase",
   "billingRestorePurchases": "Restore purchases",
+  "commonOK": "OK",
   "billingProductsUnavailable": "No credit packs are available right now.",
   "billingRetry": "Retry",
   "billingGrantedCreditsMessage": "+{credits} credits",

@@ -101,6 +101,29 @@
   "settingsLanguageSubtitle": "跟随系统",
   "settingsClearOriginalCacheTitle": "清除原图缓存",
   "settingsClearOriginalCacheSubtitle": "移除本地相机原图",
+  "settingsClearOriginalCacheInProgress": "正在清理...",
+  "settingsClearOriginalCacheDoneTitle": "清理完成",
+  "settingsClearOriginalCacheDoneMessage": "已清除 {count} 张相机原图。",
+  "@settingsClearOriginalCacheDoneMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsClearOriginalCachePartialMessage": "已清除 {clearedCount} 张相机原图，{failedCount} 张清理失败。",
+  "@settingsClearOriginalCachePartialMessage": {
+    "placeholders": {
+      "clearedCount": {
+        "type": "int"
+      },
+      "failedCount": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsClearOriginalCacheFailedTitle": "清理失败",
+  "settingsClearOriginalCacheFailedMessage": "无法清除原图缓存，请稍后重试。",
   "settingsManageSubscriptionTitle": "购买积分",
   "settingsManageSubscriptionSubtitle": "积分包与恢复购买",
   "settingsSectionInformation": "信息",
@@ -131,6 +154,7 @@
   "billingCreditPackSubtitle": "一次性积分包",
   "billingPurchaseButton": "购买",
   "billingRestorePurchases": "恢复购买",
+  "commonOK": "好",
   "billingProductsUnavailable": "当前没有可购买的积分包。",
   "billingRetry": "重试",
   "billingGrantedCreditsMessage": "+{credits} 积分",

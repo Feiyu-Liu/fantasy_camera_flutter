@@ -5,6 +5,8 @@ import 'package:fantasy_camera_flutter/auth/presentation/auth_providers.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_original_cache_cleaner.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
 import 'package:fantasy_camera_flutter/settings/presentation/settings_page.dart';
@@ -17,9 +19,12 @@ void main() {
   Future<void> pumpSettingsPage(
     WidgetTester tester, {
     _FakeAppSettingsRepository? appSettingsRepository,
+    _FakeGenerationOriginalCacheCleaner? originalCacheCleaner,
   }) async {
     final _FakeAppSettingsRepository settingsRepository =
         appSettingsRepository ?? _FakeAppSettingsRepository();
+    final _FakeGenerationOriginalCacheCleaner cacheCleaner =
+        originalCacheCleaner ?? _FakeGenerationOriginalCacheCleaner();
     await tester.binding.setSurfaceSize(const Size(393, 852));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
@@ -36,6 +41,9 @@ void main() {
             const _FakeCreditsRepository(),
           ),
           appSettingsRepositoryProvider.overrideWithValue(settingsRepository),
+          generationOriginalCacheCleanerProvider.overrideWithValue(
+            cacheCleaner,
+          ),
         ],
         child: CupertinoApp(
           locale: defaultAppLocale,
@@ -170,6 +178,23 @@ void main() {
     expect(studioDark, findsOneWidget);
   });
 
+  testWidgets('clear original cache action runs cleaner and shows result', (
+    WidgetTester tester,
+  ) async {
+    final _FakeGenerationOriginalCacheCleaner cacheCleaner =
+        _FakeGenerationOriginalCacheCleaner(clearedCount: 3);
+    await pumpSettingsPage(tester, originalCacheCleaner: cacheCleaner);
+
+    await scrollDownUntilTextVisible(tester, '清除原图缓存');
+
+    await tester.tap(find.text('清除原图缓存'));
+    await tester.pumpAndSettle();
+
+    expect(cacheCleaner.clearCallCount, 1);
+    expect(find.text('清理完成'), findsOneWidget);
+    expect(find.text('已清除 3 张相机原图。'), findsOneWidget);
+  });
+
   testWidgets('settings route builds page', (WidgetTester tester) async {
     final GoRouter router = createAppRouter();
     router.go(settingsRoute);
@@ -188,6 +213,9 @@ void main() {
           ),
           appSettingsRepositoryProvider.overrideWithValue(
             _FakeAppSettingsRepository(),
+          ),
+          generationOriginalCacheCleanerProvider.overrideWithValue(
+            _FakeGenerationOriginalCacheCleaner(),
           ),
         ],
         child: CupertinoApp.router(
@@ -238,6 +266,23 @@ class _FakeCreditsRepository implements CreditsRepository {
       lifetimeEarned: 128,
       lifetimeSpent: 0,
       updatedAt: DateTime.utc(2026, 6, 12),
+    );
+  }
+}
+
+class _FakeGenerationOriginalCacheCleaner
+    implements GenerationOriginalCacheCleaner {
+  _FakeGenerationOriginalCacheCleaner({this.clearedCount = 0});
+
+  final int clearedCount;
+  int clearCallCount = 0;
+
+  @override
+  Future<GenerationOriginalCacheClearResult> clearCameraOriginalCache() async {
+    clearCallCount += 1;
+    return GenerationOriginalCacheClearResult(
+      clearedCount: clearedCount,
+      failedCount: 0,
     );
   }
 }

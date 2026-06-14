@@ -269,6 +269,31 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsClearOriginalCacheSubtitle => '移除本地相机原图';
 
   @override
+  String get settingsClearOriginalCacheInProgress => '正在清理...';
+
+  @override
+  String get settingsClearOriginalCacheDoneTitle => '清理完成';
+
+  @override
+  String settingsClearOriginalCacheDoneMessage(int count) {
+    return '已清除 $count 张相机原图。';
+  }
+
+  @override
+  String settingsClearOriginalCachePartialMessage(
+    int clearedCount,
+    int failedCount,
+  ) {
+    return '已清除 $clearedCount 张相机原图，$failedCount 张清理失败。';
+  }
+
+  @override
+  String get settingsClearOriginalCacheFailedTitle => '清理失败';
+
+  @override
+  String get settingsClearOriginalCacheFailedMessage => '无法清除原图缓存，请稍后重试。';
+
+  @override
   String get settingsManageSubscriptionTitle => '购买积分';
 
   @override
@@ -338,6 +363,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get billingRestorePurchases => '恢复购买';
+
+  @override
+  String get commonOK => '好';
 
   @override
   String get billingProductsUnavailable => '当前没有可购买的积分包。';

@@ -11,9 +11,11 @@ import '../../auth/presentation/auth_providers.dart';
 import '../../app/app_router.dart';
 import '../../features/backend_api/domain/credit_balance.dart';
 import '../../features/backend_api/presentation/backend_api_providers.dart';
+import '../../features/generation_submission/application/generation_original_cache_cleaner.dart';
+import '../../features/generation_submission/presentation/generation_submission_providers.dart';
 import '../../l10n/l10n.dart';
-import '../application/app_settings.dart';
 import '../../theme/app_colors.dart';
+import '../application/app_settings.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -24,6 +26,7 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   _AppearanceMode _appearanceMode = _AppearanceMode.editorialLight;
+  bool _isClearingOriginalCache = false;
 
   @override
   Widget build(BuildContext context) {
@@ -82,8 +85,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
               _SettingsActionRow(
                 title: l10n.settingsClearOriginalCacheTitle,
-                subtitle: l10n.settingsClearOriginalCacheSubtitle,
-                onPressed: _handlePlaceholderAction,
+                subtitle: _isClearingOriginalCache
+                    ? l10n.settingsClearOriginalCacheInProgress
+                    : l10n.settingsClearOriginalCacheSubtitle,
+                enabled: !_isClearingOriginalCache,
+                trailing: _isClearingOriginalCache
+                    ? const CupertinoActivityIndicator(radius: 8)
+                    : null,
+                onPressed: _clearOriginalCache,
               ),
               _SettingsActionRow(
                 title: l10n.settingsManageSubscriptionTitle,
@@ -170,6 +179,76 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     HapticFeedback.selectionClick();
   }
 
+  Future<void> _clearOriginalCache() async {
+    if (_isClearingOriginalCache) {
+      return;
+    }
+    HapticFeedback.selectionClick();
+    setState(() {
+      _isClearingOriginalCache = true;
+    });
+
+    GenerationOriginalCacheClearResult? result;
+    Object? failure;
+    try {
+      result = await ref
+          .read(generationOriginalCacheCleanerProvider)
+          .clearCameraOriginalCache();
+    } on Object catch (error) {
+      failure = error;
+      debugPrint('[SettingsPage] clear original cache failure error=$error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isClearingOriginalCache = false;
+        });
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final AppLocalizations l10n = context.l10n;
+    await showCupertinoDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        final String title = failure == null
+            ? l10n.settingsClearOriginalCacheDoneTitle
+            : l10n.settingsClearOriginalCacheFailedTitle;
+        final String message = failure == null && result != null
+            ? _clearOriginalCacheMessage(result, l10n)
+            : l10n.settingsClearOriginalCacheFailedMessage;
+        return CupertinoAlertDialog(
+          title: Text(title),
+          content: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(message),
+          ),
+          actions: <Widget>[
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(l10n.commonOK),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _clearOriginalCacheMessage(
+    GenerationOriginalCacheClearResult result,
+    AppLocalizations l10n,
+  ) {
+    if (result.hasFailures) {
+      return l10n.settingsClearOriginalCachePartialMessage(
+        result.clearedCount,
+        result.failedCount,
+      );
+    }
+    return l10n.settingsClearOriginalCacheDoneMessage(result.clearedCount);
+  }
+
   void _openCreditPurchase() {
     HapticFeedback.selectionClick();
     context.push(creditPurchaseRoute);
@@ -215,7 +294,7 @@ class _SettingsNavigationBar extends StatelessWidget {
                       minimumSize: const Size(44, 44),
                       onPressed: onBackPressed,
                       child: const Icon(
-                        CupertinoIcons.chevron_left,
+                        LucideIcons.chevronLeft,
                         color: AppColors.black,
                         size: 20,
                       ),
@@ -540,29 +619,34 @@ class _SettingsActionRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onPressed,
+    this.enabled = true,
+    this.trailing,
   });
 
   final String title;
   final String subtitle;
   final VoidCallback onPressed;
+  final bool enabled;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     return CupertinoButton(
       padding: EdgeInsets.zero,
       minimumSize: Size.zero,
-      onPressed: onPressed,
+      onPressed: enabled ? onPressed : null,
       child: _SettingsRowFrame(
         child: Row(
           children: <Widget>[
             Expanded(
               child: _SettingsRowText(title: title, subtitle: subtitle),
             ),
-            const Icon(
-              CupertinoIcons.chevron_right,
-              color: AppColors.settingsMutedText,
-              size: 20,
-            ),
+            trailing ??
+                const Icon(
+                  LucideIcons.chevronRight,
+                  color: AppColors.settingsMutedText,
+                  size: 20,
+                ),
           ],
         ),
       ),

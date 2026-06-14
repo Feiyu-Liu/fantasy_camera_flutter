@@ -602,6 +602,45 @@ abstract class AppLocalizations {
   /// **'Remove local camera originals'**
   String get settingsClearOriginalCacheSubtitle;
 
+  /// No description provided for @settingsClearOriginalCacheInProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Clearing...'**
+  String get settingsClearOriginalCacheInProgress;
+
+  /// No description provided for @settingsClearOriginalCacheDoneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cache cleared'**
+  String get settingsClearOriginalCacheDoneTitle;
+
+  /// No description provided for @settingsClearOriginalCacheDoneMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Cleared {count} camera originals.'**
+  String settingsClearOriginalCacheDoneMessage(int count);
+
+  /// No description provided for @settingsClearOriginalCachePartialMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Cleared {clearedCount} camera originals. {failedCount} failed.'**
+  String settingsClearOriginalCachePartialMessage(
+    int clearedCount,
+    int failedCount,
+  );
+
+  /// No description provided for @settingsClearOriginalCacheFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear failed'**
+  String get settingsClearOriginalCacheFailedTitle;
+
+  /// No description provided for @settingsClearOriginalCacheFailedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Original cache could not be cleared. Try again later.'**
+  String get settingsClearOriginalCacheFailedMessage;
+
   /// No description provided for @settingsManageSubscriptionTitle.
   ///
   /// In en, this message translates to:
@@ -739,6 +778,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Restore purchases'**
   String get billingRestorePurchases;
+
+  /// No description provided for @commonOK.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get commonOK;
 
   /// No description provided for @billingProductsUnavailable.
   ///

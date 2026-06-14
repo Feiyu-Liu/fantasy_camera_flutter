@@ -99,6 +99,10 @@ void main() {
       find.byKey(const ValueKey<String>('generation-submission-retry-failed')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-remove-failed')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('confirming awaiting photo starts generation', (
@@ -213,6 +217,35 @@ void main() {
         const ValueKey<String>('generation-submission-status-processing'),
       ),
       findsOneWidget,
+    );
+  });
+
+  testWidgets('tapping failed thumbnail remove deletes the job', (
+    WidgetTester tester,
+  ) async {
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(id: 'failed', status: GenerationSubmissionStatus.failed),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-remove-failed')),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-photo-failed')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-retry-failed')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-remove-failed')),
+      findsNothing,
     );
   });
 
