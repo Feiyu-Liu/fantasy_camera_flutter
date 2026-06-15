@@ -101,6 +101,20 @@
   "settingsLanguageSubtitle": "System default",
   "settingsClearOriginalCacheTitle": "Clear original cache",
   "settingsClearOriginalCacheSubtitle": "Remove local camera originals",
+  "settingsClearOriginalCacheCalculating": "Recalculating...",
+  "settingsClearOriginalCacheNoClearable": "No clearable originals",
+  "settingsClearOriginalCacheSize": "{size} clearable",
+  "@settingsClearOriginalCacheSize": {
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "settingsClearOriginalCacheLastCalculatedSize": "Last calculated: {size} clearable",
+  "@settingsClearOriginalCacheLastCalculatedSize": {
+    "placeholders": {
+      "size": {}
+    }
+  },
   "settingsClearOriginalCacheInProgress": "Clearing...",
   "settingsClearOriginalCacheDoneTitle": "Cache cleared",
   "settingsClearOriginalCacheDoneMessage": "Cleared {count} camera originals.",

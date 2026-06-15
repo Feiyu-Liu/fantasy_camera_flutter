@@ -208,11 +208,124 @@ void main() {
       GenerationRecordOriginalAvailability.available.name,
     );
   });
+
+  test(
+    'calculates clearable camera original stats from existing files',
+    () async {
+      final Directory tempDirectory = await Directory.systemTemp.createTemp(
+        'generation-original-cache-stats-',
+      );
+      addTearDown(() async {
+        if (await tempDirectory.exists()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      final DateTime createdAt = DateTime.utc(2026, 6, 14, 13);
+      final DateTime calculatedAt = DateTime.utc(2026, 6, 14, 14);
+      final File fileA = File('${tempDirectory.path}/a.heic')
+        ..writeAsBytesSync(<int>[1, 2, 3]);
+      final File fileB = File('${tempDirectory.path}/b.heic')
+        ..writeAsBytesSync(<int>[4, 5]);
+      originalFileStore.resolvedPaths.addAll(<String, String>{
+        'originals/a.heic': fileA.path,
+        'originals/b.heic': fileB.path,
+        'originals/missing.heic': '${tempDirectory.path}/missing.heic',
+        'originals/failed.heic': '${tempDirectory.path}/failed.heic',
+      });
+
+      await repository.createCameraRecord(
+        recordId: 'a',
+        originalLocalPath: 'originals/a.heic',
+        createdAt: createdAt,
+      );
+      await repository.updatePipelineStatus(
+        recordId: 'a',
+        status: GenerationRecordPipelineStatus.resultSaved,
+        updatedAt: createdAt,
+      );
+      await repository.createCameraRecord(
+        recordId: 'b',
+        originalLocalPath: 'originals/b.heic',
+        createdAt: createdAt,
+      );
+      await repository.updatePipelineStatus(
+        recordId: 'b',
+        status: GenerationRecordPipelineStatus.resultSaved,
+        updatedAt: createdAt,
+      );
+      await repository.createCameraRecord(
+        recordId: 'missing',
+        originalLocalPath: 'originals/missing.heic',
+        createdAt: createdAt,
+      );
+      await repository.updatePipelineStatus(
+        recordId: 'missing',
+        status: GenerationRecordPipelineStatus.resultSaved,
+        updatedAt: createdAt,
+      );
+      await repository.createCameraRecord(
+        recordId: 'failed',
+        originalLocalPath: 'originals/failed.heic',
+        createdAt: createdAt,
+      );
+      await repository.updatePipelineStatus(
+        recordId: 'failed',
+        status: GenerationRecordPipelineStatus.generationFailed,
+        updatedAt: createdAt,
+      );
+
+      final GenerationOriginalCacheCleaner cleaner =
+          GenerationOriginalCacheCleaner(
+            generationRecordRepository: repository,
+            originalFileStore: originalFileStore,
+            now: () => calculatedAt,
+          );
+
+      final GenerationOriginalCacheStats stats = await cleaner
+          .calculateClearableCameraOriginalCacheStats();
+
+      expect(stats.fileCount, 2);
+      expect(stats.totalBytes, 5);
+      expect(stats.missingFileCount, 1);
+      expect(
+        stats.calculatedAt.millisecondsSinceEpoch,
+        calculatedAt.millisecondsSinceEpoch,
+      );
+    },
+  );
+
+  test('stops calculating stats when canceled', () async {
+    final DateTime createdAt = DateTime.utc(2026, 6, 14, 15);
+    await repository.createCameraRecord(
+      recordId: 'a',
+      originalLocalPath: 'originals/a.heic',
+      createdAt: createdAt,
+    );
+    await repository.updatePipelineStatus(
+      recordId: 'a',
+      status: GenerationRecordPipelineStatus.resultSaved,
+      updatedAt: createdAt,
+    );
+
+    final GenerationOriginalCacheCleaner cleaner =
+        GenerationOriginalCacheCleaner(
+          generationRecordRepository: repository,
+          originalFileStore: originalFileStore,
+        );
+
+    final GenerationOriginalCacheStats stats = await cleaner
+        .calculateClearableCameraOriginalCacheStats(shouldCancel: () => true);
+
+    expect(stats.fileCount, 0);
+    expect(stats.totalBytes, 0);
+    expect(stats.missingFileCount, 0);
+  });
 }
 
 class _FakeOriginalFileStore implements GenerationOriginalFileStore {
   final List<String> deletedPaths = <String>[];
   final Set<String> failingPaths = <String>{};
+  final Map<String, String> resolvedPaths = <String, String>{};
 
   @override
   Future<void> deleteOriginal(String path) async {
@@ -226,7 +339,8 @@ class _FakeOriginalFileStore implements GenerationOriginalFileStore {
   Future<bool> originalExists(String path) async => true;
 
   @override
-  Future<String> resolveOriginalPath(String path) async => path;
+  Future<String> resolveOriginalPath(String path) async =>
+      resolvedPaths[path] ?? path;
 
   @override
   Future<StoredOriginalFile> storeCameraOriginal({

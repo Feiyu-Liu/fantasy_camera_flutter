@@ -602,6 +602,30 @@ abstract class AppLocalizations {
   /// **'Remove local camera originals'**
   String get settingsClearOriginalCacheSubtitle;
 
+  /// No description provided for @settingsClearOriginalCacheCalculating.
+  ///
+  /// In en, this message translates to:
+  /// **'Recalculating...'**
+  String get settingsClearOriginalCacheCalculating;
+
+  /// No description provided for @settingsClearOriginalCacheNoClearable.
+  ///
+  /// In en, this message translates to:
+  /// **'No clearable originals'**
+  String get settingsClearOriginalCacheNoClearable;
+
+  /// No description provided for @settingsClearOriginalCacheSize.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} clearable'**
+  String settingsClearOriginalCacheSize(Object size);
+
+  /// No description provided for @settingsClearOriginalCacheLastCalculatedSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Last calculated: {size} clearable'**
+  String settingsClearOriginalCacheLastCalculatedSize(Object size);
+
   /// No description provided for @settingsClearOriginalCacheInProgress.
   ///
   /// In en, this message translates to:

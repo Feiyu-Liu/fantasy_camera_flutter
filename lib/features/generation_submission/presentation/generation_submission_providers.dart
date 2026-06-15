@@ -95,6 +95,51 @@ final generationOriginalCacheCleanerProvider =
       ],
     );
 
+final generationOriginalCacheStatsRepositoryProvider =
+    Provider<GenerationOriginalCacheStatsRepository>(
+      (Ref ref) =>
+          const SharedPreferencesGenerationOriginalCacheStatsRepository(),
+      dependencies: const <ProviderOrFamily>[],
+    );
+
+final cachedOriginalCacheStatsProvider =
+    FutureProvider<GenerationOriginalCacheStats?>(
+      (Ref ref) {
+        return ref
+            .watch(generationOriginalCacheStatsRepositoryProvider)
+            .loadStats();
+      },
+      dependencies: <ProviderOrFamily>[
+        generationOriginalCacheStatsRepositoryProvider,
+      ],
+    );
+
+final clearableOriginalCacheStatsProvider =
+    FutureProvider.autoDispose<GenerationOriginalCacheStats>(
+      (Ref ref) async {
+        bool canceled = false;
+        ref.onDispose(() {
+          canceled = true;
+        });
+
+        final GenerationOriginalCacheStats stats = await ref
+            .watch(generationOriginalCacheCleanerProvider)
+            .calculateClearableCameraOriginalCacheStats(
+              shouldCancel: () => canceled,
+            );
+        if (!canceled) {
+          await ref
+              .read(generationOriginalCacheStatsRepositoryProvider)
+              .saveStats(stats);
+        }
+        return stats;
+      },
+      dependencies: <ProviderOrFamily>[
+        generationOriginalCacheCleanerProvider,
+        generationOriginalCacheStatsRepositoryProvider,
+      ],
+    );
+
 final generationSubmissionServiceProvider =
     Provider<GenerationSubmissionService>(
       (Ref ref) {

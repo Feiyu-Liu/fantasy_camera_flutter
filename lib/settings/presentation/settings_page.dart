@@ -27,9 +27,22 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   _AppearanceMode _appearanceMode = _AppearanceMode.editorialLight;
   bool _isClearingOriginalCache = false;
+  GenerationOriginalCacheStats? _latestOriginalCacheStats;
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<GenerationOriginalCacheStats>>(
+      clearableOriginalCacheStatsProvider,
+      (_, AsyncValue<GenerationOriginalCacheStats> next) {
+        final GenerationOriginalCacheStats? stats = next.valueOrNull;
+        if (stats == null || !mounted) {
+          return;
+        }
+        setState(() {
+          _latestOriginalCacheStats = stats;
+        });
+      },
+    );
     final AppLocalizations l10n = context.l10n;
     final AsyncValue<CreditBalance> creditBalance = ref.watch(
       creditBalanceProvider,
@@ -37,6 +50,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final AppSettingsState appSettings = ref.watch(
       appSettingsControllerProvider,
     );
+    final AsyncValue<GenerationOriginalCacheStats?> cachedOriginalCacheStats =
+        ref.watch(cachedOriginalCacheStatsProvider);
+    final AsyncValue<GenerationOriginalCacheStats> clearableOriginalCacheStats =
+        ref.watch(clearableOriginalCacheStatsProvider);
     final AuthUser? user = ref.watch(authSessionProvider).valueOrNull?.user;
     final double topInset = MediaQuery.paddingOf(context).top;
     final double navigationHeight = topInset + 50;
@@ -85,9 +102,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
               _SettingsActionRow(
                 title: l10n.settingsClearOriginalCacheTitle,
-                subtitle: _isClearingOriginalCache
-                    ? l10n.settingsClearOriginalCacheInProgress
-                    : l10n.settingsClearOriginalCacheSubtitle,
+                subtitle: _originalCacheSubtitle(
+                  l10n: l10n,
+                  cachedStats: cachedOriginalCacheStats,
+                  latestStats: clearableOriginalCacheStats,
+                  latestLocalStats: _latestOriginalCacheStats,
+                ),
                 enabled: !_isClearingOriginalCache,
                 trailing: _isClearingOriginalCache
                     ? const CupertinoActivityIndicator(radius: 8)
@@ -198,6 +218,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       failure = error;
       debugPrint('[SettingsPage] clear original cache failure error=$error');
     } finally {
+      ref.invalidate(clearableOriginalCacheStatsProvider);
       if (mounted) {
         setState(() {
           _isClearingOriginalCache = false;
@@ -247,6 +268,64 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       );
     }
     return l10n.settingsClearOriginalCacheDoneMessage(result.clearedCount);
+  }
+
+  String _originalCacheSubtitle({
+    required AppLocalizations l10n,
+    required AsyncValue<GenerationOriginalCacheStats?> cachedStats,
+    required AsyncValue<GenerationOriginalCacheStats> latestStats,
+    required GenerationOriginalCacheStats? latestLocalStats,
+  }) {
+    if (_isClearingOriginalCache) {
+      return l10n.settingsClearOriginalCacheInProgress;
+    }
+
+    final GenerationOriginalCacheStats? latest =
+        latestStats.valueOrNull ?? latestLocalStats;
+    if (latest != null) {
+      return _originalCacheStatsLabel(l10n: l10n, stats: latest, cached: false);
+    }
+
+    final GenerationOriginalCacheStats? cached = cachedStats.valueOrNull;
+    if (cached != null) {
+      return _originalCacheStatsLabel(l10n: l10n, stats: cached, cached: true);
+    }
+
+    if (latestStats.isLoading) {
+      return l10n.settingsClearOriginalCacheCalculating;
+    }
+
+    return l10n.settingsClearOriginalCacheSubtitle;
+  }
+
+  String _originalCacheStatsLabel({
+    required AppLocalizations l10n,
+    required GenerationOriginalCacheStats stats,
+    required bool cached,
+  }) {
+    if (stats.totalBytes <= 0) {
+      return l10n.settingsClearOriginalCacheNoClearable;
+    }
+    final String formattedSize = _formatBytes(stats.totalBytes);
+    if (cached) {
+      return l10n.settingsClearOriginalCacheLastCalculatedSize(formattedSize);
+    }
+    return l10n.settingsClearOriginalCacheSize(formattedSize);
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) {
+      return '$bytes B';
+    }
+
+    const List<String> units = <String>['KB', 'MB', 'GB'];
+    double size = bytes / 1024;
+    int unitIndex = 0;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex += 1;
+    }
+    return '${size.toStringAsFixed(size >= 10 ? 1 : 2)} ${units[unitIndex]}';
   }
 
   void _openCreditPurchase() {

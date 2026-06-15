@@ -101,6 +101,20 @@
   "settingsLanguageSubtitle": "跟随系统",
   "settingsClearOriginalCacheTitle": "清除原图缓存",
   "settingsClearOriginalCacheSubtitle": "移除本地相机原图",
+  "settingsClearOriginalCacheCalculating": "正在重新计算...",
+  "settingsClearOriginalCacheNoClearable": "暂无可清理原图",
+  "settingsClearOriginalCacheSize": "可清理 {size}",
+  "@settingsClearOriginalCacheSize": {
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "settingsClearOriginalCacheLastCalculatedSize": "上次计算：可清理 {size}",
+  "@settingsClearOriginalCacheLastCalculatedSize": {
+    "placeholders": {
+      "size": {}
+    }
+  },
   "settingsClearOriginalCacheInProgress": "正在清理...",
   "settingsClearOriginalCacheDoneTitle": "清理完成",
   "settingsClearOriginalCacheDoneMessage": "已清除 {count} 张相机原图。",

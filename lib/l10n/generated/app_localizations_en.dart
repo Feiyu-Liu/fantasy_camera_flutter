@@ -285,6 +285,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Remove local camera originals';
 
   @override
+  String get settingsClearOriginalCacheCalculating => 'Recalculating...';
+
+  @override
+  String get settingsClearOriginalCacheNoClearable => 'No clearable originals';
+
+  @override
+  String settingsClearOriginalCacheSize(Object size) {
+    return '$size clearable';
+  }
+
+  @override
+  String settingsClearOriginalCacheLastCalculatedSize(Object size) {
+    return 'Last calculated: $size clearable';
+  }
+
+  @override
   String get settingsClearOriginalCacheInProgress => 'Clearing...';
 
   @override

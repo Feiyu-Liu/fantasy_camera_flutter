@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantasy_camera_flutter/app/app_router.dart';
 import 'package:fantasy_camera_flutter/auth/domain/auth_session_state.dart';
 import 'package:fantasy_camera_flutter/auth/domain/auth_user.dart';
@@ -20,11 +22,15 @@ void main() {
     WidgetTester tester, {
     _FakeAppSettingsRepository? appSettingsRepository,
     _FakeGenerationOriginalCacheCleaner? originalCacheCleaner,
+    _FakeGenerationOriginalCacheStatsRepository? originalCacheStatsRepository,
   }) async {
     final _FakeAppSettingsRepository settingsRepository =
         appSettingsRepository ?? _FakeAppSettingsRepository();
     final _FakeGenerationOriginalCacheCleaner cacheCleaner =
         originalCacheCleaner ?? _FakeGenerationOriginalCacheCleaner();
+    final _FakeGenerationOriginalCacheStatsRepository statsRepository =
+        originalCacheStatsRepository ??
+        _FakeGenerationOriginalCacheStatsRepository();
     await tester.binding.setSurfaceSize(const Size(393, 852));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
@@ -43,6 +49,9 @@ void main() {
           appSettingsRepositoryProvider.overrideWithValue(settingsRepository),
           generationOriginalCacheCleanerProvider.overrideWithValue(
             cacheCleaner,
+          ),
+          generationOriginalCacheStatsRepositoryProvider.overrideWithValue(
+            statsRepository,
           ),
         ],
         child: CupertinoApp(
@@ -191,8 +200,106 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(cacheCleaner.clearCallCount, 1);
+    expect(cacheCleaner.statsCallCount, 2);
     expect(find.text('清理完成'), findsOneWidget);
     expect(find.text('已清除 3 张相机原图。'), findsOneWidget);
+  });
+
+  testWidgets('clear original cache row shows cached then latest size', (
+    WidgetTester tester,
+  ) async {
+    final _FakeGenerationOriginalCacheStatsRepository statsRepository =
+        _FakeGenerationOriginalCacheStatsRepository(
+          cachedStats: GenerationOriginalCacheStats(
+            fileCount: 1,
+            totalBytes: 1024 * 1024,
+            missingFileCount: 0,
+            calculatedAt: DateTime.utc(2026, 6, 14),
+          ),
+        );
+    final _FakeGenerationOriginalCacheCleaner cacheCleaner =
+        _FakeGenerationOriginalCacheCleaner(
+          stats: GenerationOriginalCacheStats(
+            fileCount: 2,
+            totalBytes: 2 * 1024 * 1024,
+            missingFileCount: 0,
+            calculatedAt: DateTime.utc(2026, 6, 15),
+          ),
+        );
+    await pumpSettingsPage(
+      tester,
+      originalCacheCleaner: cacheCleaner,
+      originalCacheStatsRepository: statsRepository,
+    );
+
+    await scrollDownUntilTextVisible(tester, '清除原图缓存');
+
+    await statsRepository.waitForSave();
+    for (
+      int index = 0;
+      index < 10 &&
+          find
+              .textContaining('2.00 MB', skipOffstage: false)
+              .evaluate()
+              .isEmpty;
+      index++
+    ) {
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+
+    expect(find.textContaining('2.00 MB', skipOffstage: false), findsOneWidget);
+    expect(cacheCleaner.statsCallCount, 1);
+    expect(statsRepository.savedStats?.totalBytes, 2 * 1024 * 1024);
+  });
+
+  testWidgets('clear original cache row keeps cached size while calculating', (
+    WidgetTester tester,
+  ) async {
+    final Completer<void> statsCompleter = Completer<void>();
+    final _FakeGenerationOriginalCacheStatsRepository statsRepository =
+        _FakeGenerationOriginalCacheStatsRepository(
+          cachedStats: GenerationOriginalCacheStats(
+            fileCount: 1,
+            totalBytes: 1024 * 1024,
+            missingFileCount: 0,
+            calculatedAt: DateTime.utc(2026, 6, 14),
+          ),
+        );
+    final _FakeGenerationOriginalCacheCleaner cacheCleaner =
+        _FakeGenerationOriginalCacheCleaner(
+          statsDelay: statsCompleter.future,
+          stats: GenerationOriginalCacheStats(
+            fileCount: 2,
+            totalBytes: 2 * 1024 * 1024,
+            missingFileCount: 0,
+            calculatedAt: DateTime.utc(2026, 6, 15),
+          ),
+        );
+    await pumpSettingsPage(
+      tester,
+      originalCacheCleaner: cacheCleaner,
+      originalCacheStatsRepository: statsRepository,
+    );
+
+    await scrollDownUntilTextVisible(tester, '清除原图缓存');
+
+    expect(find.textContaining('1.00 MB'), findsOneWidget);
+
+    statsCompleter.complete();
+    await statsRepository.waitForSave();
+    for (
+      int index = 0;
+      index < 10 &&
+          find
+              .textContaining('2.00 MB', skipOffstage: false)
+              .evaluate()
+              .isEmpty;
+      index++
+    ) {
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+
+    expect(find.textContaining('2.00 MB', skipOffstage: false), findsOneWidget);
   });
 
   testWidgets('settings route builds page', (WidgetTester tester) async {
@@ -216,6 +323,9 @@ void main() {
           ),
           generationOriginalCacheCleanerProvider.overrideWithValue(
             _FakeGenerationOriginalCacheCleaner(),
+          ),
+          generationOriginalCacheStatsRepositoryProvider.overrideWithValue(
+            _FakeGenerationOriginalCacheStatsRepository(),
           ),
         ],
         child: CupertinoApp.router(
@@ -272,10 +382,34 @@ class _FakeCreditsRepository implements CreditsRepository {
 
 class _FakeGenerationOriginalCacheCleaner
     implements GenerationOriginalCacheCleaner {
-  _FakeGenerationOriginalCacheCleaner({this.clearedCount = 0});
+  _FakeGenerationOriginalCacheCleaner({
+    this.clearedCount = 0,
+    this.statsDelay,
+    GenerationOriginalCacheStats? stats,
+  }) : stats =
+           stats ??
+           GenerationOriginalCacheStats(
+             fileCount: 0,
+             totalBytes: 0,
+             missingFileCount: 0,
+             calculatedAt: DateTime.utc(2026, 6, 15),
+           );
 
   final int clearedCount;
+  final Future<void>? statsDelay;
+  final GenerationOriginalCacheStats stats;
   int clearCallCount = 0;
+  int statsCallCount = 0;
+
+  @override
+  Future<GenerationOriginalCacheStats>
+  calculateClearableCameraOriginalCacheStats({
+    bool Function()? shouldCancel,
+  }) async {
+    statsCallCount += 1;
+    await statsDelay;
+    return stats;
+  }
 
   @override
   Future<GenerationOriginalCacheClearResult> clearCameraOriginalCache() async {
@@ -284,5 +418,31 @@ class _FakeGenerationOriginalCacheCleaner
       clearedCount: clearedCount,
       failedCount: 0,
     );
+  }
+}
+
+class _FakeGenerationOriginalCacheStatsRepository
+    implements GenerationOriginalCacheStatsRepository {
+  _FakeGenerationOriginalCacheStatsRepository({this.cachedStats});
+
+  GenerationOriginalCacheStats? cachedStats;
+  GenerationOriginalCacheStats? savedStats;
+  final Completer<void> _saveCompleter = Completer<void>();
+
+  Future<void> waitForSave() {
+    return _saveCompleter.future;
+  }
+
+  @override
+  Future<GenerationOriginalCacheStats?> loadStats() async {
+    return savedStats ?? cachedStats;
+  }
+
+  @override
+  Future<void> saveStats(GenerationOriginalCacheStats stats) async {
+    savedStats = stats;
+    if (!_saveCompleter.isCompleted) {
+      _saveCompleter.complete();
+    }
   }
 }

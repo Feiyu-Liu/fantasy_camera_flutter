@@ -269,6 +269,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsClearOriginalCacheSubtitle => '移除本地相机原图';
 
   @override
+  String get settingsClearOriginalCacheCalculating => '正在重新计算...';
+
+  @override
+  String get settingsClearOriginalCacheNoClearable => '暂无可清理原图';
+
+  @override
+  String settingsClearOriginalCacheSize(Object size) {
+    return '可清理 $size';
+  }
+
+  @override
+  String settingsClearOriginalCacheLastCalculatedSize(Object size) {
+    return '上次计算：可清理 $size';
+  }
+
+  @override
   String get settingsClearOriginalCacheInProgress => '正在清理...';
 
   @override
