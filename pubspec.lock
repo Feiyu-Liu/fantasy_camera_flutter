@@ -983,6 +983,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "9.16.1"
+  push:
+    dependency: "direct main"
+    description:
+      name: push
+      sha256: "0ab12f0c194d22e000d5b1e911d66fd5a090b7786cc19228cb77946c922513b3"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "3.3.3"
   realtime_client:
     dependency: transitive
     description:

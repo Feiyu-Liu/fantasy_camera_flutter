@@ -13,6 +13,7 @@ import 'package:fantasy_camera_flutter/features/backend_api/data/fantasy_api_cli
 import 'package:fantasy_camera_flutter/features/backend_api/domain/api_failure.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/feedback.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
+import 'package:fantasy_camera_flutter/features/notifications/domain/notification_device.dart';
 
 void main() {
   group('FantasyApiClient', () {
@@ -167,6 +168,7 @@ void main() {
       expect(task.taskId, 'task-1');
       expect(task.status, GenerationTaskStatus.pending);
       expect(adapter.requests.last.bodyAsJson['promptStyle'], 'realistic');
+      expect(adapter.requests.last.bodyAsJson['originDeviceId'], isNull);
       expect(adapter.requests.last.bodyAsJson['userInput'], <String, Object?>{
         'promptConfigVersion': AppConfig.promptConfigVersion,
         'switches': <String, Object?>{'cleanFrame': true},
@@ -199,6 +201,68 @@ void main() {
           'switches': <String, Object?>{'cleanFrame': true},
         },
       );
+    });
+
+    test('generation task request includes origin device id when available', () {
+      expect(
+        const CreateGenerationTaskInput(
+          uploadSessionId: 'upload-1',
+          promptStyle: 'realistic',
+          captureMode: 'portrait',
+          originDeviceId: 'device-1',
+        ).toJson()['originDeviceId'],
+        'device-1',
+      );
+    });
+
+    test('notification device repository registers and unregisters devices', () async {
+      final _FakeHttpClientAdapter adapter = _FakeHttpClientAdapter();
+      adapter.enqueueJson(<String, Object?>{
+        'data': <String, Object?>{
+          'id': 'device-1',
+          'installationId': 'installation-1',
+          'platform': 'ios',
+          'environment': 'development',
+          'topic': 'host.eunoia.tessercam',
+          'locale': 'zh',
+          'permissionEnabled': true,
+        },
+        'requestId': 'req-device',
+      }, statusCode: 201);
+      adapter.enqueueJson(<String, Object?>{
+        'data': <String, Object?>{
+          'deviceId': 'device-1',
+          'unregistered': true,
+        },
+        'requestId': 'req-delete',
+      });
+
+      final NotificationDeviceRepository repository =
+          WorkerNotificationDeviceRepository(
+            _client(adapter, tokenProvider: _FakeAccessTokenProvider()),
+          );
+
+      final RegisteredNotificationDevice device = await repository
+          .registerDevice(
+            const RegisterNotificationDeviceInput(
+              installationId: 'installation-1',
+              deviceToken: 'aabbccddeeff',
+              environment: 'development',
+              topic: 'host.eunoia.tessercam',
+              locale: 'zh',
+              permissionEnabled: true,
+            ),
+          );
+      final UnregisteredNotificationDevice unregistered = await repository
+          .unregisterDevice('device-1');
+
+      expect(device.id, 'device-1');
+      expect(unregistered.unregistered, true);
+      expect(adapter.requests.first.method, 'POST');
+      expect(adapter.requests.first.uri.path, '/v1/notifications/devices');
+      expect(adapter.requests.first.bodyAsJson['permissionEnabled'], true);
+      expect(adapter.requests.last.method, 'DELETE');
+      expect(adapter.requests.last.uri.path, '/v1/notifications/devices/device-1');
     });
 
     test('upload repository creates and completes upload', () async {

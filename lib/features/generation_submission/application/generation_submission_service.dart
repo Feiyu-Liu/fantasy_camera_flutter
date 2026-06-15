@@ -20,6 +20,19 @@ import '../data/generation_submission_adapters.dart';
 import '../domain/generation_record.dart';
 import '../domain/generation_submission_job.dart';
 
+abstract interface class NotificationDeviceCoordinator {
+  Future<String?> ensureRegisteredForGeneration();
+}
+
+class NoopNotificationDeviceCoordinator implements NotificationDeviceCoordinator {
+  const NoopNotificationDeviceCoordinator();
+
+  @override
+  Future<String?> ensureRegisteredForGeneration() async {
+    return null;
+  }
+}
+
 class GenerationSubmissionService extends ChangeNotifier {
   GenerationSubmissionService({
     required UploadRepository uploadRepository,
@@ -29,13 +42,16 @@ class GenerationSubmissionService extends ChangeNotifier {
     required GenerationOriginalFileStore originalFileStore,
     required PhotoLibraryAssetStore photoLibraryAssetStore,
     required GenerationImageProcessor imageProcessor,
+    NotificationDeviceCoordinator notificationDeviceCoordinator =
+        const NoopNotificationDeviceCoordinator(),
   }) : _uploadRepository = uploadRepository,
        _generationTaskRepository = generationTaskRepository,
        _feedbackRepository = feedbackRepository,
        _generationRecordRepository = generationRecordRepository,
        _originalFileStore = originalFileStore,
        _photoLibraryAssetStore = photoLibraryAssetStore,
-       _imageProcessor = imageProcessor;
+       _imageProcessor = imageProcessor,
+       _notificationDeviceCoordinator = notificationDeviceCoordinator;
 
   static const Duration _taskPollInterval = Duration(seconds: 3);
 
@@ -46,6 +62,7 @@ class GenerationSubmissionService extends ChangeNotifier {
   final GenerationOriginalFileStore _originalFileStore;
   final PhotoLibraryAssetStore _photoLibraryAssetStore;
   final GenerationImageProcessor _imageProcessor;
+  final NotificationDeviceCoordinator _notificationDeviceCoordinator;
   final Map<String, Future<void>> _submissionOperations =
       <String, Future<void>>{};
   final Map<String, Timer> _pollingTimers = <String, Timer>{};
@@ -703,6 +720,8 @@ class GenerationSubmissionService extends ChangeNotifier {
       _debugLog(
         'create task start record=$recordId prompt=${promptSelection.promptStyle}/${promptSelection.captureMode} switches=${promptSelection.switches}',
       );
+      final String? originDeviceId = await _notificationDeviceCoordinator
+          .ensureRegisteredForGeneration();
       final CreatedGenerationTask createdTask = await _generationTaskRepository
           .createTask(
             CreateGenerationTaskInput(
@@ -711,6 +730,7 @@ class GenerationSubmissionService extends ChangeNotifier {
               captureMode: promptSelection.captureMode,
               appInputContractId: promptSelection.appInputContractId,
               userInput: promptSelection.userInput,
+              originDeviceId: originDeviceId,
             ),
           );
       _debugLog(

@@ -56,6 +56,46 @@ class FantasyApiClient {
     );
   }
 
+  Future<T> patch<T>(
+    String path, {
+    Object? data,
+    Map<String, Object?>? queryParameters,
+    required JsonDecoder<T> decode,
+  }) {
+    return _send<T>(
+      () => _authorizedRequest<Object?>(
+        () => _dio.patch<Object?>(
+          path,
+          data: data,
+          queryParameters: queryParameters,
+        ),
+      ),
+      method: 'PATCH',
+      path: path,
+      decode: decode,
+    );
+  }
+
+  Future<T> delete<T>(
+    String path, {
+    Object? data,
+    Map<String, Object?>? queryParameters,
+    required JsonDecoder<T> decode,
+  }) {
+    return _send<T>(
+      () => _authorizedRequest<Object?>(
+        () => _dio.delete<Object?>(
+          path,
+          data: data,
+          queryParameters: queryParameters,
+        ),
+      ),
+      method: 'DELETE',
+      path: path,
+      decode: decode,
+    );
+  }
+
   Future<void> putBytes(
     String url, {
     required Uint8List bytes,

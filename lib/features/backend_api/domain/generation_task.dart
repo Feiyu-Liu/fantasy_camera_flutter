@@ -42,6 +42,7 @@ class CreateGenerationTaskInput {
     required this.captureMode,
     this.userInput = const <String, Object?>{},
     this.appInputContractId,
+    this.originDeviceId,
   });
 
   final String uploadSessionId;
@@ -49,6 +50,7 @@ class CreateGenerationTaskInput {
   final String captureMode;
   final JsonObject userInput;
   final String? appInputContractId;
+  final String? originDeviceId;
 
   JsonObject toJson() {
     final JsonObject requestUserInput = <String, Object?>{
@@ -61,6 +63,7 @@ class CreateGenerationTaskInput {
       'captureMode': captureMode,
       'userInput': requestUserInput,
       if (appInputContractId != null) 'appInputContractId': appInputContractId,
+      if (originDeviceId != null) 'originDeviceId': originDeviceId,
     };
   }
 }

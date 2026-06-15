@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/presentation/auth_providers.dart';
+import '../features/notifications/presentation/notification_providers.dart';
 import '../l10n/l10n.dart';
 import '../settings/application/app_settings.dart';
 import '../theme/app_colors.dart';
@@ -43,6 +44,7 @@ class _FantasyCameraAppView extends ConsumerWidget {
     final AppLocalizations titleLocalizations = appLocalizationsFor(
       locale ?? defaultAppLocale,
     );
+    ref.watch(notificationLifecycleProvider);
     return CupertinoApp.router(
       title: titleLocalizations.appTitle,
       debugShowCheckedModeBanner: false,

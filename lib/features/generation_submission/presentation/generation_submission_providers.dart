@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart' hide XFile;
 import '../../../auth/presentation/auth_providers.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
+import '../../notifications/presentation/notification_providers.dart';
 import '../application/generation_original_cache_cleaner.dart';
 import '../application/generation_submission_service.dart';
 import '../data/generation_record_database.dart';
@@ -153,6 +154,9 @@ final generationSubmissionServiceProvider =
           originalFileStore: ref.watch(generationOriginalFileStoreProvider),
           photoLibraryAssetStore: ref.watch(photoLibraryAssetStoreProvider),
           imageProcessor: ref.watch(generationImageProcessorProvider),
+          notificationDeviceCoordinator: ref.watch(
+            notificationDeviceControllerProvider.notifier,
+          ),
         );
         ref.onDispose(service.dispose);
         return service;
@@ -166,6 +170,7 @@ final generationSubmissionServiceProvider =
         generationOriginalFileStoreProvider,
         photoLibraryAssetStoreProvider,
         generationImageProcessorProvider,
+        notificationDeviceControllerProvider,
       ],
     );
 

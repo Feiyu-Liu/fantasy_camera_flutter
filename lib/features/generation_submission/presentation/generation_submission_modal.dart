@@ -30,19 +30,23 @@ Future<void> showGenerationSubmissionDebugModal(BuildContext context) {
 }
 
 class GenerationSubmissionGalleryPage extends StatelessWidget {
-  const GenerationSubmissionGalleryPage({super.key});
+  const GenerationSubmissionGalleryPage({this.focusedTaskId, super.key});
+
+  final String? focusedTaskId;
 
   @override
   Widget build(BuildContext context) {
-    return const CupertinoPageScaffold(
+    return CupertinoPageScaffold(
       backgroundColor: AppColors.white,
-      child: _GenerationSubmissionGalleryContent(),
+      child: _GenerationSubmissionGalleryContent(focusedTaskId: focusedTaskId),
     );
   }
 }
 
 class _GenerationSubmissionGalleryContent extends ConsumerStatefulWidget {
-  const _GenerationSubmissionGalleryContent();
+  const _GenerationSubmissionGalleryContent({this.focusedTaskId});
+
+  final String? focusedTaskId;
 
   @override
   ConsumerState<_GenerationSubmissionGalleryContent> createState() =>
@@ -89,6 +93,7 @@ class _GenerationSubmissionDebugModalState
     _jobs = ref.read(generationSubmissionControllerProvider).jobs;
     _knownLocalSavedResultJobIds.addAll(_localSavedResultJobIds(_jobs));
     _hasProcessedInitialJobs = _jobs.isNotEmpty;
+    _selectFocusedTaskIfPresent(_jobs, animate: false);
     _jobsSubscription = ref.listenManual<GenerationSubmissionState>(
       generationSubmissionControllerProvider,
       (GenerationSubmissionState? previous, GenerationSubmissionState next) {
@@ -120,8 +125,36 @@ class _GenerationSubmissionDebugModalState
             _precacheAndStartResultArrivalAnimation(resultArrivalPrecacheJob),
           );
         }
+        _selectFocusedTaskIfPresent(next.jobs, animate: true);
       },
     );
+  }
+
+  void _selectFocusedTaskIfPresent(
+    List<GenerationSubmissionJob> jobs, {
+    required bool animate,
+  }) {
+    final String? focusedTaskId = widget.focusedTaskId;
+    if (focusedTaskId == null || focusedTaskId.isEmpty) {
+      return;
+    }
+    final int index = jobs.indexWhere((GenerationSubmissionJob job) {
+      return job.taskId == focusedTaskId;
+    });
+    if (index < 0) {
+      return;
+    }
+    final GenerationSubmissionJob job = jobs[index];
+    if (_selectedJobId == job.id) {
+      return;
+    }
+    _selectJob(job, syncHeroPage: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _syncHeroPageToSelection(index, animate: animate);
+    });
   }
 
   void _syncHeroDisplayStatesWithJobs(List<GenerationSubmissionJob> jobs) {

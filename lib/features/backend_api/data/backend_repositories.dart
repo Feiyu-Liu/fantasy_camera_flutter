@@ -8,6 +8,7 @@ import '../domain/feedback.dart';
 import '../domain/generation_task.dart';
 import '../domain/json_value.dart';
 import '../domain/upload_session.dart';
+import '../../notifications/domain/notification_device.dart';
 
 abstract interface class AppConfigRepository {
   Future<AppInputContract> fetchAppInputContract({String? contractKey});
@@ -177,6 +178,65 @@ class WorkerGenerationTaskRepository implements GenerationTaskRepository {
     return _client.post<ResultUrl>(
       '/v1/generation-tasks/$taskId/result-url',
       decode: (Object? data) => decodeJsonObject(data, ResultUrl.fromJson),
+    );
+  }
+}
+
+abstract interface class NotificationDeviceRepository {
+  Future<RegisteredNotificationDevice> registerDevice(
+    RegisterNotificationDeviceInput input,
+  );
+
+  Future<UnregisteredNotificationDevice> unregisterDevice(String deviceId);
+
+  Future<RegisteredNotificationDevice> updatePermission({
+    required String deviceId,
+    required bool permissionEnabled,
+  });
+}
+
+class WorkerNotificationDeviceRepository
+    implements NotificationDeviceRepository {
+  const WorkerNotificationDeviceRepository(this._client);
+
+  final FantasyApiClient _client;
+
+  @override
+  Future<RegisteredNotificationDevice> registerDevice(
+    RegisterNotificationDeviceInput input,
+  ) {
+    return _client.post<RegisteredNotificationDevice>(
+      '/v1/notifications/devices',
+      data: input.toJson(),
+      decode: (Object? data) {
+        return decodeJsonObject(data, RegisteredNotificationDevice.fromJson);
+      },
+    );
+  }
+
+  @override
+  Future<UnregisteredNotificationDevice> unregisterDevice(String deviceId) {
+    return _client.delete<UnregisteredNotificationDevice>(
+      '/v1/notifications/devices/$deviceId',
+      decode: (Object? data) {
+        return decodeJsonObject(data, UnregisteredNotificationDevice.fromJson);
+      },
+    );
+  }
+
+  @override
+  Future<RegisteredNotificationDevice> updatePermission({
+    required String deviceId,
+    required bool permissionEnabled,
+  }) {
+    return _client.patch<RegisteredNotificationDevice>(
+      '/v1/notifications/devices/$deviceId/permission',
+      data: UpdateNotificationPermissionInput(
+        permissionEnabled: permissionEnabled,
+      ).toJson(),
+      decode: (Object? data) {
+        return decodeJsonObject(data, RegisteredNotificationDevice.fromJson);
+      },
     );
   }
 }

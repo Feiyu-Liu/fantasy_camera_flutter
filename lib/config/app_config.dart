@@ -74,6 +74,12 @@ class AppConfig {
   // 拍摄原图和最终生成图保存到系统相册时使用的相册名。
   static const String generationPhotoAlbumName = 'TesserCam';
 
+  // APNs topic，必须与 iOS Bundle ID 以及 Worker 的 APNS_ALLOWED_TOPICS 对齐。
+  static const String pushNotificationTopic = String.fromEnvironment(
+    'PUSH_NOTIFICATION_TOPIC',
+    defaultValue: 'host.eunoia.tessercam',
+  );
+
   // 生成图保存到系统相册前使用的文件名规范。
   static const String generationResultFileNamePrefix = 'TesserCam';
   static const String generationResultFileExtension = 'heic';
