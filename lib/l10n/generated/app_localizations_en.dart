@@ -300,6 +300,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsClearOriginalCacheNoClearable => 'No clearable originals';
 
   @override
+  String get settingsClearOriginalCacheConfirmTitle => 'Clear original cache?';
+
+  @override
+  String get settingsClearOriginalCacheConfirmMessage =>
+      'This will delete camera original caches for every account that has signed in on this device. Generation records and generated images will not be deleted.';
+
+  @override
+  String get settingsClearOriginalCacheConfirmAction => 'Clear';
+
+  @override
   String settingsClearOriginalCacheSize(Object size) {
     return '$size clearable';
   }
@@ -383,6 +393,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsSignOutSubtitle => 'Return to the sign-in screen';
+
+  @override
+  String get settingsSignOutConfirmTitle => 'Sign out?';
+
+  @override
+  String get settingsSignOutConfirmMessage =>
+      'Your local creations will stay on this device. You can sign in again anytime.';
+
+  @override
+  String get settingsSignOutConfirmAction => 'Sign out';
+
+  @override
+  String get settingsSignOutFailedTitle => 'Sign-out failed';
+
+  @override
+  String get settingsSignOutFailedMessage =>
+      'Could not sign out. Try again later.';
 
   @override
   String get billingTitle => 'CREDITS';

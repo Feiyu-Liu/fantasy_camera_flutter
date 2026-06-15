@@ -106,6 +106,9 @@
   "settingsClearOriginalCacheSubtitle": "Remove local camera originals",
   "settingsClearOriginalCacheCalculating": "Recalculating...",
   "settingsClearOriginalCacheNoClearable": "No clearable originals",
+  "settingsClearOriginalCacheConfirmTitle": "Clear original cache?",
+  "settingsClearOriginalCacheConfirmMessage": "This will delete camera original caches for every account that has signed in on this device. Generation records and generated images will not be deleted.",
+  "settingsClearOriginalCacheConfirmAction": "Clear",
   "settingsClearOriginalCacheSize": "{size} clearable",
   "@settingsClearOriginalCacheSize": {
     "placeholders": {
@@ -157,6 +160,11 @@
   "settingsDeleteAccountSubtitle": "Permanently remove your account",
   "settingsSignOutTitle": "Sign out",
   "settingsSignOutSubtitle": "Return to the sign-in screen",
+  "settingsSignOutConfirmTitle": "Sign out?",
+  "settingsSignOutConfirmMessage": "Your local creations will stay on this device. You can sign in again anytime.",
+  "settingsSignOutConfirmAction": "Sign out",
+  "settingsSignOutFailedTitle": "Sign-out failed",
+  "settingsSignOutFailedMessage": "Could not sign out. Try again later.",
   "billingTitle": "CREDITS",
   "billingHeroTitle": "Get Creation Credits",
   "billingHeroSubtitle": "Credits are used to generate images. Purchases are verified by the server before they update your balance.",

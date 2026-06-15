@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../auth/presentation/auth_providers.dart';
 import '../features/notifications/presentation/notification_providers.dart';
@@ -32,11 +33,19 @@ class FantasyCameraApp extends StatelessWidget {
   }
 }
 
-class _FantasyCameraAppView extends ConsumerWidget {
+class _FantasyCameraAppView extends ConsumerStatefulWidget {
   const _FantasyCameraAppView();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_FantasyCameraAppView> createState() =>
+      _FantasyCameraAppViewState();
+}
+
+class _FantasyCameraAppViewState extends ConsumerState<_FantasyCameraAppView> {
+  late final GoRouter _router = createAppRouter();
+
+  @override
+  Widget build(BuildContext context) {
     final AppSettingsState appSettings = ref.watch(
       appSettingsControllerProvider,
     );
@@ -64,7 +73,7 @@ class _FantasyCameraAppView extends ConsumerWidget {
         scaffoldBackgroundColor: AppColors.black,
         primaryColor: AppColors.white,
       ),
-      routerConfig: createAppRouter(),
+      routerConfig: _router,
     );
   }
 }

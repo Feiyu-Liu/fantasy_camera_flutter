@@ -632,6 +632,24 @@ abstract class AppLocalizations {
   /// **'No clearable originals'**
   String get settingsClearOriginalCacheNoClearable;
 
+  /// No description provided for @settingsClearOriginalCacheConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear original cache?'**
+  String get settingsClearOriginalCacheConfirmTitle;
+
+  /// No description provided for @settingsClearOriginalCacheConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This will delete camera original caches for every account that has signed in on this device. Generation records and generated images will not be deleted.'**
+  String get settingsClearOriginalCacheConfirmMessage;
+
+  /// No description provided for @settingsClearOriginalCacheConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get settingsClearOriginalCacheConfirmAction;
+
   /// No description provided for @settingsClearOriginalCacheSize.
   ///
   /// In en, this message translates to:
@@ -778,6 +796,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Return to the sign-in screen'**
   String get settingsSignOutSubtitle;
+
+  /// No description provided for @settingsSignOutConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out?'**
+  String get settingsSignOutConfirmTitle;
+
+  /// No description provided for @settingsSignOutConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your local creations will stay on this device. You can sign in again anytime.'**
+  String get settingsSignOutConfirmMessage;
+
+  /// No description provided for @settingsSignOutConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get settingsSignOutConfirmAction;
+
+  /// No description provided for @settingsSignOutFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-out failed'**
+  String get settingsSignOutFailedTitle;
+
+  /// No description provided for @settingsSignOutFailedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not sign out. Try again later.'**
+  String get settingsSignOutFailedMessage;
 
   /// No description provided for @billingTitle.
   ///

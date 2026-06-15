@@ -13,9 +13,27 @@ import '../../features/backend_api/domain/credit_balance.dart';
 import '../../features/backend_api/presentation/backend_api_providers.dart';
 import '../../features/generation_submission/application/generation_original_cache_cleaner.dart';
 import '../../features/generation_submission/presentation/generation_submission_providers.dart';
+import '../../features/notifications/presentation/notification_providers.dart';
 import '../../l10n/l10n.dart';
 import '../../theme/app_colors.dart';
 import '../application/app_settings.dart';
+
+typedef SettingsSignOutAction = Future<void> Function();
+
+final settingsSignOutActionProvider = Provider<SettingsSignOutAction>(
+  (Ref ref) {
+    return () async {
+      await ref
+          .read(notificationDeviceControllerProvider.notifier)
+          .unregisterCurrentDevice();
+      await ref.read(authControllerProvider.notifier).signOut();
+    };
+  },
+  dependencies: <ProviderOrFamily>[
+    notificationDeviceControllerProvider,
+    authControllerProvider,
+  ],
+);
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -27,6 +45,7 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   _AppearanceMode _appearanceMode = _AppearanceMode.editorialLight;
   bool _isClearingOriginalCache = false;
+  bool _isSigningOut = false;
   GenerationOriginalCacheStats? _latestOriginalCacheStats;
 
   @override
@@ -115,7 +134,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 trailing: _isClearingOriginalCache
                     ? const CupertinoActivityIndicator(radius: 8)
                     : null,
-                onPressed: _clearOriginalCache,
+                onPressed: _confirmClearOriginalCache,
               ),
               _SettingsActionRow(
                 title: l10n.settingsManageSubscriptionTitle,
@@ -154,7 +173,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               _SettingsActionRow(
                 title: l10n.settingsSignOutTitle,
                 subtitle: l10n.settingsSignOutSubtitle,
-                onPressed: _handlePlaceholderAction,
+                enabled: !_isSigningOut,
+                trailing: _isSigningOut
+                    ? const CupertinoActivityIndicator(radius: 8)
+                    : null,
+                onPressed: _confirmSignOut,
               ),
               SizedBox(height: MediaQuery.paddingOf(context).bottom + 16),
             ],
@@ -200,6 +223,91 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   void _handlePlaceholderAction() {
     HapticFeedback.selectionClick();
+  }
+
+  Future<void> _confirmSignOut() async {
+    if (_isSigningOut) {
+      return;
+    }
+    HapticFeedback.selectionClick();
+    final AppLocalizations l10n = context.l10n;
+    final bool confirmed =
+        await showCupertinoDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) {
+            return CupertinoAlertDialog(
+              title: Text(l10n.settingsSignOutConfirmTitle),
+              content: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(l10n.settingsSignOutConfirmMessage),
+              ),
+              actions: <Widget>[
+                CupertinoDialogAction(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: Text(l10n.commonCancel),
+                ),
+                CupertinoDialogAction(
+                  isDestructiveAction: true,
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: Text(l10n.settingsSignOutConfirmAction),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+    if (!confirmed || !mounted) {
+      return;
+    }
+    await _signOut();
+  }
+
+  Future<void> _signOut() async {
+    if (_isSigningOut) {
+      return;
+    }
+    setState(() {
+      _isSigningOut = true;
+    });
+    Object? failure;
+    try {
+      await ref.read(settingsSignOutActionProvider).call();
+      if (!mounted) {
+        return;
+      }
+      await Navigator.of(context).maybePop();
+    } on Object catch (error) {
+      failure = error;
+      debugPrint('[SettingsPage] sign out failure error=$error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSigningOut = false;
+        });
+      }
+    }
+
+    if (failure != null && mounted) {
+      final AppLocalizations l10n = context.l10n;
+      await showCupertinoDialog<void>(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          return CupertinoAlertDialog(
+            title: Text(l10n.settingsSignOutFailedTitle),
+            content: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(l10n.settingsSignOutFailedMessage),
+            ),
+            actions: <Widget>[
+              CupertinoDialogAction(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(l10n.commonOK),
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 
   Future<void> _clearOriginalCache() async {
@@ -258,6 +366,43 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         );
       },
     );
+  }
+
+  Future<void> _confirmClearOriginalCache() async {
+    if (_isClearingOriginalCache) {
+      return;
+    }
+    HapticFeedback.selectionClick();
+    final AppLocalizations l10n = context.l10n;
+    final bool confirmed =
+        await showCupertinoDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) {
+            return CupertinoAlertDialog(
+              title: Text(l10n.settingsClearOriginalCacheConfirmTitle),
+              content: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(l10n.settingsClearOriginalCacheConfirmMessage),
+              ),
+              actions: <Widget>[
+                CupertinoDialogAction(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: Text(l10n.commonCancel),
+                ),
+                CupertinoDialogAction(
+                  isDestructiveAction: true,
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: Text(l10n.settingsClearOriginalCacheConfirmAction),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+    if (!confirmed || !mounted) {
+      return;
+    }
+    await _clearOriginalCache();
   }
 
   String _clearOriginalCacheMessage(

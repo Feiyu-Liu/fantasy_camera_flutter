@@ -6,12 +6,14 @@ import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:progressive_blur/progressive_blur.dart';
 import 'package:smooth_corner/smooth_corner.dart';
 
+import '../../../app/app_router.dart';
 import '../../../l10n/l10n.dart';
 import '../../../theme/app_colors.dart';
 import '../../backend_api/domain/prompt_config.dart';
@@ -36,9 +38,19 @@ class GenerationSubmissionGalleryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      backgroundColor: AppColors.white,
-      child: _GenerationSubmissionGalleryContent(focusedTaskId: focusedTaskId),
+    return PopScope<void>(
+      canPop: Navigator.of(context).canPop(),
+      onPopInvokedWithResult: (bool didPop, void result) {
+        if (!didPop) {
+          context.go(appHomeRoute);
+        }
+      },
+      child: CupertinoPageScaffold(
+        backgroundColor: AppColors.white,
+        child: _GenerationSubmissionGalleryContent(
+          focusedTaskId: focusedTaskId,
+        ),
+      ),
     );
   }
 }
@@ -390,7 +402,7 @@ class _GenerationSubmissionDebugModalState
                 ],
               ),
             ),
-            _GalleryCloseButton(onClose: () => Navigator.of(context).pop()),
+            _GalleryCloseButton(onClose: _closeGallery),
             if (_galleryExportProgressDialogVisible)
               _GalleryExportProgressOverlay(
                 progressListenable: _galleryExportProgress,
@@ -399,6 +411,15 @@ class _GenerationSubmissionDebugModalState
         );
       },
     );
+  }
+
+  void _closeGallery() {
+    final NavigatorState navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    context.go(appHomeRoute);
   }
 
   GenerationSubmissionJob? _selectedJob(List<GenerationSubmissionJob> jobs) {

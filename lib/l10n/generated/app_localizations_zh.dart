@@ -284,6 +284,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsClearOriginalCacheNoClearable => '暂无可清理原图';
 
   @override
+  String get settingsClearOriginalCacheConfirmTitle => '清除原图缓存？';
+
+  @override
+  String get settingsClearOriginalCacheConfirmMessage =>
+      '这会删除当前设备上所有曾登录账号的相机原图缓存。生成记录和已生成图片不会被删除。';
+
+  @override
+  String get settingsClearOriginalCacheConfirmAction => '清除';
+
+  @override
   String settingsClearOriginalCacheSize(Object size) {
     return '可清理 $size';
   }
@@ -365,6 +375,21 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsSignOutSubtitle => '返回登录页';
+
+  @override
+  String get settingsSignOutConfirmTitle => '退出登录？';
+
+  @override
+  String get settingsSignOutConfirmMessage => '退出账号会保留当前的照片集';
+
+  @override
+  String get settingsSignOutConfirmAction => '退出';
+
+  @override
+  String get settingsSignOutFailedTitle => '退出失败';
+
+  @override
+  String get settingsSignOutFailedMessage => '无法退出登录，请稍后重试。';
 
   @override
   String get billingTitle => '积分';

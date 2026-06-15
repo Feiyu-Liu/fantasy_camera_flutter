@@ -34,6 +34,8 @@ import 'package:fantasy_camera_flutter/features/generation_submission/data/gener
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_record.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
+import 'package:fantasy_camera_flutter/features/notifications/presentation/notification_providers.dart';
+import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
 import 'package:fantasy_camera_flutter/settings/presentation/settings_page.dart';
 
 void main() {
@@ -90,21 +92,18 @@ void main() {
             const _FakeCreditsRepository(),
           ),
           generationSubmissionServiceProvider.overrideWith((Ref ref) {
-            final GenerationSubmissionService service =
-                GenerationSubmissionService(
-                  uploadRepository: const _FakeUploadRepository(),
-                  generationTaskRepository:
-                      const _FakeGenerationTaskRepository(),
-                  feedbackRepository: const _FakeFeedbackRepository(),
-                  generationRecordRepository: GenerationRecordRepository(
-                    GenerationRecordDatabase.forExecutor(
-                      NativeDatabase.memory(),
-                    ),
-                  ),
-                  originalFileStore: const _FakeGenerationOriginalFileStore(),
-                  photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
-                  imageProcessor: const _FakeGenerationImageProcessor(),
-                );
+            final GenerationSubmissionService
+            service = GenerationSubmissionService(
+              uploadRepository: const _FakeUploadRepository(),
+              generationTaskRepository: const _FakeGenerationTaskRepository(),
+              feedbackRepository: const _FakeFeedbackRepository(),
+              generationRecordRepository: GenerationRecordRepository(
+                GenerationRecordDatabase.forExecutor(NativeDatabase.memory()),
+              ),
+              originalFileStore: const _FakeGenerationOriginalFileStore(),
+              photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
+              imageProcessor: const _FakeGenerationImageProcessor(),
+            );
             ref.onDispose(service.dispose);
             return service;
           }),
@@ -210,21 +209,18 @@ void main() {
             const _FakeCreditsRepository(),
           ),
           generationSubmissionServiceProvider.overrideWith((Ref ref) {
-            final GenerationSubmissionService service =
-                GenerationSubmissionService(
-                  uploadRepository: const _FakeUploadRepository(),
-                  generationTaskRepository:
-                      const _FakeGenerationTaskRepository(),
-                  feedbackRepository: const _FakeFeedbackRepository(),
-                  generationRecordRepository: GenerationRecordRepository(
-                    GenerationRecordDatabase.forExecutor(
-                      NativeDatabase.memory(),
-                    ),
-                  ),
-                  originalFileStore: const _FakeGenerationOriginalFileStore(),
-                  photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
-                  imageProcessor: const _FakeGenerationImageProcessor(),
-                );
+            final GenerationSubmissionService
+            service = GenerationSubmissionService(
+              uploadRepository: const _FakeUploadRepository(),
+              generationTaskRepository: const _FakeGenerationTaskRepository(),
+              feedbackRepository: const _FakeFeedbackRepository(),
+              generationRecordRepository: GenerationRecordRepository(
+                GenerationRecordDatabase.forExecutor(NativeDatabase.memory()),
+              ),
+              originalFileStore: const _FakeGenerationOriginalFileStore(),
+              photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
+              imageProcessor: const _FakeGenerationImageProcessor(),
+            );
             ref.onDispose(service.dispose);
             return service;
           }),
@@ -242,6 +238,90 @@ void main() {
 
     expect(find.byType(SettingsPage), findsOneWidget);
     expect(find.text('设置'), findsOneWidget);
+  });
+
+  testWidgets('settings state changes keep current route', (
+    WidgetTester tester,
+  ) async {
+    await usePortraitSurface(tester);
+    final _FakeAppSettingsRepository appSettingsRepository =
+        _FakeAppSettingsRepository();
+    await tester.pumpWidget(
+      FantasyCameraApp(
+        overrides: <Override>[
+          hasSupabaseConfigProvider.overrideWithValue(true),
+          authSessionProvider.overrideWith(
+            (_) => Stream<AuthSessionState>.value(
+              const AuthSessionState.signedIn(
+                AuthUser(id: 'user-1', email: 'user@example.com'),
+              ),
+            ),
+          ),
+          appSettingsRepositoryProvider.overrideWithValue(
+            appSettingsRepository,
+          ),
+          notificationLifecycleProvider.overrideWith((Ref ref) {}),
+          signedInCameraChoicesProvider.overrideWith(
+            (_) async => const <CameraChoice>[],
+          ),
+          creditsRepositoryProvider.overrideWithValue(
+            const _FakeCreditsRepository(),
+          ),
+          generationSubmissionServiceProvider.overrideWith((Ref ref) {
+            final GenerationSubmissionService
+            service = GenerationSubmissionService(
+              uploadRepository: const _FakeUploadRepository(),
+              generationTaskRepository: const _FakeGenerationTaskRepository(),
+              feedbackRepository: const _FakeFeedbackRepository(),
+              generationRecordRepository: GenerationRecordRepository(
+                GenerationRecordDatabase.forExecutor(NativeDatabase.memory()),
+              ),
+              originalFileStore: const _FakeGenerationOriginalFileStore(),
+              photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
+              imageProcessor: const _FakeGenerationImageProcessor(),
+            );
+            ref.onDispose(service.dispose);
+            return service;
+          }),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('camera-settings-button')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsPage), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('settings-confirm-before-generation-switch'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(appSettingsRepository.confirmBeforeGenerationEnabled, isFalse);
+    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('camera-settings-button')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('语言切换'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('English'));
+    await tester.pumpAndSettle();
+
+    expect(appSettingsRepository.localePreference, AppLocalePreference.en);
+    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.text('SETTINGS'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('camera-settings-button')),
+      findsNothing,
+    );
   });
 
   testWidgets('camera gallery thumbnail prefers latest saved result image', (
@@ -491,6 +571,29 @@ class _FakeCreditsRepository implements CreditsRepository {
       lifetimeSpent: 0,
       updatedAt: DateTime.parse('2026-05-29T00:00:00Z'),
     );
+  }
+}
+
+class _FakeAppSettingsRepository implements AppSettingsRepository {
+  bool confirmBeforeGenerationEnabled = true;
+  AppLocalePreference localePreference = AppLocalePreference.zh;
+
+  @override
+  Future<AppSettingsState> loadSettings() async {
+    return AppSettingsState(
+      confirmBeforeGenerationEnabled: confirmBeforeGenerationEnabled,
+      localePreference: localePreference,
+    );
+  }
+
+  @override
+  Future<void> saveConfirmBeforeGenerationEnabled(bool value) async {
+    confirmBeforeGenerationEnabled = value;
+  }
+
+  @override
+  Future<void> saveLocalePreference(AppLocalePreference preference) async {
+    localePreference = preference;
   }
 }
 

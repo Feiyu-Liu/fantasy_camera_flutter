@@ -23,6 +23,7 @@ void main() {
     _FakeAppSettingsRepository? appSettingsRepository,
     _FakeGenerationOriginalCacheCleaner? originalCacheCleaner,
     _FakeGenerationOriginalCacheStatsRepository? originalCacheStatsRepository,
+    _FakeSettingsSignOutAction? signOutAction,
   }) async {
     final _FakeAppSettingsRepository settingsRepository =
         appSettingsRepository ?? _FakeAppSettingsRepository();
@@ -53,6 +54,8 @@ void main() {
           generationOriginalCacheStatsRepositoryProvider.overrideWithValue(
             statsRepository,
           ),
+          if (signOutAction != null)
+            settingsSignOutActionProvider.overrideWithValue(signOutAction.call),
         ],
         child: Consumer(
           builder: (BuildContext context, WidgetRef ref, _) {
@@ -92,6 +95,27 @@ void main() {
       index++
     ) {
       await tester.drag(scrollable, const Offset(0, -260));
+      await tester.pumpAndSettle();
+    }
+  }
+
+  Future<void> scrollDownUntilTextTappable(
+    WidgetTester tester,
+    String text,
+  ) async {
+    await scrollDownUntilTextVisible(tester, text);
+    final Finder scrollable = find.byType(Scrollable);
+    for (int index = 0; index < 4; index++) {
+      final Finder target = find.text(text);
+      if (target.evaluate().isNotEmpty) {
+        final Offset center = tester.getCenter(target);
+        if (center.dy <
+            tester.view.physicalSize.height / tester.view.devicePixelRatio -
+                40) {
+          return;
+        }
+      }
+      await tester.drag(scrollable, const Offset(0, -120));
       await tester.pumpAndSettle();
     }
   }
@@ -224,7 +248,7 @@ void main() {
     expect(studioDark, findsOneWidget);
   });
 
-  testWidgets('clear original cache action runs cleaner and shows result', (
+  testWidgets('clear original cache action asks confirmation first', (
     WidgetTester tester,
   ) async {
     final _FakeGenerationOriginalCacheCleaner cacheCleaner =
@@ -234,6 +258,46 @@ void main() {
     await scrollDownUntilTextVisible(tester, '清除原图缓存');
 
     await tester.tap(find.text('清除原图缓存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('清除原图缓存？'), findsOneWidget);
+    expect(
+      find.text('这会删除当前设备上所有曾登录账号的相机原图缓存。生成记录和已生成图片不会被删除。'),
+      findsOneWidget,
+    );
+    expect(cacheCleaner.clearCallCount, 0);
+  });
+
+  testWidgets('clear original cache cancel does not run cleaner', (
+    WidgetTester tester,
+  ) async {
+    final _FakeGenerationOriginalCacheCleaner cacheCleaner =
+        _FakeGenerationOriginalCacheCleaner(clearedCount: 3);
+    await pumpSettingsPage(tester, originalCacheCleaner: cacheCleaner);
+
+    await scrollDownUntilTextVisible(tester, '清除原图缓存');
+
+    await tester.tap(find.text('清除原图缓存'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('清除原图缓存？'), findsNothing);
+    expect(cacheCleaner.clearCallCount, 0);
+  });
+
+  testWidgets('clear original cache confirm runs cleaner and shows result', (
+    WidgetTester tester,
+  ) async {
+    final _FakeGenerationOriginalCacheCleaner cacheCleaner =
+        _FakeGenerationOriginalCacheCleaner(clearedCount: 3);
+    await pumpSettingsPage(tester, originalCacheCleaner: cacheCleaner);
+
+    await scrollDownUntilTextVisible(tester, '清除原图缓存');
+
+    await tester.tap(find.text('清除原图缓存'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('清除').last);
     await tester.pumpAndSettle();
 
     expect(cacheCleaner.clearCallCount, 1);
@@ -339,6 +403,55 @@ void main() {
     expect(find.textContaining('2.00 MB', skipOffstage: false), findsOneWidget);
   });
 
+  testWidgets('sign out row shows confirmation before signing out', (
+    WidgetTester tester,
+  ) async {
+    final _FakeSettingsSignOutAction signOutAction =
+        _FakeSettingsSignOutAction();
+    await pumpSettingsPage(tester, signOutAction: signOutAction);
+
+    await scrollDownUntilTextTappable(tester, '退出登录');
+    await tester.tap(find.text('退出登录'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('退出登录？'), findsOneWidget);
+    expect(find.text('退出'), findsOneWidget);
+    expect(signOutAction.callCount, 0);
+  });
+
+  testWidgets('sign out cancel does not run sign out action', (
+    WidgetTester tester,
+  ) async {
+    final _FakeSettingsSignOutAction signOutAction =
+        _FakeSettingsSignOutAction();
+    await pumpSettingsPage(tester, signOutAction: signOutAction);
+
+    await scrollDownUntilTextTappable(tester, '退出登录');
+    await tester.tap(find.text('退出登录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('退出登录？'), findsNothing);
+    expect(signOutAction.callCount, 0);
+  });
+
+  testWidgets('sign out confirm runs sign out action once', (
+    WidgetTester tester,
+  ) async {
+    final _FakeSettingsSignOutAction signOutAction =
+        _FakeSettingsSignOutAction();
+    await pumpSettingsPage(tester, signOutAction: signOutAction);
+
+    await scrollDownUntilTextTappable(tester, '退出登录');
+    await tester.tap(find.text('退出登录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('退出').last);
+    await tester.pumpAndSettle();
+
+    expect(signOutAction.callCount, 1);
+  });
+
   testWidgets('settings route builds page', (WidgetTester tester) async {
     final GoRouter router = createAppRouter();
     router.go(settingsRoute);
@@ -386,6 +499,14 @@ void main() {
     expect(find.byType(SettingsPage), findsOneWidget);
     expect(find.text('设置'), findsOneWidget);
   });
+}
+
+class _FakeSettingsSignOutAction {
+  int callCount = 0;
+
+  Future<void> call() async {
+    callCount += 1;
+  }
 }
 
 class _FakeAppSettingsRepository implements AppSettingsRepository {

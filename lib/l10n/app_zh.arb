@@ -106,6 +106,9 @@
   "settingsClearOriginalCacheSubtitle": "移除本地相机原图",
   "settingsClearOriginalCacheCalculating": "正在重新计算...",
   "settingsClearOriginalCacheNoClearable": "暂无可清理原图",
+  "settingsClearOriginalCacheConfirmTitle": "清除原图缓存？",
+  "settingsClearOriginalCacheConfirmMessage": "这会删除当前设备上所有曾登录账号的相机原图缓存。生成记录和已生成图片不会被删除。",
+  "settingsClearOriginalCacheConfirmAction": "清除",
   "settingsClearOriginalCacheSize": "可清理 {size}",
   "@settingsClearOriginalCacheSize": {
     "placeholders": {
@@ -157,6 +160,11 @@
   "settingsDeleteAccountSubtitle": "永久移除当前账号",
   "settingsSignOutTitle": "退出登录",
   "settingsSignOutSubtitle": "返回登录页",
+  "settingsSignOutConfirmTitle": "退出登录？",
+  "settingsSignOutConfirmMessage": "退出账号会保留当前的照片集",
+  "settingsSignOutConfirmAction": "退出",
+  "settingsSignOutFailedTitle": "退出失败",
+  "settingsSignOutFailedMessage": "无法退出登录，请稍后重试。",
   "billingTitle": "积分",
   "billingHeroTitle": "获取创作积分",
   "billingHeroSubtitle": "积分用于生成图片。购买完成后会由服务器验证并写入余额。",
