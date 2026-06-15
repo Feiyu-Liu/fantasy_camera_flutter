@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/fantasy_camera_app.dart';
 import 'config/app_config.dart';
+import 'settings/application/app_settings.dart';
 import 'shared/core/app_logger.dart';
 
 Future<void> main() async {
@@ -15,6 +16,8 @@ Future<void> main() async {
   await SystemChrome.setPreferredOrientations(<DeviceOrientation>[
     DeviceOrientation.portraitUp,
   ]);
+  final AppSettingsState initialSettings =
+      await const SharedPreferencesAppSettingsRepository().loadSettings();
 
   if (AppConfig.hasSupabaseConfig) {
     try {
@@ -27,5 +30,5 @@ Future<void> main() async {
     }
   }
 
-  runApp(const FantasyCameraApp());
+  runApp(FantasyCameraApp(initialSettings: initialSettings));
 }

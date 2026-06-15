@@ -97,8 +97,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               _SectionTitle(l10n.settingsSectionGeneral),
               _SettingsActionRow(
                 title: l10n.settingsLanguageTitle,
-                subtitle: l10n.settingsLanguageSubtitle,
-                onPressed: _handlePlaceholderAction,
+                subtitle: _languagePreferenceLabel(
+                  appSettings.localePreference,
+                  l10n,
+                ),
+                onPressed: () => _showLanguagePicker(appSettings),
               ),
               _SettingsActionRow(
                 title: l10n.settingsClearOriginalCacheTitle,
@@ -331,6 +334,102 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   void _openCreditPurchase() {
     HapticFeedback.selectionClick();
     context.push(creditPurchaseRoute);
+  }
+
+  String _languagePreferenceLabel(
+    AppLocalePreference preference,
+    AppLocalizations l10n,
+  ) {
+    return switch (preference) {
+      AppLocalePreference.system => l10n.settingsLanguageSystem,
+      AppLocalePreference.zh => l10n.settingsLanguageChinese,
+      AppLocalePreference.en => l10n.settingsLanguageEnglish,
+    };
+  }
+
+  Future<void> _showLanguagePicker(AppSettingsState appSettings) async {
+    HapticFeedback.selectionClick();
+    final AppLocalizations l10n = context.l10n;
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (BuildContext popupContext) {
+        return CupertinoActionSheet(
+          title: Text(l10n.settingsLanguageTitle),
+          actions: <Widget>[
+            _LanguageAction(
+              title: l10n.settingsLanguageSystem,
+              selected:
+                  appSettings.localePreference == AppLocalePreference.system,
+              onPressed: () => _selectLanguagePreference(
+                popupContext,
+                AppLocalePreference.system,
+              ),
+            ),
+            _LanguageAction(
+              title: l10n.settingsLanguageChinese,
+              selected: appSettings.localePreference == AppLocalePreference.zh,
+              onPressed: () => _selectLanguagePreference(
+                popupContext,
+                AppLocalePreference.zh,
+              ),
+            ),
+            _LanguageAction(
+              title: l10n.settingsLanguageEnglish,
+              selected: appSettings.localePreference == AppLocalePreference.en,
+              onPressed: () => _selectLanguagePreference(
+                popupContext,
+                AppLocalePreference.en,
+              ),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(popupContext).pop(),
+            child: Text(l10n.commonCancel),
+          ),
+        );
+      },
+    );
+  }
+
+  void _selectLanguagePreference(
+    BuildContext popupContext,
+    AppLocalePreference preference,
+  ) {
+    HapticFeedback.selectionClick();
+    Navigator.of(popupContext).pop();
+    ref
+        .read(appSettingsControllerProvider.notifier)
+        .setLocalePreference(preference);
+  }
+}
+
+class _LanguageAction extends StatelessWidget {
+  const _LanguageAction({
+    required this.title,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String title;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoActionSheetAction(
+      onPressed: onPressed,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(title),
+          if (selected) ...<Widget>[
+            const SizedBox(width: 8),
+            const Icon(LucideIcons.check, size: 18),
+          ],
+        ],
+      ),
+    );
   }
 }
 

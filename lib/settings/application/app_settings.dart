@@ -1,41 +1,88 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const String confirmBeforeGenerationPreferenceKey =
     'settings.confirm_before_generation';
+const String localePreferenceKey = 'settings.locale_preference';
+
+enum AppLocalePreference {
+  system,
+  zh,
+  en;
+
+  static AppLocalePreference fromStorageValue(String? value) {
+    return AppLocalePreference.values.firstWhere(
+      (AppLocalePreference preference) => preference.storageValue == value,
+      orElse: () => AppLocalePreference.system,
+    );
+  }
+
+  String get storageValue => name;
+}
+
+Locale? localeForPreference(AppLocalePreference preference) {
+  return switch (preference) {
+    AppLocalePreference.system => null,
+    AppLocalePreference.zh => const Locale('zh'),
+    AppLocalePreference.en => const Locale('en'),
+  };
+}
 
 class AppSettingsState {
-  const AppSettingsState({this.confirmBeforeGenerationEnabled = true});
+  const AppSettingsState({
+    this.confirmBeforeGenerationEnabled = true,
+    this.localePreference = AppLocalePreference.system,
+  });
 
   final bool confirmBeforeGenerationEnabled;
+  final AppLocalePreference localePreference;
 
-  AppSettingsState copyWith({bool? confirmBeforeGenerationEnabled}) {
+  AppSettingsState copyWith({
+    bool? confirmBeforeGenerationEnabled,
+    AppLocalePreference? localePreference,
+  }) {
     return AppSettingsState(
       confirmBeforeGenerationEnabled:
           confirmBeforeGenerationEnabled ?? this.confirmBeforeGenerationEnabled,
+      localePreference: localePreference ?? this.localePreference,
     );
   }
 }
 
 abstract interface class AppSettingsRepository {
-  Future<bool> loadConfirmBeforeGenerationEnabled();
+  Future<AppSettingsState> loadSettings();
 
   Future<void> saveConfirmBeforeGenerationEnabled(bool value);
+
+  Future<void> saveLocalePreference(AppLocalePreference preference);
 }
 
 class SharedPreferencesAppSettingsRepository implements AppSettingsRepository {
   const SharedPreferencesAppSettingsRepository();
 
   @override
-  Future<bool> loadConfirmBeforeGenerationEnabled() async {
+  Future<AppSettingsState> loadSettings() async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
-    return preferences.getBool(confirmBeforeGenerationPreferenceKey) ?? true;
+    return AppSettingsState(
+      confirmBeforeGenerationEnabled:
+          preferences.getBool(confirmBeforeGenerationPreferenceKey) ?? true,
+      localePreference: AppLocalePreference.fromStorageValue(
+        preferences.getString(localePreferenceKey),
+      ),
+    );
   }
 
   @override
   Future<void> saveConfirmBeforeGenerationEnabled(bool value) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     await preferences.setBool(confirmBeforeGenerationPreferenceKey, value);
+  }
+
+  @override
+  Future<void> saveLocalePreference(AppLocalePreference preference) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    await preferences.setString(localePreferenceKey, preference.storageValue);
   }
 }
 
@@ -51,6 +98,10 @@ final appSettingsControllerProvider =
     );
 
 class AppSettingsController extends Notifier<AppSettingsState> {
+  AppSettingsController({AppSettingsState? initialState})
+    : _initialState = initialState;
+
+  final AppSettingsState? _initialState;
   bool _isDisposed = false;
   Future<void>? _loadFuture;
 
@@ -61,7 +112,7 @@ class AppSettingsController extends Notifier<AppSettingsState> {
       _isDisposed = true;
     });
     _loadFuture = _load();
-    return const AppSettingsState();
+    return _initialState ?? const AppSettingsState();
   }
 
   Future<AppSettingsState> ensureLoaded() async {
@@ -76,12 +127,19 @@ class AppSettingsController extends Notifier<AppSettingsState> {
         .saveConfirmBeforeGenerationEnabled(value);
   }
 
-  Future<void> _load() async {
-    final bool value = await ref
+  Future<void> setLocalePreference(AppLocalePreference preference) async {
+    state = state.copyWith(localePreference: preference);
+    await ref
         .read(appSettingsRepositoryProvider)
-        .loadConfirmBeforeGenerationEnabled();
+        .saveLocalePreference(preference);
+  }
+
+  Future<void> _load() async {
+    final AppSettingsState loadedState = await ref
+        .read(appSettingsRepositoryProvider)
+        .loadSettings();
     if (!_isDisposed) {
-      state = state.copyWith(confirmBeforeGenerationEnabled: value);
+      state = loadedState;
     }
   }
 }

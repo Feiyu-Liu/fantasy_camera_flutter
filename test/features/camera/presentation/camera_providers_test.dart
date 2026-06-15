@@ -793,15 +793,24 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   _FakeAppSettingsRepository({this.confirmBeforeGenerationEnabled = true});
 
   bool confirmBeforeGenerationEnabled;
+  AppLocalePreference localePreference = AppLocalePreference.system;
 
   @override
-  Future<bool> loadConfirmBeforeGenerationEnabled() async {
-    return confirmBeforeGenerationEnabled;
+  Future<AppSettingsState> loadSettings() async {
+    return AppSettingsState(
+      confirmBeforeGenerationEnabled: confirmBeforeGenerationEnabled,
+      localePreference: localePreference,
+    );
   }
 
   @override
   Future<void> saveConfirmBeforeGenerationEnabled(bool value) async {
     confirmBeforeGenerationEnabled = value;
+  }
+
+  @override
+  Future<void> saveLocalePreference(AppLocalePreference preference) async {
+    localePreference = preference;
   }
 }
 

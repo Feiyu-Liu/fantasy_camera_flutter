@@ -54,19 +54,26 @@ void main() {
             statsRepository,
           ),
         ],
-        child: CupertinoApp(
-          locale: defaultAppLocale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          builder: (BuildContext context, Widget? child) {
-            return ProviderScope(
-              overrides: <Override>[
-                appLocalizationsProvider.overrideWithValue(context.l10n),
-              ],
-              child: child ?? const SizedBox.shrink(),
+        child: Consumer(
+          builder: (BuildContext context, WidgetRef ref, _) {
+            final AppSettingsState appSettings = ref.watch(
+              appSettingsControllerProvider,
+            );
+            return CupertinoApp(
+              locale: localeForPreference(appSettings.localePreference),
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              builder: (BuildContext context, Widget? child) {
+                return ProviderScope(
+                  overrides: <Override>[
+                    appLocalizationsProvider.overrideWithValue(context.l10n),
+                  ],
+                  child: child ?? const SizedBox.shrink(),
+                );
+              },
+              home: const SettingsPage(),
             );
           },
-          home: const SettingsPage(),
         ),
       ),
     );
@@ -164,6 +171,36 @@ void main() {
 
     expect(confirmSwitch, findsOneWidget);
     expect(appSettingsRepository.confirmBeforeGenerationEnabled, isFalse);
+  });
+
+  testWidgets('language row can switch locale preference', (
+    WidgetTester tester,
+  ) async {
+    final _FakeAppSettingsRepository appSettingsRepository =
+        _FakeAppSettingsRepository(
+          localePreference: AppLocalePreference.system,
+        );
+    await pumpSettingsPage(
+      tester,
+      appSettingsRepository: appSettingsRepository,
+    );
+
+    await scrollDownUntilTextVisible(tester, 'Language');
+
+    expect(find.text('System default'), findsOneWidget);
+
+    await tester.tap(find.text('Language'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('简体中文'), findsOneWidget);
+    expect(find.text('English'), findsOneWidget);
+
+    await tester.tap(find.text('English').last);
+    await tester.pumpAndSettle();
+
+    expect(appSettingsRepository.localePreference, AppLocalePreference.en);
+    expect(find.text('Language'), findsOneWidget);
+    expect(find.text('English'), findsOneWidget);
   });
 
   testWidgets('appearance cards can switch selected mode', (
@@ -352,16 +389,27 @@ void main() {
 }
 
 class _FakeAppSettingsRepository implements AppSettingsRepository {
+  _FakeAppSettingsRepository({this.localePreference = AppLocalePreference.zh});
+
   bool confirmBeforeGenerationEnabled = true;
+  AppLocalePreference localePreference;
 
   @override
-  Future<bool> loadConfirmBeforeGenerationEnabled() async {
-    return confirmBeforeGenerationEnabled;
+  Future<AppSettingsState> loadSettings() async {
+    return AppSettingsState(
+      confirmBeforeGenerationEnabled: confirmBeforeGenerationEnabled,
+      localePreference: localePreference,
+    );
   }
 
   @override
   Future<void> saveConfirmBeforeGenerationEnabled(bool value) async {
     confirmBeforeGenerationEnabled = value;
+  }
+
+  @override
+  Future<void> saveLocalePreference(AppLocalePreference preference) async {
+    localePreference = preference;
   }
 }
 

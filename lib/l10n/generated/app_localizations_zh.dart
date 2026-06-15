@@ -263,6 +263,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsLanguageSubtitle => '跟随系统';
 
   @override
+  String get settingsLanguageSystem => '跟随系统';
+
+  @override
+  String get settingsLanguageChinese => '简体中文';
+
+  @override
+  String get settingsLanguageEnglish => 'English';
+
+  @override
   String get settingsClearOriginalCacheTitle => '清除原图缓存';
 
   @override
@@ -379,6 +388,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get billingRestorePurchases => '恢复购买';
+
+  @override
+  String get commonCancel => '取消';
 
   @override
   String get commonOK => '好';

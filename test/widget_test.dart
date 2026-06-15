@@ -8,14 +8,39 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fantasy_camera_flutter/app/fantasy_camera_app.dart';
+import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
 
 void main() {
   testWidgets('app shell reports missing Supabase config', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const FantasyCameraApp());
+    await tester.pumpWidget(
+      const FantasyCameraApp(
+        initialSettings: AppSettingsState(
+          localePreference: AppLocalePreference.zh,
+        ),
+      ),
+    );
     await tester.pump();
 
     expect(find.textContaining('缺少 Supabase 配置'), findsOneWidget);
+  });
+
+  testWidgets('app shell uses initial locale preference', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const FantasyCameraApp(
+        initialSettings: AppSettingsState(
+          localePreference: AppLocalePreference.en,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.textContaining('Missing Supabase configuration'),
+      findsOneWidget,
+    );
   });
 }

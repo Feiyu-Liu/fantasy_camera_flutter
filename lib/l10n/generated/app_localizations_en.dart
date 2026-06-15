@@ -278,6 +278,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsLanguageSubtitle => 'System default';
 
   @override
+  String get settingsLanguageSystem => 'System default';
+
+  @override
+  String get settingsLanguageChinese => '简体中文';
+
+  @override
+  String get settingsLanguageEnglish => 'English';
+
+  @override
   String get settingsClearOriginalCacheTitle => 'Clear original cache';
 
   @override
@@ -398,6 +407,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get billingRestorePurchases => 'Restore purchases';
+
+  @override
+  String get commonCancel => 'Cancel';
 
   @override
   String get commonOK => 'OK';
