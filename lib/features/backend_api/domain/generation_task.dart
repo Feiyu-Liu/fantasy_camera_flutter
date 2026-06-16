@@ -156,6 +156,23 @@ class GenerationTask {
   }
 }
 
+class GenerationTasksBatchResult {
+  const GenerationTasksBatchResult({
+    required this.tasks,
+    required this.missingIds,
+  });
+
+  final List<GenerationTask> tasks;
+  final List<String> missingIds;
+
+  factory GenerationTasksBatchResult.fromJson(JsonObject json) {
+    return GenerationTasksBatchResult(
+      tasks: _readGenerationTaskList(json, 'tasks'),
+      missingIds: _readStringList(json, 'missingIds'),
+    );
+  }
+}
+
 class ResultUrl {
   const ResultUrl({required this.url, required this.expiresInSeconds});
 
@@ -168,6 +185,35 @@ class ResultUrl {
       expiresInSeconds: _readInt(json, 'expiresInSeconds'),
     );
   }
+}
+
+List<GenerationTask> _readGenerationTaskList(JsonObject json, String key) {
+  final Object? value = json[key];
+  if (value is List) {
+    return value.map((Object? item) {
+      if (item is Map<String, Object?>) {
+        return GenerationTask.fromJson(item);
+      }
+      if (item is Map) {
+        return GenerationTask.fromJson(Map<String, Object?>.from(item));
+      }
+      throw FormatException('Expected object item in "$key".');
+    }).toList(growable: false);
+  }
+  throw FormatException('Expected object list field "$key".');
+}
+
+List<String> _readStringList(JsonObject json, String key) {
+  final Object? value = json[key];
+  if (value is List) {
+    return value.map((Object? item) {
+      if (item is String) {
+        return item;
+      }
+      throw FormatException('Expected string item in "$key".');
+    }).toList(growable: false);
+  }
+  throw FormatException('Expected string list field "$key".');
 }
 
 String _readString(JsonObject json, String key) {

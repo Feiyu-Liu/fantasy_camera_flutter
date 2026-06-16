@@ -735,7 +735,9 @@ void main() {
     await service.resumeActiveRecords();
 
     final GenerationRecord? record = await repository.findById('record-resume');
-    expect(taskRepository.fetchTaskIds, <String>['task-1']);
+    expect(taskRepository.fetchTasksBatchRequests, <List<String>>[
+      <String>['task-1'],
+    ]);
     expect(
       record?.pipelineStatus,
       GenerationRecordPipelineStatus.resultSaved.name,
@@ -798,8 +800,140 @@ void main() {
       service.resumeActiveRecords(),
     ]);
 
-    expect(taskRepository.fetchTaskIds, <String>['task-1']);
+    expect(taskRepository.fetchTasksBatchRequests, <List<String>>[
+      <String>['task-1'],
+    ]);
     expect(photoLibraryAssetStore.events, hasLength(1));
+  });
+
+  test('resume active records polls multiple tasks in one batch', () async {
+    final GenerationRecordDatabase database =
+        GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(database.close);
+    final GenerationRecordRepository repository = GenerationRecordRepository(
+      database,
+    );
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..fetchTaskResponses.add(_task(status: GenerationTaskStatus.pending))
+          ..fetchTaskResponses.add(
+            _task(
+              id: 'task-2',
+              status: GenerationTaskStatus.failed,
+              lastErrorCode: 'provider_error',
+              lastErrorMessage: 'Provider failed',
+            ),
+          );
+
+    for (final String recordId in <String>['record-1', 'record-2']) {
+      await repository.createCameraRecord(
+        recordId: recordId,
+        originalLocalPath: 'originals/$recordId.heic',
+        createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+        promptStyle: 'realistic',
+        captureMode: 'portrait',
+      );
+      final String taskId = recordId == 'record-1' ? 'task-1' : 'task-2';
+      await repository.updateTaskFields(
+        recordId: recordId,
+        updatedAt: DateTime.parse('2026-05-29T00:00:01Z'),
+        taskId: taskId,
+        taskStatus: GenerationTaskStatus.pending.wireValue,
+      );
+      await repository.updatePipelineStatus(
+        recordId: recordId,
+        status: GenerationRecordPipelineStatus.pollingTask,
+        updatedAt: DateTime.parse('2026-05-29T00:00:02Z'),
+      );
+    }
+
+    final GenerationSubmissionService service = GenerationSubmissionService(
+      uploadRepository: _FakeUploadRepository(),
+      generationTaskRepository: taskRepository,
+      feedbackRepository: _FakeFeedbackRepository(),
+      generationRecordRepository: repository,
+      originalFileStore: _FakeGenerationOriginalFileStore(),
+      photoLibraryAssetStore: _FakePhotoLibraryAssetStore(),
+      imageProcessor: _FakeGenerationImageProcessor(),
+    );
+    addTearDown(service.dispose);
+
+    await service.resumeActiveRecords();
+
+    expect(taskRepository.fetchTasksBatchRequests, <List<String>>[
+      <String>['task-1', 'task-2'],
+    ]);
+    final GenerationRecord? record1 = await repository.findById('record-1');
+    final GenerationRecord? record2 = await repository.findById('record-2');
+    expect(
+      record1?.pipelineStatus,
+      GenerationRecordPipelineStatus.pollingTask.name,
+    );
+    expect(record1?.taskStatus, GenerationTaskStatus.pending.wireValue);
+    expect(
+      record2?.pipelineStatus,
+      GenerationRecordPipelineStatus.generationFailed.name,
+    );
+    expect(record2?.taskStatus, GenerationTaskStatus.failed.wireValue);
+    expect(record2?.errorCode, 'provider_error');
+  });
+
+  test('batch polling backend failure keeps records polling', () async {
+    final GenerationRecordDatabase database =
+        GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(database.close);
+    final GenerationRecordRepository repository = GenerationRecordRepository(
+      database,
+    );
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..fetchTasksBatchFailure = const BackendApiFailure(
+            code: 'network_error',
+            message: 'Network failed',
+            statusCode: 503,
+          );
+
+    await repository.createCameraRecord(
+      recordId: 'record-resume',
+      originalLocalPath: 'originals/record-resume.heic',
+      createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+      promptStyle: 'realistic',
+      captureMode: 'portrait',
+    );
+    await repository.updateTaskFields(
+      recordId: 'record-resume',
+      updatedAt: DateTime.parse('2026-05-29T00:00:01Z'),
+      taskId: 'task-1',
+      taskStatus: GenerationTaskStatus.pending.wireValue,
+    );
+    await repository.updatePipelineStatus(
+      recordId: 'record-resume',
+      status: GenerationRecordPipelineStatus.pollingTask,
+      updatedAt: DateTime.parse('2026-05-29T00:00:02Z'),
+    );
+
+    final GenerationSubmissionService service = GenerationSubmissionService(
+      uploadRepository: _FakeUploadRepository(),
+      generationTaskRepository: taskRepository,
+      feedbackRepository: _FakeFeedbackRepository(),
+      generationRecordRepository: repository,
+      originalFileStore: _FakeGenerationOriginalFileStore(),
+      photoLibraryAssetStore: _FakePhotoLibraryAssetStore(),
+      imageProcessor: _FakeGenerationImageProcessor(),
+    );
+    addTearDown(service.dispose);
+
+    await service.resumeActiveRecords();
+
+    final GenerationRecord? record = await repository.findById('record-resume');
+    expect(taskRepository.fetchTasksBatchRequests, <List<String>>[
+      <String>['task-1'],
+    ]);
+    expect(
+      record?.pipelineStatus,
+      GenerationRecordPipelineStatus.pollingTask.name,
+    );
+    expect(record?.errorCode, isNull);
   });
 
   test('retry failed job resubmits from original image', () async {
@@ -1431,10 +1565,13 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   final List<CreateGenerationTaskInput> createdInputs =
       <CreateGenerationTaskInput>[];
   final List<String> fetchTaskIds = <String>[];
+  final List<List<String>> fetchTasksBatchRequests = <List<String>>[];
   final List<GenerationTask> fetchTaskResponses = <GenerationTask>[];
+  final Set<String> missingTaskIds = <String>{};
   final List<String> resultUrlTaskIds = <String>[];
   final List<Object> resultUrlResponses = <Object>[];
   BackendApiFailure? createTaskFailure;
+  BackendApiFailure? fetchTasksBatchFailure;
   Duration createResultUrlDelay = Duration.zero;
   Duration fetchTaskDelay = Duration.zero;
 
@@ -1492,6 +1629,34 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   }
 
   @override
+  Future<GenerationTasksBatchResult> fetchTasksBatch(
+    List<String> taskIds,
+  ) async {
+    fetchTasksBatchRequests.add(taskIds.toList(growable: false));
+    if (fetchTaskDelay > Duration.zero) {
+      await Future<void>.delayed(fetchTaskDelay);
+    }
+    final BackendApiFailure? failure = fetchTasksBatchFailure;
+    if (failure != null) {
+      throw failure;
+    }
+
+    final List<GenerationTask> tasks = <GenerationTask>[];
+    final List<String> missingIds = <String>[];
+    for (final String taskId in taskIds) {
+      if (missingTaskIds.contains(taskId)) {
+        missingIds.add(taskId);
+        continue;
+      }
+      final GenerationTask task = fetchTaskResponses.isEmpty
+          ? _task(status: GenerationTaskStatus.pending, id: taskId)
+          : fetchTaskResponses.removeAt(0);
+      tasks.add(task.id == taskId ? task : _taskFrom(task, id: taskId));
+    }
+    return GenerationTasksBatchResult(tasks: tasks, missingIds: missingIds);
+  }
+
+  @override
   Future<List<GenerationTask>> listTasks({int limit = 20}) {
     throw UnimplementedError();
   }
@@ -1501,12 +1666,13 @@ final DateTime _fixedExpiresAt = DateTime.parse('2026-05-29T01:00:00Z');
 
 GenerationTask _task({
   required GenerationTaskStatus status,
+  String id = 'task-1',
   String? resultImageObjectId,
   String? lastErrorCode,
   String? lastErrorMessage,
 }) {
   return GenerationTask(
-    id: 'task-1',
+    id: id,
     status: status,
     promptStyle: 'realistic',
     captureMode: 'portrait',
@@ -1518,5 +1684,25 @@ GenerationTask _task({
     lastErrorCode: lastErrorCode,
     lastErrorMessage: lastErrorMessage,
     createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+  );
+}
+
+GenerationTask _taskFrom(GenerationTask task, {required String id}) {
+  return GenerationTask(
+    id: id,
+    status: task.status,
+    promptStyle: task.promptStyle,
+    captureMode: task.captureMode,
+    sourceImageObjectId: task.sourceImageObjectId,
+    resultImageObjectId: task.resultImageObjectId,
+    costCredits: task.costCredits,
+    attemptCount: task.attemptCount,
+    maxAttempts: task.maxAttempts,
+    lastErrorCode: task.lastErrorCode,
+    lastErrorMessage: task.lastErrorMessage,
+    createdAt: task.createdAt,
+    completedAt: task.completedAt,
+    failedAt: task.failedAt,
+    canceledAt: task.canceledAt,
   );
 }

@@ -24,7 +24,8 @@ abstract interface class NotificationDeviceCoordinator {
   Future<String?> ensureRegisteredForGeneration();
 }
 
-class NoopNotificationDeviceCoordinator implements NotificationDeviceCoordinator {
+class NoopNotificationDeviceCoordinator
+    implements NotificationDeviceCoordinator {
   const NoopNotificationDeviceCoordinator();
 
   @override
@@ -65,7 +66,8 @@ class GenerationSubmissionService extends ChangeNotifier {
   final NotificationDeviceCoordinator _notificationDeviceCoordinator;
   final Map<String, Future<void>> _submissionOperations =
       <String, Future<void>>{};
-  final Map<String, Timer> _pollingTimers = <String, Timer>{};
+  Timer? _batchPollingTimer;
+  Future<void>? _batchPollingOperation;
   final Map<String, Future<void>> _pollingOperations = <String, Future<void>>{};
   final Map<String, Timer> _resultRetryTimers = <String, Timer>{};
   final Map<String, Future<String?>> _resultUrlOperations =
@@ -294,8 +296,20 @@ class GenerationSubmissionService extends ChangeNotifier {
     final List<GenerationRecord> records = await _generationRecordRepository
         .listActiveRecords();
     _debugLog('resume active records count=${records.length}');
+    var shouldPollActiveTasks = false;
     for (final GenerationRecord record in records) {
+      final GenerationRecordPipelineStatus status =
+          generationRecordPipelineStatusFromName(record.pipelineStatus);
+      if ((status == GenerationRecordPipelineStatus.submitted ||
+              status == GenerationRecordPipelineStatus.pollingTask) &&
+          record.taskId != null &&
+          record.taskId!.isNotEmpty) {
+        shouldPollActiveTasks = true;
+      }
       await _resumeRecord(record);
+    }
+    if (shouldPollActiveTasks) {
+      await _pollActiveTasksBatch();
     }
     notifyListeners();
   }
@@ -946,30 +960,120 @@ class GenerationSubmissionService extends ChangeNotifier {
   }
 
   void _startTaskPolling({required String recordId, required String taskId}) {
-    if (_pollingTimers.containsKey(recordId)) {
-      _debugLog('polling already active record=$recordId task=$taskId');
-      return;
-    }
-    _debugLog('polling start record=$recordId task=$taskId');
-    _pollingTimers[recordId] = Timer.periodic(_taskPollInterval, (_) {
-      unawaited(_pollTask(recordId: recordId, taskId: taskId));
-    });
-    unawaited(_pollTask(recordId: recordId, taskId: taskId));
+    _debugLog('batch polling observe record=$recordId task=$taskId');
+    _ensureBatchPollingStarted();
+    unawaited(_pollActiveTasksBatch());
   }
 
   Future<void> _resumeTaskPolling({
     required String recordId,
     required String taskId,
   }) async {
-    if (!_pollingTimers.containsKey(recordId)) {
-      _debugLog('polling resume start record=$recordId task=$taskId');
-      _pollingTimers[recordId] = Timer.periodic(_taskPollInterval, (_) {
-        unawaited(_pollTask(recordId: recordId, taskId: taskId));
-      });
-    } else {
-      _debugLog('polling already active record=$recordId task=$taskId');
+    _debugLog('batch polling resume observe record=$recordId task=$taskId');
+    _ensureBatchPollingStarted();
+  }
+
+  void _ensureBatchPollingStarted() {
+    if (_batchPollingTimer != null) {
+      return;
     }
-    await _pollTask(recordId: recordId, taskId: taskId);
+    _debugLog('batch polling start');
+    _batchPollingTimer = Timer.periodic(_taskPollInterval, (_) {
+      unawaited(_pollActiveTasksBatch());
+    });
+  }
+
+  Future<void> _pollActiveTasksBatch() async {
+    final Future<void>? running = _batchPollingOperation;
+    if (running != null) {
+      _debugLog('batch poll skipped reason=in-flight');
+      return running;
+    }
+    final Future<void> operation = _pollActiveTasksBatchOnce();
+    _batchPollingOperation = operation;
+    try {
+      await operation;
+    } finally {
+      _batchPollingOperation = null;
+    }
+  }
+
+  Future<void> _pollActiveTasksBatchOnce() async {
+    final List<GenerationRecord> records = await _generationRecordRepository
+        .listActiveRecords();
+    final Map<String, GenerationRecord> recordsByTaskId =
+        <String, GenerationRecord>{};
+
+    for (final GenerationRecord record in records) {
+      final GenerationRecordPipelineStatus status =
+          generationRecordPipelineStatusFromName(record.pipelineStatus);
+      if (status != GenerationRecordPipelineStatus.submitted &&
+          status != GenerationRecordPipelineStatus.pollingTask) {
+        continue;
+      }
+      final String? taskId = record.taskId;
+      if (taskId == null || taskId.isEmpty) {
+        continue;
+      }
+      recordsByTaskId.putIfAbsent(taskId, () => record);
+    }
+
+    if (recordsByTaskId.isEmpty) {
+      _debugLog('batch poll skipped reason=no-active-tasks');
+      _stopBatchPolling();
+      return;
+    }
+
+    _debugLog('batch poll request start count=${recordsByTaskId.length}');
+    try {
+      for (final List<String> taskIds in _chunks(
+        recordsByTaskId.keys.toList(growable: false),
+        50,
+      )) {
+        final GenerationTasksBatchResult result =
+            await _generationTaskRepository.fetchTasksBatch(taskIds);
+        final Set<String> returnedTaskIds = <String>{};
+        for (final GenerationTask task in result.tasks) {
+          returnedTaskIds.add(task.id);
+          final GenerationRecord? record = recordsByTaskId[task.id];
+          if (record == null) {
+            continue;
+          }
+          await _handlePolledTask(
+            recordId: record.recordId,
+            taskId: task.id,
+            task: task,
+          );
+        }
+
+        final Set<String> missingTaskIds = <String>{
+          ...result.missingIds,
+          ...taskIds.where(
+            (String taskId) => !returnedTaskIds.contains(taskId),
+          ),
+        };
+        for (final String missingTaskId in missingTaskIds) {
+          final GenerationRecord? record = recordsByTaskId[missingTaskId];
+          if (record == null) {
+            continue;
+          }
+          _debugLog(
+            'batch poll missing record=${record.recordId} task=$missingTaskId',
+          );
+          await _failRecord(
+            recordId: record.recordId,
+            errorCode: 'task_not_found',
+            errorMessage: 'Generation task was not found.',
+          );
+        }
+      }
+    } on BackendApiFailure catch (error) {
+      _debugLog(
+        'batch poll backend failure code=${error.code} status=${error.statusCode} message=${error.message}',
+      );
+    } on Object catch (error) {
+      _debugLog('batch poll local failure error=$error');
+    }
   }
 
   Future<void> _pollTask({
@@ -1009,7 +1113,6 @@ class GenerationSubmissionService extends ChangeNotifier {
           ? 'missing-record'
           : 'terminal-${currentStatus?.name ?? 'unknown'}';
       _debugLog('poll skipped record=$recordId task=$taskId reason=$reason');
-      _stopTaskPolling(recordId);
       return;
     }
 
@@ -1018,76 +1121,11 @@ class GenerationSubmissionService extends ChangeNotifier {
       final GenerationTask task = await _generationTaskRepository.fetchTask(
         taskId,
       );
-      _debugLog(
-        'poll response record=$recordId task=$taskId status=${task.status.wireValue} result=${task.resultImageObjectId ?? 'none'} errorCode=${task.lastErrorCode ?? 'none'} errorMessage=${task.lastErrorMessage ?? 'none'}',
-      );
-      switch (task.status) {
-        case GenerationTaskStatus.pending:
-        case GenerationTaskStatus.processing:
-        case GenerationTaskStatus.modelRunning:
-          await _generationRecordRepository.updatePipelineStatus(
-            recordId: recordId,
-            status: GenerationRecordPipelineStatus.pollingTask,
-            updatedAt: DateTime.now(),
-            clearError: true,
-          );
-          await _generationRecordRepository.updateTaskFields(
-            recordId: recordId,
-            updatedAt: DateTime.now(),
-            taskStatus: task.status.wireValue,
-            resultImageObjectId: task.resultImageObjectId,
-          );
-        case GenerationTaskStatus.completed:
-          _debugLog('poll completed record=$recordId task=$taskId');
-          _stopTaskPolling(recordId);
-          await _generationRecordRepository.updatePipelineStatus(
-            recordId: recordId,
-            status: GenerationRecordPipelineStatus.completed,
-            updatedAt: DateTime.now(),
-            clearError: true,
-          );
-          await _generationRecordRepository.updateTaskFields(
-            recordId: recordId,
-            updatedAt: DateTime.now(),
-            taskStatus: task.status.wireValue,
-            resultImageObjectId: task.resultImageObjectId,
-          );
-          await _processCompletedResult(recordId: recordId, taskId: taskId);
-        case GenerationTaskStatus.failed:
-        case GenerationTaskStatus.canceled:
-          _debugLog(
-            'poll terminal failure record=$recordId task=$taskId status=${task.status.wireValue} code=${task.lastErrorCode ?? task.status.wireValue} message=${task.lastErrorMessage ?? 'none'}',
-          );
-          _stopTaskPolling(recordId);
-          await _generationRecordRepository.updateTaskFields(
-            recordId: recordId,
-            updatedAt: DateTime.now(),
-            taskStatus: task.status.wireValue,
-            resultImageObjectId: task.resultImageObjectId,
-          );
-          await _generationRecordRepository.updatePipelineStatus(
-            recordId: recordId,
-            status: GenerationRecordPipelineStatus.generationFailed,
-            updatedAt: DateTime.now(),
-            errorCode: task.lastErrorCode ?? task.status.wireValue,
-            errorMessage:
-                task.lastErrorMessage ??
-                'Generation task ${task.status.wireValue}.',
-          );
-        case GenerationTaskStatus.unknown:
-          _debugLog('poll unknown status record=$recordId task=$taskId');
-          _stopTaskPolling(recordId);
-          await _failRecord(
-            recordId: recordId,
-            errorCode: 'unknown_task_status',
-            errorMessage: 'Generation task returned an unknown status.',
-          );
-      }
+      await _handlePolledTask(recordId: recordId, taskId: taskId, task: task);
     } on BackendApiFailure catch (error) {
       _debugLog(
         'poll backend failure record=$recordId task=$taskId code=${error.code} status=${error.statusCode} message=${error.message}',
       );
-      _stopTaskPolling(recordId);
       await _failRecord(
         recordId: recordId,
         errorCode: error.code,
@@ -1097,12 +1135,80 @@ class GenerationSubmissionService extends ChangeNotifier {
       _debugLog(
         'poll local failure record=$recordId task=$taskId error=$error',
       );
-      _stopTaskPolling(recordId);
       await _failRecord(
         recordId: recordId,
         errorCode: 'task_poll_error',
         errorMessage: error.toString(),
       );
+    }
+  }
+
+  Future<void> _handlePolledTask({
+    required String recordId,
+    required String taskId,
+    required GenerationTask task,
+  }) async {
+    _debugLog(
+      'poll response record=$recordId task=$taskId status=${task.status.wireValue} result=${task.resultImageObjectId ?? 'none'} errorCode=${task.lastErrorCode ?? 'none'} errorMessage=${task.lastErrorMessage ?? 'none'}',
+    );
+    switch (task.status) {
+      case GenerationTaskStatus.pending:
+      case GenerationTaskStatus.processing:
+      case GenerationTaskStatus.modelRunning:
+        await _generationRecordRepository.updatePipelineStatus(
+          recordId: recordId,
+          status: GenerationRecordPipelineStatus.pollingTask,
+          updatedAt: DateTime.now(),
+          clearError: true,
+        );
+        await _generationRecordRepository.updateTaskFields(
+          recordId: recordId,
+          updatedAt: DateTime.now(),
+          taskStatus: task.status.wireValue,
+          resultImageObjectId: task.resultImageObjectId,
+        );
+      case GenerationTaskStatus.completed:
+        _debugLog('poll completed record=$recordId task=$taskId');
+        await _generationRecordRepository.updatePipelineStatus(
+          recordId: recordId,
+          status: GenerationRecordPipelineStatus.completed,
+          updatedAt: DateTime.now(),
+          clearError: true,
+        );
+        await _generationRecordRepository.updateTaskFields(
+          recordId: recordId,
+          updatedAt: DateTime.now(),
+          taskStatus: task.status.wireValue,
+          resultImageObjectId: task.resultImageObjectId,
+        );
+        await _processCompletedResult(recordId: recordId, taskId: taskId);
+      case GenerationTaskStatus.failed:
+      case GenerationTaskStatus.canceled:
+        _debugLog(
+          'poll terminal failure record=$recordId task=$taskId status=${task.status.wireValue} code=${task.lastErrorCode ?? task.status.wireValue} message=${task.lastErrorMessage ?? 'none'}',
+        );
+        await _generationRecordRepository.updateTaskFields(
+          recordId: recordId,
+          updatedAt: DateTime.now(),
+          taskStatus: task.status.wireValue,
+          resultImageObjectId: task.resultImageObjectId,
+        );
+        await _generationRecordRepository.updatePipelineStatus(
+          recordId: recordId,
+          status: GenerationRecordPipelineStatus.generationFailed,
+          updatedAt: DateTime.now(),
+          errorCode: task.lastErrorCode ?? task.status.wireValue,
+          errorMessage:
+              task.lastErrorMessage ??
+              'Generation task ${task.status.wireValue}.',
+        );
+      case GenerationTaskStatus.unknown:
+        _debugLog('poll unknown status record=$recordId task=$taskId');
+        await _failRecord(
+          recordId: recordId,
+          errorCode: 'unknown_task_status',
+          errorMessage: 'Generation task returned an unknown status.',
+        );
     }
   }
 
@@ -1293,21 +1399,26 @@ class GenerationSubmissionService extends ChangeNotifier {
   }
 
   void _stopTaskPolling(String jobId) {
-    final Timer? timer = _pollingTimers.remove(jobId);
-    timer?.cancel();
-    if (timer != null) {
-      _debugLog('polling stop job=$jobId');
-    }
+    _debugLog('batch polling forget job=$jobId');
   }
 
   void _cancelAllPolling() {
-    if (_pollingTimers.isNotEmpty) {
-      _debugLog('dispose cancel polling count=${_pollingTimers.length}');
+    if (_batchPollingTimer != null) {
+      _debugLog('dispose cancel batch polling');
     }
-    for (final Timer timer in _pollingTimers.values) {
-      timer.cancel();
+    _batchPollingTimer?.cancel();
+    _batchPollingTimer = null;
+    _batchPollingOperation = null;
+  }
+
+  void _stopBatchPolling() {
+    final Timer? timer = _batchPollingTimer;
+    if (timer == null) {
+      return;
     }
-    _pollingTimers.clear();
+    timer.cancel();
+    _batchPollingTimer = null;
+    _debugLog('batch polling stop');
   }
 
   void _scheduleResultProcessingRetry({
@@ -1619,6 +1730,13 @@ class GenerationSubmissionService extends ChangeNotifier {
 
 class _ResultUrlNotReadyException implements Exception {
   const _ResultUrlNotReadyException();
+}
+
+Iterable<List<T>> _chunks<T>(List<T> items, int size) sync* {
+  for (var index = 0; index < items.length; index += size) {
+    final int end = index + size > items.length ? items.length : index + size;
+    yield items.sublist(index, end);
+  }
 }
 
 class _RuntimeGenerationRecordState {

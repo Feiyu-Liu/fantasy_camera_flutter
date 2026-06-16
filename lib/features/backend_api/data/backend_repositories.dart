@@ -120,6 +120,8 @@ abstract interface class GenerationTaskRepository {
 
   Future<GenerationTask> fetchTask(String taskId);
 
+  Future<GenerationTasksBatchResult> fetchTasksBatch(List<String> taskIds);
+
   Future<List<GenerationTask>> listTasks({int limit = 20});
 
   Future<GenerationTask> cancelTask(String taskId);
@@ -148,6 +150,17 @@ class WorkerGenerationTaskRepository implements GenerationTaskRepository {
     return _client.get<GenerationTask>(
       '/v1/generation-tasks/$taskId',
       decode: (Object? data) => decodeJsonObject(data, GenerationTask.fromJson),
+    );
+  }
+
+  @override
+  Future<GenerationTasksBatchResult> fetchTasksBatch(List<String> taskIds) {
+    return _client.post<GenerationTasksBatchResult>(
+      '/v1/generation-tasks/batch',
+      data: <String, Object?>{'taskIds': taskIds},
+      decode: (Object? data) {
+        return decodeJsonObject(data, GenerationTasksBatchResult.fromJson);
+      },
     );
   }
 

@@ -1733,6 +1733,30 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   }
 
   @override
+  Future<GenerationTasksBatchResult> fetchTasksBatch(
+    List<String> taskIds,
+  ) async {
+    return GenerationTasksBatchResult(
+      tasks: taskIds
+          .map(
+            (String taskId) => GenerationTask(
+              id: taskId,
+              status: GenerationTaskStatus.pending,
+              promptStyle: 'realistic',
+              captureMode: 'portrait',
+              sourceImageObjectId: 'source-1',
+              costCredits: 2,
+              attemptCount: 1,
+              maxAttempts: 3,
+              createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+            ),
+          )
+          .toList(growable: false),
+      missingIds: const <String>[],
+    );
+  }
+
+  @override
   Future<List<GenerationTask>> listTasks({int limit = 20}) {
     throw UnimplementedError();
   }

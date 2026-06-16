@@ -1572,9 +1572,9 @@ class _StatusBadge extends StatelessWidget {
         size: 16,
       ),
       GenerationSubmissionStatus.completed => Icon(
-        LucideIcons.circleCheck,
+        LucideIcons.download,
         key: const ValueKey<String>('generation-submission-status-completed'),
-        color: AppColors.success,
+        color: AppColors.white,
         size: 16,
       ),
       GenerationSubmissionStatus.failed => Icon(
@@ -1583,7 +1583,22 @@ class _StatusBadge extends StatelessWidget {
         color: AppColors.danger,
         size: 16,
       ),
-      _ => CupertinoActivityIndicator(
+      GenerationSubmissionStatus.queued ||
+      GenerationSubmissionStatus.preparingUploadImage ||
+      GenerationSubmissionStatus.readingFile ||
+      GenerationSubmissionStatus.creatingUpload ||
+      GenerationSubmissionStatus.uploading ||
+      GenerationSubmissionStatus.completingUpload ||
+      GenerationSubmissionStatus.creatingTask ||
+      GenerationSubmissionStatus.submitted => Icon(
+        LucideIcons.cloudUpload,
+        key: const ValueKey<String>('generation-submission-status-uploading'),
+        color: AppColors.white,
+        size: 15,
+      ),
+      GenerationSubmissionStatus.pollingTask ||
+      GenerationSubmissionStatus.processingResultImage =>
+        CupertinoActivityIndicator(
         key: const ValueKey<String>('generation-submission-status-processing'),
         color: AppColors.white,
         radius: 6,
