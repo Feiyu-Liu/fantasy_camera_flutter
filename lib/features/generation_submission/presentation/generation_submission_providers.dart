@@ -10,6 +10,7 @@ import '../../../auth/presentation/auth_providers.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
 import '../../notifications/presentation/notification_providers.dart';
+import '../application/background_upload_spike_service.dart';
 import '../application/generation_original_cache_cleaner.dart';
 import '../application/generation_submission_service.dart';
 import '../data/generation_record_database.dart';
@@ -138,6 +139,18 @@ final clearableOriginalCacheStatsProvider =
       dependencies: <ProviderOrFamily>[
         generationOriginalCacheCleanerProvider,
         generationOriginalCacheStatsRepositoryProvider,
+      ],
+    );
+
+final backgroundUploadSpikeServiceProvider =
+    Provider<BackgroundUploadSpikeService>(
+      (Ref ref) => BackgroundUploadSpikeService(
+        uploadRepository: ref.watch(uploadRepositoryProvider),
+        imageProcessor: ref.watch(generationImageProcessorProvider),
+      ),
+      dependencies: <ProviderOrFamily>[
+        uploadRepositoryProvider,
+        generationImageProcessorProvider,
       ],
     );
 

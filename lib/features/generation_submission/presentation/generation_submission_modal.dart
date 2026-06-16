@@ -84,6 +84,7 @@ class _GenerationSubmissionDebugModalState
   String? _selectedJobId;
   String? _loadingResultJobId;
   bool _pickingGalleryImage = false;
+  bool _runningBackgroundUploadSpike = false;
   bool _galleryExportProgressDialogVisible = false;
   final Map<String, _GalleryHeroDisplayState> _heroDisplayStates =
       <String, _GalleryHeroDisplayState>{};
@@ -385,7 +386,10 @@ class _GenerationSubmissionDebugModalState
                       jobs: jobs,
                       selectedJob: selectedJob,
                       pickingGalleryImage: _pickingGalleryImage,
+                      runningBackgroundUploadSpike:
+                          _runningBackgroundUploadSpike,
                       onPickGalleryImage: _pickGalleryImage,
+                      onRunBackgroundUploadSpike: _runBackgroundUploadSpike,
                       onSelectJob: _selectJobFromStrip,
                       onConfirmJob: _confirmJob,
                       onCancelJob: (GenerationSubmissionJob job) {
@@ -823,6 +827,64 @@ class _GenerationSubmissionDebugModalState
     }
   }
 
+  Future<void> _runBackgroundUploadSpike() async {
+    if (_runningBackgroundUploadSpike) {
+      _debugLog('background upload spike ignored because it is active');
+      return;
+    }
+
+    _debugLog('background upload spike pick start');
+    _cancelGalleryExportProgressSubscription();
+    _galleryExportProgressSubscription = _galleryImagePicker.progressEvents
+        .listen(_handleGalleryExportProgress);
+    setState(() {
+      _runningBackgroundUploadSpike = true;
+    });
+    _galleryExportProgress.value = 0;
+
+    try {
+      await _galleryImagePicker.cancelActivePick();
+      final PickedGalleryImage? pickedImage = await _galleryImagePicker
+          .pickImageFromGallery();
+      _cancelGalleryExportProgressSubscription();
+      if (mounted) {
+        _hideGalleryExportProgressDialog();
+      }
+      if (!mounted) {
+        _debugLog('background upload spike dropped because page was disposed');
+        return;
+      }
+      if (pickedImage == null) {
+        _debugLog('background upload spike pick canceled');
+        return;
+      }
+      _debugLog('background upload spike picked path=${pickedImage.file.path}');
+      final result = await ref
+          .read(backgroundUploadSpikeServiceProvider)
+          .run(filePath: pickedImage.file.path);
+      _debugLog(
+        'background upload spike success uploadSession=${result.uploadSessionId} source=${result.sourceImageObjectId} task=${result.downloaderTaskId} status=${result.status.name} http=${result.responseStatusCode ?? 'none'}',
+      );
+    } on Object catch (error, stackTrace) {
+      _debugLog('background upload spike failure error=$error');
+      debugPrintStack(
+        label: '[GenerationSubmissionModal] background upload spike stack',
+        stackTrace: stackTrace,
+      );
+    } finally {
+      _cancelGalleryExportProgressSubscription();
+      if (mounted) {
+        _hideGalleryExportProgressDialog();
+      }
+      if (mounted) {
+        setState(() {
+          _runningBackgroundUploadSpike = false;
+        });
+        _galleryExportProgress.value = 0;
+      }
+    }
+  }
+
   void _cancelGalleryExportProgressSubscription() {
     final StreamSubscription<GalleryImagePickProgress>? subscription =
         _galleryExportProgressSubscription;
@@ -1098,7 +1160,9 @@ class _RelatedMomentsStrip extends StatelessWidget {
     required this.jobs,
     required this.selectedJob,
     required this.pickingGalleryImage,
+    required this.runningBackgroundUploadSpike,
     required this.onPickGalleryImage,
+    required this.onRunBackgroundUploadSpike,
     required this.onSelectJob,
     required this.onConfirmJob,
     required this.onCancelJob,
@@ -1109,7 +1173,9 @@ class _RelatedMomentsStrip extends StatelessWidget {
   final List<GenerationSubmissionJob> jobs;
   final GenerationSubmissionJob? selectedJob;
   final bool pickingGalleryImage;
+  final bool runningBackgroundUploadSpike;
   final VoidCallback onPickGalleryImage;
+  final VoidCallback onRunBackgroundUploadSpike;
   final ValueChanged<GenerationSubmissionJob> onSelectJob;
   final ValueChanged<GenerationSubmissionJob> onConfirmJob;
   final ValueChanged<GenerationSubmissionJob> onCancelJob;
@@ -1160,13 +1226,15 @@ class _RelatedMomentsStrip extends StatelessWidget {
                         280.0,
                       );
                   final double tileWidth = tileHeight * 0.72;
+                  final bool showSpikeTile = !kReleaseMode;
+                  final int actionTileCount = showSpikeTile ? 2 : 1;
                   return ListView.separated(
                     key: const ValueKey<String>(
                       'generation-submission-photo-list',
                     ),
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    itemCount: jobs.length + 1,
+                    itemCount: jobs.length + actionTileCount,
                     separatorBuilder: (_, _) => const SizedBox(width: 8),
                     itemBuilder: (BuildContext context, int index) {
                       if (index == 0) {
@@ -1183,7 +1251,22 @@ class _RelatedMomentsStrip extends StatelessWidget {
                           ),
                         );
                       }
-                      final GenerationSubmissionJob job = jobs[index - 1];
+                      if (showSpikeTile && index == 1) {
+                        return _GalleryMomentItem(
+                          width: tileWidth,
+                          height: itemHeight,
+                          imageHeight: tileHeight,
+                          caption: 'BG Upload Spike',
+                          child: _GallerySpikeTile(
+                            width: tileWidth,
+                            height: tileHeight,
+                            running: runningBackgroundUploadSpike,
+                            onTap: onRunBackgroundUploadSpike,
+                          ),
+                        );
+                      }
+                      final GenerationSubmissionJob job =
+                          jobs[index - actionTileCount];
                       return _GalleryMomentItem(
                         width: tileWidth,
                         height: itemHeight,
@@ -1331,6 +1414,49 @@ class _GalleryPickerTile extends StatelessWidget {
                   ),
                 )
               : const Icon(LucideIcons.plus, color: AppColors.black, size: 24),
+        ),
+      ),
+    );
+  }
+}
+
+class _GallerySpikeTile extends StatelessWidget {
+  const _GallerySpikeTile({
+    required this.width,
+    required this.height,
+    required this.running,
+    required this.onTap,
+  });
+
+  final double width;
+  final double height;
+  final bool running;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      key: const ValueKey<String>('generation-submission-bg-upload-spike'),
+      onTap: running ? null : onTap,
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          border: Border.all(color: AppColors.black, width: 1),
+        ),
+        child: Center(
+          child: running
+              ? const CupertinoActivityIndicator(
+                  key: ValueKey<String>(
+                    'generation-submission-bg-upload-spike-loading',
+                  ),
+                )
+              : const Icon(
+                  LucideIcons.uploadCloud,
+                  color: AppColors.black,
+                  size: 24,
+                ),
         ),
       ),
     );
@@ -1597,8 +1723,8 @@ class _StatusBadge extends StatelessWidget {
         size: 15,
       ),
       GenerationSubmissionStatus.pollingTask ||
-      GenerationSubmissionStatus.processingResultImage =>
-        CupertinoActivityIndicator(
+      GenerationSubmissionStatus
+          .processingResultImage => CupertinoActivityIndicator(
         key: const ValueKey<String>('generation-submission-status-processing'),
         color: AppColors.white,
         radius: 6,
