@@ -17,6 +17,8 @@ import 'package:fantasy_camera_flutter/features/backend_api/domain/feedback.dart
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/application/background_r2_upload_service.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_submission_service.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
@@ -26,6 +28,7 @@ import 'package:fantasy_camera_flutter/features/camera/presentation/camera_scree
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_state.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
+import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -371,14 +374,9 @@ void main() {
       await _pumpEventQueue();
 
       job = container.read(generationSubmissionControllerProvider).jobs.single;
-      expect(job.status, GenerationSubmissionStatus.pollingTask);
-      expect(uploadRepository.events, <String>[
-        'create:image/jpeg:4',
-        'upload:upload-1:4',
-        'complete:upload-1',
-      ]);
-      expect(taskRepository.createdInputs, hasLength(1));
-      expect(taskRepository.createdInputs.single.captureMode, 'portrait');
+      expect(job.status, GenerationSubmissionStatus.uploadedWaitingTask);
+      expect(uploadRepository.events, <String>['create:image/jpeg:4']);
+      expect(taskRepository.createdInputs, isEmpty);
     },
   );
 
@@ -619,6 +617,29 @@ _TestContainer _container({
       feedbackRepositoryProvider.overrideWithValue(
         const _FakeFeedbackRepository(),
       ),
+      backgroundR2UploadServiceProvider.overrideWithValue(
+        const _FakeBackgroundR2UploadService(),
+      ),
+      generationSubmissionServiceProvider.overrideWith((Ref ref) {
+        final GenerationSubmissionService service = GenerationSubmissionService(
+          uploadRepository: ref.watch(uploadRepositoryProvider),
+          generationTaskRepository: ref.watch(generationTaskRepositoryProvider),
+          feedbackRepository: ref.watch(feedbackRepositoryProvider),
+          generationRecordRepository: ref.watch(
+            generationRecordRepositoryProvider,
+          ),
+          originalFileStore: ref.watch(generationOriginalFileStoreProvider),
+          photoLibraryAssetStore: ref.watch(photoLibraryAssetStoreProvider),
+          imageProcessor: ref.watch(generationImageProcessorProvider),
+          backgroundR2UploadService: ref.watch(
+            backgroundR2UploadServiceProvider,
+          ),
+          notificationDeviceCoordinator:
+              const NoopNotificationDeviceCoordinator(),
+        );
+        ref.onDispose(service.dispose);
+        return service;
+      }),
     ],
   );
   return _TestContainer(container: container, database: database);
@@ -930,6 +951,7 @@ class _FakeUploadRepository implements UploadRepository {
   Future<UploadSession> createUpload({
     required String contentType,
     required Uint8List bytes,
+    CreateGenerationTaskInput? generationRequest,
   }) async {
     events.add('create:$contentType:${bytes.length}');
     return UploadSession(
@@ -960,6 +982,27 @@ class _FakeUploadRepository implements UploadRepository {
     events.add('complete:$uploadSessionId');
     return <String, Object?>{'id': uploadSessionId, 'status': 'uploaded'};
   }
+}
+
+class _FakeBackgroundR2UploadService implements BackgroundR2UploadService {
+  const _FakeBackgroundR2UploadService();
+
+  @override
+  Future<BackgroundR2UploadResult> uploadFile({
+    required UploadSession uploadSession,
+    required String filePath,
+    required String contentType,
+    required String displayName,
+  }) async {
+    return const BackgroundR2UploadResult(
+      downloaderTaskId: 'downloader-1',
+      status: TaskStatus.complete,
+      responseStatusCode: 200,
+    );
+  }
+
+  @override
+  void dispose() {}
 }
 
 class _FakeGenerationTaskRepository implements GenerationTaskRepository {
@@ -995,6 +1038,13 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   }
 
   @override
+  Future<GenerationTask?> fetchTaskByUploadSession(
+    String uploadSessionId,
+  ) async {
+    return null;
+  }
+
+  @override
   Future<GenerationTasksBatchResult> fetchTasksBatch(
     List<String> taskIds,
   ) async {
@@ -1019,8 +1069,8 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   }
 
   @override
-  Future<List<GenerationTask>> listTasks({int limit = 20}) {
-    throw UnimplementedError();
+  Future<List<GenerationTask>> listTasks({int limit = 20}) async {
+    return const <GenerationTask>[];
   }
 
   @override

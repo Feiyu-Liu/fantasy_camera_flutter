@@ -14,7 +14,7 @@ void main() {
       styles.first.captureModes.map(
         (PromptCaptureModeDefinition captureMode) => captureMode.id,
       ),
-      <String>['portrait', 'general'],
+      <String>['portrait'],
     );
   });
 
@@ -91,11 +91,6 @@ const JsonObject _config = <String, Object?>{
               'defaultValue': false,
             },
           ],
-        },
-        <String, Object?>{
-          'id': 'general',
-          'title': 'General',
-          'switches': <Object?>[],
         },
       ],
     },

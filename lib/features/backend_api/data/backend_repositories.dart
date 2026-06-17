@@ -55,6 +55,7 @@ abstract interface class UploadRepository {
   Future<UploadSession> createUpload({
     required String contentType,
     required Uint8List bytes,
+    CreateGenerationTaskInput? generationRequest,
   });
 
   Future<void> uploadBytes({
@@ -74,6 +75,7 @@ class WorkerUploadRepository implements UploadRepository {
   Future<UploadSession> createUpload({
     required String contentType,
     required Uint8List bytes,
+    CreateGenerationTaskInput? generationRequest,
   }) {
     return _client.post<UploadSession>(
       '/v1/uploads',
@@ -81,6 +83,11 @@ class WorkerUploadRepository implements UploadRepository {
         'contentType': contentType,
         'byteSize': bytes.length,
         'checksumSha256': sha256Base64(bytes),
+        'purpose': 'generation_source',
+        if (generationRequest != null)
+          'generationRequest': generationRequest.toJson(
+            includeUploadSessionId: false,
+          ),
       },
       decode: (Object? data) => decodeJsonObject(data, UploadSession.fromJson),
     );
@@ -120,6 +127,8 @@ abstract interface class GenerationTaskRepository {
 
   Future<GenerationTask> fetchTask(String taskId);
 
+  Future<GenerationTask?> fetchTaskByUploadSession(String uploadSessionId);
+
   Future<GenerationTasksBatchResult> fetchTasksBatch(List<String> taskIds);
 
   Future<List<GenerationTask>> listTasks({int limit = 20});
@@ -150,6 +159,19 @@ class WorkerGenerationTaskRepository implements GenerationTaskRepository {
     return _client.get<GenerationTask>(
       '/v1/generation-tasks/$taskId',
       decode: (Object? data) => decodeJsonObject(data, GenerationTask.fromJson),
+    );
+  }
+
+  @override
+  Future<GenerationTask?> fetchTaskByUploadSession(String uploadSessionId) {
+    return _client.get<GenerationTask?>(
+      '/v1/uploads/$uploadSessionId/generation-task',
+      decode: (Object? data) {
+        if (data == null) {
+          return null;
+        }
+        return decodeJsonObject(data, GenerationTask.fromJson);
+      },
     );
   }
 

@@ -8,7 +8,7 @@ enum GenerationSubmissionStatus {
   readingFile,
   creatingUpload,
   uploading,
-  completingUpload,
+  uploadedWaitingTask,
   creatingTask,
   submitted,
   pollingTask,

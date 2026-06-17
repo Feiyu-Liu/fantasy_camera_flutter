@@ -10,6 +10,7 @@ import '../../../auth/presentation/auth_providers.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
 import '../../notifications/presentation/notification_providers.dart';
+import '../application/background_r2_upload_service.dart';
 import '../application/background_upload_spike_service.dart';
 import '../application/generation_original_cache_cleaner.dart';
 import '../application/generation_submission_service.dart';
@@ -167,6 +168,9 @@ final generationSubmissionServiceProvider =
           originalFileStore: ref.watch(generationOriginalFileStoreProvider),
           photoLibraryAssetStore: ref.watch(photoLibraryAssetStoreProvider),
           imageProcessor: ref.watch(generationImageProcessorProvider),
+          backgroundR2UploadService: ref.watch(
+            backgroundR2UploadServiceProvider,
+          ),
           notificationDeviceCoordinator: ref.watch(
             notificationDeviceControllerProvider.notifier,
           ),
@@ -183,9 +187,19 @@ final generationSubmissionServiceProvider =
         generationOriginalFileStoreProvider,
         photoLibraryAssetStoreProvider,
         generationImageProcessorProvider,
+        backgroundR2UploadServiceProvider,
         notificationDeviceControllerProvider,
       ],
     );
+
+final backgroundR2UploadServiceProvider = Provider<BackgroundR2UploadService>((
+  Ref ref,
+) {
+  final BackgroundDownloaderR2UploadService service =
+      BackgroundDownloaderR2UploadService();
+  ref.onDispose(service.dispose);
+  return service;
+});
 
 final generationSubmissionControllerProvider =
     NotifierProvider<GenerationSubmissionController, GenerationSubmissionState>(
@@ -657,14 +671,14 @@ int _statusRank(GenerationSubmissionStatus status) {
     GenerationSubmissionStatus.readingFile => 3,
     GenerationSubmissionStatus.creatingUpload => 4,
     GenerationSubmissionStatus.uploading => 5,
-    GenerationSubmissionStatus.completingUpload => 6,
+    GenerationSubmissionStatus.uploadedWaitingTask => 6,
     GenerationSubmissionStatus.creatingTask => 7,
     GenerationSubmissionStatus.submitted => 8,
     GenerationSubmissionStatus.pollingTask => 9,
     GenerationSubmissionStatus.completed => 10,
     GenerationSubmissionStatus.processingResultImage => 11,
-    GenerationSubmissionStatus.resultSaved => 12,
+    GenerationSubmissionStatus.resultSaved => 14,
     GenerationSubmissionStatus.resultProcessingFailed => 12,
-    GenerationSubmissionStatus.failed => 12,
+    GenerationSubmissionStatus.failed => 13,
   };
 }

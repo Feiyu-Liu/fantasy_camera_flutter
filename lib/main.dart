@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/fantasy_camera_app.dart';
 import 'config/app_config.dart';
+import 'features/generation_submission/application/background_r2_upload_service.dart';
 import 'settings/application/app_settings.dart';
 import 'shared/core/app_logger.dart';
 
@@ -18,6 +19,12 @@ Future<void> main() async {
   ]);
   final AppSettingsState initialSettings =
       await const SharedPreferencesAppSettingsRepository().loadSettings();
+
+  try {
+    await BackgroundDownloaderR2UploadService.initializeDownloader();
+  } on Object catch (error, stackTrace) {
+    logAppError('background_downloader_initialize_failed', error, stackTrace);
+  }
 
   if (AppConfig.hasSupabaseConfig) {
     try {

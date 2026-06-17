@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:background_downloader/background_downloader.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
@@ -10,6 +11,7 @@ import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.da
 import 'package:fantasy_camera_flutter/features/backend_api/domain/prompt_config.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/application/background_r2_upload_service.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_submission_service.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_repository.dart';
@@ -24,7 +26,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('loads built-in prompt styles and switches capture modes', () {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('loads built-in prompt styles and ignores unavailable capture modes', () {
     final ProviderContainer container = _container();
     addTearDown(container.dispose);
 
@@ -50,14 +54,19 @@ void main() {
 
     notifier.selectCaptureMode('general');
     state = container.read(promptSelectionControllerProvider);
-    expect(state.selectedCaptureModeId, 'general');
-    expect(state.switches, isEmpty);
-    expect(state.snapshot.captureMode, 'general');
+    expect(state.selectedCaptureModeId, 'portrait');
+    expect(
+      state.switches.map((PromptSwitchDefinition switchDefinition) {
+        return switchDefinition.id;
+      }),
+      <String>['recompose', 'beautifyFace', 'cleanFrame', 'backgroundBlur'],
+    );
+    expect(state.snapshot.captureMode, 'portrait');
 
     notifier.selectPromptStyle('abstract');
     state = container.read(promptSelectionControllerProvider);
     expect(state.selectedPromptStyleId, 'realistic');
-    expect(state.selectedCaptureModeId, 'general');
+    expect(state.selectedCaptureModeId, 'portrait');
     expect(state.snapshot.promptStyle, 'realistic');
   });
 
@@ -83,11 +92,15 @@ void main() {
         _FakeGenerationImageProcessor();
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
     final _FakeGenerationTaskRepository taskRepository =
-        _FakeGenerationTaskRepository();
+        _FakeGenerationTaskRepository()
+          ..listTaskResponses.add(_task(status: GenerationTaskStatus.pending));
+    final _FakeBackgroundR2UploadService backgroundR2UploadService =
+        _FakeBackgroundR2UploadService();
     final ProviderContainer container = _container(
       imageProcessor: imageProcessor,
       uploadRepository: uploadRepository,
       taskRepository: taskRepository,
+      backgroundR2UploadService: backgroundR2UploadService,
     );
     addTearDown(container.dispose);
 
@@ -121,15 +134,23 @@ void main() {
     expect(job.sourceExif, <String, Object>{
       'DateTimeOriginal': '2026:05:29 00:00:00',
     });
-    expect(uploadRepository.events, <String>[
-      'create:image/jpeg:4',
-      'upload:upload-1:4',
-      'complete:upload-1',
-    ]);
-    expect(taskRepository.createdInputs.single.promptStyle, 'realistic');
-    expect(taskRepository.createdInputs.single.captureMode, 'portrait');
+    expect(uploadRepository.events, <String>['create:image/jpeg:4']);
+    expect(backgroundR2UploadService.events, hasLength(1));
     expect(
-      taskRepository.createdInputs.single.userInput['switches'],
+      backgroundR2UploadService.events.single,
+      startsWith('background-upload:upload-1:'),
+    );
+    expect(backgroundR2UploadService.events.single, endsWith(':image/jpeg'));
+    expect(taskRepository.createdInputs, isEmpty);
+    expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
+    expect(taskRepository.listTaskLimits, isEmpty);
+    expect(
+      uploadRepository.generationRequests.single?.promptStyle,
+      'realistic',
+    );
+    expect(uploadRepository.generationRequests.single?.captureMode, 'portrait');
+    expect(
+      uploadRepository.generationRequests.single?.userInput['switches'],
       <String, Object?>{
         'recompose': false,
         'beautifyFace': false,
@@ -140,9 +161,12 @@ void main() {
   });
 
   test('uses queued prompt snapshot when confirming a job', () async {
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
     final _FakeGenerationTaskRepository taskRepository =
-        _FakeGenerationTaskRepository();
+        _FakeGenerationTaskRepository()
+          ..listTaskResponses.add(_task(status: GenerationTaskStatus.pending));
     final ProviderContainer container = _container(
+      uploadRepository: uploadRepository,
       taskRepository: taskRepository,
     );
     addTearDown(container.dispose);
@@ -171,7 +195,8 @@ void main() {
         .toggleSwitch('beautifyFace');
     await notifier.confirmJob(jobId);
 
-    final CreateGenerationTaskInput input = taskRepository.createdInputs.single;
+    final CreateGenerationTaskInput input =
+        uploadRepository.generationRequests.single!;
     expect(input.appInputContractId, 'contract-1');
     expect(input.userInput['switches'], <String, Object?>{
       'recompose': true,
@@ -182,9 +207,12 @@ void main() {
   });
 
   test('submit captured file keeps provided prompt selection', () async {
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
     final _FakeGenerationTaskRepository taskRepository =
-        _FakeGenerationTaskRepository();
+        _FakeGenerationTaskRepository()
+          ..listTaskResponses.add(_task(status: GenerationTaskStatus.pending));
     final ProviderContainer container = _container(
+      uploadRepository: uploadRepository,
       taskRepository: taskRepository,
     );
     addTearDown(container.dispose);
@@ -195,7 +223,7 @@ void main() {
           XFile('/tmp/photo.jpg'),
           promptSelection: const PromptSelectionSnapshot(
             promptStyle: 'realistic',
-            captureMode: 'general',
+            captureMode: 'portrait',
             switches: <String, bool>{},
           ),
         );
@@ -205,8 +233,12 @@ void main() {
         .jobs
         .single;
     expect(job.status, GenerationSubmissionStatus.pollingTask);
-    expect(taskRepository.createdInputs.single.promptStyle, 'realistic');
-    expect(taskRepository.createdInputs.single.captureMode, 'general');
+    expect(
+      uploadRepository.generationRequests.single?.promptStyle,
+      'realistic',
+    );
+    expect(uploadRepository.generationRequests.single?.captureMode, 'portrait');
+    expect(taskRepository.createdInputs, isEmpty);
   });
 
   test('concurrent confirms submit a job only once', () async {
@@ -215,11 +247,15 @@ void main() {
           ..prepareDelay = const Duration(milliseconds: 20);
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
     final _FakeGenerationTaskRepository taskRepository =
-        _FakeGenerationTaskRepository();
+        _FakeGenerationTaskRepository()
+          ..listTaskResponses.add(_task(status: GenerationTaskStatus.pending));
+    final _FakeBackgroundR2UploadService backgroundR2UploadService =
+        _FakeBackgroundR2UploadService();
     final ProviderContainer container = _container(
       imageProcessor: imageProcessor,
       uploadRepository: uploadRepository,
       taskRepository: taskRepository,
+      backgroundR2UploadService: backgroundR2UploadService,
     );
     addTearDown(container.dispose);
 
@@ -236,12 +272,11 @@ void main() {
     ]);
 
     expect(imageProcessor.preparedSourcePaths, <String>['/tmp/photo.jpg']);
-    expect(uploadRepository.events, <String>[
-      'create:image/jpeg:4',
-      'upload:upload-1:4',
-      'complete:upload-1',
-    ]);
-    expect(taskRepository.createdInputs, hasLength(1));
+    expect(uploadRepository.events, <String>['create:image/jpeg:4']);
+    expect(backgroundR2UploadService.events, hasLength(1));
+    expect(taskRepository.createdInputs, isEmpty);
+    expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
+    expect(taskRepository.listTaskLimits, isEmpty);
   });
 
   test('queues captured file into private original cache', () async {
@@ -356,6 +391,7 @@ void main() {
             originalFileStore: originalFileStore,
             photoLibraryAssetStore: photoLibraryAssetStore,
             imageProcessor: _FakeGenerationImageProcessor(),
+            backgroundR2UploadService: _FakeBackgroundR2UploadService(),
           );
       addTearDown(firstService.dispose);
 
@@ -376,6 +412,7 @@ void main() {
             originalFileStore: originalFileStore,
             photoLibraryAssetStore: photoLibraryAssetStore,
             imageProcessor: _FakeGenerationImageProcessor(),
+            backgroundR2UploadService: _FakeBackgroundR2UploadService(),
           );
       addTearDown(restartedService.dispose);
 
@@ -418,18 +455,19 @@ void main() {
     expect(taskRepository.createdInputs, isEmpty);
   });
 
-  test('marks job failed when signed upload fails', () async {
-    final _FakeUploadRepository uploadRepository = _FakeUploadRepository()
-      ..uploadFailure = const BackendApiFailure(
-        code: 'http_error',
-        message: 'Signature mismatch',
-        statusCode: 403,
-      );
+  test('marks job failed when background upload fails', () async {
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+    final _FakeBackgroundR2UploadService backgroundR2UploadService =
+        _FakeBackgroundR2UploadService()
+          ..status = TaskStatus.failed
+          ..responseStatusCode = 403
+          ..responseBody = 'Signature mismatch';
     final _FakeGenerationTaskRepository taskRepository =
         _FakeGenerationTaskRepository();
     final ProviderContainer container = _container(
       uploadRepository: uploadRepository,
       taskRepository: taskRepository,
+      backgroundR2UploadService: backgroundR2UploadService,
     );
     addTearDown(container.dispose);
 
@@ -443,19 +481,67 @@ void main() {
         .single;
     expect(job.status, GenerationSubmissionStatus.failed);
     expect(job.uploadSessionId, 'upload-1');
-    expect(job.errorCode, 'http_error');
-    expect(uploadRepository.events, <String>[
-      'create:image/jpeg:4',
-      'upload:upload-1:4',
-    ]);
+    expect(job.errorCode, 'upload_failed');
+    expect(uploadRepository.events, <String>['create:image/jpeg:4']);
+    expect(backgroundR2UploadService.events, hasLength(1));
+    expect(
+      backgroundR2UploadService.events.single,
+      startsWith('background-upload:upload-1:'),
+    );
+    expect(backgroundR2UploadService.events.single, endsWith(':image/jpeg'));
     expect(taskRepository.createdInputs, isEmpty);
   });
 
-  test('marks job failed when task creation fails', () async {
+  test('create upload network timeout stays recoverable and resumes', () async {
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository()
+      ..createUploadFailures.add(
+        const BackendApiFailure(
+          code: 'network_timeout',
+          message: 'Timed out while creating upload.',
+        ),
+      );
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository();
+    final ProviderContainer container = _container(
+      uploadRepository: uploadRepository,
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    final GenerationSubmissionController controller = container.read(
+      generationSubmissionControllerProvider.notifier,
+    );
+
+    final String jobId = await controller.queueGalleryFile(
+      XFile('/tmp/photo.jpg'),
+    );
+    await controller.confirmJob(jobId);
+
+    GenerationSubmissionJob job = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(job.status, GenerationSubmissionStatus.creatingUpload);
+    expect(job.errorCode, 'network_timeout');
+    expect(uploadRepository.events, <String>['create:image/jpeg:4']);
+    expect(taskRepository.fetchTaskByUploadSessionIds, isEmpty);
+
+    await controller.resumeActiveRecords();
+
+    job = container.read(generationSubmissionControllerProvider).jobs.single;
+    expect(job.status, GenerationSubmissionStatus.pollingTask);
+    expect(uploadRepository.events, <String>[
+      'create:image/jpeg:4',
+      'create:image/jpeg:4',
+    ]);
+    expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
+  });
+
+  test('marks job failed when uploaded task recovery fails', () async {
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
     final _FakeGenerationTaskRepository taskRepository =
         _FakeGenerationTaskRepository()
-          ..createTaskFailure = const BackendApiFailure(
+          ..fetchTaskByUploadSessionFailure = const BackendApiFailure(
             code: 'task_create_failed',
             message: 'Generation task was not created',
             statusCode: 502,
@@ -477,11 +563,8 @@ void main() {
     expect(job.status, GenerationSubmissionStatus.failed);
     expect(job.uploadSessionId, 'upload-1');
     expect(job.errorCode, 'task_create_failed');
-    expect(uploadRepository.events, <String>[
-      'create:image/jpeg:4',
-      'upload:upload-1:4',
-      'complete:upload-1',
-    ]);
+    expect(uploadRepository.events, <String>['create:image/jpeg:4']);
+    expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
   });
 
   test('can submit multiple captured files without replacing jobs', () async {
@@ -576,16 +659,14 @@ void main() {
             'save:/tmp/photo.jpg.cleaned.jpg.result.heic:TesserCam:TesserCam-$jobId.heic',
       ),
     );
-    expect(photoLibraryAssetStore.resolvedAssetIds, <String>[
-      'asset-result-1',
-      'asset-result-1',
-    ]);
+    expect(photoLibraryAssetStore.resolvedAssetIds, contains('asset-result-1'));
     final GenerationRecord? record = await container
         .read(generationRecordRepositoryProvider)
         .findById(jobId);
     expect(record?.resultAssetId, 'asset-result-1');
     expect(record?.resultLocalCachePath, isNull);
-    expect(taskRepository.fetchTaskIds, <String>['task-1', 'task-1']);
+    expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
+    expect(taskRepository.fetchTaskIds, isEmpty);
   });
 
   test('result not ready retries result url without marking failure', () async {
@@ -729,6 +810,7 @@ void main() {
       originalFileStore: _FakeGenerationOriginalFileStore(),
       photoLibraryAssetStore: photoLibraryAssetStore,
       imageProcessor: _FakeGenerationImageProcessor(),
+      backgroundR2UploadService: _FakeBackgroundR2UploadService(),
     );
     addTearDown(service.dispose);
 
@@ -792,6 +874,7 @@ void main() {
       originalFileStore: _FakeGenerationOriginalFileStore(),
       photoLibraryAssetStore: photoLibraryAssetStore,
       imageProcessor: _FakeGenerationImageProcessor(),
+      backgroundR2UploadService: _FakeBackgroundR2UploadService(),
     );
     addTearDown(service.dispose);
 
@@ -855,6 +938,7 @@ void main() {
       originalFileStore: _FakeGenerationOriginalFileStore(),
       photoLibraryAssetStore: _FakePhotoLibraryAssetStore(),
       imageProcessor: _FakeGenerationImageProcessor(),
+      backgroundR2UploadService: _FakeBackgroundR2UploadService(),
     );
     addTearDown(service.dispose);
 
@@ -920,6 +1004,7 @@ void main() {
       originalFileStore: _FakeGenerationOriginalFileStore(),
       photoLibraryAssetStore: _FakePhotoLibraryAssetStore(),
       imageProcessor: _FakeGenerationImageProcessor(),
+      backgroundR2UploadService: _FakeBackgroundR2UploadService(),
     );
     addTearDown(service.dispose);
 
@@ -934,6 +1019,136 @@ void main() {
       GenerationRecordPipelineStatus.pollingTask.name,
     );
     expect(record?.errorCode, isNull);
+  });
+
+  test('uploaded task recovery failure marks record failed', () async {
+    final GenerationRecordDatabase database =
+        GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(database.close);
+    final GenerationRecordRepository repository = GenerationRecordRepository(
+      database,
+    );
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..fetchTaskByUploadSessionFailure = const BackendApiFailure(
+            code: 'upload_event_failed',
+            message: 'No active prompt for requested route',
+            statusCode: 409,
+          );
+
+    await repository.createCameraRecord(
+      recordId: 'record-uploaded',
+      originalLocalPath: 'originals/record-uploaded.heic',
+      createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+      promptStyle: 'realistic',
+      captureMode: 'portrait',
+    );
+    await repository.updateUploadFields(
+      recordId: 'record-uploaded',
+      updatedAt: DateTime.parse('2026-05-29T00:00:01Z'),
+      uploadSessionId: 'upload-1',
+      sourceImageObjectId: 'source-1',
+      uploadContentType: 'image/jpeg',
+      uploadSizeBytes: 4,
+    );
+    await repository.updatePipelineStatus(
+      recordId: 'record-uploaded',
+      status: GenerationRecordPipelineStatus.uploadedWaitingTask,
+      updatedAt: DateTime.parse('2026-05-29T00:00:02Z'),
+    );
+
+    final GenerationSubmissionService service = GenerationSubmissionService(
+      uploadRepository: _FakeUploadRepository(),
+      generationTaskRepository: taskRepository,
+      feedbackRepository: _FakeFeedbackRepository(),
+      generationRecordRepository: repository,
+      originalFileStore: _FakeGenerationOriginalFileStore(),
+      photoLibraryAssetStore: _FakePhotoLibraryAssetStore(),
+      imageProcessor: _FakeGenerationImageProcessor(),
+      backgroundR2UploadService: _FakeBackgroundR2UploadService(),
+    );
+    addTearDown(service.dispose);
+
+    await service.resumeActiveRecords();
+
+    final GenerationRecord? record = await repository.findById(
+      'record-uploaded',
+    );
+    expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
+    expect(
+      record?.pipelineStatus,
+      GenerationRecordPipelineStatus.generationFailed.name,
+    );
+    expect(record?.errorCode, 'upload_event_failed');
+    expect(record?.errorMessage, 'No active prompt for requested route');
+  });
+
+  test('resume uploading record recovers completed backend task', () async {
+    final GenerationRecordDatabase database =
+        GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(database.close);
+    final GenerationRecordRepository repository = GenerationRecordRepository(
+      database,
+    );
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..fetchTaskResponses.add(
+            _task(
+              status: GenerationTaskStatus.completed,
+              resultImageObjectId: 'result-1',
+            ),
+          );
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+    final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
+        _FakePhotoLibraryAssetStore();
+
+    await repository.createCameraRecord(
+      recordId: 'record-uploading',
+      originalLocalPath: 'originals/record-uploading.heic',
+      createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+      promptStyle: 'realistic',
+      captureMode: 'portrait',
+    );
+    await repository.updateUploadFields(
+      recordId: 'record-uploading',
+      updatedAt: DateTime.parse('2026-05-29T00:00:01Z'),
+      uploadSessionId: 'upload-1',
+      sourceImageObjectId: 'source-1',
+      uploadContentType: 'image/jpeg',
+      uploadSizeBytes: 4,
+    );
+    await repository.updatePipelineStatus(
+      recordId: 'record-uploading',
+      status: GenerationRecordPipelineStatus.uploading,
+      updatedAt: DateTime.parse('2026-05-29T00:00:02Z'),
+    );
+
+    final GenerationSubmissionService service = GenerationSubmissionService(
+      uploadRepository: uploadRepository,
+      generationTaskRepository: taskRepository,
+      feedbackRepository: _FakeFeedbackRepository(),
+      generationRecordRepository: repository,
+      originalFileStore: _FakeGenerationOriginalFileStore(),
+      photoLibraryAssetStore: photoLibraryAssetStore,
+      imageProcessor: _FakeGenerationImageProcessor(),
+      backgroundR2UploadService: _FakeBackgroundR2UploadService(),
+    );
+    addTearDown(service.dispose);
+
+    await service.resumeActiveRecords();
+
+    final GenerationRecord? record = await repository.findById(
+      'record-uploading',
+    );
+    expect(uploadRepository.events, isEmpty);
+    expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
+    expect(
+      record?.pipelineStatus,
+      GenerationRecordPipelineStatus.resultSaved.name,
+    );
+    expect(record?.taskId, 'task-1');
+    expect(record?.resultAssetId, 'asset-result-1');
+    expect(photoLibraryAssetStore.events.single, contains('record-uploading'));
   });
 
   test('retry failed job resubmits from original image', () async {
@@ -976,13 +1191,13 @@ void main() {
     expect(job.errorCode, isNull);
     expect(uploadRepository.events, <String>[
       'create:image/jpeg:4',
-      'upload:upload-1:4',
-      'complete:upload-1',
       'create:image/jpeg:4',
-      'upload:upload-1:4',
-      'complete:upload-1',
     ]);
-    expect(taskRepository.createdInputs, hasLength(2));
+    expect(taskRepository.createdInputs, isEmpty);
+    expect(taskRepository.fetchTaskByUploadSessionIds, <String>[
+      'upload-1',
+      'upload-1',
+    ]);
   });
 
   test(
@@ -1021,7 +1236,7 @@ void main() {
           .jobs
           .single;
       expect(job.status, GenerationSubmissionStatus.resultSaved);
-      expect(taskRepository.createdInputs, hasLength(1));
+      expect(taskRepository.createdInputs, isEmpty);
       expect(taskRepository.resultUrlTaskIds, <String>['task-1', 'task-1']);
       expect(imageProcessor.processedResultUrls, hasLength(2));
       expect(photoLibraryAssetStore.events, hasLength(2));
@@ -1313,6 +1528,7 @@ ProviderContainer _container({
   _FakeGenerationTaskRepository? taskRepository,
   _FakeFeedbackRepository? feedbackRepository,
   _FakeGenerationOriginalFileStore? originalFileStore,
+  _FakeBackgroundR2UploadService? backgroundR2UploadService,
 }) {
   final GenerationRecordDatabase database =
       GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
@@ -1337,6 +1553,29 @@ ProviderContainer _container({
       feedbackRepositoryProvider.overrideWithValue(
         feedbackRepository ?? _FakeFeedbackRepository(),
       ),
+      backgroundR2UploadServiceProvider.overrideWithValue(
+        backgroundR2UploadService ?? _FakeBackgroundR2UploadService(),
+      ),
+      generationSubmissionServiceProvider.overrideWith((Ref ref) {
+        final GenerationSubmissionService service = GenerationSubmissionService(
+          uploadRepository: ref.watch(uploadRepositoryProvider),
+          generationTaskRepository: ref.watch(generationTaskRepositoryProvider),
+          feedbackRepository: ref.watch(feedbackRepositoryProvider),
+          generationRecordRepository: ref.watch(
+            generationRecordRepositoryProvider,
+          ),
+          originalFileStore: ref.watch(generationOriginalFileStoreProvider),
+          photoLibraryAssetStore: ref.watch(photoLibraryAssetStoreProvider),
+          imageProcessor: ref.watch(generationImageProcessorProvider),
+          backgroundR2UploadService: ref.watch(
+            backgroundR2UploadServiceProvider,
+          ),
+          notificationDeviceCoordinator:
+              const NoopNotificationDeviceCoordinator(),
+        );
+        ref.onDispose(service.dispose);
+        return service;
+      }),
     ],
   );
 }
@@ -1508,7 +1747,10 @@ class _FakeFeedbackRepository implements FeedbackRepository {
 
 class _FakeUploadRepository implements UploadRepository {
   final List<String> events = <String>[];
+  final List<CreateGenerationTaskInput?> generationRequests =
+      <CreateGenerationTaskInput?>[];
   BackendApiFailure? createUploadFailure;
+  final List<BackendApiFailure> createUploadFailures = <BackendApiFailure>[];
   BackendApiFailure? uploadFailure;
   BackendApiFailure? completeUploadFailure;
 
@@ -1516,8 +1758,13 @@ class _FakeUploadRepository implements UploadRepository {
   Future<UploadSession> createUpload({
     required String contentType,
     required Uint8List bytes,
+    CreateGenerationTaskInput? generationRequest,
   }) async {
     events.add('create:$contentType:${bytes.length}');
+    generationRequests.add(generationRequest);
+    if (createUploadFailures.isNotEmpty) {
+      throw createUploadFailures.removeAt(0);
+    }
     final BackendApiFailure? failure = createUploadFailure;
     if (failure != null) {
       throw failure;
@@ -1561,16 +1808,50 @@ class _FakeUploadRepository implements UploadRepository {
   }
 }
 
+class _FakeBackgroundR2UploadService implements BackgroundR2UploadService {
+  final List<String> events = <String>[];
+  TaskStatus status = TaskStatus.complete;
+  int? responseStatusCode = 200;
+  String? responseBody;
+  Object? exception;
+
+  @override
+  Future<BackgroundR2UploadResult> uploadFile({
+    required UploadSession uploadSession,
+    required String filePath,
+    required String contentType,
+    required String displayName,
+  }) async {
+    events.add(
+      'background-upload:${uploadSession.uploadSessionId}:$filePath:$contentType',
+    );
+    return BackgroundR2UploadResult(
+      downloaderTaskId: 'downloader-1',
+      status: status,
+      responseStatusCode: responseStatusCode,
+      responseBody: responseBody,
+      exception: exception,
+    );
+  }
+
+  @override
+  void dispose() {}
+}
+
 class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   final List<CreateGenerationTaskInput> createdInputs =
       <CreateGenerationTaskInput>[];
   final List<String> fetchTaskIds = <String>[];
+  final List<String> fetchTaskByUploadSessionIds = <String>[];
   final List<List<String>> fetchTasksBatchRequests = <List<String>>[];
-  final List<GenerationTask> fetchTaskResponses = <GenerationTask>[];
+  final List<GenerationTask?> fetchTaskResponses = <GenerationTask?>[];
+  final List<GenerationTask> listTaskResponses = <GenerationTask>[];
+  final List<int> listTaskLimits = <int>[];
   final Set<String> missingTaskIds = <String>{};
   final List<String> resultUrlTaskIds = <String>[];
   final List<Object> resultUrlResponses = <Object>[];
   BackendApiFailure? createTaskFailure;
+  BackendApiFailure? fetchTaskByUploadSessionFailure;
   BackendApiFailure? fetchTasksBatchFailure;
   Duration createResultUrlDelay = Duration.zero;
   Duration fetchTaskDelay = Duration.zero;
@@ -1625,6 +1906,25 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
     if (fetchTaskResponses.isEmpty) {
       return _task(status: GenerationTaskStatus.pending);
     }
+    return fetchTaskResponses.removeAt(0) ??
+        _task(status: GenerationTaskStatus.pending);
+  }
+
+  @override
+  Future<GenerationTask?> fetchTaskByUploadSession(
+    String uploadSessionId,
+  ) async {
+    fetchTaskByUploadSessionIds.add(uploadSessionId);
+    if (fetchTaskDelay > Duration.zero) {
+      await Future<void>.delayed(fetchTaskDelay);
+    }
+    final BackendApiFailure? failure = fetchTaskByUploadSessionFailure;
+    if (failure != null) {
+      throw failure;
+    }
+    if (fetchTaskResponses.isEmpty) {
+      return _task(status: GenerationTaskStatus.pending);
+    }
     return fetchTaskResponses.removeAt(0);
   }
 
@@ -1648,17 +1948,23 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
         missingIds.add(taskId);
         continue;
       }
-      final GenerationTask task = fetchTaskResponses.isEmpty
+      final GenerationTask? response = fetchTaskResponses.isEmpty
           ? _task(status: GenerationTaskStatus.pending, id: taskId)
           : fetchTaskResponses.removeAt(0);
+      final GenerationTask task =
+          response ?? _task(status: GenerationTaskStatus.pending, id: taskId);
       tasks.add(task.id == taskId ? task : _taskFrom(task, id: taskId));
     }
     return GenerationTasksBatchResult(tasks: tasks, missingIds: missingIds);
   }
 
   @override
-  Future<List<GenerationTask>> listTasks({int limit = 20}) {
-    throw UnimplementedError();
+  Future<List<GenerationTask>> listTasks({int limit = 20}) async {
+    listTaskLimits.add(limit);
+    if (listTaskResponses.isEmpty) {
+      return <GenerationTask>[_task(status: GenerationTaskStatus.pending)];
+    }
+    return listTaskResponses.toList(growable: false);
   }
 }
 

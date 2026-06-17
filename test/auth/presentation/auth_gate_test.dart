@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:drift/native.dart';
+import 'package:background_downloader/background_downloader.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/feedback.dart';
@@ -25,6 +26,7 @@ import 'package:fantasy_camera_flutter/features/camera/data/camera_device_reposi
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_choice.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_providers.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_ui/camera_photo_ui.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/application/background_r2_upload_service.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_submission_service.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_repository.dart';
@@ -49,6 +51,7 @@ void main() {
       FantasyCameraApp(
         overrides: <Override>[
           hasSupabaseConfigProvider.overrideWithValue(true),
+          notificationLifecycleProvider.overrideWith((Ref ref) {}),
           authSessionProvider.overrideWith(
             (_) => Stream<AuthSessionState>.value(
               const AuthSessionState.signedOut(),
@@ -78,6 +81,7 @@ void main() {
       FantasyCameraApp(
         overrides: <Override>[
           hasSupabaseConfigProvider.overrideWithValue(true),
+          notificationLifecycleProvider.overrideWith((Ref ref) {}),
           authSessionProvider.overrideWith(
             (_) => Stream<AuthSessionState>.value(
               const AuthSessionState.signedIn(
@@ -103,6 +107,7 @@ void main() {
               originalFileStore: const _FakeGenerationOriginalFileStore(),
               photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
               imageProcessor: const _FakeGenerationImageProcessor(),
+              backgroundR2UploadService: const _FakeBackgroundR2UploadService(),
             );
             ref.onDispose(service.dispose);
             return service;
@@ -132,6 +137,7 @@ void main() {
       FantasyCameraApp(
         overrides: <Override>[
           hasSupabaseConfigProvider.overrideWithValue(true),
+          notificationLifecycleProvider.overrideWith((Ref ref) {}),
           authSessionProvider.overrideWith(
             (_) => Stream<AuthSessionState>.value(
               const AuthSessionState.signedIn(
@@ -157,6 +163,7 @@ void main() {
               originalFileStore: const _FakeGenerationOriginalFileStore(),
               photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
               imageProcessor: const _FakeGenerationImageProcessor(),
+              backgroundR2UploadService: const _FakeBackgroundR2UploadService(),
             );
             ref.onDispose(service.dispose);
             return service;
@@ -195,6 +202,7 @@ void main() {
       FantasyCameraApp(
         overrides: <Override>[
           hasSupabaseConfigProvider.overrideWithValue(true),
+          notificationLifecycleProvider.overrideWith((Ref ref) {}),
           authSessionProvider.overrideWith(
             (_) => Stream<AuthSessionState>.value(
               const AuthSessionState.signedIn(
@@ -220,6 +228,7 @@ void main() {
               originalFileStore: const _FakeGenerationOriginalFileStore(),
               photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
               imageProcessor: const _FakeGenerationImageProcessor(),
+              backgroundR2UploadService: const _FakeBackgroundR2UploadService(),
             );
             ref.onDispose(service.dispose);
             return service;
@@ -237,7 +246,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsPage), findsOneWidget);
-    expect(find.text('设置'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('settings-back-button')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('settings state changes keep current route', (
@@ -250,6 +262,7 @@ void main() {
       FantasyCameraApp(
         overrides: <Override>[
           hasSupabaseConfigProvider.overrideWithValue(true),
+          notificationLifecycleProvider.overrideWith((Ref ref) {}),
           authSessionProvider.overrideWith(
             (_) => Stream<AuthSessionState>.value(
               const AuthSessionState.signedIn(
@@ -279,6 +292,7 @@ void main() {
               originalFileStore: const _FakeGenerationOriginalFileStore(),
               photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
               imageProcessor: const _FakeGenerationImageProcessor(),
+              backgroundR2UploadService: const _FakeBackgroundR2UploadService(),
             );
             ref.onDispose(service.dispose);
             return service;
@@ -345,6 +359,7 @@ void main() {
       FantasyCameraApp(
         overrides: <Override>[
           hasSupabaseConfigProvider.overrideWithValue(true),
+          notificationLifecycleProvider.overrideWith((Ref ref) {}),
           authSessionProvider.overrideWith(
             (_) => Stream<AuthSessionState>.value(
               const AuthSessionState.signedIn(
@@ -397,6 +412,7 @@ void main() {
       FantasyCameraApp(
         overrides: <Override>[
           hasSupabaseConfigProvider.overrideWithValue(true),
+          notificationLifecycleProvider.overrideWith((Ref ref) {}),
           authSessionProvider.overrideWith(
             (_) => Stream<AuthSessionState>.value(
               const AuthSessionState.signedIn(
@@ -432,6 +448,7 @@ void main() {
       FantasyCameraApp(
         overrides: <Override>[
           hasSupabaseConfigProvider.overrideWithValue(true),
+          notificationLifecycleProvider.overrideWith((Ref ref) {}),
           authSessionProvider.overrideWith(
             (_) => Stream<AuthSessionState>.value(
               const AuthSessionState.signedIn(
@@ -470,6 +487,7 @@ void main() {
       FantasyCameraApp(
         overrides: <Override>[
           hasSupabaseConfigProvider.overrideWithValue(true),
+          notificationLifecycleProvider.overrideWith((Ref ref) {}),
           authSessionProvider.overrideWith((_) => authStates.stream),
           cameraDeviceRepositoryProvider.overrideWithValue(
             cameraDeviceRepository,
@@ -500,6 +518,7 @@ void main() {
       FantasyCameraApp(
         overrides: <Override>[
           hasSupabaseConfigProvider.overrideWithValue(true),
+          notificationLifecycleProvider.overrideWith((Ref ref) {}),
           authSessionProvider.overrideWith(
             (_) => Stream<AuthSessionState>.value(
               const AuthSessionState.restoring(),
@@ -622,6 +641,7 @@ class _SeededGenerationService {
       originalFileStore: const _FakeGenerationOriginalFileStore(),
       photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
       imageProcessor: const _FakeGenerationImageProcessor(),
+      backgroundR2UploadService: const _FakeBackgroundR2UploadService(),
     );
     return _SeededGenerationService._(
       database: database,
@@ -752,6 +772,7 @@ class _FakeUploadRepository implements UploadRepository {
   Future<UploadSession> createUpload({
     required String contentType,
     required Uint8List bytes,
+    CreateGenerationTaskInput? generationRequest,
   }) {
     throw UnimplementedError();
   }
@@ -763,6 +784,27 @@ class _FakeUploadRepository implements UploadRepository {
   }) {
     throw UnimplementedError();
   }
+}
+
+class _FakeBackgroundR2UploadService implements BackgroundR2UploadService {
+  const _FakeBackgroundR2UploadService();
+
+  @override
+  Future<BackgroundR2UploadResult> uploadFile({
+    required UploadSession uploadSession,
+    required String filePath,
+    required String contentType,
+    required String displayName,
+  }) async {
+    return const BackgroundR2UploadResult(
+      downloaderTaskId: 'downloader-1',
+      status: TaskStatus.complete,
+      responseStatusCode: 200,
+    );
+  }
+
+  @override
+  void dispose() {}
 }
 
 class _FakeGenerationTaskRepository implements GenerationTaskRepository {
@@ -786,6 +828,13 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   @override
   Future<GenerationTask> fetchTask(String taskId) {
     throw UnimplementedError();
+  }
+
+  @override
+  Future<GenerationTask?> fetchTaskByUploadSession(
+    String uploadSessionId,
+  ) async {
+    return null;
   }
 
   @override
