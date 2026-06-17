@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:background_downloader/background_downloader.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
@@ -11,6 +12,7 @@ import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_ta
 import 'package:fantasy_camera_flutter/features/backend_api/domain/prompt_config.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/upload_session.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/application/background_r2_upload_service.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_submission_service.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_repository.dart';
@@ -136,7 +138,7 @@ void main() {
     await tester.pump();
 
     expect(uploadRepository.createUploadCount, 1);
-    expect(taskRepository.createTaskCount, 1);
+    expect(taskRepository.createTaskCount, 0);
     expect(
       find.byKey(
         const ValueKey<String>('generation-submission-status-processing'),
@@ -211,7 +213,7 @@ void main() {
     await tester.pump();
 
     expect(uploadRepository.createUploadCount, 1);
-    expect(taskRepository.createTaskCount, 1);
+    expect(taskRepository.createTaskCount, 0);
     expect(
       find.byKey(
         const ValueKey<String>('generation-submission-status-processing'),
@@ -1159,15 +1161,17 @@ class _ModalHostState extends State<_ModalHost> {
         generationSubmissionServiceProvider.overrideWith((Ref ref) {
           final GenerationSubmissionService service =
               GenerationSubmissionService(
-                uploadRepository:
-                    widget.uploadRepository ?? _FakeUploadRepository(),
-                generationTaskRepository:
-                    widget.taskRepository ?? _FakeGenerationTaskRepository(),
+                uploadRepository: ref.watch(uploadRepositoryProvider),
+                generationTaskRepository: ref.watch(
+                  generationTaskRepositoryProvider,
+                ),
                 feedbackRepository: const _FakeFeedbackRepository(),
                 generationRecordRepository: _recordRepository,
                 originalFileStore: const _FakeGenerationOriginalFileStore(),
                 photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
                 imageProcessor: const _FakeGenerationImageProcessor(),
+                backgroundR2UploadService:
+                    const _FakeBackgroundR2UploadService(),
               );
           ref.onDispose(service.dispose);
           return service;
@@ -1455,8 +1459,8 @@ GenerationRecordPipelineStatus _recordStatusForJob(
       GenerationRecordPipelineStatus.creatingUpload,
     GenerationSubmissionStatus.uploading =>
       GenerationRecordPipelineStatus.uploading,
-    GenerationSubmissionStatus.completingUpload =>
-      GenerationRecordPipelineStatus.completingUpload,
+    GenerationSubmissionStatus.uploadedWaitingTask =>
+      GenerationRecordPipelineStatus.uploadedWaitingTask,
     GenerationSubmissionStatus.creatingTask =>
       GenerationRecordPipelineStatus.creatingTask,
     GenerationSubmissionStatus.submitted =>
@@ -1656,6 +1660,7 @@ class _FakeUploadRepository implements UploadRepository {
   Future<UploadSession> createUpload({
     required String contentType,
     required Uint8List bytes,
+    CreateGenerationTaskInput? generationRequest,
   }) async {
     createUploadCount += 1;
     return UploadSession(
@@ -1684,6 +1689,27 @@ class _FakeUploadRepository implements UploadRepository {
   Future<JsonObject> completeUpload(String uploadSessionId) async {
     return <String, Object?>{'id': uploadSessionId, 'status': 'uploaded'};
   }
+}
+
+class _FakeBackgroundR2UploadService implements BackgroundR2UploadService {
+  const _FakeBackgroundR2UploadService();
+
+  @override
+  Future<BackgroundR2UploadResult> uploadFile({
+    required UploadSession uploadSession,
+    required String filePath,
+    required String contentType,
+    required String displayName,
+  }) async {
+    return const BackgroundR2UploadResult(
+      downloaderTaskId: 'downloader-1',
+      status: TaskStatus.complete,
+      responseStatusCode: 200,
+    );
+  }
+
+  @override
+  void dispose() {}
 }
 
 class _FakeGenerationTaskRepository implements GenerationTaskRepository {
@@ -1733,6 +1759,13 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   }
 
   @override
+  Future<GenerationTask?> fetchTaskByUploadSession(
+    String uploadSessionId,
+  ) async {
+    return null;
+  }
+
+  @override
   Future<GenerationTasksBatchResult> fetchTasksBatch(
     List<String> taskIds,
   ) async {
@@ -1757,8 +1790,8 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   }
 
   @override
-  Future<List<GenerationTask>> listTasks({int limit = 20}) {
-    throw UnimplementedError();
+  Future<List<GenerationTask>> listTasks({int limit = 20}) async {
+    return const <GenerationTask>[];
   }
 }
 

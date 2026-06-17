@@ -103,6 +103,7 @@ class _GenerationSubmissionDebugModalState
   void initState() {
     super.initState();
     _galleryImagePicker = ref.read(galleryImagePickerProvider);
+    unawaited(_resumeActiveRecordsForGallery());
     _jobs = ref.read(generationSubmissionControllerProvider).jobs;
     _knownLocalSavedResultJobIds.addAll(_localSavedResultJobIds(_jobs));
     _hasProcessedInitialJobs = _jobs.isNotEmpty;
@@ -141,6 +142,23 @@ class _GenerationSubmissionDebugModalState
         _selectFocusedTaskIfPresent(next.jobs, animate: true);
       },
     );
+  }
+
+  Future<void> _resumeActiveRecordsForGallery() async {
+    try {
+      await ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .resumeActiveRecords();
+    } on Object catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'generation submission gallery',
+          context: ErrorDescription('while resuming active generation records'),
+        ),
+      );
+    }
   }
 
   void _selectFocusedTaskIfPresent(
@@ -1714,7 +1732,6 @@ class _StatusBadge extends StatelessWidget {
       GenerationSubmissionStatus.readingFile ||
       GenerationSubmissionStatus.creatingUpload ||
       GenerationSubmissionStatus.uploading ||
-      GenerationSubmissionStatus.completingUpload ||
       GenerationSubmissionStatus.creatingTask ||
       GenerationSubmissionStatus.submitted => Icon(
         LucideIcons.cloudUpload,
@@ -1722,6 +1739,7 @@ class _StatusBadge extends StatelessWidget {
         color: AppColors.white,
         size: 15,
       ),
+      GenerationSubmissionStatus.uploadedWaitingTask ||
       GenerationSubmissionStatus.pollingTask ||
       GenerationSubmissionStatus
           .processingResultImage => CupertinoActivityIndicator(
@@ -2283,6 +2301,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
         localizations.generationSubmissionStatusResultSaved,
       GenerationSubmissionStatus.resultProcessingFailed =>
         localizations.generationSubmissionStatusResultProcessingFailed,
+      GenerationSubmissionStatus.uploadedWaitingTask ||
       GenerationSubmissionStatus.submitted ||
       GenerationSubmissionStatus.pollingTask =>
         localizations.generationSubmissionStatusWaitingForGenerationResult,

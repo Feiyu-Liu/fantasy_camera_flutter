@@ -52,13 +52,13 @@ class CreateGenerationTaskInput {
   final String? appInputContractId;
   final String? originDeviceId;
 
-  JsonObject toJson() {
+  JsonObject toJson({bool includeUploadSessionId = true}) {
     final JsonObject requestUserInput = <String, Object?>{
       'promptConfigVersion': AppConfig.promptConfigVersion,
       ...userInput,
     };
     return <String, Object?>{
-      'uploadSessionId': uploadSessionId,
+      if (includeUploadSessionId) 'uploadSessionId': uploadSessionId,
       'promptStyle': promptStyle,
       'captureMode': captureMode,
       'userInput': requestUserInput,
@@ -190,15 +190,17 @@ class ResultUrl {
 List<GenerationTask> _readGenerationTaskList(JsonObject json, String key) {
   final Object? value = json[key];
   if (value is List) {
-    return value.map((Object? item) {
-      if (item is Map<String, Object?>) {
-        return GenerationTask.fromJson(item);
-      }
-      if (item is Map) {
-        return GenerationTask.fromJson(Map<String, Object?>.from(item));
-      }
-      throw FormatException('Expected object item in "$key".');
-    }).toList(growable: false);
+    return value
+        .map((Object? item) {
+          if (item is Map<String, Object?>) {
+            return GenerationTask.fromJson(item);
+          }
+          if (item is Map) {
+            return GenerationTask.fromJson(Map<String, Object?>.from(item));
+          }
+          throw FormatException('Expected object item in "$key".');
+        })
+        .toList(growable: false);
   }
   throw FormatException('Expected object list field "$key".');
 }
@@ -206,12 +208,14 @@ List<GenerationTask> _readGenerationTaskList(JsonObject json, String key) {
 List<String> _readStringList(JsonObject json, String key) {
   final Object? value = json[key];
   if (value is List) {
-    return value.map((Object? item) {
-      if (item is String) {
-        return item;
-      }
-      throw FormatException('Expected string item in "$key".');
-    }).toList(growable: false);
+    return value
+        .map((Object? item) {
+          if (item is String) {
+            return item;
+          }
+          throw FormatException('Expected string item in "$key".');
+        })
+        .toList(growable: false);
   }
   throw FormatException('Expected string list field "$key".');
 }

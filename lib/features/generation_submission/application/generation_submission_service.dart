@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:background_downloader/background_downloader.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/foundation.dart';
 
@@ -12,6 +13,7 @@ import '../../backend_api/domain/feedback.dart';
 import '../../backend_api/domain/generation_task.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/domain/upload_session.dart';
+import 'background_r2_upload_service.dart';
 import '../data/generation_record_database.dart';
 import '../data/generation_record_repository.dart';
 import '../data/generation_image_processor.dart';
@@ -43,6 +45,8 @@ class GenerationSubmissionService extends ChangeNotifier {
     required GenerationOriginalFileStore originalFileStore,
     required PhotoLibraryAssetStore photoLibraryAssetStore,
     required GenerationImageProcessor imageProcessor,
+    BackgroundR2UploadService backgroundR2UploadService =
+        const ForegroundFallbackR2UploadService(),
     NotificationDeviceCoordinator notificationDeviceCoordinator =
         const NoopNotificationDeviceCoordinator(),
   }) : _uploadRepository = uploadRepository,
@@ -52,6 +56,7 @@ class GenerationSubmissionService extends ChangeNotifier {
        _originalFileStore = originalFileStore,
        _photoLibraryAssetStore = photoLibraryAssetStore,
        _imageProcessor = imageProcessor,
+       _backgroundR2UploadService = backgroundR2UploadService,
        _notificationDeviceCoordinator = notificationDeviceCoordinator;
 
   static const Duration _taskPollInterval = Duration(seconds: 3);
@@ -63,6 +68,7 @@ class GenerationSubmissionService extends ChangeNotifier {
   final GenerationOriginalFileStore _originalFileStore;
   final PhotoLibraryAssetStore _photoLibraryAssetStore;
   final GenerationImageProcessor _imageProcessor;
+  final BackgroundR2UploadService _backgroundR2UploadService;
   final NotificationDeviceCoordinator _notificationDeviceCoordinator;
   final Map<String, Future<void>> _submissionOperations =
       <String, Future<void>>{};
@@ -304,6 +310,11 @@ class GenerationSubmissionService extends ChangeNotifier {
               status == GenerationRecordPipelineStatus.pollingTask) &&
           record.taskId != null &&
           record.taskId!.isNotEmpty) {
+        shouldPollActiveTasks = true;
+      }
+      if (status == GenerationRecordPipelineStatus.uploadedWaitingTask ||
+          status == GenerationRecordPipelineStatus.uploading ||
+          status == GenerationRecordPipelineStatus.creatingTask) {
         shouldPollActiveTasks = true;
       }
       await _resumeRecord(record);
@@ -681,10 +692,26 @@ class GenerationSubmissionService extends ChangeNotifier {
         recordId,
         GenerationRecordPipelineStatus.creatingUpload,
       );
+      final PromptSelectionSnapshot promptSelection = _promptSelectionForRecord(
+        record,
+      );
+      _debugLog(
+        'create upload generation request record=$recordId prompt=${promptSelection.promptStyle}/${promptSelection.captureMode} switches=${promptSelection.switches}',
+      );
+      final String? originDeviceId = await _notificationDeviceCoordinator
+          .ensureRegisteredForGeneration();
       _debugLog('create upload start record=$recordId bytes=${bytes.length}');
       final UploadSession uploadSession = await _uploadRepository.createUpload(
         contentType: 'image/jpeg',
         bytes: bytes,
+        generationRequest: CreateGenerationTaskInput(
+          uploadSessionId: '',
+          promptStyle: promptSelection.promptStyle,
+          captureMode: promptSelection.captureMode,
+          appInputContractId: promptSelection.appInputContractId,
+          userInput: promptSelection.userInput,
+          originDeviceId: originDeviceId,
+        ),
       );
       _debugLog(
         'create upload success record=$recordId uploadSession=${uploadSession.uploadSessionId} source=${uploadSession.sourceImageObjectId}',
@@ -706,72 +733,61 @@ class GenerationSubmissionService extends ChangeNotifier {
       _debugLog(
         'upload bytes start record=$recordId uploadSession=${uploadSession.uploadSessionId}',
       );
-      await _uploadRepository.uploadBytes(
-        uploadSession: uploadSession,
-        bytes: bytes,
-      );
-      _debugLog('upload bytes success record=$recordId');
-
-      stage = 'completingUpload';
-      await _markPipelineStatus(
-        recordId,
-        GenerationRecordPipelineStatus.completingUpload,
-      );
-      _debugLog(
-        'complete upload start record=$recordId uploadSession=${uploadSession.uploadSessionId}',
-      );
-      await _uploadRepository.completeUpload(uploadSession.uploadSessionId);
-      _debugLog('complete upload success record=$recordId');
-
-      stage = 'creatingTask';
-      await _markPipelineStatus(
-        recordId,
-        GenerationRecordPipelineStatus.creatingTask,
-      );
-      final PromptSelectionSnapshot promptSelection = _promptSelectionForRecord(
-        record,
-      );
-      _debugLog(
-        'create task start record=$recordId prompt=${promptSelection.promptStyle}/${promptSelection.captureMode} switches=${promptSelection.switches}',
-      );
-      final String? originDeviceId = await _notificationDeviceCoordinator
-          .ensureRegisteredForGeneration();
-      final CreatedGenerationTask createdTask = await _generationTaskRepository
-          .createTask(
-            CreateGenerationTaskInput(
-              uploadSessionId: uploadSession.uploadSessionId,
-              promptStyle: promptSelection.promptStyle,
-              captureMode: promptSelection.captureMode,
-              appInputContractId: promptSelection.appInputContractId,
-              userInput: promptSelection.userInput,
-              originDeviceId: originDeviceId,
-            ),
+      final BackgroundR2UploadResult uploadResult =
+          await _backgroundR2UploadService.uploadFile(
+            uploadSession: uploadSession,
+            filePath: uploadImage.path,
+            contentType: 'image/jpeg',
+            displayName: 'TesserCam Upload',
           );
       _debugLog(
-        'create task success record=$recordId task=${createdTask.taskId} status=${createdTask.status.wireValue} credits=${createdTask.costCredits}',
+        'upload bytes terminal record=$recordId uploadSession=${uploadSession.uploadSessionId} downloaderTask=${uploadResult.downloaderTaskId} status=${uploadResult.status.name} http=${uploadResult.responseStatusCode ?? 'none'}',
       );
+      if (uploadResult.status != TaskStatus.complete) {
+        throw BackendApiFailure(
+          code: 'upload_failed',
+          message:
+              uploadResult.responseBody ??
+              uploadResult.exception?.toString() ??
+              'Upload failed.',
+          statusCode: uploadResult.responseStatusCode,
+        );
+      }
+      _debugLog('upload bytes success record=$recordId');
 
-      await _generationRecordRepository.updatePipelineStatus(
-        recordId: recordId,
-        status: GenerationRecordPipelineStatus.submitted,
-        updatedAt: DateTime.now(),
-        clearError: true,
-      );
-      await _generationRecordRepository.updateTaskFields(
-        recordId: recordId,
-        updatedAt: DateTime.now(),
-        taskId: createdTask.taskId,
-        taskStatus: createdTask.status.wireValue,
-      );
+      stage = 'uploadedWaitingTask';
       await _markPipelineStatus(
         recordId,
-        GenerationRecordPipelineStatus.pollingTask,
+        GenerationRecordPipelineStatus.uploadedWaitingTask,
+        clearError: true,
       );
-      _startTaskPolling(recordId: recordId, taskId: createdTask.taskId);
+      await _recoverUploadedTask(
+        recordId: recordId,
+        uploadSessionId: uploadSession.uploadSessionId,
+        sourceImageObjectId: uploadSession.sourceImageObjectId,
+      );
+      final GenerationRecord? recoveredRecord =
+          await _generationRecordRepository.findById(recordId);
+      final String? recoveredTaskId = recoveredRecord?.taskId;
+      if (recoveredTaskId == null || recoveredTaskId.isEmpty) {
+        _ensureBatchPollingStarted();
+        unawaited(_pollActiveTasksBatch());
+        return;
+      }
+      _startTaskPolling(recordId: recordId, taskId: recoveredTaskId);
     } on BackendApiFailure catch (error) {
       _debugLog(
         'submit backend failure record=$recordId stage=$stage code=${error.code} status=${error.statusCode} requestId=${error.requestId ?? 'none'} message=${error.message} details=${error.details ?? 'none'}',
       );
+      if (_isRecoverablePreUploadFailure(stage: stage, errorCode: error.code)) {
+        await _markRecoverablePreUploadFailure(
+          recordId: recordId,
+          stage: stage,
+          errorCode: error.code,
+          errorMessage: error.message,
+        );
+        return;
+      }
       await _failRecord(
         recordId: recordId,
         errorCode: error.code,
@@ -813,6 +829,57 @@ class GenerationSubmissionService extends ChangeNotifier {
           return;
         }
         await _resumeTaskPolling(recordId: recordId, taskId: taskId);
+        return;
+      case GenerationRecordPipelineStatus.uploadedWaitingTask:
+      case GenerationRecordPipelineStatus.uploading:
+      case GenerationRecordPipelineStatus.creatingTask:
+        final String? taskId = record.taskId;
+        if (taskId != null && taskId.isNotEmpty) {
+          await _resumeTaskPolling(recordId: recordId, taskId: taskId);
+          return;
+        }
+        final String? uploadSessionId = record.uploadSessionId;
+        if (uploadSessionId == null || uploadSessionId.isEmpty) {
+          _debugLog(
+            'resume resubmit record=$recordId reason=uploaded-missing-upload-session',
+          );
+          await _generationRecordRepository.resetForRetry(
+            recordId: recordId,
+            updatedAt: DateTime.now(),
+          );
+          final GenerationRecord? retryRecord =
+              await _generationRecordRepository.findById(recordId);
+          if (retryRecord != null) {
+            await _submitRecord(retryRecord);
+          }
+          return;
+        }
+        try {
+          await _recoverUploadedTask(
+            recordId: recordId,
+            uploadSessionId: uploadSessionId,
+            sourceImageObjectId: record.sourceImageObjectId,
+          );
+        } on BackendApiFailure catch (error) {
+          _debugLog(
+            'resume uploaded task backend failure record=$recordId code=${error.code} status=${error.statusCode} message=${error.message}',
+          );
+          await _failRecord(
+            recordId: recordId,
+            errorCode: error.code,
+            errorMessage: error.message,
+          );
+        } on Object catch (error) {
+          _debugLog(
+            'resume uploaded task local failure record=$recordId error=$error',
+          );
+          await _failRecord(
+            recordId: recordId,
+            errorCode: 'task_recovery_failed',
+            errorMessage: error.toString(),
+          );
+        }
+        return;
       case GenerationRecordPipelineStatus.completed:
       case GenerationRecordPipelineStatus.processingResultImage:
       case GenerationRecordPipelineStatus.resultSaveFailed:
@@ -841,11 +908,9 @@ class GenerationSubmissionService extends ChangeNotifier {
           );
         }
         await _processCompletedResult(recordId: recordId, taskId: taskId);
+        return;
       case GenerationRecordPipelineStatus.preparingUploadImage:
       case GenerationRecordPipelineStatus.creatingUpload:
-      case GenerationRecordPipelineStatus.uploading:
-      case GenerationRecordPipelineStatus.completingUpload:
-      case GenerationRecordPipelineStatus.creatingTask:
         _debugLog(
           'resume resubmit record=$recordId reason=interrupted-${record.pipelineStatus}',
         );
@@ -973,6 +1038,52 @@ class GenerationSubmissionService extends ChangeNotifier {
     _ensureBatchPollingStarted();
   }
 
+  Future<void> _recoverUploadedTask({
+    required String recordId,
+    required String uploadSessionId,
+    required String? sourceImageObjectId,
+  }) async {
+    _debugLog(
+      'recover uploaded task start record=$recordId uploadSession=$uploadSessionId source=${sourceImageObjectId ?? 'none'}',
+    );
+    final GenerationTask? matchedTask = await _generationTaskRepository
+        .fetchTaskByUploadSession(uploadSessionId);
+    if (matchedTask == null) {
+      _debugLog(
+        'recover uploaded task pending record=$recordId uploadSession=$uploadSessionId',
+      );
+      await _generationRecordRepository.updatePipelineStatus(
+        recordId: recordId,
+        status: GenerationRecordPipelineStatus.uploadedWaitingTask,
+        updatedAt: DateTime.now(),
+        clearError: true,
+      );
+      return;
+    }
+    if (sourceImageObjectId != null &&
+        sourceImageObjectId.isNotEmpty &&
+        matchedTask.sourceImageObjectId != sourceImageObjectId) {
+      throw StateError(
+        'Recovered task source mismatch for upload session $uploadSessionId.',
+      );
+    }
+    _debugLog(
+      'recover uploaded task success record=$recordId task=${matchedTask.id} status=${matchedTask.status.wireValue}',
+    );
+    await _generationRecordRepository.updateTaskFields(
+      recordId: recordId,
+      updatedAt: DateTime.now(),
+      taskId: matchedTask.id,
+      taskStatus: matchedTask.status.wireValue,
+      resultImageObjectId: matchedTask.resultImageObjectId,
+    );
+    await _handlePolledTask(
+      recordId: recordId,
+      taskId: matchedTask.id,
+      task: matchedTask,
+    );
+  }
+
   void _ensureBatchPollingStarted() {
     if (_batchPollingTimer != null) {
       return;
@@ -1003,10 +1114,55 @@ class GenerationSubmissionService extends ChangeNotifier {
         .listActiveRecords();
     final Map<String, GenerationRecord> recordsByTaskId =
         <String, GenerationRecord>{};
+    var hasRecoverableUploadSession = false;
 
     for (final GenerationRecord record in records) {
       final GenerationRecordPipelineStatus status =
           generationRecordPipelineStatusFromName(record.pipelineStatus);
+      if (status == GenerationRecordPipelineStatus.uploadedWaitingTask ||
+          status == GenerationRecordPipelineStatus.uploading ||
+          status == GenerationRecordPipelineStatus.creatingTask) {
+        hasRecoverableUploadSession = true;
+        final String? uploadSessionId = record.uploadSessionId;
+        if (uploadSessionId != null && uploadSessionId.isNotEmpty) {
+          try {
+            await _recoverUploadedTask(
+              recordId: record.recordId,
+              uploadSessionId: uploadSessionId,
+              sourceImageObjectId: record.sourceImageObjectId,
+            );
+          } on BackendApiFailure catch (error) {
+            _debugLog(
+              'recover uploaded task backend failure record=${record.recordId} code=${error.code} status=${error.statusCode} message=${error.message}',
+            );
+            await _failRecord(
+              recordId: record.recordId,
+              errorCode: error.code,
+              errorMessage: error.message,
+            );
+            continue;
+          } on Object catch (error) {
+            _debugLog(
+              'recover uploaded task local failure record=${record.recordId} error=$error',
+            );
+            await _failRecord(
+              recordId: record.recordId,
+              errorCode: 'task_recovery_failed',
+              errorMessage: error.toString(),
+            );
+            continue;
+          }
+          final GenerationRecord? recoveredRecord =
+              await _generationRecordRepository.findById(record.recordId);
+          final String? recoveredTaskId = recoveredRecord?.taskId;
+          if (recoveredRecord != null &&
+              recoveredTaskId != null &&
+              recoveredTaskId.isNotEmpty) {
+            recordsByTaskId.putIfAbsent(recoveredTaskId, () => recoveredRecord);
+          }
+        }
+        continue;
+      }
       if (status != GenerationRecordPipelineStatus.submitted &&
           status != GenerationRecordPipelineStatus.pollingTask) {
         continue;
@@ -1019,8 +1175,12 @@ class GenerationSubmissionService extends ChangeNotifier {
     }
 
     if (recordsByTaskId.isEmpty) {
-      _debugLog('batch poll skipped reason=no-active-tasks');
-      _stopBatchPolling();
+      _debugLog(
+        'batch poll skipped reason=${hasRecoverableUploadSession ? 'waiting-uploaded-task' : 'no-active-tasks'}',
+      );
+      if (!hasRecoverableUploadSession) {
+        _stopBatchPolling();
+      }
       return;
     }
 
@@ -1261,6 +1421,15 @@ class GenerationSubmissionService extends ChangeNotifier {
       );
       return;
     }
+    if (record.pipelineStatus ==
+            GenerationRecordPipelineStatus.resultSaved.name &&
+        record.resultAssetId != null &&
+        record.resultAssetId!.isNotEmpty) {
+      _debugLog(
+        'process result skipped record=$recordId reason=result-already-saved',
+      );
+      return;
+    }
     if (record.pipelineStatus !=
         GenerationRecordPipelineStatus.completed.name) {
       _debugLog(
@@ -1392,6 +1561,41 @@ class GenerationSubmissionService extends ChangeNotifier {
     return _generationRecordRepository.updatePipelineStatus(
       recordId: recordId,
       status: GenerationRecordPipelineStatus.generationFailed,
+      updatedAt: DateTime.now(),
+      errorCode: errorCode,
+      errorMessage: errorMessage,
+    );
+  }
+
+  bool _isRecoverablePreUploadFailure({
+    required String stage,
+    required String errorCode,
+  }) {
+    return (stage == 'preparingUploadImage' ||
+            stage == 'readingFile' ||
+            stage == 'creatingUpload') &&
+        (errorCode == 'network_timeout' || errorCode == 'network_error');
+  }
+
+  Future<void> _markRecoverablePreUploadFailure({
+    required String recordId,
+    required String stage,
+    required String errorCode,
+    required String errorMessage,
+  }) {
+    final GenerationRecordPipelineStatus status = switch (stage) {
+      'preparingUploadImage' || 'readingFile' =>
+        GenerationRecordPipelineStatus.preparingUploadImage,
+      'creatingUpload' => GenerationRecordPipelineStatus.creatingUpload,
+      _ => GenerationRecordPipelineStatus.preparingUploadImage,
+    };
+    _debugLog(
+      'mark recoverable pre-upload failure record=$recordId status=${status.name} code=$errorCode message=$errorMessage',
+    );
+    _ensureBatchPollingStarted();
+    return _generationRecordRepository.updatePipelineStatus(
+      recordId: recordId,
+      status: status,
       updatedAt: DateTime.now(),
       errorCode: errorCode,
       errorMessage: errorMessage,
@@ -1679,8 +1883,8 @@ class GenerationSubmissionService extends ChangeNotifier {
         GenerationSubmissionStatus.creatingUpload,
       GenerationRecordPipelineStatus.uploading =>
         GenerationSubmissionStatus.uploading,
-      GenerationRecordPipelineStatus.completingUpload =>
-        GenerationSubmissionStatus.completingUpload,
+      GenerationRecordPipelineStatus.uploadedWaitingTask =>
+        GenerationSubmissionStatus.uploadedWaitingTask,
       GenerationRecordPipelineStatus.creatingTask =>
         GenerationSubmissionStatus.creatingTask,
       GenerationRecordPipelineStatus.submitted =>
