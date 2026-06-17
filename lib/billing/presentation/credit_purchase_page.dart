@@ -9,6 +9,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../l10n/l10n.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_theme.dart';
 import '../domain/billing_product.dart';
 import 'billing_providers.dart';
 
@@ -41,8 +42,9 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
             orElse: () => state.products.first,
           );
     final String? selectedProductId = selectedProduct?.productId;
+    final AppThemeColors colors = AppThemeColors.of(context);
     return CupertinoPageScaffold(
-      backgroundColor: AppColors.settingsBackground,
+      backgroundColor: colors.background,
       child: Stack(
         children: <Widget>[
           ListView(
@@ -52,10 +54,12 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
               const _PurchaseHero(),
               const SizedBox(height: 24),
               if (state.isLoading)
-                const Padding(
-                  padding: EdgeInsets.only(top: 40),
+                Padding(
+                  padding: const EdgeInsets.only(top: 40),
                   child: Center(
-                    child: CupertinoActivityIndicator(color: AppColors.black),
+                    child: CupertinoActivityIndicator(
+                      color: colors.textPrimary,
+                    ),
                   ),
                 )
               else if (state.products.isEmpty)
@@ -142,14 +146,15 @@ class _PurchaseNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: AppColors.settingsBackground.withValues(alpha: 0.72),
-            border: const Border(
-              bottom: BorderSide(color: AppColors.black, width: 0.5),
+            color: colors.navBlurBackground,
+            border: Border(
+              bottom: BorderSide(color: colors.border, width: 0.5),
             ),
           ),
           child: SizedBox(
@@ -165,9 +170,9 @@ class _PurchaseNavigationBar extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       minimumSize: const Size(44, 44),
                       onPressed: onBackPressed,
-                      child: const Icon(
+                      child: Icon(
                         CupertinoIcons.chevron_left,
-                        color: AppColors.black,
+                        color: colors.textPrimary,
                         size: 20,
                       ),
                     ),
@@ -175,8 +180,8 @@ class _PurchaseNavigationBar extends StatelessWidget {
                   Text(
                     context.l10n.billingTitle,
                     textScaler: TextScaler.noScaling,
-                    style: const TextStyle(
-                      color: AppColors.black,
+                    style: TextStyle(
+                      color: colors.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 3.4,
@@ -197,20 +202,21 @@ class _PurchaseHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.black, width: 0.5)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.border, width: 0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(4, 18, 4, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
-            const DecoratedBox(
+            DecoratedBox(
               decoration: BoxDecoration(
-                color: AppColors.white,
+                color: colors.surface,
                 border: Border.fromBorderSide(
-                  BorderSide(color: AppColors.black, width: 1),
+                  BorderSide(color: colors.border, width: 1),
                 ),
               ),
               child: SizedBox(
@@ -219,7 +225,7 @@ class _PurchaseHero extends StatelessWidget {
                 child: Center(
                   child: Icon(
                     LucideIcons.star,
-                    color: AppColors.black,
+                    color: colors.textPrimary,
                     size: 36,
                   ),
                 ),
@@ -230,8 +236,8 @@ class _PurchaseHero extends StatelessWidget {
               context.l10n.billingHeroTitle,
               textAlign: TextAlign.center,
               textScaler: TextScaler.noScaling,
-              style: const TextStyle(
-                color: AppColors.black,
+              style: TextStyle(
+                color: colors.textPrimary,
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
                 height: 1.05,
@@ -259,14 +265,15 @@ class _CreditPackRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return CupertinoButton(
       padding: EdgeInsets.zero,
       minimumSize: Size.zero,
       onPressed: isBusy ? null : onPressed,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.accentYellow : AppColors.white,
-          border: Border.all(color: AppColors.black, width: 0.5),
+          color: isSelected ? AppColors.accentYellow : colors.surface,
+          border: Border.all(color: colors.border, width: 0.5),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 15, 16, 16),
@@ -279,8 +286,10 @@ class _CreditPackRow extends StatelessWidget {
                     Text(
                       context.l10n.billingCreditPackTitle(product.credits),
                       textScaler: TextScaler.noScaling,
-                      style: const TextStyle(
-                        color: AppColors.black,
+                      style: TextStyle(
+                        color: isSelected
+                            ? AppColors.black
+                            : colors.textPrimary,
                         fontSize: 17,
                         fontWeight: FontWeight.w500,
                         height: 1,
@@ -290,8 +299,10 @@ class _CreditPackRow extends StatelessWidget {
                     Text(
                       context.l10n.billingCreditPackSubtitle,
                       textScaler: TextScaler.noScaling,
-                      style: const TextStyle(
-                        color: AppColors.settingsMutedText,
+                      style: TextStyle(
+                        color: isSelected
+                            ? AppColors.black.withValues(alpha: 0.72)
+                            : colors.textMuted,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w400,
                         height: 1,
@@ -303,8 +314,8 @@ class _CreditPackRow extends StatelessWidget {
               Text(
                 product.price,
                 textScaler: TextScaler.noScaling,
-                style: const TextStyle(
-                  color: AppColors.black,
+                style: TextStyle(
+                  color: isSelected ? AppColors.black : colors.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
                 ),
@@ -325,6 +336,7 @@ class _PurchaseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return CupertinoButton(
       padding: EdgeInsets.zero,
       minimumSize: Size.zero,
@@ -332,20 +344,20 @@ class _PurchaseButton extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: isBusy || onPressed == null
-              ? AppColors.disabledDark
-              : AppColors.black,
-          border: Border.all(color: AppColors.black, width: 0.5),
+              ? colors.controlFillDisabled
+              : colors.textPrimary,
+          border: Border.all(color: colors.border, width: 0.5),
         ),
         child: SizedBox(
           height: 52,
           child: Center(
             child: isBusy
-                ? const CupertinoActivityIndicator(color: AppColors.white)
+                ? CupertinoActivityIndicator(color: colors.inverseText)
                 : Text(
                     context.l10n.billingPurchaseButton,
                     textScaler: TextScaler.noScaling,
-                    style: const TextStyle(
-                      color: AppColors.white,
+                    style: TextStyle(
+                      color: colors.inverseText,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                     ),
@@ -372,6 +384,7 @@ class _PurchaseFooterLinks extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return Row(
       children: <Widget>[
         _FooterLinkButton(
@@ -389,13 +402,13 @@ class _PurchaseFooterLinks extends StatelessWidget {
                     label: context.l10n.settingsPrivacyPolicyTitle,
                     onPressed: onPrivacyPressed,
                   ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       '|',
                       textScaler: TextScaler.noScaling,
                       style: TextStyle(
-                        color: AppColors.settingsMutedText,
+                        color: colors.textMuted,
                         fontSize: 14,
                         fontWeight: FontWeight.w400,
                       ),
@@ -423,6 +436,7 @@ class _FooterLinkButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return CupertinoButton(
       padding: EdgeInsets.zero,
       minimumSize: Size.zero,
@@ -432,16 +446,16 @@ class _FooterLinkButton extends StatelessWidget {
         textScaler: TextScaler.noScaling,
         style: TextStyle(
           color: onPressed == null
-              ? AppColors.settingsMutedText.withValues(alpha: 0.45)
-              : AppColors.settingsMutedText,
+              ? colors.textMuted.withValues(alpha: 0.45)
+              : colors.textMuted,
           fontSize: 13,
           fontWeight: FontWeight.w500,
           decoration: onPressed == null
               ? TextDecoration.none
               : TextDecoration.underline,
           decorationColor: onPressed == null
-              ? AppColors.settingsMutedText.withValues(alpha: 0)
-              : AppColors.settingsMutedText,
+              ? colors.textMuted.withValues(alpha: 0)
+              : colors.textMuted,
           decorationThickness: 0.7,
         ),
       ),
@@ -456,10 +470,11 @@ class _EmptyPurchaseState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border.all(color: AppColors.black, width: 0.5),
+        color: colors.surface,
+        border: Border.all(color: colors.border, width: 0.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -469,8 +484,8 @@ class _EmptyPurchaseState extends StatelessWidget {
               context.l10n.billingProductsUnavailable,
               textAlign: TextAlign.center,
               textScaler: TextScaler.noScaling,
-              style: const TextStyle(
-                color: AppColors.black,
+              style: TextStyle(
+                color: colors.textPrimary,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -478,13 +493,13 @@ class _EmptyPurchaseState extends StatelessWidget {
             const SizedBox(height: 14),
             CupertinoButton(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-              color: AppColors.black,
+              color: colors.textPrimary,
               minimumSize: Size.zero,
               onPressed: onRetry,
               child: Text(
                 context.l10n.billingRetry,
                 textScaler: TextScaler.noScaling,
-                style: const TextStyle(color: AppColors.white, fontSize: 13),
+                style: TextStyle(color: colors.inverseText, fontSize: 13),
               ),
             ),
           ],
@@ -502,6 +517,7 @@ class _MessageBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Text(
@@ -509,7 +525,7 @@ class _MessageBanner extends StatelessWidget {
         textAlign: TextAlign.center,
         textScaler: TextScaler.noScaling,
         style: TextStyle(
-          color: danger ? AppColors.danger : AppColors.black,
+          color: danger ? AppColors.danger : colors.textPrimary,
           fontSize: 12.5,
           fontWeight: FontWeight.w600,
         ),

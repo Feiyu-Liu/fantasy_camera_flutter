@@ -16,6 +16,7 @@ import '../../features/generation_submission/presentation/generation_submission_
 import '../../features/notifications/presentation/notification_providers.dart';
 import '../../l10n/l10n.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_theme.dart';
 import '../application/app_settings.dart';
 
 typedef SettingsSignOutAction = Future<void> Function();
@@ -43,7 +44,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  _AppearanceMode _appearanceMode = _AppearanceMode.editorialLight;
   bool _isClearingOriginalCache = false;
   bool _isSigningOut = false;
   GenerationOriginalCacheStats? _latestOriginalCacheStats;
@@ -76,8 +76,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final AuthUser? user = ref.watch(authSessionProvider).valueOrNull?.user;
     final double topInset = MediaQuery.paddingOf(context).top;
     final double navigationHeight = topInset + 50;
+    final AppThemeColors colors = AppThemeColors.of(context);
     return CupertinoPageScaffold(
-      backgroundColor: AppColors.settingsBackground,
+      backgroundColor: colors.background,
       child: Stack(
         children: <Widget>[
           ListView(
@@ -92,9 +93,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 title: l10n.settingsSectionAppearance,
                 lightTitle: l10n.settingsAppearanceLight,
                 darkTitle: l10n.settingsAppearanceDark,
-                selectedMode: _appearanceMode,
-                onModeSelected: (_AppearanceMode mode) {
-                  setState(() => _appearanceMode = mode);
+                selectedPreference: appSettings.themePreference,
+                onPreferenceSelected: (AppThemePreference preference) {
+                  ref
+                      .read(appSettingsControllerProvider.notifier)
+                      .setThemePreference(preference);
                 },
               ),
               const _SectionDivider(),
@@ -591,14 +594,15 @@ class _SettingsNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: AppColors.settingsBackground.withValues(alpha: 0.72),
-            border: const Border(
-              bottom: BorderSide(color: AppColors.black, width: 0.5),
+            color: colors.navBlurBackground,
+            border: Border(
+              bottom: BorderSide(color: colors.border, width: 0.5),
             ),
           ),
           child: SizedBox(
@@ -616,9 +620,9 @@ class _SettingsNavigationBar extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       minimumSize: const Size(44, 44),
                       onPressed: onBackPressed,
-                      child: const Icon(
+                      child: Icon(
                         LucideIcons.chevronLeft,
-                        color: AppColors.black,
+                        color: colors.textPrimary,
                         size: 20,
                       ),
                     ),
@@ -626,8 +630,8 @@ class _SettingsNavigationBar extends StatelessWidget {
                   Text(
                     title,
                     textScaler: TextScaler.noScaling,
-                    style: const TextStyle(
-                      color: AppColors.black,
+                    style: TextStyle(
+                      color: colors.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 4,
@@ -651,9 +655,10 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.black, width: 0.5)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.border, width: 0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 34, 18, 36),
@@ -665,8 +670,8 @@ class _ProfileHeader extends StatelessWidget {
               userName,
               textAlign: TextAlign.center,
               textScaler: TextScaler.noScaling,
-              style: const TextStyle(
-                color: AppColors.black,
+              style: TextStyle(
+                color: colors.textPrimary,
                 fontFamily: 'Times New Roman',
                 fontSize: 28,
                 fontWeight: FontWeight.w700,
@@ -678,11 +683,7 @@ class _ProfileHeader extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                const Icon(
-                  LucideIcons.tickets,
-                  color: AppColors.settingsMutedText,
-                  size: 14,
-                ),
+                Icon(LucideIcons.tickets, color: colors.textMuted, size: 14),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
@@ -691,8 +692,8 @@ class _ProfileHeader extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                     textScaler: TextScaler.noScaling,
-                    style: const TextStyle(
-                      color: AppColors.settingsMutedText,
+                    style: TextStyle(
+                      color: colors.textMuted,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w500,
                       letterSpacing: 2.4,
@@ -714,38 +715,38 @@ class _AvatarPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return Container(
       width: 72,
       height: 72,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: AppColors.settingsAvatarBackground,
-        border: Border.all(color: AppColors.black, width: 1),
+        color: colors.surfaceMuted,
+        border: Border.all(color: colors.border, width: 1),
       ),
-      child: const Icon(LucideIcons.user, color: AppColors.black, size: 27),
+      child: Icon(LucideIcons.user, color: colors.textPrimary, size: 27),
     );
   }
 }
-
-enum _AppearanceMode { editorialLight, studioDark }
 
 class _AppearanceSection extends StatelessWidget {
   const _AppearanceSection({
     required this.title,
     required this.lightTitle,
     required this.darkTitle,
-    required this.selectedMode,
-    required this.onModeSelected,
+    required this.selectedPreference,
+    required this.onPreferenceSelected,
   });
 
   final String title;
   final String lightTitle;
   final String darkTitle;
-  final _AppearanceMode selectedMode;
-  final ValueChanged<_AppearanceMode> onModeSelected;
+  final AppThemePreference selectedPreference;
+  final ValueChanged<AppThemePreference> onPreferenceSelected;
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 28),
       child: Column(
@@ -754,8 +755,8 @@ class _AppearanceSection extends StatelessWidget {
           Text(
             title,
             textScaler: TextScaler.noScaling,
-            style: const TextStyle(
-              color: AppColors.settingsMutedText,
+            style: TextStyle(
+              color: colors.textMuted,
               fontSize: 11.5,
               fontWeight: FontWeight.w700,
               letterSpacing: 2,
@@ -771,9 +772,9 @@ class _AppearanceSection extends StatelessWidget {
                     'settings-appearance-editorial-light',
                   ),
                   title: lightTitle,
-                  mode: _AppearanceMode.editorialLight,
-                  selected: selectedMode == _AppearanceMode.editorialLight,
-                  onSelected: onModeSelected,
+                  preference: AppThemePreference.light,
+                  selected: selectedPreference == AppThemePreference.light,
+                  onSelected: onPreferenceSelected,
                 ),
               ),
               const SizedBox(width: 16),
@@ -783,9 +784,9 @@ class _AppearanceSection extends StatelessWidget {
                     'settings-appearance-studio-dark',
                   ),
                   title: darkTitle,
-                  mode: _AppearanceMode.studioDark,
-                  selected: selectedMode == _AppearanceMode.studioDark,
-                  onSelected: onModeSelected,
+                  preference: AppThemePreference.dark,
+                  selected: selectedPreference == AppThemePreference.dark,
+                  onSelected: onPreferenceSelected,
                 ),
               ),
             ],
@@ -799,25 +800,28 @@ class _AppearanceSection extends StatelessWidget {
 class _AppearanceOptionCard extends StatelessWidget {
   const _AppearanceOptionCard({
     required this.title,
-    required this.mode,
+    required this.preference,
     required this.selected,
     required this.onSelected,
     super.key,
   });
 
   final String title;
-  final _AppearanceMode mode;
+  final AppThemePreference preference;
   final bool selected;
-  final ValueChanged<_AppearanceMode> onSelected;
+  final ValueChanged<AppThemePreference> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final Color foreground = selected ? AppColors.white : AppColors.black;
-    final Color background = selected ? AppColors.black : AppColors.white;
+    final AppThemeColors colors = AppThemeColors.of(context);
+    final Color foreground = selected ? colors.inverseText : colors.textPrimary;
+    final Color background = selected ? colors.textPrimary : colors.surface;
     final Color previewColor = selected
+        ? colors.inverseText
+        : colors.brightness == Brightness.dark
         ? AppColors.white
         : AppColors.darkSurface;
-    final Color borderColor = AppColors.black;
+    final Color borderColor = colors.border;
 
     return Semantics(
       button: true,
@@ -828,7 +832,7 @@ class _AppearanceOptionCard extends StatelessWidget {
         minimumSize: Size.zero,
         onPressed: () {
           HapticFeedback.selectionClick();
-          onSelected(mode);
+          onSelected(preference);
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
@@ -875,13 +879,14 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 19),
       child: Text(
         title,
         textScaler: TextScaler.noScaling,
-        style: const TextStyle(
-          color: AppColors.settingsMutedText,
+        style: TextStyle(
+          color: colors.textMuted,
           fontSize: 11.5,
           fontWeight: FontWeight.w700,
           letterSpacing: 2.0,
@@ -897,11 +902,12 @@ class _SectionDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
+    final AppThemeColors colors = AppThemeColors.of(context);
+    return DecoratedBox(
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.black, width: 0.5)),
+        border: Border(top: BorderSide(color: colors.divider, width: 0.5)),
       ),
-      child: SizedBox(height: 1),
+      child: const SizedBox(height: 1),
     );
   }
 }
@@ -954,6 +960,7 @@ class _SettingsActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return CupertinoButton(
       padding: EdgeInsets.zero,
       minimumSize: Size.zero,
@@ -965,9 +972,9 @@ class _SettingsActionRow extends StatelessWidget {
               child: _SettingsRowText(title: title, subtitle: subtitle),
             ),
             trailing ??
-                const Icon(
+                Icon(
                   LucideIcons.chevronRight,
-                  color: AppColors.settingsMutedText,
+                  color: colors.textMuted,
                   size: 20,
                 ),
           ],
@@ -984,11 +991,10 @@ class _SettingsRowFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppColors.settingsRowDivider, width: 0.5),
-        ),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.divider, width: 0.5)),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 15, 16, 20),
@@ -1006,6 +1012,7 @@ class _SettingsRowText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -1015,8 +1022,8 @@ class _SettingsRowText extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textScaler: TextScaler.noScaling,
-          style: const TextStyle(
-            color: AppColors.black,
+          style: TextStyle(
+            color: colors.textPrimary,
             fontSize: 15.5,
             fontWeight: FontWeight.w400,
             height: 1.05,
@@ -1028,8 +1035,8 @@ class _SettingsRowText extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textScaler: TextScaler.noScaling,
-          style: const TextStyle(
-            color: AppColors.settingsMutedText,
+          style: TextStyle(
+            color: colors.textMuted,
             fontSize: 13,
             fontWeight: FontWeight.w400,
             height: 1.05,
@@ -1048,6 +1055,7 @@ class _BlockSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return Semantics(
       button: true,
       toggled: value,
@@ -1065,16 +1073,14 @@ class _BlockSwitch extends StatelessWidget {
           padding: const EdgeInsets.all(2),
           alignment: value ? Alignment.centerRight : Alignment.centerLeft,
           decoration: BoxDecoration(
-            color: value
-                ? AppColors.accentYellow
-                : AppColors.settingsDisabledSwitch,
-            border: Border.all(color: AppColors.black, width: 0.5),
+            color: value ? AppColors.accentYellow : colors.controlFillDisabled,
+            border: Border.all(color: colors.border, width: 0.5),
           ),
-          child: const SizedBox(
+          child: SizedBox(
             width: 16,
             height: 16,
             child: DecoratedBox(
-              decoration: BoxDecoration(color: AppColors.black),
+              decoration: BoxDecoration(color: colors.textPrimary),
             ),
           ),
         ),

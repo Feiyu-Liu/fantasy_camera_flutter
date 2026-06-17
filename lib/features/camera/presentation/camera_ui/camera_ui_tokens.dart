@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
 import '../../../../theme/app_colors.dart';
+import '../../../../theme/app_theme.dart';
 
 class CameraUiTokens {
   const CameraUiTokens({
@@ -118,6 +119,33 @@ class CameraUiTokens {
     this.checkerboardLightColor = const Color(0xFFEEEEEE),
     this.checkerboardDarkColor = const Color(0xFFF5F5F5),
   });
+
+  factory CameraUiTokens.forTheme(
+    BuildContext context, {
+    double dividerWidth = 0.5,
+  }) {
+    final AppThemeColors colors = AppThemeColors.of(context);
+    if (!colors.isDark) {
+      return CameraUiTokens(dividerWidth: dividerWidth);
+    }
+    return CameraUiTokens(
+      backgroundColor: colors.cameraBackground,
+      viewfinderColor: AppColors.black,
+      primaryTextColor: colors.textPrimary,
+      inverseTextColor: colors.inverseText,
+      accentColor: AppColors.accentYellow,
+      inactiveColor: colors.textMuted,
+      dividerColor: colors.divider,
+      dividerWidth: dividerWidth,
+      zoomPillOuterColor: const Color(0xFF151515),
+      zoomPillInnerColor: const Color(0xFF262626),
+      zoomThumbColor: AppColors.white,
+      zoomSelectedLabelColor: AppColors.black,
+      zoomUnselectedLabelColor: colors.textMuted,
+      checkerboardLightColor: const Color(0xFF202020),
+      checkerboardDarkColor: const Color(0xFF2B2B2B),
+    );
+  }
 
   final Color backgroundColor;
   final Color viewfinderColor;

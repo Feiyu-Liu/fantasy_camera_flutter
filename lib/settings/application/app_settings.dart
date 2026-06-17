@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 const String confirmBeforeGenerationPreferenceKey =
     'settings.confirm_before_generation';
 const String localePreferenceKey = 'settings.locale_preference';
+const String themePreferenceKey = 'settings.theme_preference';
 
 enum AppLocalePreference {
   system,
@@ -29,23 +30,41 @@ Locale? localeForPreference(AppLocalePreference preference) {
   };
 }
 
+enum AppThemePreference {
+  light,
+  dark;
+
+  static AppThemePreference fromStorageValue(String? value) {
+    return AppThemePreference.values.firstWhere(
+      (AppThemePreference preference) => preference.storageValue == value,
+      orElse: () => AppThemePreference.light,
+    );
+  }
+
+  String get storageValue => name;
+}
+
 class AppSettingsState {
   const AppSettingsState({
     this.confirmBeforeGenerationEnabled = true,
     this.localePreference = AppLocalePreference.system,
+    this.themePreference = AppThemePreference.light,
   });
 
   final bool confirmBeforeGenerationEnabled;
   final AppLocalePreference localePreference;
+  final AppThemePreference themePreference;
 
   AppSettingsState copyWith({
     bool? confirmBeforeGenerationEnabled,
     AppLocalePreference? localePreference,
+    AppThemePreference? themePreference,
   }) {
     return AppSettingsState(
       confirmBeforeGenerationEnabled:
           confirmBeforeGenerationEnabled ?? this.confirmBeforeGenerationEnabled,
       localePreference: localePreference ?? this.localePreference,
+      themePreference: themePreference ?? this.themePreference,
     );
   }
 }
@@ -56,6 +75,8 @@ abstract interface class AppSettingsRepository {
   Future<void> saveConfirmBeforeGenerationEnabled(bool value);
 
   Future<void> saveLocalePreference(AppLocalePreference preference);
+
+  Future<void> saveThemePreference(AppThemePreference preference);
 }
 
 class SharedPreferencesAppSettingsRepository implements AppSettingsRepository {
@@ -70,6 +91,9 @@ class SharedPreferencesAppSettingsRepository implements AppSettingsRepository {
       localePreference: AppLocalePreference.fromStorageValue(
         preferences.getString(localePreferenceKey),
       ),
+      themePreference: AppThemePreference.fromStorageValue(
+        preferences.getString(themePreferenceKey),
+      ),
     );
   }
 
@@ -83,6 +107,12 @@ class SharedPreferencesAppSettingsRepository implements AppSettingsRepository {
   Future<void> saveLocalePreference(AppLocalePreference preference) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     await preferences.setString(localePreferenceKey, preference.storageValue);
+  }
+
+  @override
+  Future<void> saveThemePreference(AppThemePreference preference) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    await preferences.setString(themePreferenceKey, preference.storageValue);
   }
 }
 
@@ -132,6 +162,13 @@ class AppSettingsController extends Notifier<AppSettingsState> {
     await ref
         .read(appSettingsRepositoryProvider)
         .saveLocalePreference(preference);
+  }
+
+  Future<void> setThemePreference(AppThemePreference preference) async {
+    state = state.copyWith(themePreference: preference);
+    await ref
+        .read(appSettingsRepositoryProvider)
+        .saveThemePreference(preference);
   }
 
   Future<void> _load() async {

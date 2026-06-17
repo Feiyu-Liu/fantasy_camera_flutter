@@ -8,17 +8,21 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fantasy_camera_flutter/app/fantasy_camera_app.dart';
+import 'package:fantasy_camera_flutter/features/notifications/presentation/notification_providers.dart';
 import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() {
   testWidgets('app shell reports missing Supabase config', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      const FantasyCameraApp(
-        initialSettings: AppSettingsState(
+      FantasyCameraApp(
+        initialSettings: const AppSettingsState(
           localePreference: AppLocalePreference.zh,
         ),
+        overrides: _appShellTestOverrides(),
       ),
     );
     await tester.pump();
@@ -30,10 +34,11 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      const FantasyCameraApp(
-        initialSettings: AppSettingsState(
+      FantasyCameraApp(
+        initialSettings: const AppSettingsState(
           localePreference: AppLocalePreference.en,
         ),
+        overrides: _appShellTestOverrides(),
       ),
     );
     await tester.pump();
@@ -43,4 +48,50 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('app shell uses initial light theme preference', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      FantasyCameraApp(
+        initialSettings: const AppSettingsState(
+          themePreference: AppThemePreference.light,
+        ),
+        overrides: _appShellTestOverrides(),
+      ),
+    );
+    await tester.pump();
+
+    final CupertinoApp app = tester.widget<CupertinoApp>(
+      find.byType(CupertinoApp),
+    );
+    expect(app.theme?.brightness, Brightness.light);
+  });
+
+  testWidgets('app shell uses initial dark theme preference', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      FantasyCameraApp(
+        initialSettings: const AppSettingsState(
+          themePreference: AppThemePreference.dark,
+        ),
+        overrides: _appShellTestOverrides(),
+      ),
+    );
+    await tester.pump();
+
+    final CupertinoApp app = tester.widget<CupertinoApp>(
+      find.byType(CupertinoApp),
+    );
+    expect(app.theme?.brightness, Brightness.dark);
+  });
 }
+
+List<Override> _appShellTestOverrides() {
+  return <Override>[
+    notificationLifecycleProvider.overrideWith(_noopNotificationLifecycle),
+  ];
+}
+
+void _noopNotificationLifecycle(Ref ref) {}

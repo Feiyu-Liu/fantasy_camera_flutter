@@ -16,6 +16,7 @@ import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/camera/camera_preview.dart';
 import '../../../shared/core/app_logger.dart';
 import '../../../theme/app_colors.dart';
+import '../../../theme/app_theme.dart';
 import '../../backend_api/domain/credit_balance.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
@@ -80,8 +81,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
   @override
   Widget build(BuildContext context) {
     final CameraState cameraState = ref.watch(cameraStateProvider);
+    final AppThemeColors colors = AppThemeColors.of(context);
     return CupertinoPageScaffold(
-      backgroundColor: AppColors.black,
+      backgroundColor: colors.cameraBackground,
       child: _buildCameraUi(cameraState),
     );
   }
@@ -109,7 +111,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       captureOrientation,
     );
     return CameraPhotoUi(
-      tokens: const CameraUiTokens(
+      tokens: CameraUiTokens.forTheme(
+        context,
         dividerWidth: AppConfig.cameraUiDividerWidth,
       ),
       viewfinder: _buildViewfinder(cameraState),
@@ -641,6 +644,7 @@ class _PromptOptionBarButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
@@ -677,9 +681,11 @@ class _PromptOptionBarButton extends StatelessWidget {
               curve: Curves.easeOutCubic,
               height: 34,
               decoration: BoxDecoration(
-                color: selected ? AppColors.accentYellow : AppColors.white,
+                color: selected ? AppColors.accentYellow : colors.surface,
                 border: Border.all(
-                  color: AppColors.blackOverlay(selected ? 1 : 0.72),
+                  color: colors.textPrimary.withValues(
+                    alpha: selected ? 1 : 0.72,
+                  ),
                   width: AppConfig.cameraUiDividerWidth,
                 ),
                 borderRadius: BorderRadius.zero,
@@ -695,8 +701,8 @@ class _PromptOptionBarButton extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textScaler: TextScaler.noScaling,
-                      style: const TextStyle(
-                        color: AppColors.black,
+                      style: TextStyle(
+                        color: colors.textPrimary,
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
                         height: 1,
@@ -705,7 +711,7 @@ class _PromptOptionBarButton extends StatelessWidget {
                     const SizedBox(width: 7),
                     Icon(
                       _promptOptionIcon(definition.id),
-                      color: AppColors.black,
+                      color: colors.textPrimary,
                       size: 15,
                     ),
                   ],

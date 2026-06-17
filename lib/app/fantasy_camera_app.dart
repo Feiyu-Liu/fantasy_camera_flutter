@@ -6,7 +6,7 @@ import '../auth/presentation/auth_providers.dart';
 import '../features/notifications/presentation/notification_providers.dart';
 import '../l10n/l10n.dart';
 import '../settings/application/app_settings.dart';
-import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
 import 'app_router.dart';
 
 class FantasyCameraApp extends StatelessWidget {
@@ -68,11 +68,7 @@ class _FantasyCameraAppViewState extends ConsumerState<_FantasyCameraAppView> {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      theme: const CupertinoThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: AppColors.black,
-        primaryColor: AppColors.white,
-      ),
+      theme: appCupertinoThemeForPreference(appSettings.themePreference),
       routerConfig: _router,
     );
   }

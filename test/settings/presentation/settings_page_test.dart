@@ -12,6 +12,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/presentati
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
 import 'package:fantasy_camera_flutter/settings/presentation/settings_page.dart';
+import 'package:fantasy_camera_flutter/theme/app_theme.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -64,6 +65,9 @@ void main() {
             );
             return CupertinoApp(
               locale: localeForPreference(appSettings.localePreference),
+              theme: appCupertinoThemeForPreference(
+                appSettings.themePreference,
+              ),
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               builder: (BuildContext context, Widget? child) {
@@ -230,7 +234,12 @@ void main() {
   testWidgets('appearance cards can switch selected mode', (
     WidgetTester tester,
   ) async {
-    await pumpSettingsPage(tester);
+    final _FakeAppSettingsRepository appSettingsRepository =
+        _FakeAppSettingsRepository(themePreference: AppThemePreference.light);
+    await pumpSettingsPage(
+      tester,
+      appSettingsRepository: appSettingsRepository,
+    );
 
     final Finder studioDark = find.byKey(
       const ValueKey<String>('settings-appearance-studio-dark'),
@@ -246,6 +255,29 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(studioDark, findsOneWidget);
+    expect(appSettingsRepository.themePreference, AppThemePreference.dark);
+
+    await tester.tap(editorialLight);
+    await tester.pumpAndSettle();
+
+    expect(appSettingsRepository.themePreference, AppThemePreference.light);
+  });
+
+  testWidgets('settings page background follows dark theme preference', (
+    WidgetTester tester,
+  ) async {
+    await pumpSettingsPage(
+      tester,
+      appSettingsRepository: _FakeAppSettingsRepository(
+        themePreference: AppThemePreference.dark,
+      ),
+    );
+
+    final CupertinoPageScaffold scaffold = tester.widget<CupertinoPageScaffold>(
+      find.byType(CupertinoPageScaffold),
+    );
+
+    expect(scaffold.backgroundColor, AppThemeColors.dark.background);
   });
 
   testWidgets('clear original cache action asks confirmation first', (
@@ -510,16 +542,21 @@ class _FakeSettingsSignOutAction {
 }
 
 class _FakeAppSettingsRepository implements AppSettingsRepository {
-  _FakeAppSettingsRepository({this.localePreference = AppLocalePreference.zh});
+  _FakeAppSettingsRepository({
+    this.localePreference = AppLocalePreference.zh,
+    this.themePreference = AppThemePreference.light,
+  });
 
   bool confirmBeforeGenerationEnabled = true;
   AppLocalePreference localePreference;
+  AppThemePreference themePreference;
 
   @override
   Future<AppSettingsState> loadSettings() async {
     return AppSettingsState(
       confirmBeforeGenerationEnabled: confirmBeforeGenerationEnabled,
       localePreference: localePreference,
+      themePreference: themePreference,
     );
   }
 
@@ -531,6 +568,11 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   @override
   Future<void> saveLocalePreference(AppLocalePreference preference) async {
     localePreference = preference;
+  }
+
+  @override
+  Future<void> saveThemePreference(AppThemePreference preference) async {
+    themePreference = preference;
   }
 }
 

@@ -596,12 +596,14 @@ class _FakeCreditsRepository implements CreditsRepository {
 class _FakeAppSettingsRepository implements AppSettingsRepository {
   bool confirmBeforeGenerationEnabled = true;
   AppLocalePreference localePreference = AppLocalePreference.zh;
+  AppThemePreference themePreference = AppThemePreference.light;
 
   @override
   Future<AppSettingsState> loadSettings() async {
     return AppSettingsState(
       confirmBeforeGenerationEnabled: confirmBeforeGenerationEnabled,
       localePreference: localePreference,
+      themePreference: themePreference,
     );
   }
 
@@ -613,6 +615,11 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   @override
   Future<void> saveLocalePreference(AppLocalePreference preference) async {
     localePreference = preference;
+  }
+
+  @override
+  Future<void> saveThemePreference(AppThemePreference preference) async {
+    themePreference = preference;
   }
 }
 
