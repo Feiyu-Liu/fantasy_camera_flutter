@@ -272,7 +272,7 @@ class _CreditPackRow extends StatelessWidget {
       onPressed: isBusy ? null : onPressed,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.accentYellow : colors.surface,
+          color: isSelected ? colors.accentYellow : colors.surface,
           border: Border.all(color: colors.border, width: 0.5),
         ),
         child: Padding(

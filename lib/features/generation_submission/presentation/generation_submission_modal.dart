@@ -16,6 +16,7 @@ import 'package:smooth_corner/smooth_corner.dart';
 import '../../../app/app_router.dart';
 import '../../../l10n/l10n.dart';
 import '../../../theme/app_colors.dart';
+import '../../../theme/app_theme.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../data/generation_submission_adapters.dart';
 import '../domain/generation_submission_job.dart';
@@ -1382,6 +1383,7 @@ class _JobThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color accentYellow = AppThemeColors.of(context).accentYellow;
     final String thumbnailImagePath =
         job.status == GenerationSubmissionStatus.resultSaved &&
             job.processedResultPath != null
@@ -1395,7 +1397,7 @@ class _JobThumbnail extends StatelessWidget {
         height: height,
         decoration: BoxDecoration(
           border: Border.all(
-            color: selected ? AppColors.accentYellow : AppColors.border,
+            color: selected ? accentYellow : AppColors.border,
             width: selected ? 3 : 0.5,
           ),
         ),
@@ -1422,7 +1424,7 @@ class _JobThumbnail extends StatelessWidget {
                   key: ValueKey<String>(
                     'generation-submission-retry-${job.id}',
                   ),
-                  color: AppColors.accentYellow,
+                  color: accentYellow,
                   icon: LucideIcons.refreshCcw,
                   iconColor: AppColors.black,
                   onPressed: onRetry,
@@ -2764,12 +2766,13 @@ class _FavoriteButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool enabled = onPressed != null;
+    final Color accentYellow = AppThemeColors.of(context).accentYellow;
 
     return _HeroToolbarButton(
       key: const ValueKey<String>('generation-submission-favorite-toggle'),
       icon: LucideIcons.heart,
       onPressed: onPressed,
-      color: isFavorite ? AppColors.accentYellow : AppColors.white,
+      color: isFavorite ? accentYellow : AppColors.white,
       opacity: enabled ? 1.0 : 0.38,
     );
   }

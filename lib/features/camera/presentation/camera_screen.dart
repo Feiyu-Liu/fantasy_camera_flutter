@@ -110,17 +110,22 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final double controlsRotationTurns = _resolveControlsRotationTurns(
       captureOrientation,
     );
+    final CameraUiTokens tokens = CameraUiTokens.forTheme(
+      context,
+      dividerWidth: AppConfig.cameraUiDividerWidth,
+    );
     return CameraPhotoUi(
-      tokens: CameraUiTokens.forTheme(
-        context,
-        dividerWidth: AppConfig.cameraUiDividerWidth,
-      ),
+      tokens: tokens,
       viewfinder: _buildViewfinder(cameraState),
       galleryPreview: _buildGalleryPreview(cameraState, latestGenerationJob),
+      leadingContent: _CameraSettingsButton(
+        tokens: tokens,
+        onPressed: _openSettings,
+      ),
       trailingContent: _CameraTopRightActions(
+        tokens: tokens,
         creditBalance: creditBalance,
         onCreditsPressed: _openCreditPurchase,
-        onSettingsPressed: _openSettings,
       ),
       message: _localizedMessage(cameraState.message),
       controlsRotationTurns: controlsRotationTurns,
@@ -504,10 +509,12 @@ int _captureModeSortRank(String id) {
 
 class _CreditsBalanceBadge extends StatelessWidget {
   const _CreditsBalanceBadge({
+    required this.tokens,
     required this.creditBalance,
     required this.onPressed,
   });
 
+  final CameraUiTokens tokens;
   final AsyncValue<CreditBalance> creditBalance;
   final VoidCallback onPressed;
 
@@ -537,7 +544,7 @@ class _CreditsBalanceBadge extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                const _CreditCoinIcon(),
+                _CreditCoinIcon(color: tokens.primaryTextColor),
                 const SizedBox(width: 5),
                 Flexible(
                   child: Text(
@@ -546,8 +553,8 @@ class _CreditsBalanceBadge extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                     textScaler: TextScaler.noScaling,
-                    style: const TextStyle(
-                      color: AppColors.black,
+                    style: TextStyle(
+                      color: tokens.primaryTextColor,
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                     ),
@@ -564,14 +571,14 @@ class _CreditsBalanceBadge extends StatelessWidget {
 
 class _CameraTopRightActions extends StatelessWidget {
   const _CameraTopRightActions({
+    required this.tokens,
     required this.creditBalance,
     required this.onCreditsPressed,
-    required this.onSettingsPressed,
   });
 
+  final CameraUiTokens tokens;
   final AsyncValue<CreditBalance> creditBalance;
   final VoidCallback onCreditsPressed;
-  final VoidCallback onSettingsPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -579,19 +586,20 @@ class _CameraTopRightActions extends StatelessWidget {
       children: <Widget>[
         Expanded(
           child: _CreditsBalanceBadge(
+            tokens: tokens,
             creditBalance: creditBalance,
             onPressed: onCreditsPressed,
           ),
         ),
-        _CameraSettingsButton(onPressed: onSettingsPressed),
       ],
     );
   }
 }
 
 class _CameraSettingsButton extends StatelessWidget {
-  const _CameraSettingsButton({required this.onPressed});
+  const _CameraSettingsButton({required this.tokens, required this.onPressed});
 
+  final CameraUiTokens tokens;
   final VoidCallback onPressed;
 
   @override
@@ -607,11 +615,15 @@ class _CameraSettingsButton extends StatelessWidget {
           HapticFeedback.selectionClick();
           onPressed();
         },
-        child: const SizedBox(
+        child: SizedBox(
           width: 34,
           height: 44,
           child: Center(
-            child: Icon(LucideIcons.settings, color: AppColors.black, size: 19),
+            child: Icon(
+              LucideIcons.settings,
+              color: tokens.primaryTextColor,
+              size: 19,
+            ),
           ),
         ),
       ),
@@ -620,11 +632,13 @@ class _CameraSettingsButton extends StatelessWidget {
 }
 
 class _CreditCoinIcon extends StatelessWidget {
-  const _CreditCoinIcon();
+  const _CreditCoinIcon({required this.color});
+
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return const Icon(LucideIcons.tickets, color: AppColors.black, size: 17);
+    return Icon(LucideIcons.tickets, color: color, size: 17);
   }
 }
 
@@ -646,6 +660,18 @@ class _PromptOptionBarButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppThemeColors colors = AppThemeColors.of(context);
     final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final Color selectedContentColor = colors.isDark
+        ? colors.accentYellow
+        : colors.textPrimary;
+    final Color contentColor = selected
+        ? selectedContentColor
+        : colors.textPrimary;
+    final Color backgroundColor = selected && !colors.isDark
+        ? colors.accentYellow
+        : colors.surface;
+    final Color borderColor = selected
+        ? (colors.isDark ? colors.accentYellow : colors.textPrimary)
+        : colors.textPrimary.withValues(alpha: 0.72);
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
       duration: reduceMotion
@@ -681,11 +707,9 @@ class _PromptOptionBarButton extends StatelessWidget {
               curve: Curves.easeOutCubic,
               height: 34,
               decoration: BoxDecoration(
-                color: selected ? AppColors.accentYellow : colors.surface,
+                color: backgroundColor,
                 border: Border.all(
-                  color: colors.textPrimary.withValues(
-                    alpha: selected ? 1 : 0.72,
-                  ),
+                  color: borderColor,
                   width: AppConfig.cameraUiDividerWidth,
                 ),
                 borderRadius: BorderRadius.zero,
@@ -702,7 +726,7 @@ class _PromptOptionBarButton extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       textScaler: TextScaler.noScaling,
                       style: TextStyle(
-                        color: colors.textPrimary,
+                        color: contentColor,
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
                         height: 1,
@@ -711,7 +735,7 @@ class _PromptOptionBarButton extends StatelessWidget {
                     const SizedBox(width: 7),
                     Icon(
                       _promptOptionIcon(definition.id),
-                      color: colors.textPrimary,
+                      color: contentColor,
                       size: 15,
                     ),
                   ],
@@ -957,7 +981,10 @@ class _FocusIndicator extends StatelessWidget {
             scale: scale,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                border: Border.all(color: AppColors.focusYellow, width: 1.8),
+                border: Border.all(
+                  color: AppThemeColors.of(context).accentYellow,
+                  width: 1.8,
+                ),
               ),
             ),
           ),

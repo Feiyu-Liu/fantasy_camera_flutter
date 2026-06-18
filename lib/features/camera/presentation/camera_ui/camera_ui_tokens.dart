@@ -133,7 +133,7 @@ class CameraUiTokens {
       viewfinderColor: AppColors.black,
       primaryTextColor: colors.textPrimary,
       inverseTextColor: colors.inverseText,
-      accentColor: AppColors.accentYellow,
+      accentColor: colors.accentYellow,
       inactiveColor: colors.textMuted,
       dividerColor: colors.divider,
       dividerWidth: dividerWidth,

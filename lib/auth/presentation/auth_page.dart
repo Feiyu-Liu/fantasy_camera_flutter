@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../config/app_config.dart';
 import '../../l10n/l10n.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_theme.dart';
 import 'auth_providers.dart';
 
 class AuthPage extends ConsumerStatefulWidget {
@@ -288,6 +289,7 @@ class _AuthEditorialTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = context.l10n;
+    final Color accentYellow = AppThemeColors.of(context).accentYellow;
     return RichText(
       text: TextSpan(
         style: const TextStyle(
@@ -303,9 +305,9 @@ class _AuthEditorialTitle extends StatelessWidget {
             text:
                 '${l10n.authEditorialTitleLine1}\n${l10n.authEditorialTitleLine2}',
           ),
-          const TextSpan(
+          TextSpan(
             text: '.',
-            style: TextStyle(color: AppColors.accentYellow),
+            style: TextStyle(color: accentYellow),
           ),
         ],
       ),
@@ -327,6 +329,7 @@ class _EditorialSubmitButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = context.l10n;
+    final Color accentYellow = AppThemeColors.of(context).accentYellow;
     return CupertinoButton(
       key: const ValueKey<String>('auth_password_submit'),
       onPressed: onPressed,
@@ -357,11 +360,7 @@ class _EditorialSubmitButton extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    const Icon(
-                      LucideIcons.arrowRight,
-                      color: AppColors.accentYellow,
-                      size: 18,
-                    ),
+                    Icon(LucideIcons.arrowRight, color: accentYellow, size: 18),
                   ],
                 ),
         ),

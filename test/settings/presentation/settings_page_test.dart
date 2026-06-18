@@ -12,6 +12,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/presentati
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
 import 'package:fantasy_camera_flutter/settings/presentation/settings_page.dart';
+import 'package:fantasy_camera_flutter/theme/app_colors.dart';
 import 'package:fantasy_camera_flutter/theme/app_theme.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -278,6 +279,41 @@ void main() {
     );
 
     expect(scaffold.backgroundColor, AppThemeColors.dark.background);
+  });
+
+  testWidgets('appearance cards keep fixed preview colors in dark theme', (
+    WidgetTester tester,
+  ) async {
+    await pumpSettingsPage(
+      tester,
+      appSettingsRepository: _FakeAppSettingsRepository(
+        themePreference: AppThemePreference.dark,
+      ),
+    );
+
+    final AnimatedContainer lightCard = tester.widget<AnimatedContainer>(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('settings-appearance-editorial-light'),
+        ),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+    final AnimatedContainer darkCard = tester.widget<AnimatedContainer>(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('settings-appearance-studio-dark'),
+        ),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+
+    final BoxDecoration lightDecoration =
+        lightCard.decoration! as BoxDecoration;
+    final BoxDecoration darkDecoration = darkCard.decoration! as BoxDecoration;
+
+    expect(lightDecoration.color, AppColors.white);
+    expect(darkDecoration.color, AppColors.black);
   });
 
   testWidgets('clear original cache action asks confirmation first', (

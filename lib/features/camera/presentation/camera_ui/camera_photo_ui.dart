@@ -34,6 +34,7 @@ class CameraPhotoUi extends StatelessWidget {
     this.onTimerPressed,
     this.onAspectRatioPressed,
     this.onBrightnessPressed,
+    this.leadingContent,
     this.trailingContent,
     this.trailingIcon = LucideIcons.images,
     this.trailingTooltip = 'Switch UI',
@@ -80,6 +81,7 @@ class CameraPhotoUi extends StatelessWidget {
   final VoidCallback? onTimerPressed;
   final VoidCallback? onAspectRatioPressed;
   final VoidCallback? onBrightnessPressed;
+  final Widget? leadingContent;
   final Widget? trailingContent;
   final IconData trailingIcon;
   final String trailingTooltip;
@@ -112,6 +114,7 @@ class CameraPhotoUi extends StatelessWidget {
             onTimerPressed: onTimerPressed,
             onAspectRatioPressed: onAspectRatioPressed,
             onBrightnessPressed: onBrightnessPressed,
+            leadingContent: leadingContent,
             trailingIcon: trailingIcon,
             trailingTooltip: trailingTooltip,
             trailingContent: trailingContent,
@@ -197,6 +200,7 @@ class CameraPhotoTopBar extends StatelessWidget {
     this.onTimerPressed,
     this.onAspectRatioPressed,
     this.onBrightnessPressed,
+    this.leadingContent,
     this.trailingContent,
     this.trailingIcon = LucideIcons.images,
     this.trailingTooltip = 'Switch UI',
@@ -213,6 +217,7 @@ class CameraPhotoTopBar extends StatelessWidget {
   final VoidCallback? onTimerPressed;
   final VoidCallback? onAspectRatioPressed;
   final VoidCallback? onBrightnessPressed;
+  final Widget? leadingContent;
   final Widget? trailingContent;
   final IconData trailingIcon;
   final String trailingTooltip;
@@ -238,6 +243,13 @@ class CameraPhotoTopBar extends StatelessWidget {
           child: Row(
             children: <Widget>[
               Expanded(
+                child: _TopBarSlot(
+                  tokens: tokens,
+                  borderRight: true,
+                  child: leadingContent ?? const SizedBox.shrink(),
+                ),
+              ),
+              Expanded(
                 child: CameraPhotoFlashButton(
                   tokens: tokens,
                   mode: flashMode,
@@ -245,16 +257,6 @@ class CameraPhotoTopBar extends StatelessWidget {
                   busy: flashBusy,
                   rotationTurns: controlsRotationTurns,
                   onPressed: onFlashPressed,
-                ),
-              ),
-              Expanded(
-                child: _TopBarButton(
-                  tokens: tokens,
-                  icon: LucideIcons.timer,
-                  borderRight: true,
-                  rotationTurns: controlsRotationTurns,
-                  onPressed: onTimerPressed,
-                  tooltip: 'Timer',
                 ),
               ),
               Expanded(
@@ -1507,6 +1509,35 @@ class CameraCheckerboardPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _TopBarSlot extends StatelessWidget {
+  const _TopBarSlot({
+    required this.tokens,
+    required this.child,
+    this.borderRight = false,
+  });
+
+  final CameraUiTokens tokens;
+  final Widget child;
+  final bool borderRight;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: borderRight
+            ? Border(
+                right: BorderSide(
+                  color: tokens.dividerColor,
+                  width: tokens.dividerWidth,
+                ),
+              )
+            : null,
+      ),
+      child: child,
+    );
+  }
 }
 
 class _TopBarButton extends StatelessWidget {

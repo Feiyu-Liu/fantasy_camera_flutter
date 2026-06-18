@@ -813,15 +813,8 @@ class _AppearanceOptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AppThemeColors colors = AppThemeColors.of(context);
-    final Color foreground = selected ? colors.inverseText : colors.textPrimary;
-    final Color background = selected ? colors.textPrimary : colors.surface;
-    final Color previewColor = selected
-        ? colors.inverseText
-        : colors.brightness == Brightness.dark
-        ? AppColors.white
-        : AppColors.darkSurface;
-    final Color borderColor = colors.border;
+    final _AppearanceOptionPalette palette =
+        _AppearanceOptionPalette.forPreference(preference);
 
     return Semantics(
       button: true,
@@ -840,8 +833,8 @@ class _AppearanceOptionCard extends StatelessWidget {
           height: 126,
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 17),
           decoration: BoxDecoration(
-            color: background,
-            border: Border.all(color: borderColor, width: 0.5),
+            color: palette.backgroundColor,
+            border: Border.all(color: palette.borderColor, width: 0.5),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -850,7 +843,7 @@ class _AppearanceOptionCard extends StatelessWidget {
                 height: 40,
                 width: double.infinity,
                 margin: const EdgeInsets.only(bottom: 24),
-                color: previewColor,
+                color: palette.previewColor,
               ),
               Text(
                 title,
@@ -858,7 +851,7 @@ class _AppearanceOptionCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 textScaler: TextScaler.noScaling,
                 style: TextStyle(
-                  color: foreground,
+                  color: palette.foregroundColor,
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                   height: 1,
@@ -869,6 +862,37 @@ class _AppearanceOptionCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _AppearanceOptionPalette {
+  const _AppearanceOptionPalette({
+    required this.backgroundColor,
+    required this.foregroundColor,
+    required this.previewColor,
+    required this.borderColor,
+  });
+
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final Color previewColor;
+  final Color borderColor;
+
+  static _AppearanceOptionPalette forPreference(AppThemePreference preference) {
+    return switch (preference) {
+      AppThemePreference.light => const _AppearanceOptionPalette(
+        backgroundColor: AppColors.white,
+        foregroundColor: AppColors.black,
+        previewColor: AppColors.darkSurface,
+        borderColor: AppColors.black,
+      ),
+      AppThemePreference.dark => const _AppearanceOptionPalette(
+        backgroundColor: AppColors.black,
+        foregroundColor: AppColors.white,
+        previewColor: AppColors.white,
+        borderColor: AppColors.white,
+      ),
+    };
   }
 }
 
@@ -905,7 +929,7 @@ class _SectionDivider extends StatelessWidget {
     final AppThemeColors colors = AppThemeColors.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: colors.divider, width: 0.5)),
+        border: Border(top: BorderSide(color: colors.border, width: 0.5)),
       ),
       child: const SizedBox(height: 1),
     );
@@ -1073,7 +1097,7 @@ class _BlockSwitch extends StatelessWidget {
           padding: const EdgeInsets.all(2),
           alignment: value ? Alignment.centerRight : Alignment.centerLeft,
           decoration: BoxDecoration(
-            color: value ? AppColors.accentYellow : colors.controlFillDisabled,
+            color: value ? colors.accentYellow : colors.controlFillDisabled,
             border: Border.all(color: colors.border, width: 0.5),
           ),
           child: SizedBox(

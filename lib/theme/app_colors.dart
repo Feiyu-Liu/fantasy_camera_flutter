@@ -5,7 +5,6 @@ abstract final class AppColors {
   static const Color white = CupertinoColors.white;
 
   static const Color accentYellow = Color(0xFFFFDE55);
-  static const Color focusYellow = Color(0xFFF3D36A);
 
   static const Color success = CupertinoColors.activeGreen;
   static const Color danger = CupertinoColors.systemRed;

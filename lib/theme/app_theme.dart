@@ -17,6 +17,7 @@ class AppThemeColors {
     required this.controlFill,
     required this.controlFillDisabled,
     required this.inverseText,
+    required this.accentYellow,
     required this.navBlurBackground,
     required this.shadow,
   });
@@ -34,6 +35,7 @@ class AppThemeColors {
   final Color controlFill;
   final Color controlFillDisabled;
   final Color inverseText;
+  final Color accentYellow;
   final Color navBlurBackground;
   final Color shadow;
 
@@ -60,6 +62,7 @@ class AppThemeColors {
     controlFill: Color(0xFFFFFFFF),
     controlFillDisabled: Color(0xFFE2E2E2),
     inverseText: Color(0xFFFFFFFF),
+    accentYellow: Color(0xFFFFDE55),
     navBlurBackground: Color(0xB8FDFDFD),
     shadow: Color(0x1A000000),
   );
@@ -67,7 +70,7 @@ class AppThemeColors {
   static const AppThemeColors dark = AppThemeColors(
     brightness: Brightness.dark,
     background: Color(0xFF080808),
-    cameraBackground: Color(0xFF050505),
+    cameraBackground: Color(0xFF000000),
     surface: Color(0xFF151515),
     surfaceMuted: Color(0xFF202020),
     textPrimary: Color(0xFFF7F7F7),
@@ -78,6 +81,7 @@ class AppThemeColors {
     controlFill: Color(0xFF101010),
     controlFillDisabled: Color(0xFF2B2B2B),
     inverseText: Color(0xFF000000),
+    accentYellow: Color(0xFFFFDE55),
     navBlurBackground: Color(0xB8080808),
     shadow: Color(0x66000000),
   );
