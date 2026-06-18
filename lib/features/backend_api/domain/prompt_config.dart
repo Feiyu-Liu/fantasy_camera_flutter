@@ -5,17 +5,13 @@ const String defaultCaptureMode = 'portrait';
 
 const List<PromptSwitchDefinition>
 fallbackPromptSwitches = <PromptSwitchDefinition>[
-  PromptSwitchDefinition(id: 'recompose', title: '重构图', defaultValue: false),
-  PromptSwitchDefinition(
-    id: 'beautifyFace',
-    title: '人物优化',
-    defaultValue: false,
-  ),
-  PromptSwitchDefinition(id: 'cleanFrame', title: '画面净化', defaultValue: false),
+  PromptSwitchDefinition(id: 'recompose', title: '重构图', defaultValue: true),
+  PromptSwitchDefinition(id: 'beautifyFace', title: '人物优化', defaultValue: true),
+  PromptSwitchDefinition(id: 'cleanFrame', title: '画面净化', defaultValue: true),
   PromptSwitchDefinition(
     id: 'backgroundBlur',
     title: '背景虚化',
-    defaultValue: false,
+    defaultValue: true,
   ),
 ];
 
@@ -135,10 +131,10 @@ class PromptSelectionSnapshot {
     promptStyle: defaultPromptStyle,
     captureMode: defaultCaptureMode,
     switches: <String, bool>{
-      'recompose': false,
-      'beautifyFace': false,
-      'cleanFrame': false,
-      'backgroundBlur': false,
+      'recompose': true,
+      'beautifyFace': true,
+      'cleanFrame': true,
+      'backgroundBlur': true,
     },
   );
 

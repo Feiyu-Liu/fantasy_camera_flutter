@@ -28,47 +28,56 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('loads built-in prompt styles and ignores unavailable capture modes', () {
-    final ProviderContainer container = _container();
-    addTearDown(container.dispose);
+  test(
+    'loads built-in prompt styles and ignores unavailable capture modes',
+    () {
+      final ProviderContainer container = _container();
+      addTearDown(container.dispose);
 
-    final PromptSelectionController notifier = container.read(
-      promptSelectionControllerProvider.notifier,
-    );
-    PromptSelectionState state = container.read(
-      promptSelectionControllerProvider,
-    );
-    expect(
-      state.styles.map((PromptStyleDefinition style) => style.id),
-      <String>['realistic'],
-    );
-    expect(state.selectedPromptStyleId, 'realistic');
-    expect(state.selectedCaptureModeId, 'portrait');
-    expect(
-      state.switches.map((PromptSwitchDefinition switchDefinition) {
-        return switchDefinition.id;
-      }),
-      <String>['recompose', 'beautifyFace', 'cleanFrame', 'backgroundBlur'],
-    );
-    expect(state.appInputContractId, isNull);
+      final PromptSelectionController notifier = container.read(
+        promptSelectionControllerProvider.notifier,
+      );
+      PromptSelectionState state = container.read(
+        promptSelectionControllerProvider,
+      );
+      expect(
+        state.styles.map((PromptStyleDefinition style) => style.id),
+        <String>['realistic'],
+      );
+      expect(state.selectedPromptStyleId, 'realistic');
+      expect(state.selectedCaptureModeId, 'portrait');
+      expect(
+        state.switches.map((PromptSwitchDefinition switchDefinition) {
+          return switchDefinition.id;
+        }),
+        <String>['recompose', 'beautifyFace', 'cleanFrame', 'backgroundBlur'],
+      );
+      expect(state.values, <String, bool>{
+        'recompose': true,
+        'beautifyFace': true,
+        'cleanFrame': true,
+        'backgroundBlur': true,
+      });
+      expect(state.appInputContractId, isNull);
 
-    notifier.selectCaptureMode('general');
-    state = container.read(promptSelectionControllerProvider);
-    expect(state.selectedCaptureModeId, 'portrait');
-    expect(
-      state.switches.map((PromptSwitchDefinition switchDefinition) {
-        return switchDefinition.id;
-      }),
-      <String>['recompose', 'beautifyFace', 'cleanFrame', 'backgroundBlur'],
-    );
-    expect(state.snapshot.captureMode, 'portrait');
+      notifier.selectCaptureMode('general');
+      state = container.read(promptSelectionControllerProvider);
+      expect(state.selectedCaptureModeId, 'portrait');
+      expect(
+        state.switches.map((PromptSwitchDefinition switchDefinition) {
+          return switchDefinition.id;
+        }),
+        <String>['recompose', 'beautifyFace', 'cleanFrame', 'backgroundBlur'],
+      );
+      expect(state.snapshot.captureMode, 'portrait');
 
-    notifier.selectPromptStyle('abstract');
-    state = container.read(promptSelectionControllerProvider);
-    expect(state.selectedPromptStyleId, 'realistic');
-    expect(state.selectedCaptureModeId, 'portrait');
-    expect(state.snapshot.promptStyle, 'realistic');
-  });
+      notifier.selectPromptStyle('abstract');
+      state = container.read(promptSelectionControllerProvider);
+      expect(state.selectedPromptStyleId, 'realistic');
+      expect(state.selectedCaptureModeId, 'portrait');
+      expect(state.snapshot.promptStyle, 'realistic');
+    },
+  );
 
   test('keeps switch values per prompt route', () {
     final ProviderContainer container = _container();
@@ -84,7 +93,7 @@ void main() {
     final PromptSelectionState state = container.read(
       promptSelectionControllerProvider,
     );
-    expect(state.values['recompose'], isTrue);
+    expect(state.values['recompose'], isFalse);
   });
 
   test('submits captured file through the upload and task pipeline', () async {
@@ -152,10 +161,10 @@ void main() {
     expect(
       uploadRepository.generationRequests.single?.userInput['switches'],
       <String, Object?>{
-        'recompose': false,
-        'beautifyFace': false,
-        'cleanFrame': false,
-        'backgroundBlur': false,
+        'recompose': true,
+        'beautifyFace': true,
+        'cleanFrame': true,
+        'backgroundBlur': true,
       },
     );
   });

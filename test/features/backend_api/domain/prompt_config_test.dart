@@ -35,10 +35,7 @@ void main() {
 
   test('filters out non-realistic modes from remote config', () {
     final List<PromptStyleDefinition> styles = promptStylesFromConfig(_config);
-    expect(
-      promptStyleDefinitionById(styles, 'abstract'),
-      isNull,
-    );
+    expect(promptStyleDefinitionById(styles, 'abstract'), isNull);
   });
 
   test('returns fallback switches for unsupported routes', () {
@@ -54,6 +51,12 @@ void main() {
       }),
       <String>['recompose', 'beautifyFace', 'cleanFrame', 'backgroundBlur'],
     );
+    expect(
+      switches.map((PromptSwitchDefinition switchDefinition) {
+        return switchDefinition.defaultValue;
+      }),
+      <bool>[true, true, true, true],
+    );
   });
 
   test('falls back when config does not contain the current route', () {
@@ -67,6 +70,18 @@ void main() {
       }),
       <String>['recompose', 'beautifyFace', 'cleanFrame', 'backgroundBlur'],
     );
+    expect(defaultSwitchValuesFor(switches), <String, bool>{
+      'recompose': true,
+      'beautifyFace': true,
+      'cleanFrame': true,
+      'backgroundBlur': true,
+    });
+    expect(PromptSelectionSnapshot.fallback.switches, <String, bool>{
+      'recompose': true,
+      'beautifyFace': true,
+      'cleanFrame': true,
+      'backgroundBlur': true,
+    });
   });
 }
 
