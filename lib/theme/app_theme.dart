@@ -42,10 +42,48 @@ class AppThemeColors {
   bool get isDark => brightness == Brightness.dark;
 
   static AppThemeColors of(BuildContext context) {
+    final _AppThemeColorsScope? scope = context
+        .dependOnInheritedWidgetOfExactType<_AppThemeColorsScope>();
+    if (scope != null) {
+      return scope.colors;
+    }
     final Brightness brightness =
         CupertinoTheme.of(context).brightness ??
         MediaQuery.platformBrightnessOf(context);
     return brightness == Brightness.dark ? dark : light;
+  }
+
+  static AppThemeColors lerp(
+    AppThemeColors a,
+    AppThemeColors b,
+    double t, {
+    Brightness? brightness,
+  }) {
+    Color lerpColor(Color begin, Color end) {
+      return Color.lerp(begin, end, t) ?? end;
+    }
+
+    return AppThemeColors(
+      brightness: brightness ?? (t < 0.5 ? a.brightness : b.brightness),
+      background: lerpColor(a.background, b.background),
+      cameraBackground: lerpColor(a.cameraBackground, b.cameraBackground),
+      surface: lerpColor(a.surface, b.surface),
+      surfaceMuted: lerpColor(a.surfaceMuted, b.surfaceMuted),
+      textPrimary: lerpColor(a.textPrimary, b.textPrimary),
+      textSecondary: lerpColor(a.textSecondary, b.textSecondary),
+      textMuted: lerpColor(a.textMuted, b.textMuted),
+      border: lerpColor(a.border, b.border),
+      divider: lerpColor(a.divider, b.divider),
+      controlFill: lerpColor(a.controlFill, b.controlFill),
+      controlFillDisabled: lerpColor(
+        a.controlFillDisabled,
+        b.controlFillDisabled,
+      ),
+      inverseText: lerpColor(a.inverseText, b.inverseText),
+      accentYellow: lerpColor(a.accentYellow, b.accentYellow),
+      navBlurBackground: lerpColor(a.navBlurBackground, b.navBlurBackground),
+      shadow: lerpColor(a.shadow, b.shadow),
+    );
   }
 
   static const AppThemeColors light = AppThemeColors(
@@ -87,6 +125,33 @@ class AppThemeColors {
   );
 }
 
+class AppThemeColorsScope extends StatelessWidget {
+  const AppThemeColorsScope({
+    required this.colors,
+    required this.child,
+    super.key,
+  });
+
+  final AppThemeColors colors;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return _AppThemeColorsScope(colors: colors, child: child);
+  }
+}
+
+class _AppThemeColorsScope extends InheritedWidget {
+  const _AppThemeColorsScope({required this.colors, required super.child});
+
+  final AppThemeColors colors;
+
+  @override
+  bool updateShouldNotify(_AppThemeColorsScope oldWidget) {
+    return colors != oldWidget.colors;
+  }
+}
+
 CupertinoThemeData appCupertinoThemeForPreference(
   AppThemePreference preference,
 ) {
@@ -104,4 +169,41 @@ CupertinoThemeData appCupertinoThemeForPreference(
       barBackgroundColor: AppThemeColors.dark.background,
     ),
   };
+}
+
+AppThemeColors appThemeColorsForPreference(AppThemePreference preference) {
+  return switch (preference) {
+    AppThemePreference.light => AppThemeColors.light,
+    AppThemePreference.dark => AppThemeColors.dark,
+  };
+}
+
+CupertinoThemeData lerpCupertinoThemeData(
+  CupertinoThemeData a,
+  CupertinoThemeData b,
+  double t, {
+  Brightness? brightness,
+}) {
+  Color lerpColor(Color begin, Color end) {
+    return Color.lerp(begin, end, t) ?? end;
+  }
+
+  return CupertinoThemeData(
+    brightness: brightness ?? (t < 0.5 ? a.brightness : b.brightness),
+    scaffoldBackgroundColor: lerpColor(
+      a.scaffoldBackgroundColor,
+      b.scaffoldBackgroundColor,
+    ),
+    primaryColor: lerpColor(a.primaryColor, b.primaryColor),
+    primaryContrastingColor: lerpColor(
+      a.primaryContrastingColor,
+      b.primaryContrastingColor,
+    ),
+    barBackgroundColor: lerpColor(a.barBackgroundColor, b.barBackgroundColor),
+    selectionHandleColor: lerpColor(
+      a.selectionHandleColor,
+      b.selectionHandleColor,
+    ),
+    applyThemeToAll: b.applyThemeToAll,
+  );
 }

@@ -25,6 +25,8 @@ import 'package:fantasy_camera_flutter/features/generation_submission/presentati
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_modal.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
+import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
+import 'package:fantasy_camera_flutter/theme/app_theme.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -266,6 +268,64 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('No captured photos yet'), findsNothing);
+  });
+
+  testWidgets('gallery uses dark theme colors', (WidgetTester tester) async {
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(id: 'dark', status: GenerationSubmissionStatus.awaitingConfirmation),
+    ];
+
+    await _pumpModalHost(
+      tester,
+      _ModalHost(jobs: jobs, themePreference: AppThemePreference.dark),
+    );
+
+    final DecoratedBox stripBox = tester.widget<DecoratedBox>(
+      find
+          .ancestor(
+            of: find.byKey(
+              const ValueKey<String>('generation-gallery-related-title'),
+            ),
+            matching: find.byType(DecoratedBox),
+          )
+          .first,
+    );
+    final BoxDecoration stripDecoration = stripBox.decoration as BoxDecoration;
+    expect(stripDecoration.color, AppThemeColors.dark.background);
+
+    final Text relatedTitle = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('generation-gallery-related-title')),
+    );
+    final TextStyle? titleStyle = relatedTitle.style;
+    expect(titleStyle?.color, AppThemeColors.dark.textPrimary);
+
+    final Container pickerTile = tester.widget<Container>(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('generation-submission-gallery-picker'),
+        ),
+        matching: find.byType(Container),
+      ),
+    );
+    final BoxDecoration pickerDecoration =
+        pickerTile.decoration! as BoxDecoration;
+    expect(pickerDecoration.color, AppThemeColors.dark.surface);
+    expect(pickerDecoration.border?.top.color, AppThemeColors.dark.border);
+
+    final Container thumbnail = tester.widget<Container>(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('generation-submission-photo-dark'),
+        ),
+        matching: find.byType(Container),
+      ),
+    );
+    final BoxDecoration thumbnailDecoration =
+        thumbnail.decoration! as BoxDecoration;
+    expect(
+      thumbnailDecoration.border?.top.color,
+      AppThemeColors.dark.accentYellow,
+    );
   });
 
   testWidgets('modal shows thumbnail fallback when original file is missing', (
@@ -1079,6 +1139,7 @@ class _ModalHost extends StatefulWidget {
   const _ModalHost({
     super.key,
     required this.jobs,
+    this.themePreference = AppThemePreference.light,
     this.imagePicker,
     this.heroImagePrecache,
     this.uploadRepository,
@@ -1086,6 +1147,7 @@ class _ModalHost extends StatefulWidget {
   });
 
   final List<GenerationSubmissionJob> jobs;
+  final AppThemePreference themePreference;
   final _FakeGalleryImagePicker? imagePicker;
   final HeroImagePrecache? heroImagePrecache;
   final _FakeUploadRepository? uploadRepository;
@@ -1128,6 +1190,11 @@ class _ModalHostState extends State<_ModalHost> {
 
   @override
   Widget build(BuildContext context) {
+    final Widget page = CupertinoPageScaffold(
+      child: _SeededModal(seedFuture: _seedFuture),
+    );
+    final bool useExplicitTheme =
+        widget.themePreference != AppThemePreference.light;
     return ProviderScope(
       overrides: <Override>[
         generationRecordDatabaseProvider.overrideWithValue(_database),
@@ -1177,11 +1244,15 @@ class _ModalHostState extends State<_ModalHost> {
           return service;
         }),
       ],
-      child: CupertinoApp(
-        home: CupertinoPageScaffold(
-          child: _SeededModal(seedFuture: _seedFuture),
-        ),
-      ),
+      child: useExplicitTheme
+          ? CupertinoApp(
+              theme: appCupertinoThemeForPreference(widget.themePreference),
+              home: AppThemeColorsScope(
+                colors: appThemeColorsForPreference(widget.themePreference),
+                child: page,
+              ),
+            )
+          : CupertinoApp(home: page),
     );
   }
 }

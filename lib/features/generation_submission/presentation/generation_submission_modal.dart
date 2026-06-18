@@ -39,6 +39,7 @@ class GenerationSubmissionGalleryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return PopScope<void>(
       canPop: Navigator.of(context).canPop(),
       onPopInvokedWithResult: (bool didPop, void result) {
@@ -47,7 +48,7 @@ class GenerationSubmissionGalleryPage extends StatelessWidget {
         }
       },
       child: CupertinoPageScaffold(
-        backgroundColor: AppColors.white,
+        backgroundColor: colors.background,
         child: _GenerationSubmissionGalleryContent(
           focusedTaskId: focusedTaskId,
         ),
@@ -974,6 +975,7 @@ class GenerationSubmissionDebugModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double bottomInset = MediaQuery.paddingOf(context).bottom;
+    final AppThemeColors colors = AppThemeColors.of(context);
 
     return CupertinoPopupSurface(
       isSurfacePainted: true,
@@ -981,9 +983,9 @@ class GenerationSubmissionDebugModal extends StatelessWidget {
         padding: EdgeInsets.only(bottom: bottomInset),
         child: SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.84,
-          child: const DecoratedBox(
-            decoration: BoxDecoration(color: AppColors.white),
-            child: _GenerationSubmissionGalleryContent(),
+          child: DecoratedBox(
+            decoration: BoxDecoration(color: colors.background),
+            child: const _GenerationSubmissionGalleryContent(),
           ),
         ),
       ),
@@ -1054,18 +1056,19 @@ class _GalleryExportProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return SizedBox(
       key: const ValueKey<String>('generation-gallery-export-progress-bar'),
       height: 4,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(2),
         child: DecoratedBox(
-          decoration: const BoxDecoration(color: AppColors.border),
+          decoration: BoxDecoration(color: colors.border),
           child: FractionallySizedBox(
             alignment: Alignment.centerLeft,
             widthFactor: progress.clamp(0.0, 1.0),
-            child: const DecoratedBox(
-              decoration: BoxDecoration(color: AppColors.black),
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: colors.textPrimary),
             ),
           ),
         ),
@@ -1082,6 +1085,7 @@ class _GalleryCloseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double topInset = MediaQuery.paddingOf(context).top;
+    final AppThemeColors colors = AppThemeColors.of(context);
     return Positioned(
       left: 14,
       top: ((topInset - 44) / 2).clamp(6.0, 20.0),
@@ -1090,13 +1094,13 @@ class _GalleryCloseButton extends StatelessWidget {
         padding: EdgeInsets.zero,
         minimumSize: const Size.square(44),
         onPressed: onClose,
-        child: const DecoratedBox(
+        child: DecoratedBox(
           decoration: BoxDecoration(
-            color: AppColors.white,
+            color: colors.surface,
             shape: BoxShape.circle,
             boxShadow: <BoxShadow>[
               BoxShadow(
-                color: AppColors.shadowBlack10,
+                color: colors.shadow,
                 blurRadius: 12,
                 offset: Offset(0, 4),
               ),
@@ -1104,7 +1108,7 @@ class _GalleryCloseButton extends StatelessWidget {
           ),
           child: SizedBox.square(
             dimension: 36,
-            child: Icon(LucideIcons.x, color: AppColors.black, size: 18),
+            child: Icon(LucideIcons.x, color: colors.textPrimary, size: 18),
           ),
         ),
       ),
@@ -1138,6 +1142,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double bottomInset = MediaQuery.paddingOf(context).bottom;
+    final AppThemeColors colors = AppThemeColors.of(context);
     final EdgeInsets contentPadding = EdgeInsets.fromLTRB(
       0,
       12,
@@ -1146,7 +1151,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
     );
 
     return DecoratedBox(
-      decoration: const BoxDecoration(color: AppColors.white),
+      decoration: BoxDecoration(color: colors.background),
       child: Padding(
         padding: contentPadding,
         child: Column(
@@ -1158,8 +1163,8 @@ class _RelatedMomentsStrip extends StatelessWidget {
               child: Text(
                 context.l10n.generationSubmissionRelatedMoments,
                 key: const ValueKey<String>('generation-gallery-related-title'),
-                style: const TextStyle(
-                  color: AppColors.black,
+                style: TextStyle(
+                  color: colors.textPrimary,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.2,
@@ -1292,6 +1297,7 @@ class _GalleryMomentItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return SizedBox(
       width: width,
       height: height,
@@ -1305,8 +1311,8 @@ class _GalleryMomentItem extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.clip,
             softWrap: false,
-            style: const TextStyle(
-              color: AppColors.textMuted,
+            style: TextStyle(
+              color: colors.textMuted,
               fontSize: 10,
               height: 1.2,
               fontWeight: FontWeight.w700,
@@ -1334,6 +1340,7 @@ class _GalleryPickerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return GestureDetector(
       key: const ValueKey<String>('generation-submission-gallery-picker'),
       onTap: picking ? null : onTap,
@@ -1341,8 +1348,8 @@ class _GalleryPickerTile extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: Border.all(color: AppColors.border, width: 0.5),
+          color: colors.surface,
+          border: Border.all(color: colors.border, width: 0.5),
         ),
         child: Center(
           child: picking
@@ -1351,7 +1358,7 @@ class _GalleryPickerTile extends StatelessWidget {
                     'generation-submission-gallery-picker-loading',
                   ),
                 )
-              : const Icon(LucideIcons.plus, color: AppColors.black, size: 24),
+              : Icon(LucideIcons.plus, color: colors.textPrimary, size: 24),
         ),
       ),
     );
@@ -1383,7 +1390,8 @@ class _JobThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color accentYellow = AppThemeColors.of(context).accentYellow;
+    final AppThemeColors colors = AppThemeColors.of(context);
+    final Color accentYellow = colors.accentYellow;
     final String thumbnailImagePath =
         job.status == GenerationSubmissionStatus.resultSaved &&
             job.processedResultPath != null
@@ -1397,7 +1405,7 @@ class _JobThumbnail extends StatelessWidget {
         height: height,
         decoration: BoxDecoration(
           border: Border.all(
-            color: selected ? accentYellow : AppColors.border,
+            color: selected ? accentYellow : colors.border,
             width: selected ? 3 : 0.5,
           ),
         ),
@@ -1426,7 +1434,7 @@ class _JobThumbnail extends StatelessWidget {
                   ),
                   color: accentYellow,
                   icon: LucideIcons.refreshCcw,
-                  iconColor: AppColors.black,
+                  iconColor: colors.inverseText,
                   onPressed: onRetry,
                 ),
               ),
@@ -1495,14 +1503,11 @@ class _MissingOriginalImagePlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return ColoredBox(
-      color: AppColors.surfaceMuted,
+      color: colors.surfaceMuted,
       child: Center(
-        child: Icon(
-          LucideIcons.image,
-          color: AppColors.secondaryLabel.resolveFrom(context),
-          size: 24,
-        ),
+        child: Icon(LucideIcons.image, color: colors.textSecondary, size: 24),
       ),
     );
   }
@@ -1774,17 +1779,18 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
   @override
   Widget build(BuildContext context) {
     final GenerationSubmissionJob? selectedJob = widget.selectedJob;
+    final AppThemeColors colors = AppThemeColors.of(context);
     if (selectedJob == null || widget.jobs.isEmpty) {
       return ColoredBox(
-        color: AppColors.white,
+        color: colors.background,
         child: Padding(
           padding: EdgeInsets.only(top: widget.topPadding),
           child: Center(
             child: Text(
               context.l10n.generationSubmissionSelectMoment,
               key: const ValueKey<String>('generation-gallery-empty-hero'),
-              style: const TextStyle(
-                color: AppColors.textPlaceholder,
+              style: TextStyle(
+                color: colors.textSecondary,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.2,
@@ -1796,7 +1802,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
     }
 
     return ColoredBox(
-      color: AppColors.white,
+      color: colors.background,
       child: Stack(
         fit: StackFit.expand,
         children: <Widget>[
@@ -1808,11 +1814,15 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
             allowImplicitScrolling: true,
             onPageChanged: (int index) =>
                 widget.onPageChanged(index, widget.jobs),
-            backgroundDecoration: const BoxDecoration(color: AppColors.white),
+            backgroundDecoration: BoxDecoration(color: colors.background),
             loadingBuilder: (BuildContext context, ImageChunkEvent? progress) {
               return Padding(
                 padding: EdgeInsets.only(top: widget.topPadding),
-                child: const Center(child: CupertinoActivityIndicator()),
+                child: Center(
+                  child: CupertinoActivityIndicator(
+                    color: colors.textSecondary,
+                  ),
+                ),
               );
             },
             builder: (BuildContext context, int index) {
@@ -1820,10 +1830,12 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
             },
           ),
           if (widget.loading)
-            const Center(
+            Center(
               child: CupertinoActivityIndicator(
-                key: ValueKey<String>('generation-submission-result-loading'),
-                color: AppColors.white,
+                key: const ValueKey<String>(
+                  'generation-submission-result-loading',
+                ),
+                color: colors.textSecondary,
               ),
             ),
           Positioned(
@@ -2129,8 +2141,8 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
     return Center(
       child: Text(
         text,
-        style: const TextStyle(
-          color: AppColors.textPlaceholder,
+        style: TextStyle(
+          color: AppThemeColors.of(context).textSecondary,
           fontSize: 12,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.0,
@@ -2240,17 +2252,16 @@ class _HeroImageFailure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return ColoredBox(
-      color: AppColors.white,
+      color: colors.background,
       child: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Text(
             message,
             key: const ValueKey<String>('generation-gallery-hero-failure'),
-            style: TextStyle(
-              color: AppColors.secondaryLabel.resolveFrom(context),
-            ),
+            style: TextStyle(color: colors.textSecondary),
             textAlign: TextAlign.center,
           ),
         ),
