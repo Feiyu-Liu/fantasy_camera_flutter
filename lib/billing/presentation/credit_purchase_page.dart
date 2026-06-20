@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../l10n/l10n.dart';
+import '../../theme/app_corners.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_theme.dart';
 import '../domain/billing_product.dart';
@@ -213,11 +214,9 @@ class _PurchaseHero extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
             DecoratedBox(
-              decoration: BoxDecoration(
+              decoration: AppCorners.controlDecoration(
                 color: colors.surface,
-                border: Border.fromBorderSide(
-                  BorderSide(color: colors.border, width: 1),
-                ),
+                side: BorderSide(color: colors.border, width: 1),
               ),
               child: SizedBox(
                 width: 92,
@@ -271,9 +270,9 @@ class _CreditPackRow extends StatelessWidget {
       minimumSize: Size.zero,
       onPressed: isBusy ? null : onPressed,
       child: DecoratedBox(
-        decoration: BoxDecoration(
+        decoration: AppCorners.controlDecoration(
           color: isSelected ? colors.accentYellow : colors.surface,
-          border: Border.all(color: colors.border, width: 0.5),
+          side: BorderSide(color: colors.border, width: 0.5),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 15, 16, 16),
@@ -342,11 +341,11 @@ class _PurchaseButton extends StatelessWidget {
       minimumSize: Size.zero,
       onPressed: isBusy ? null : onPressed,
       child: DecoratedBox(
-        decoration: BoxDecoration(
+        decoration: AppCorners.controlDecoration(
           color: isBusy || onPressed == null
               ? colors.controlFillDisabled
               : colors.textPrimary,
-          border: Border.all(color: colors.border, width: 0.5),
+          side: BorderSide(color: colors.border, width: 0.5),
         ),
         child: SizedBox(
           height: 52,
@@ -472,9 +471,9 @@ class _EmptyPurchaseState extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppThemeColors colors = AppThemeColors.of(context);
     return DecoratedBox(
-      decoration: BoxDecoration(
+      decoration: AppCorners.controlDecoration(
         color: colors.surface,
-        border: Border.all(color: colors.border, width: 0.5),
+        side: BorderSide(color: colors.border, width: 0.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),

@@ -5,6 +5,7 @@ import 'package:smooth_corner/smooth_corner.dart';
 
 import 'camera_ui_models.dart';
 import 'camera_ui_tokens.dart';
+import '../../../../theme/app_corners.dart';
 
 class CameraPhotoUi extends StatelessWidget {
   const CameraPhotoUi({
@@ -1244,19 +1245,21 @@ class CameraPhotoGalleryButton extends StatelessWidget {
     return GestureDetector(
       onTap: onPressed,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: tokens.galleryButtonSize,
-        height: tokens.galleryButtonSize,
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: tokens.primaryTextColor,
-            width: tokens.dividerWidth,
-          ),
+      child: SmoothClipRRect(
+        borderRadius: AppCorners.controlBorderRadius,
+        smoothness: AppCorners.smoothness,
+        side: BorderSide(
+          color: tokens.primaryTextColor,
+          width: tokens.dividerWidth,
         ),
-        child: _RotatingCameraControl(
-          tokens: tokens,
-          turns: rotationTurns,
-          child: preview ?? CameraCheckerboardThumbnail(tokens: tokens),
+        child: SizedBox(
+          width: tokens.galleryButtonSize,
+          height: tokens.galleryButtonSize,
+          child: _RotatingCameraControl(
+            tokens: tokens,
+            turns: rotationTurns,
+            child: preview ?? CameraCheckerboardThumbnail(tokens: tokens),
+          ),
         ),
       ),
     );

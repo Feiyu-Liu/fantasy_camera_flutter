@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../config/app_config.dart';
 import '../../l10n/l10n.dart';
+import '../../theme/app_corners.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_theme.dart';
 import 'auth_providers.dart';
@@ -333,36 +334,42 @@ class _EditorialSubmitButton extends StatelessWidget {
     return CupertinoButton(
       key: const ValueKey<String>('auth_password_submit'),
       onPressed: onPressed,
-      color: AppColors.black,
-      disabledColor: AppColors.disabledDark,
       minimumSize: Size.zero,
-      borderRadius: BorderRadius.zero,
       padding: EdgeInsets.zero,
-      child: SizedBox(
-        height: 52,
-        child: Center(
-          child: isSubmitting
-              ? const CupertinoActivityIndicator(color: AppColors.white)
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                      (isSignUp
-                              ? l10n.authCreateAccountButton
-                              : l10n.authSignInButton)
-                          .toUpperCase(),
-                      style: const TextStyle(
-                        color: AppColors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 3,
-                        height: 1,
+      child: DecoratedBox(
+        decoration: AppCorners.controlDecoration(
+          color: onPressed == null ? AppColors.disabledDark : AppColors.black,
+        ),
+        child: SizedBox(
+          height: 52,
+          child: Center(
+            child: isSubmitting
+                ? const CupertinoActivityIndicator(color: AppColors.white)
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        (isSignUp
+                                ? l10n.authCreateAccountButton
+                                : l10n.authSignInButton)
+                            .toUpperCase(),
+                        style: const TextStyle(
+                          color: AppColors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 3,
+                          height: 1,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Icon(LucideIcons.arrowRight, color: accentYellow, size: 18),
-                  ],
-                ),
+                      const SizedBox(width: 10),
+                      Icon(
+                        LucideIcons.arrowRight,
+                        color: accentYellow,
+                        size: 18,
+                      ),
+                    ],
+                  ),
+          ),
         ),
       ),
     );
@@ -504,8 +511,9 @@ class _SquareAuthIconButton extends StatelessWidget {
         minimumSize: Size.zero,
         padding: EdgeInsets.zero,
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(
+          decoration: AppCorners.controlDecoration(
+            color: AppColors.authEditorialBackground,
+            side: BorderSide(
               color: enabled
                   ? AppColors.black
                   : AppColors.authEditorialDisabled,
