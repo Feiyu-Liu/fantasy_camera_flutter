@@ -1395,6 +1395,8 @@ class _JobThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppThemeColors colors = AppThemeColors.of(context);
     final Color accentYellow = colors.accentYellow;
+    final bool reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final String thumbnailImagePath =
         job.status == GenerationSubmissionStatus.resultSaved &&
             job.processedResultPath != null
@@ -1403,79 +1405,92 @@ class _JobThumbnail extends StatelessWidget {
     return GestureDetector(
       key: ValueKey<String>('generation-submission-photo-${job.id}'),
       onTap: onTap,
-      child: SmoothContainer(
-        width: width,
-        height: height,
-        borderRadius: AppCorners.controlBorderRadius,
-        smoothness: AppCorners.smoothness,
-        side: BorderSide(
-          color: selected ? accentYellow : colors.border,
-          width: selected ? 3 : 0.5,
-        ),
-        padding: EdgeInsets.zero,
-        child: SmoothClipRRect(
-          borderRadius: AppCorners.controlBorderRadius,
-          smoothness: AppCorners.smoothness,
-          child: Stack(
-            fit: StackFit.expand,
-            children: <Widget>[
-              _ThumbnailImage(
-                key: ValueKey<String>('generation-thumbnail-image-${job.id}'),
-                path: thumbnailImagePath,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(end: selected ? 1 : 0),
+        duration: reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        builder: (BuildContext context, double selectionValue, Widget? child) {
+          final double borderWidth = lerpDouble(1, 3, selectionValue)!;
+          final Color borderColor =
+              Color.lerp(colors.border, accentYellow, selectionValue) ??
+              colors.border;
+          return SmoothContainer(
+            width: width,
+            height: height,
+            borderRadius: AppCorners.controlBorderRadius,
+            smoothness: AppCorners.smoothness,
+            side: BorderSide(color: borderColor, width: borderWidth),
+            padding: EdgeInsets.all(borderWidth),
+            child: SmoothClipRRect(
+              borderRadius: BorderRadius.circular(
+                (AppCorners.controlRadius - borderWidth).clamp(0.0, 999.0),
               ),
-              if (onRetry == null &&
-                  job.status != GenerationSubmissionStatus.awaitingConfirmation)
-                Positioned(
-                  right: 6,
-                  bottom: 6,
-                  child: _StatusBadge(status: job.status),
-                ),
-              if (onRetry != null)
-                Positioned(
-                  right: 6,
-                  bottom: 6,
-                  child: _ThumbnailActionButton(
-                    key: ValueKey<String>(
-                      'generation-submission-retry-${job.id}',
-                    ),
-                    color: accentYellow,
-                    icon: LucideIcons.refreshCcw,
-                    iconColor: colors.inverseText,
-                    onPressed: onRetry,
+              smoothness: AppCorners.smoothness,
+              child: child ?? const SizedBox.shrink(),
+            ),
+          );
+        },
+        child: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            _ThumbnailImage(
+              key: ValueKey<String>('generation-thumbnail-image-${job.id}'),
+              path: thumbnailImagePath,
+            ),
+            if (onRetry == null &&
+                job.status != GenerationSubmissionStatus.awaitingConfirmation)
+              Positioned(
+                right: 6,
+                bottom: 6,
+                child: _StatusBadge(status: job.status),
+              ),
+            if (onRetry != null)
+              Positioned(
+                right: 6,
+                bottom: 6,
+                child: _ThumbnailActionButton(
+                  key: ValueKey<String>(
+                    'generation-submission-retry-${job.id}',
                   ),
+                  color: accentYellow,
+                  icon: LucideIcons.refreshCcw,
+                  iconColor: colors.inverseText,
+                  onPressed: onRetry,
                 ),
-              if (onRemove != null)
-                Positioned(
-                  left: 6,
-                  bottom: 6,
-                  child: _ThumbnailActionButton(
-                    key: ValueKey<String>(
-                      'generation-submission-remove-${job.id}',
-                    ),
-                    color: AppColors.danger,
-                    icon: LucideIcons.x,
-                    onPressed: onRemove,
+              ),
+            if (onRemove != null)
+              Positioned(
+                left: 6,
+                bottom: 6,
+                child: _ThumbnailActionButton(
+                  key: ValueKey<String>(
+                    'generation-submission-remove-${job.id}',
                   ),
+                  color: AppColors.danger,
+                  icon: LucideIcons.x,
+                  onPressed: onRemove,
                 ),
-              if (job.status == GenerationSubmissionStatus.awaitingConfirmation)
-                Positioned(
-                  left: 6,
-                  right: 6,
-                  bottom: 6,
-                  child: _ConfirmationActions(
-                    jobId: job.id,
-                    onConfirm: onConfirm,
-                    onCancel: onCancel,
-                  ),
-                ),
+              ),
+            if (job.status == GenerationSubmissionStatus.awaitingConfirmation)
               Positioned(
                 left: 6,
                 right: 6,
-                top: 6,
-                child: _PromptSnapshotBadge(job: job),
+                bottom: 6,
+                child: _ConfirmationActions(
+                  jobId: job.id,
+                  onConfirm: onConfirm,
+                  onCancel: onCancel,
+                ),
               ),
-            ],
-          ),
+            Positioned(
+              left: 6,
+              right: 6,
+              top: 6,
+              child: _PromptSnapshotBadge(job: job),
+            ),
+          ],
         ),
       ),
     );
