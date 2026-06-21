@@ -332,6 +332,12 @@ abstract class AppLocalizations {
   /// **'Preparing your photo...'**
   String get generationSubmissionPreparingPhoto;
 
+  /// No description provided for @generationSubmissionGalleryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Album'**
+  String get generationSubmissionGalleryTitle;
+
   /// No description provided for @generationSubmissionRelatedMoments.
   ///
   /// In en, this message translates to:

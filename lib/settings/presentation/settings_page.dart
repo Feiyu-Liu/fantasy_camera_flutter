@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -16,6 +14,7 @@ import '../../features/generation_submission/application/generation_original_cac
 import '../../features/generation_submission/presentation/generation_submission_providers.dart';
 import '../../features/notifications/presentation/notification_providers.dart';
 import '../../l10n/l10n.dart';
+import '../../shared/presentation/widgets/app_blur_navigation_bar.dart';
 import '../../theme/app_corners.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_theme.dart';
@@ -191,9 +190,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             top: 0,
             left: 0,
             right: 0,
-            child: _SettingsNavigationBar(
+            child: AppBlurNavigationBar(
               topInset: topInset,
               title: l10n.settingsTitle,
+              backButtonKey: const ValueKey<String>('settings-back-button'),
               onBackPressed: () => context.pop(),
             ),
           ),
@@ -578,72 +578,6 @@ class _LanguageAction extends StatelessWidget {
             const Icon(LucideIcons.check, size: 18),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _SettingsNavigationBar extends StatelessWidget {
-  const _SettingsNavigationBar({
-    required this.topInset,
-    required this.title,
-    required this.onBackPressed,
-  });
-
-  final double topInset;
-  final String title;
-  final VoidCallback onBackPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final AppThemeColors colors = AppThemeColors.of(context);
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: colors.navBlurBackground,
-            border: Border(
-              bottom: BorderSide(color: colors.border, width: 0.5),
-            ),
-          ),
-          child: SizedBox(
-            width: double.infinity,
-            height: topInset + 50,
-            child: Padding(
-              padding: EdgeInsets.only(top: topInset),
-              child: Stack(
-                alignment: Alignment.center,
-                children: <Widget>[
-                  Positioned(
-                    left: 12,
-                    child: CupertinoButton(
-                      key: const ValueKey<String>('settings-back-button'),
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(44, 44),
-                      onPressed: onBackPressed,
-                      child: Icon(
-                        LucideIcons.chevronLeft,
-                        color: colors.textPrimary,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    title,
-                    textScaler: TextScaler.noScaling,
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

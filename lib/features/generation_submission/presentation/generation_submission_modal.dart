@@ -15,6 +15,7 @@ import 'package:smooth_corner/smooth_corner.dart';
 
 import '../../../app/app_router.dart';
 import '../../../l10n/l10n.dart';
+import '../../../shared/presentation/widgets/app_blur_navigation_bar.dart';
 import '../../../theme/app_corners.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_theme.dart';
@@ -52,6 +53,7 @@ class GenerationSubmissionGalleryPage extends StatelessWidget {
         backgroundColor: colors.background,
         child: _GenerationSubmissionGalleryContent(
           focusedTaskId: focusedTaskId,
+          showNavigationBar: true,
         ),
       ),
     );
@@ -59,9 +61,13 @@ class GenerationSubmissionGalleryPage extends StatelessWidget {
 }
 
 class _GenerationSubmissionGalleryContent extends ConsumerStatefulWidget {
-  const _GenerationSubmissionGalleryContent({this.focusedTaskId});
+  const _GenerationSubmissionGalleryContent({
+    this.focusedTaskId,
+    this.showNavigationBar = false,
+  });
 
   final String? focusedTaskId;
+  final bool showNavigationBar;
 
   @override
   ConsumerState<_GenerationSubmissionGalleryContent> createState() =>
@@ -344,30 +350,41 @@ class _GenerationSubmissionDebugModalState
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final double topInset = MediaQuery.paddingOf(context).top;
+        final double navigationHeight = widget.showNavigationBar
+            ? topInset + AppBlurNavigationBar.contentHeight
+            : 0;
         final double height = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : MediaQuery.sizeOf(context).height;
-        final double maxHeroHeight = (height - 196).clamp(0.0, height);
+        final double contentHeight = (height - navigationHeight).clamp(
+          0.0,
+          height,
+        );
+        final double layoutHeight = widget.showNavigationBar
+            ? contentHeight
+            : height;
+        final double maxHeroHeight = (layoutHeight - 196).clamp(
+          0.0,
+          layoutHeight,
+        );
         final double heroWidth = constraints.maxWidth.clamp(
           0.0,
           maxHeroHeight * 3 / 4,
         );
         final double heroHeight = heroWidth * 4 / 3;
-        final double heroTopPadding = topInset;
-        final double heroViewportHeight = (heroHeight + heroTopPadding).clamp(
-          0.0,
-          height,
-        );
+        final double heroTopPadding = widget.showNavigationBar ? 0 : topInset;
+        final double actualHeroViewportHeight = (heroHeight + heroTopPadding)
+            .clamp(0.0, layoutHeight);
         final Widget hero = SizedBox(
           width: heroWidth,
-          height: heroViewportHeight,
+          height: actualHeroViewportHeight,
           child: _GalleryHeroPager(
             jobs: jobs,
             selectedJob: selectedJob,
             selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
             pageController: _heroPageController,
             previewSize: Size(heroWidth, heroHeight),
-            viewportSize: Size(heroWidth, heroViewportHeight),
+            viewportSize: Size(heroWidth, actualHeroViewportHeight),
             topPadding: heroTopPadding,
             loading: _loadingResultJobId == selectedJob?.id,
             displayStates: _heroDisplayStates,
@@ -390,40 +407,60 @@ class _GenerationSubmissionDebugModalState
                       unawaited(_performMoreAction(action, selectedJob)),
           ),
         );
-        return Stack(
+        final Widget galleryContent = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            _TopGradientBlur(
-              blurHeight: topInset,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  SizedBox(
-                    height: heroViewportHeight,
-                    child: Center(child: hero),
-                  ),
-                  Expanded(
-                    child: _RelatedMomentsStrip(
-                      jobs: jobs,
-                      selectedJob: selectedJob,
-                      pickingGalleryImage: _pickingGalleryImage,
-                      onPickGalleryImage: _pickGalleryImage,
-                      onSelectJob: _selectJobFromStrip,
-                      onConfirmJob: _confirmJob,
-                      onCancelJob: (GenerationSubmissionJob job) {
-                        unawaited(_cancelJob(job));
-                      },
-                      onRetryJob: (GenerationSubmissionJob job) {
-                        unawaited(_retryJob(job));
-                      },
-                      onRemoveJob: (GenerationSubmissionJob job) {
-                        unawaited(_removeJob(job));
-                      },
-                    ),
-                  ),
-                ],
+            SizedBox(
+              height: actualHeroViewportHeight,
+              child: Center(child: hero),
+            ),
+            Expanded(
+              child: _RelatedMomentsStrip(
+                jobs: jobs,
+                selectedJob: selectedJob,
+                pickingGalleryImage: _pickingGalleryImage,
+                onPickGalleryImage: _pickGalleryImage,
+                onSelectJob: _selectJobFromStrip,
+                onConfirmJob: _confirmJob,
+                onCancelJob: (GenerationSubmissionJob job) {
+                  unawaited(_cancelJob(job));
+                },
+                onRetryJob: (GenerationSubmissionJob job) {
+                  unawaited(_retryJob(job));
+                },
+                onRemoveJob: (GenerationSubmissionJob job) {
+                  unawaited(_removeJob(job));
+                },
               ),
             ),
-            _GalleryCloseButton(onClose: _closeGallery),
+          ],
+        );
+        if (!widget.showNavigationBar) {
+          return Stack(
+            children: <Widget>[
+              _TopGradientBlur(blurHeight: topInset, child: galleryContent),
+              if (_galleryExportProgressDialogVisible)
+                _GalleryExportProgressOverlay(
+                  progressListenable: _galleryExportProgress,
+                ),
+            ],
+          );
+        }
+        return Stack(
+          children: <Widget>[
+            Padding(
+              padding: EdgeInsets.only(top: navigationHeight),
+              child: SizedBox(height: contentHeight, child: galleryContent),
+            ),
+            if (widget.showNavigationBar)
+              AppBlurNavigationBar(
+                topInset: topInset,
+                title: context.l10n.generationSubmissionGalleryTitle,
+                backButtonKey: const ValueKey<String>(
+                  'generation-gallery-back-button',
+                ),
+                onBackPressed: _closeGallery,
+              ),
             if (_galleryExportProgressDialogVisible)
               _GalleryExportProgressOverlay(
                 progressListenable: _galleryExportProgress,
@@ -1072,45 +1109,6 @@ class _GalleryExportProgressBar extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(color: colors.textPrimary),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GalleryCloseButton extends StatelessWidget {
-  const _GalleryCloseButton({required this.onClose});
-
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final double topInset = MediaQuery.paddingOf(context).top;
-    final AppThemeColors colors = AppThemeColors.of(context);
-    return Positioned(
-      left: 14,
-      top: ((topInset - 44) / 2).clamp(6.0, 20.0),
-      child: CupertinoButton(
-        key: const ValueKey<String>('generation-submission-modal-close'),
-        padding: EdgeInsets.zero,
-        minimumSize: const Size.square(44),
-        onPressed: onClose,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: colors.surface,
-            shape: BoxShape.circle,
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: colors.shadow,
-                blurRadius: 12,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
-          child: SizedBox.square(
-            dimension: 36,
-            child: Icon(LucideIcons.x, color: colors.textPrimary, size: 18),
           ),
         ),
       ),
