@@ -25,9 +25,9 @@ import '../../generation_submission/presentation/generation_submission_providers
 import '../data/capture_orientation_reader.dart';
 import 'camera_ui/camera_photo_option_button.dart';
 import 'camera_ui/camera_photo_ui.dart';
-import 'camera_ui/camera_ui_tokens.dart';
-import 'camera_ui/camera_ui_models.dart';
 import 'camera_message.dart';
+import 'camera_ui/camera_ui_models.dart';
+import 'camera_ui/camera_ui_tokens.dart';
 import 'camera_providers.dart';
 import 'camera_state.dart';
 
@@ -131,12 +131,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       message: _localizedMessage(cameraState.message),
       controlsRotationTurns: controlsRotationTurns,
       aspectRatioLabel: '4:3',
-      modes: _cameraModesForPrompt(localizedPromptSelection),
-      selectedModeId: localizedPromptSelection.selectedCaptureModeId,
-      modeExtensions: _cameraModeExtensionsForPrompt(
-        localizedPromptSelection,
-        tokens,
-      ),
+      promptOptions: _cameraPromptOptions(localizedPromptSelection, tokens),
       zoomStops: _zoomStops(cameraState),
       currentDisplayZoom: cameraState.rawToDisplayZoom(
         cameraState.currentRawZoom,
@@ -156,9 +151,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       onShutterPressed: notifier.takePicture,
       onGalleryPressed: _openGallery,
       onZoomStopSelected: notifier.setDisplayZoom,
-      onModeSelected: ref
-          .read(promptSelectionControllerProvider.notifier)
-          .selectCaptureMode,
     );
   }
 
@@ -384,8 +376,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       switches: promptSwitchesForDefinitions(
         styles,
         promptStyle: state.selectedPromptStyleId,
-        captureMode: state.selectedCaptureModeId,
+        captureMode: defaultCaptureMode,
       ),
+      selectedCaptureModeId: defaultCaptureMode,
     );
   }
 
@@ -450,70 +443,35 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     return '${text}x';
   }
 
-  List<CameraUiMode> _cameraModesForPrompt(
-    PromptSelectionState promptSelection,
-  ) {
-    if (promptSelection.captureModes.isEmpty) {
-      return CameraPhotoUi.defaultModes;
-    }
-    final List<PromptCaptureModeDefinition> sortedModes =
-        <PromptCaptureModeDefinition>[...promptSelection.captureModes]
-          ..sort(_compareCaptureModesForCameraUi);
-    return sortedModes
-        .map((PromptCaptureModeDefinition mode) {
-          return CameraUiMode(id: mode.id, label: mode.title.toUpperCase());
-        })
-        .toList(growable: false);
-  }
-
-  Map<String, List<Widget>> _cameraModeExtensionsForPrompt(
+  List<Widget> _cameraPromptOptions(
     PromptSelectionState promptSelection,
     CameraUiTokens tokens,
   ) {
     if (promptSelection.switches.isEmpty) {
-      return const <String, List<Widget>>{};
+      return const <Widget>[];
     }
     final PromptSelectionController promptController = ref.read(
       promptSelectionControllerProvider.notifier,
     );
-    return <String, List<Widget>>{
-      defaultCaptureMode: <Widget>[
-        for (int index = 0; index < promptSelection.switches.length; index++)
-          CameraPhotoOptionButton(
-            key: ValueKey<String>(
-              'camera-prompt-option-${promptSelection.switches[index].id}',
-            ),
-            tokens: tokens,
-            label: promptSelection.switches[index].title,
-            icon: _promptOptionIcon(promptSelection.switches[index].id),
-            selected:
-                promptSelection.values[promptSelection.switches[index].id] ??
-                false,
-            animationIndex: index,
-            onPressed: () {
-              promptController.toggleSwitch(promptSelection.switches[index].id);
-            },
+    return <Widget>[
+      for (int index = 0; index < promptSelection.switches.length; index++)
+        CameraPhotoOptionButton(
+          key: ValueKey<String>(
+            'camera-prompt-option-${promptSelection.switches[index].id}',
           ),
-      ],
-    };
+          tokens: tokens,
+          label: promptSelection.switches[index].title,
+          icon: _promptOptionIcon(promptSelection.switches[index].id),
+          selected:
+              promptSelection.values[promptSelection.switches[index].id] ??
+              false,
+          animationIndex: index,
+          onPressed: () {
+            promptController.toggleSwitch(promptSelection.switches[index].id);
+          },
+        ),
+    ];
   }
-}
-
-int _compareCaptureModesForCameraUi(
-  PromptCaptureModeDefinition first,
-  PromptCaptureModeDefinition second,
-) {
-  return _captureModeSortRank(
-    first.id,
-  ).compareTo(_captureModeSortRank(second.id));
-}
-
-int _captureModeSortRank(String id) {
-  return switch (id) {
-    'general' => 0,
-    defaultCaptureMode => 1,
-    _ => 2,
-  };
 }
 
 class _CreditsBalanceBadge extends StatelessWidget {

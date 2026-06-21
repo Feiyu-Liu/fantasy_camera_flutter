@@ -72,23 +72,7 @@ class CameraUiTokens {
       fontSize: 11,
       fontWeight: FontWeight.w500,
     ),
-    this.modeRowHeight = 42,
-    this.modeItemWidth = 80,
-    this.modeItemPadding = const EdgeInsets.symmetric(horizontal: 8),
-    this.modeSelectedTextStyle = const TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.w900,
-      letterSpacing: 0.5,
-    ),
-    this.modeUnselectedTextStyle = const TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 0.5,
-    ),
-    this.modeIndicatorTopMargin = 4,
-    this.modeIndicatorWidth = 32,
-    this.modeIndicatorHeight = 1.5,
-    this.modeExtensionExpandedHeight = 48,
+    this.modeExtensionExpandedHeight = 56,
     this.modeExtensionMotionDuration = const Duration(milliseconds: 260),
     this.modeExtensionInitialDelay = 0.08,
     this.modeExtensionStaggerDelay = 0.08,
@@ -191,15 +175,6 @@ class CameraUiTokens {
   final Color zoomUnselectedLabelColor;
   final TextStyle zoomSelectedLabelTextStyle;
   final TextStyle zoomUnselectedLabelTextStyle;
-
-  final double modeRowHeight;
-  final double modeItemWidth;
-  final EdgeInsetsGeometry modeItemPadding;
-  final TextStyle modeSelectedTextStyle;
-  final TextStyle modeUnselectedTextStyle;
-  final double modeIndicatorTopMargin;
-  final double modeIndicatorWidth;
-  final double modeIndicatorHeight;
 
   final double modeExtensionExpandedHeight;
   final Duration modeExtensionMotionDuration;
