@@ -200,6 +200,15 @@ final generationSubmissionControllerProvider =
       ],
     );
 
+final generationResultNotificationControllerProvider =
+    NotifierProvider<
+      GenerationResultNotificationController,
+      GenerationResultNotificationState
+    >(
+      GenerationResultNotificationController.new,
+      dependencies: <ProviderOrFamily>[generationSubmissionControllerProvider],
+    );
+
 final promptSelectionControllerProvider =
     NotifierProvider<PromptSelectionController, PromptSelectionState>(
       PromptSelectionController.new,
@@ -647,6 +656,107 @@ class GenerationSubmissionController
           )
           .toList(growable: false),
     );
+  }
+}
+
+enum GenerationResultNotificationStatus { none, success, failure }
+
+class GenerationResultNotificationState {
+  const GenerationResultNotificationState({
+    this.unreadSuccessJobIds = const <String>{},
+    this.unreadFailureJobIds = const <String>{},
+  });
+
+  final Set<String> unreadSuccessJobIds;
+  final Set<String> unreadFailureJobIds;
+
+  GenerationResultNotificationStatus get status {
+    if (unreadFailureJobIds.isNotEmpty) {
+      return GenerationResultNotificationStatus.failure;
+    }
+    if (unreadSuccessJobIds.isNotEmpty) {
+      return GenerationResultNotificationStatus.success;
+    }
+    return GenerationResultNotificationStatus.none;
+  }
+
+  bool get hasUnreadResult => status != GenerationResultNotificationStatus.none;
+}
+
+class GenerationResultNotificationController
+    extends Notifier<GenerationResultNotificationState> {
+  bool _initialized = false;
+  Set<String> _knownTerminalJobIds = <String>{};
+  Set<String> _unreadSuccessJobIds = <String>{};
+  Set<String> _unreadFailureJobIds = <String>{};
+
+  @override
+  GenerationResultNotificationState build() {
+    final GenerationSubmissionState submissionState = ref.watch(
+      generationSubmissionControllerProvider,
+    );
+    final Set<String> successJobIds = _jobIdsWithStatuses(
+      submissionState,
+      const <GenerationSubmissionStatus>{
+        GenerationSubmissionStatus.resultSaved,
+      },
+    );
+    final Set<String> failureJobIds =
+        _jobIdsWithStatuses(submissionState, const <GenerationSubmissionStatus>{
+          GenerationSubmissionStatus.failed,
+          GenerationSubmissionStatus.resultProcessingFailed,
+        });
+    final Set<String> terminalJobIds = <String>{
+      ...successJobIds,
+      ...failureJobIds,
+    };
+
+    if (!_initialized) {
+      _initialized = true;
+      _knownTerminalJobIds = terminalJobIds;
+      _unreadSuccessJobIds = <String>{};
+      _unreadFailureJobIds = <String>{};
+      return const GenerationResultNotificationState();
+    }
+
+    final Set<String> newlySucceededJobIds = successJobIds.difference(
+      _knownTerminalJobIds,
+    );
+    final Set<String> newlyFailedJobIds = failureJobIds.difference(
+      _knownTerminalJobIds,
+    );
+    _knownTerminalJobIds = <String>{..._knownTerminalJobIds, ...terminalJobIds};
+    _unreadSuccessJobIds = <String>{
+      ..._unreadSuccessJobIds.intersection(successJobIds),
+      ...newlySucceededJobIds,
+    };
+    _unreadFailureJobIds = <String>{
+      ..._unreadFailureJobIds.intersection(failureJobIds),
+      ...newlyFailedJobIds,
+    };
+    return GenerationResultNotificationState(
+      unreadSuccessJobIds: Set<String>.unmodifiable(_unreadSuccessJobIds),
+      unreadFailureJobIds: Set<String>.unmodifiable(_unreadFailureJobIds),
+    );
+  }
+
+  void markAllSeen() {
+    if (_unreadSuccessJobIds.isEmpty && _unreadFailureJobIds.isEmpty) {
+      return;
+    }
+    _unreadSuccessJobIds = <String>{};
+    _unreadFailureJobIds = <String>{};
+    state = const GenerationResultNotificationState();
+  }
+
+  Set<String> _jobIdsWithStatuses(
+    GenerationSubmissionState submissionState,
+    Set<GenerationSubmissionStatus> statuses,
+  ) {
+    return submissionState.jobs
+        .where((GenerationSubmissionJob job) => statuses.contains(job.status))
+        .map((GenerationSubmissionJob job) => job.id)
+        .toSet();
   }
 }
 

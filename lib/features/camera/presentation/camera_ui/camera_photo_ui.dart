@@ -6,6 +6,9 @@ import 'package:smooth_corner/smooth_corner.dart';
 import 'camera_ui_models.dart';
 import 'camera_ui_tokens.dart';
 import '../../../../theme/app_corners.dart';
+import '../../../../theme/app_colors.dart';
+
+enum CameraGalleryBadgeStatus { none, success, failure }
 
 class CameraPhotoUi extends StatelessWidget {
   const CameraPhotoUi({
@@ -21,6 +24,7 @@ class CameraPhotoUi extends StatelessWidget {
     this.controlsRotationTurns = 0,
     this.zoomEnabled = true,
     this.galleryEnabled = true,
+    this.galleryBadgeStatus = CameraGalleryBadgeStatus.none,
     this.shutterEnabled = true,
     this.shutterBusy = false,
     this.flashMode = CameraFlashUiMode.off,
@@ -58,6 +62,7 @@ class CameraPhotoUi extends StatelessWidget {
   final double controlsRotationTurns;
   final bool zoomEnabled;
   final bool galleryEnabled;
+  final CameraGalleryBadgeStatus galleryBadgeStatus;
   final bool shutterEnabled;
   final bool shutterBusy;
   final CameraFlashUiMode flashMode;
@@ -144,6 +149,7 @@ class CameraPhotoUi extends StatelessWidget {
                       galleryPreview: galleryPreview,
                       controlsRotationTurns: controlsRotationTurns,
                       galleryEnabled: galleryEnabled,
+                      galleryBadgeStatus: galleryBadgeStatus,
                       shutterEnabled: shutterEnabled,
                       shutterBusy: shutterBusy,
                       cameraFacing: cameraFacing,
@@ -973,6 +979,7 @@ class CameraPhotoBottomControls extends StatelessWidget {
     this.galleryPreview,
     this.controlsRotationTurns = 0,
     this.galleryEnabled = true,
+    this.galleryBadgeStatus = CameraGalleryBadgeStatus.none,
     this.shutterEnabled = true,
     this.shutterBusy = false,
     this.cameraFacing = CameraFacingUi.unknown,
@@ -987,6 +994,7 @@ class CameraPhotoBottomControls extends StatelessWidget {
   final Widget? galleryPreview;
   final double controlsRotationTurns;
   final bool galleryEnabled;
+  final CameraGalleryBadgeStatus galleryBadgeStatus;
   final bool shutterEnabled;
   final bool shutterBusy;
   final CameraFacingUi cameraFacing;
@@ -1015,6 +1023,7 @@ class CameraPhotoBottomControls extends StatelessWidget {
                     tokens: tokens,
                     preview: galleryPreview,
                     rotationTurns: controlsRotationTurns,
+                    badgeStatus: galleryBadgeStatus,
                     onPressed: galleryEnabled ? onGalleryPressed : null,
                   ),
                 ),
@@ -1050,37 +1059,78 @@ class CameraPhotoGalleryButton extends StatelessWidget {
     super.key,
     this.preview,
     this.rotationTurns = 0,
+    this.badgeStatus = CameraGalleryBadgeStatus.none,
     this.onPressed,
   });
 
   final CameraUiTokens tokens;
   final Widget? preview;
   final double rotationTurns;
+  final CameraGalleryBadgeStatus badgeStatus;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
+    final Color? badgeColor = _galleryBadgeColor(badgeStatus);
     return GestureDetector(
       onTap: onPressed,
       behavior: HitTestBehavior.opaque,
-      child: SmoothClipRRect(
-        borderRadius: AppCorners.controlBorderRadius,
-        smoothness: AppCorners.smoothness,
-        side: BorderSide(
-          color: tokens.primaryTextColor,
-          width: tokens.dividerWidth,
-        ),
-        child: SizedBox(
-          width: tokens.galleryButtonSize,
-          height: tokens.galleryButtonSize,
-          child: _RotatingCameraControl(
-            tokens: tokens,
-            turns: rotationTurns,
-            child: preview ?? CameraCheckerboardThumbnail(tokens: tokens),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          SmoothClipRRect(
+            borderRadius: AppCorners.controlBorderRadius,
+            smoothness: AppCorners.smoothness,
+            side: BorderSide(
+              color: tokens.primaryTextColor,
+              width: tokens.dividerWidth,
+            ),
+            child: SizedBox(
+              width: tokens.galleryButtonSize,
+              height: tokens.galleryButtonSize,
+              child: _RotatingCameraControl(
+                tokens: tokens,
+                turns: rotationTurns,
+                child: preview ?? CameraCheckerboardThumbnail(tokens: tokens),
+              ),
+            ),
           ),
-        ),
+          if (badgeColor != null)
+            Positioned(
+              top: -2,
+              right: -2,
+              child: DecoratedBox(
+                key: const ValueKey<String>('camera-gallery-result-badge'),
+                decoration: BoxDecoration(
+                  color: badgeColor,
+                  shape: BoxShape.circle,
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: badgeColor.withValues(alpha: 0.62),
+                      blurRadius: 4,
+                      spreadRadius: 0.4,
+                    ),
+                    BoxShadow(
+                      color: badgeColor.withValues(alpha: 0.34),
+                      blurRadius: 7,
+                      spreadRadius: 1.2,
+                    ),
+                  ],
+                ),
+                child: const SizedBox(width: 5, height: 5),
+              ),
+            ),
+        ],
       ),
     );
+  }
+
+  Color? _galleryBadgeColor(CameraGalleryBadgeStatus status) {
+    return switch (status) {
+      CameraGalleryBadgeStatus.none => null,
+      CameraGalleryBadgeStatus.success => AppColors.success,
+      CameraGalleryBadgeStatus.failure => AppColors.danger,
+    };
   }
 }
 
