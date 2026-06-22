@@ -490,6 +490,17 @@ class $GenerationRecordsTable extends GenerationRecords
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _resultNotificationSeenAtMeta =
+      const VerificationMeta('resultNotificationSeenAt');
+  @override
+  late final GeneratedColumn<DateTime> resultNotificationSeenAt =
+      GeneratedColumn<DateTime>(
+        'result_notification_seen_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     recordId,
@@ -535,6 +546,7 @@ class $GenerationRecordsTable extends GenerationRecords
     displaySnapshotJson,
     errorCode,
     errorMessage,
+    resultNotificationSeenAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -931,6 +943,15 @@ class $GenerationRecordsTable extends GenerationRecords
         ),
       );
     }
+    if (data.containsKey('result_notification_seen_at')) {
+      context.handle(
+        _resultNotificationSeenAtMeta,
+        resultNotificationSeenAt.isAcceptableOrUnknown(
+          data['result_notification_seen_at']!,
+          _resultNotificationSeenAtMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1112,6 +1133,10 @@ class $GenerationRecordsTable extends GenerationRecords
         DriftSqlType.string,
         data['${effectivePrefix}error_message'],
       ),
+      resultNotificationSeenAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}result_notification_seen_at'],
+      ),
     );
   }
 
@@ -1166,6 +1191,7 @@ class GenerationRecord extends DataClass
   final String? displaySnapshotJson;
   final String? errorCode;
   final String? errorMessage;
+  final DateTime? resultNotificationSeenAt;
   const GenerationRecord({
     required this.recordId,
     required this.createdAt,
@@ -1210,6 +1236,7 @@ class GenerationRecord extends DataClass
     this.displaySnapshotJson,
     this.errorCode,
     this.errorMessage,
+    this.resultNotificationSeenAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1328,6 +1355,11 @@ class GenerationRecord extends DataClass
     }
     if (!nullToAbsent || errorMessage != null) {
       map['error_message'] = Variable<String>(errorMessage);
+    }
+    if (!nullToAbsent || resultNotificationSeenAt != null) {
+      map['result_notification_seen_at'] = Variable<DateTime>(
+        resultNotificationSeenAt,
+      );
     }
     return map;
   }
@@ -1448,6 +1480,9 @@ class GenerationRecord extends DataClass
       errorMessage: errorMessage == null && nullToAbsent
           ? const Value.absent()
           : Value(errorMessage),
+      resultNotificationSeenAt: resultNotificationSeenAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resultNotificationSeenAt),
     );
   }
 
@@ -1532,6 +1567,9 @@ class GenerationRecord extends DataClass
       ),
       errorCode: serializer.fromJson<String?>(json['errorCode']),
       errorMessage: serializer.fromJson<String?>(json['errorMessage']),
+      resultNotificationSeenAt: serializer.fromJson<DateTime?>(
+        json['resultNotificationSeenAt'],
+      ),
     );
   }
   @override
@@ -1583,6 +1621,9 @@ class GenerationRecord extends DataClass
       'displaySnapshotJson': serializer.toJson<String?>(displaySnapshotJson),
       'errorCode': serializer.toJson<String?>(errorCode),
       'errorMessage': serializer.toJson<String?>(errorMessage),
+      'resultNotificationSeenAt': serializer.toJson<DateTime?>(
+        resultNotificationSeenAt,
+      ),
     };
   }
 
@@ -1630,6 +1671,7 @@ class GenerationRecord extends DataClass
     Value<String?> displaySnapshotJson = const Value.absent(),
     Value<String?> errorCode = const Value.absent(),
     Value<String?> errorMessage = const Value.absent(),
+    Value<DateTime?> resultNotificationSeenAt = const Value.absent(),
   }) => GenerationRecord(
     recordId: recordId ?? this.recordId,
     createdAt: createdAt ?? this.createdAt,
@@ -1728,6 +1770,9 @@ class GenerationRecord extends DataClass
         : this.displaySnapshotJson,
     errorCode: errorCode.present ? errorCode.value : this.errorCode,
     errorMessage: errorMessage.present ? errorMessage.value : this.errorMessage,
+    resultNotificationSeenAt: resultNotificationSeenAt.present
+        ? resultNotificationSeenAt.value
+        : this.resultNotificationSeenAt,
   );
   GenerationRecord copyWithCompanion(GenerationRecordsCompanion data) {
     return GenerationRecord(
@@ -1851,6 +1896,9 @@ class GenerationRecord extends DataClass
       errorMessage: data.errorMessage.present
           ? data.errorMessage.value
           : this.errorMessage,
+      resultNotificationSeenAt: data.resultNotificationSeenAt.present
+          ? data.resultNotificationSeenAt.value
+          : this.resultNotificationSeenAt,
     );
   }
 
@@ -1901,7 +1949,8 @@ class GenerationRecord extends DataClass
           ..write('userInputJson: $userInputJson, ')
           ..write('displaySnapshotJson: $displaySnapshotJson, ')
           ..write('errorCode: $errorCode, ')
-          ..write('errorMessage: $errorMessage')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('resultNotificationSeenAt: $resultNotificationSeenAt')
           ..write(')'))
         .toString();
   }
@@ -1951,6 +2000,7 @@ class GenerationRecord extends DataClass
     displaySnapshotJson,
     errorCode,
     errorMessage,
+    resultNotificationSeenAt,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1999,7 +2049,8 @@ class GenerationRecord extends DataClass
           other.userInputJson == this.userInputJson &&
           other.displaySnapshotJson == this.displaySnapshotJson &&
           other.errorCode == this.errorCode &&
-          other.errorMessage == this.errorMessage);
+          other.errorMessage == this.errorMessage &&
+          other.resultNotificationSeenAt == this.resultNotificationSeenAt);
 }
 
 class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
@@ -2046,6 +2097,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
   final Value<String?> displaySnapshotJson;
   final Value<String?> errorCode;
   final Value<String?> errorMessage;
+  final Value<DateTime?> resultNotificationSeenAt;
   final Value<int> rowid;
   const GenerationRecordsCompanion({
     this.recordId = const Value.absent(),
@@ -2091,6 +2143,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     this.displaySnapshotJson = const Value.absent(),
     this.errorCode = const Value.absent(),
     this.errorMessage = const Value.absent(),
+    this.resultNotificationSeenAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   GenerationRecordsCompanion.insert({
@@ -2137,6 +2190,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     this.displaySnapshotJson = const Value.absent(),
     this.errorCode = const Value.absent(),
     this.errorMessage = const Value.absent(),
+    this.resultNotificationSeenAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : recordId = Value(recordId),
        createdAt = Value(createdAt),
@@ -2189,6 +2243,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     Expression<String>? displaySnapshotJson,
     Expression<String>? errorCode,
     Expression<String>? errorMessage,
+    Expression<DateTime>? resultNotificationSeenAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2246,6 +2301,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
         'display_snapshot_json': displaySnapshotJson,
       if (errorCode != null) 'error_code': errorCode,
       if (errorMessage != null) 'error_message': errorMessage,
+      if (resultNotificationSeenAt != null)
+        'result_notification_seen_at': resultNotificationSeenAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2294,6 +2351,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     Value<String?>? displaySnapshotJson,
     Value<String?>? errorCode,
     Value<String?>? errorMessage,
+    Value<DateTime?>? resultNotificationSeenAt,
     Value<int>? rowid,
   }) {
     return GenerationRecordsCompanion(
@@ -2342,6 +2400,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
       displaySnapshotJson: displaySnapshotJson ?? this.displaySnapshotJson,
       errorCode: errorCode ?? this.errorCode,
       errorMessage: errorMessage ?? this.errorMessage,
+      resultNotificationSeenAt:
+          resultNotificationSeenAt ?? this.resultNotificationSeenAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2492,6 +2552,11 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     if (errorMessage.present) {
       map['error_message'] = Variable<String>(errorMessage.value);
     }
+    if (resultNotificationSeenAt.present) {
+      map['result_notification_seen_at'] = Variable<DateTime>(
+        resultNotificationSeenAt.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2546,6 +2611,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
           ..write('displaySnapshotJson: $displaySnapshotJson, ')
           ..write('errorCode: $errorCode, ')
           ..write('errorMessage: $errorMessage, ')
+          ..write('resultNotificationSeenAt: $resultNotificationSeenAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2610,6 +2676,7 @@ typedef $$GenerationRecordsTableCreateCompanionBuilder =
       Value<String?> displaySnapshotJson,
       Value<String?> errorCode,
       Value<String?> errorMessage,
+      Value<DateTime?> resultNotificationSeenAt,
       Value<int> rowid,
     });
 typedef $$GenerationRecordsTableUpdateCompanionBuilder =
@@ -2657,6 +2724,7 @@ typedef $$GenerationRecordsTableUpdateCompanionBuilder =
       Value<String?> displaySnapshotJson,
       Value<String?> errorCode,
       Value<String?> errorMessage,
+      Value<DateTime?> resultNotificationSeenAt,
       Value<int> rowid,
     });
 
@@ -2882,6 +2950,11 @@ class $$GenerationRecordsTableFilterComposer
 
   ColumnFilters<String> get errorMessage => $composableBuilder(
     column: $table.errorMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get resultNotificationSeenAt => $composableBuilder(
+    column: $table.resultNotificationSeenAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3110,6 +3183,11 @@ class $$GenerationRecordsTableOrderingComposer
     column: $table.errorMessage,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get resultNotificationSeenAt => $composableBuilder(
+    column: $table.resultNotificationSeenAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$GenerationRecordsTableAnnotationComposer
@@ -3326,6 +3404,11 @@ class $$GenerationRecordsTableAnnotationComposer
     column: $table.errorMessage,
     builder: (column) => column,
   );
+
+  GeneratedColumn<DateTime> get resultNotificationSeenAt => $composableBuilder(
+    column: $table.resultNotificationSeenAt,
+    builder: (column) => column,
+  );
 }
 
 class $$GenerationRecordsTableTableManager
@@ -3412,6 +3495,8 @@ class $$GenerationRecordsTableTableManager
                 Value<String?> displaySnapshotJson = const Value.absent(),
                 Value<String?> errorCode = const Value.absent(),
                 Value<String?> errorMessage = const Value.absent(),
+                Value<DateTime?> resultNotificationSeenAt =
+                    const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GenerationRecordsCompanion(
                 recordId: recordId,
@@ -3458,6 +3543,7 @@ class $$GenerationRecordsTableTableManager
                 displaySnapshotJson: displaySnapshotJson,
                 errorCode: errorCode,
                 errorMessage: errorMessage,
+                resultNotificationSeenAt: resultNotificationSeenAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3506,6 +3592,8 @@ class $$GenerationRecordsTableTableManager
                 Value<String?> displaySnapshotJson = const Value.absent(),
                 Value<String?> errorCode = const Value.absent(),
                 Value<String?> errorMessage = const Value.absent(),
+                Value<DateTime?> resultNotificationSeenAt =
+                    const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GenerationRecordsCompanion.insert(
                 recordId: recordId,
@@ -3552,6 +3640,7 @@ class $$GenerationRecordsTableTableManager
                 displaySnapshotJson: displaySnapshotJson,
                 errorCode: errorCode,
                 errorMessage: errorMessage,
+                resultNotificationSeenAt: resultNotificationSeenAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

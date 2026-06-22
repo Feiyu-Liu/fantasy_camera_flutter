@@ -98,6 +98,7 @@ class _GenerationSubmissionDebugModalState
       <String, _GalleryHeroDisplayState>{};
   final Set<String> _knownLocalSavedResultJobIds = <String>{};
   bool _hasProcessedInitialJobs = false;
+  bool _markResultNotificationsSeenScheduled = false;
   late final ValueNotifier<double> _galleryExportProgress =
       ValueNotifier<double>(0);
   List<GenerationSubmissionJob> _jobs = const <GenerationSubmissionJob>[];
@@ -111,11 +112,14 @@ class _GenerationSubmissionDebugModalState
   void initState() {
     super.initState();
     _galleryImagePicker = ref.read(galleryImagePickerProvider);
-    unawaited(_resumeActiveRecordsForGallery());
+    if (ref.read(galleryResumeActiveRecordsOnOpenProvider)) {
+      unawaited(_resumeActiveRecordsForGallery());
+    }
     _jobs = ref.read(generationSubmissionControllerProvider).jobs;
     _knownLocalSavedResultJobIds.addAll(_localSavedResultJobIds(_jobs));
     _hasProcessedInitialJobs = _jobs.isNotEmpty;
     _selectFocusedTaskIfPresent(_jobs, animate: false);
+    _scheduleMarkResultNotificationsSeen();
     _jobsSubscription = ref.listenManual<GenerationSubmissionState>(
       generationSubmissionControllerProvider,
       (GenerationSubmissionState? previous, GenerationSubmissionState next) {
@@ -148,8 +152,25 @@ class _GenerationSubmissionDebugModalState
           );
         }
         _selectFocusedTaskIfPresent(next.jobs, animate: true);
+        _scheduleMarkResultNotificationsSeen();
       },
     );
+  }
+
+  void _scheduleMarkResultNotificationsSeen() {
+    if (_markResultNotificationsSeenScheduled) {
+      return;
+    }
+    _markResultNotificationsSeenScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _markResultNotificationsSeenScheduled = false;
+      if (!mounted) {
+        return;
+      }
+      ref
+          .read(generationResultNotificationControllerProvider.notifier)
+          .markAllSeen();
+    });
   }
 
   Future<void> _resumeActiveRecordsForGallery() async {

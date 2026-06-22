@@ -31,6 +31,11 @@ final heroImagePrecacheProvider = Provider<HeroImagePrecache>((Ref ref) {
   return defaultHeroImagePrecache;
 }, dependencies: const <ProviderOrFamily>[]);
 
+final galleryResumeActiveRecordsOnOpenProvider = Provider<bool>(
+  (Ref ref) => true,
+  dependencies: const <ProviderOrFamily>[],
+);
+
 Future<bool> defaultHeroImagePrecache(ImageProvider imageProvider) {
   final Completer<bool> completer = Completer<bool>();
   final ImageStream stream = imageProvider.resolve(const ImageConfiguration());
@@ -206,7 +211,10 @@ final generationResultNotificationControllerProvider =
       GenerationResultNotificationState
     >(
       GenerationResultNotificationController.new,
-      dependencies: <ProviderOrFamily>[generationSubmissionControllerProvider],
+      dependencies: <ProviderOrFamily>[
+        generationSubmissionControllerProvider,
+        generationRecordRepositoryProvider,
+      ],
     );
 
 final promptSelectionControllerProvider =
@@ -547,6 +555,10 @@ class GenerationSubmissionController
     await _refreshFromRepository();
   }
 
+  Future<void> refreshFromRepositoryForNotifications() {
+    return _refreshFromRepository();
+  }
+
   Future<void> retryJob(String jobId) async {
     _deletedJobIds.remove(jobId);
     await _service.retryJob(jobId);
@@ -704,76 +716,97 @@ class GenerationResultNotificationState {
 
 class GenerationResultNotificationController
     extends Notifier<GenerationResultNotificationState> {
-  bool _initialized = false;
-  Set<String> _knownTerminalJobIds = <String>{};
-  Set<String> _unreadSuccessJobIds = <String>{};
-  Set<String> _unreadFailureJobIds = <String>{};
+  bool _isMarkingSeen = false;
+  bool _disposed = false;
 
   @override
   GenerationResultNotificationState build() {
+    _disposed = false;
+    ref.onDispose(() {
+      _disposed = true;
+    });
     final GenerationSubmissionState submissionState = ref.watch(
       generationSubmissionControllerProvider,
     );
-    final Set<String> successJobIds = _jobIdsWithStatuses(
+    if (_isMarkingSeen) {
+      return const GenerationResultNotificationState();
+    }
+    final Set<String> unreadSuccessJobIds = _unreadJobIdsWithStatuses(
       submissionState,
       const <GenerationSubmissionStatus>{
         GenerationSubmissionStatus.resultSaved,
       },
     );
-    final Set<String> failureJobIds =
-        _jobIdsWithStatuses(submissionState, const <GenerationSubmissionStatus>{
-          GenerationSubmissionStatus.failed,
-          GenerationSubmissionStatus.resultProcessingFailed,
-        });
-    final Set<String> terminalJobIds = <String>{
-      ...successJobIds,
-      ...failureJobIds,
-    };
-
-    if (!_initialized) {
-      _initialized = true;
-      _knownTerminalJobIds = terminalJobIds;
-      _unreadSuccessJobIds = <String>{};
-      _unreadFailureJobIds = <String>{};
-      return const GenerationResultNotificationState();
-    }
-
-    final Set<String> newlySucceededJobIds = successJobIds.difference(
-      _knownTerminalJobIds,
+    final Set<String> unreadFailureJobIds = _unreadJobIdsWithStatuses(
+      submissionState,
+      const <GenerationSubmissionStatus>{
+        GenerationSubmissionStatus.failed,
+        GenerationSubmissionStatus.resultProcessingFailed,
+      },
     );
-    final Set<String> newlyFailedJobIds = failureJobIds.difference(
-      _knownTerminalJobIds,
-    );
-    _knownTerminalJobIds = <String>{..._knownTerminalJobIds, ...terminalJobIds};
-    _unreadSuccessJobIds = <String>{
-      ..._unreadSuccessJobIds.intersection(successJobIds),
-      ...newlySucceededJobIds,
-    };
-    _unreadFailureJobIds = <String>{
-      ..._unreadFailureJobIds.intersection(failureJobIds),
-      ...newlyFailedJobIds,
-    };
     return GenerationResultNotificationState(
-      unreadSuccessJobIds: Set<String>.unmodifiable(_unreadSuccessJobIds),
-      unreadFailureJobIds: Set<String>.unmodifiable(_unreadFailureJobIds),
+      unreadSuccessJobIds: Set<String>.unmodifiable(unreadSuccessJobIds),
+      unreadFailureJobIds: Set<String>.unmodifiable(unreadFailureJobIds),
     );
   }
 
   void markAllSeen() {
-    if (_unreadSuccessJobIds.isEmpty && _unreadFailureJobIds.isEmpty) {
+    if (!state.hasUnreadResult &&
+        !_hasUnseenTerminalJob(
+          ref.read(generationSubmissionControllerProvider),
+        )) {
       return;
     }
-    _unreadSuccessJobIds = <String>{};
-    _unreadFailureJobIds = <String>{};
+    _isMarkingSeen = true;
     state = const GenerationResultNotificationState();
+    final GenerationRecordRepository repository = ref.read(
+      generationRecordRepositoryProvider,
+    );
+    final GenerationSubmissionController submissionController = ref.read(
+      generationSubmissionControllerProvider.notifier,
+    );
+    unawaited(_persistAllSeen(repository, submissionController));
   }
 
-  Set<String> _jobIdsWithStatuses(
+  Future<void> _persistAllSeen(
+    GenerationRecordRepository repository,
+    GenerationSubmissionController submissionController,
+  ) async {
+    try {
+      await repository.markTerminalResultNotificationsSeen(DateTime.now());
+      if (_disposed) {
+        return;
+      }
+      await submissionController.refreshFromRepositoryForNotifications();
+    } finally {
+      if (!_disposed) {
+        _isMarkingSeen = false;
+        ref.invalidateSelf();
+      }
+    }
+  }
+
+  bool _hasUnseenTerminalJob(GenerationSubmissionState submissionState) {
+    return _unreadJobIdsWithStatuses(
+      submissionState,
+      const <GenerationSubmissionStatus>{
+        GenerationSubmissionStatus.resultSaved,
+        GenerationSubmissionStatus.failed,
+        GenerationSubmissionStatus.resultProcessingFailed,
+      },
+    ).isNotEmpty;
+  }
+
+  Set<String> _unreadJobIdsWithStatuses(
     GenerationSubmissionState submissionState,
     Set<GenerationSubmissionStatus> statuses,
   ) {
     return submissionState.jobs
-        .where((GenerationSubmissionJob job) => statuses.contains(job.status))
+        .where(
+          (GenerationSubmissionJob job) =>
+              statuses.contains(job.status) &&
+              job.resultNotificationSeenAt == null,
+        )
         .map((GenerationSubmissionJob job) => job.id)
         .toSet();
   }

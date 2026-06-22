@@ -375,6 +375,7 @@ class GenerationRecordRepository {
         resultSha256: const Value<String?>(null),
         resultHashStatus: const Value<String?>(null),
         resultHashError: const Value<String?>(null),
+        resultNotificationSeenAt: const Value<DateTime?>(null),
         errorCode: const Value<String?>(null),
         errorMessage: const Value<String?>(null),
       ),
@@ -419,6 +420,23 @@ class GenerationRecordRepository {
           return clearableCameraOriginalPipelineStatuses.contains(status);
         })
         .toList(growable: false);
+  }
+
+  Future<void> markTerminalResultNotificationsSeen(DateTime seenAt) async {
+    await (_database.update(_database.generationRecords)..where(
+          ($GenerationRecordsTable table) =>
+              table.resultNotificationSeenAt.isNull() &
+              table.pipelineStatus.isIn(<String>[
+                GenerationRecordPipelineStatus.resultSaved.name,
+                GenerationRecordPipelineStatus.generationFailed.name,
+                GenerationRecordPipelineStatus.resultSaveFailed.name,
+              ]),
+        ))
+        .write(
+          GenerationRecordsCompanion(
+            resultNotificationSeenAt: Value<DateTime?>(seenAt),
+          ),
+        );
   }
 
   Future<void> deleteRecord(String recordId) {

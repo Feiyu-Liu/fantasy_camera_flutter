@@ -1434,18 +1434,27 @@ void main() {
   });
 
   test(
-    'result notification ignores already saved results on first read',
+    'result notification ignores persisted seen results on first read',
     () async {
       final ProviderContainer container = _container(
         taskRepository: _completedTaskRepository(),
       );
       addTearDown(container.dispose);
 
-      await _createSavedResultJob(container);
+      final String jobId = await _createSavedResultJob(container);
+      await container
+          .read(generationRecordRepositoryProvider)
+          .markTerminalResultNotificationsSeen(
+            DateTime.parse('2026-05-29T00:00:01Z'),
+          );
+      await container
+          .read(generationSubmissionControllerProvider.notifier)
+          .refreshFromRepositoryForNotifications();
 
       final GenerationResultNotificationState notificationState = container
           .read(generationResultNotificationControllerProvider);
 
+      expect(jobId, isNotEmpty);
       expect(notificationState.hasUnreadResult, isFalse);
       expect(notificationState.status, GenerationResultNotificationStatus.none);
     },
@@ -1484,6 +1493,10 @@ void main() {
     container
         .read(generationResultNotificationControllerProvider.notifier)
         .markAllSeen();
+    await _waitForNotificationStatus(
+      container,
+      GenerationResultNotificationStatus.none,
+    );
 
     expect(
       container
@@ -1495,6 +1508,56 @@ void main() {
       container.read(generationResultNotificationControllerProvider).status,
       GenerationResultNotificationStatus.none,
     );
+  });
+
+  test('result notification stays seen after container restart', () async {
+    final GenerationRecordDatabase database =
+        GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+    final ProviderContainer firstContainer = _container(
+      database: database,
+      taskRepository: _completedTaskRepository(),
+    );
+    addTearDown(database.close);
+
+    await _createSavedResultJob(firstContainer);
+    expect(
+      firstContainer
+          .read(generationResultNotificationControllerProvider)
+          .status,
+      GenerationResultNotificationStatus.success,
+    );
+
+    firstContainer
+        .read(generationResultNotificationControllerProvider.notifier)
+        .markAllSeen();
+    await _waitForNotificationStatus(
+      firstContainer,
+      GenerationResultNotificationStatus.none,
+    );
+    firstContainer.dispose();
+
+    final ProviderContainer secondContainer = _container(
+      database: database,
+      taskRepository: _completedTaskRepository(),
+    );
+    addTearDown(secondContainer.dispose);
+
+    await secondContainer
+        .read(generationSubmissionControllerProvider.notifier)
+        .resumeActiveRecords();
+
+    await _waitForJobStatus(
+      secondContainer,
+      GenerationSubmissionStatus.resultSaved,
+      expectedCount: 1,
+    );
+    final GenerationResultNotificationStatus status =
+        await _waitForNotificationStatus(
+          secondContainer,
+          GenerationResultNotificationStatus.none,
+        );
+
+    expect(status, GenerationResultNotificationStatus.none);
   });
 
   test('result notification marks generation failure as failure', () async {
@@ -1693,6 +1756,24 @@ Future<List<GenerationSubmissionJob>> _waitForJobStatus(
   return container.read(generationSubmissionControllerProvider).jobs;
 }
 
+Future<GenerationResultNotificationStatus> _waitForNotificationStatus(
+  ProviderContainer container,
+  GenerationResultNotificationStatus status, {
+  Duration timeout = const Duration(seconds: 3),
+}) async {
+  final DateTime deadline = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(deadline)) {
+    final GenerationResultNotificationStatus current = container
+        .read(generationResultNotificationControllerProvider)
+        .status;
+    if (current == status) {
+      return current;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  return container.read(generationResultNotificationControllerProvider).status;
+}
+
 Future<String> _createSavedResultJob(ProviderContainer container) async {
   await container
       .read(generationSubmissionControllerProvider.notifier)
@@ -1733,6 +1814,7 @@ _FakeGenerationTaskRepository _completedTaskRepository() {
 }
 
 ProviderContainer _container({
+  GenerationRecordDatabase? database,
   _FakePhotoLibraryAssetStore? photoLibraryAssetStore,
   _FakeGenerationImageProcessor? imageProcessor,
   _FakeUploadRepository? uploadRepository,
@@ -1741,11 +1823,11 @@ ProviderContainer _container({
   _FakeGenerationOriginalFileStore? originalFileStore,
   _FakeBackgroundR2UploadService? backgroundR2UploadService,
 }) {
-  final GenerationRecordDatabase database =
-      GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+  final GenerationRecordDatabase resolvedDatabase =
+      database ?? GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
   return ProviderContainer(
     overrides: <Override>[
-      generationRecordDatabaseProvider.overrideWithValue(database),
+      generationRecordDatabaseProvider.overrideWithValue(resolvedDatabase),
       generationOriginalFileStoreProvider.overrideWithValue(
         originalFileStore ?? _FakeGenerationOriginalFileStore(),
       ),

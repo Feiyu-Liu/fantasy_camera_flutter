@@ -294,30 +294,37 @@ void main() {
     expect(stripDecoration.color, AppThemeColors.dark.background);
 
     final Container pickerTile = tester.widget<Container>(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey<String>('generation-submission-gallery-picker'),
-        ),
-        matching: find.byType(Container),
-      ),
+      find
+          .descendant(
+            of: find.byKey(
+              const ValueKey<String>('generation-submission-gallery-picker'),
+            ),
+            matching: find.bySubtype<Container>(),
+          )
+          .first,
     );
-    final BoxDecoration pickerDecoration =
-        pickerTile.decoration! as BoxDecoration;
+    final ShapeDecoration pickerDecoration =
+        pickerTile.decoration! as ShapeDecoration;
     expect(pickerDecoration.color, AppThemeColors.dark.surface);
-    expect(pickerDecoration.border?.top.color, AppThemeColors.dark.border);
+    expect(
+      (pickerDecoration.shape as OutlinedBorder).side.color,
+      AppThemeColors.dark.border,
+    );
 
     final Container thumbnail = tester.widget<Container>(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey<String>('generation-submission-photo-dark'),
-        ),
-        matching: find.byType(Container),
-      ),
+      find
+          .descendant(
+            of: find.byKey(
+              const ValueKey<String>('generation-submission-photo-dark'),
+            ),
+            matching: find.bySubtype<Container>(),
+          )
+          .first,
     );
-    final BoxDecoration thumbnailDecoration =
-        thumbnail.decoration! as BoxDecoration;
+    final ShapeDecoration thumbnailDecoration =
+        thumbnail.decoration! as ShapeDecoration;
     expect(
-      thumbnailDecoration.border?.top.color,
+      (thumbnailDecoration.shape as OutlinedBorder).side.color,
       AppThemeColors.dark.accentYellow,
     );
   });
@@ -1192,6 +1199,8 @@ class _ModalHostState extends State<_ModalHost> {
     return ProviderScope(
       overrides: <Override>[
         generationRecordDatabaseProvider.overrideWithValue(_database),
+        generationRecordRepositoryProvider.overrideWithValue(_recordRepository),
+        galleryResumeActiveRecordsOnOpenProvider.overrideWithValue(false),
         generationRecordsProvider.overrideWith((Ref ref) {
           return (() async* {
             yield await _seedFuture;

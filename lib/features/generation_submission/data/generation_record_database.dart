@@ -5,6 +5,8 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../domain/generation_record.dart';
+
 part 'generation_record_database.g.dart';
 
 class GenerationRecords extends Table {
@@ -61,6 +63,7 @@ class GenerationRecords extends Table {
 
   TextColumn get errorCode => text().nullable()();
   TextColumn get errorMessage => text().nullable()();
+  DateTimeColumn get resultNotificationSeenAt => dateTime().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => <Column<Object>>{recordId};
@@ -73,7 +76,7 @@ class GenerationRecordDatabase extends _$GenerationRecordDatabase {
   GenerationRecordDatabase.forExecutor(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -91,6 +94,32 @@ class GenerationRecordDatabase extends _$GenerationRecordDatabase {
           await migrator.addColumn(
             generationRecords,
             generationRecords.resultFavoriteFeedbackSubmittedAt,
+          );
+        }
+        if (from < 3) {
+          await migrator.addColumn(
+            generationRecords,
+            generationRecords.resultNotificationSeenAt,
+          );
+          await customUpdate(
+            '''
+            UPDATE generation_records
+            SET result_notification_seen_at = updated_at
+            WHERE pipeline_status IN (?, ?, ?)
+              AND result_notification_seen_at IS NULL
+            ''',
+            variables: <Variable<String>>[
+              Variable<String>(GenerationRecordPipelineStatus.resultSaved.name),
+              Variable<String>(
+                GenerationRecordPipelineStatus.generationFailed.name,
+              ),
+              Variable<String>(
+                GenerationRecordPipelineStatus.resultSaveFailed.name,
+              ),
+            ],
+            updates: <ResultSetImplementation<dynamic, dynamic>>{
+              generationRecords,
+            },
           );
         }
       },
