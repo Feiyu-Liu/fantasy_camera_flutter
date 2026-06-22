@@ -27,12 +27,39 @@ void main() {
   test('restore maps missing session to signedOut', () async {
     final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
       authGateway: _FakeAuthGateway(),
+      initialAuthEventTimeout: Duration.zero,
     );
     addTearDown(coordinator.dispose);
 
     await coordinator.restore();
 
     expect(coordinator.currentState.status, AuthSessionStatus.signedOut);
+  });
+
+  test('restore waits for initial signedIn event before signedOut', () async {
+    final _FakeAuthGateway gateway = _FakeAuthGateway();
+    final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
+      authGateway: gateway,
+      initialAuthEventTimeout: const Duration(milliseconds: 50),
+    );
+    addTearDown(coordinator.dispose);
+    final List<AuthSessionStatus> statuses = <AuthSessionStatus>[];
+    final StreamSubscription<AuthSessionState> subscription = coordinator.states
+        .listen((AuthSessionState state) => statuses.add(state.status));
+    addTearDown(subscription.cancel);
+
+    final Future<void> restore = coordinator.restore();
+    await Future<void>.delayed(Duration.zero);
+    gateway.emit(
+      AuthGatewayEvent(
+        type: AuthGatewayEventType.signedIn,
+        session: _session(accessToken: 'token'),
+      ),
+    );
+    await restore;
+
+    expect(coordinator.currentState.status, AuthSessionStatus.signedIn);
+    expect(statuses, isNot(contains(AuthSessionStatus.signedOut)));
   });
 
   test('ensureValidAccessToken returns current valid token', () async {
