@@ -412,6 +412,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get billingPurchaseButton => '购买';
 
   @override
+  String billingPurchaseSuccessButton(int credits) {
+    return '购买成功（积分 +$credits）';
+  }
+
+  @override
   String get billingRestorePurchases => '恢复购买';
 
   @override

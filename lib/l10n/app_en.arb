@@ -178,6 +178,14 @@
   },
   "billingCreditPackSubtitle": "One-time credit pack",
   "billingPurchaseButton": "Purchase",
+  "billingPurchaseSuccessButton": "Purchase complete (+{credits} credits)",
+  "@billingPurchaseSuccessButton": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
   "billingRestorePurchases": "Restore purchases",
   "commonCancel": "Cancel",
   "commonOK": "OK",

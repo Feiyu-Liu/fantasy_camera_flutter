@@ -433,6 +433,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get billingPurchaseButton => 'Purchase';
 
   @override
+  String billingPurchaseSuccessButton(int credits) {
+    return 'Purchase complete (+$credits credits)';
+  }
+
+  @override
   String get billingRestorePurchases => 'Restore purchases';
 
   @override

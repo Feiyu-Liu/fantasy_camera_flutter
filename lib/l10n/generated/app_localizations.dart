@@ -863,6 +863,12 @@ abstract class AppLocalizations {
   /// **'Purchase'**
   String get billingPurchaseButton;
 
+  /// No description provided for @billingPurchaseSuccessButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase complete (+{credits} credits)'**
+  String billingPurchaseSuccessButton(int credits);
+
   /// No description provided for @billingRestorePurchases.
   ///
   /// In en, this message translates to:

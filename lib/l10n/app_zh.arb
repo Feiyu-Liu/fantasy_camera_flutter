@@ -178,6 +178,14 @@
   },
   "billingCreditPackSubtitle": "一次性积分包",
   "billingPurchaseButton": "购买",
+  "billingPurchaseSuccessButton": "购买成功（积分 +{credits}）",
+  "@billingPurchaseSuccessButton": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
   "billingRestorePurchases": "恢复购买",
   "commonCancel": "取消",
   "commonOK": "好",

@@ -45,6 +45,7 @@ class BillingControllerState {
     this.isPurchasing = false,
     this.errorMessage,
     this.lastGrantedCredits,
+    this.purchaseSuccessCredits,
   });
 
   final List<BillingProduct> products;
@@ -52,6 +53,7 @@ class BillingControllerState {
   final bool isPurchasing;
   final String? errorMessage;
   final int? lastGrantedCredits;
+  final int? purchaseSuccessCredits;
 
   BillingControllerState copyWith({
     List<BillingProduct>? products,
@@ -61,6 +63,8 @@ class BillingControllerState {
     bool clearErrorMessage = false,
     int? lastGrantedCredits,
     bool clearLastGrantedCredits = false,
+    int? purchaseSuccessCredits,
+    bool clearPurchaseSuccessCredits = false,
   }) {
     return BillingControllerState(
       products: products ?? this.products,
@@ -72,6 +76,9 @@ class BillingControllerState {
       lastGrantedCredits: clearLastGrantedCredits
           ? null
           : lastGrantedCredits ?? this.lastGrantedCredits,
+      purchaseSuccessCredits: clearPurchaseSuccessCredits
+          ? null
+          : purchaseSuccessCredits ?? this.purchaseSuccessCredits,
     );
   }
 }
@@ -90,6 +97,7 @@ class BillingController extends Notifier<BillingControllerState> {
       isLoading: true,
       clearErrorMessage: true,
       clearLastGrantedCredits: true,
+      clearPurchaseSuccessCredits: true,
     );
     try {
       final String? userId = ref
@@ -156,6 +164,9 @@ class BillingController extends Notifier<BillingControllerState> {
         lastGrantedCredits: result.grantedCredits > 0
             ? result.grantedCredits
             : null,
+        purchaseSuccessCredits: result.grantedCredits > 0
+            ? result.grantedCredits
+            : null,
       );
     } on Object {
       state = state.copyWith(
@@ -173,6 +184,7 @@ class BillingController extends Notifier<BillingControllerState> {
       isPurchasing: true,
       clearErrorMessage: true,
       clearLastGrantedCredits: true,
+      clearPurchaseSuccessCredits: true,
     );
     try {
       await ref.read(billingGatewayProvider).restorePurchases();
@@ -194,6 +206,13 @@ class BillingController extends Notifier<BillingControllerState> {
         errorMessage: 'Restore failed. Please try again.',
       );
     }
+  }
+
+  void clearPurchaseSuccess() {
+    if (state.purchaseSuccessCredits == null) {
+      return;
+    }
+    state = state.copyWith(clearPurchaseSuccessCredits: true);
   }
 
   List<BillingProduct> _mergeProducts(
