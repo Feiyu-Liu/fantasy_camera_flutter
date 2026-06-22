@@ -3,8 +3,13 @@ import 'dart:typed_data';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:drift/native.dart';
+import 'package:fantasy_camera_flutter/auth/domain/auth_session_state.dart';
+import 'package:fantasy_camera_flutter/auth/domain/auth_user.dart';
+import 'package:fantasy_camera_flutter/auth/presentation/auth_providers.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/data/credit_balance_cache_repository.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/api_failure.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/feedback.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
@@ -1762,6 +1767,17 @@ ProviderContainer _container({
       backgroundR2UploadServiceProvider.overrideWithValue(
         backgroundR2UploadService ?? _FakeBackgroundR2UploadService(),
       ),
+      authSessionProvider.overrideWith(
+        (_) => Stream<AuthSessionState>.value(
+          const AuthSessionState.signedIn(
+            AuthUser(id: 'user-1', email: 'alex@example.com'),
+          ),
+        ),
+      ),
+      creditsRepositoryProvider.overrideWithValue(_FakeCreditsRepository()),
+      creditBalanceCacheRepositoryProvider.overrideWithValue(
+        _FakeCreditBalanceCacheRepository(),
+      ),
       generationSubmissionServiceProvider.overrideWith((Ref ref) {
         final GenerationSubmissionService service = GenerationSubmissionService(
           uploadRepository: ref.watch(uploadRepositoryProvider),
@@ -1784,6 +1800,37 @@ ProviderContainer _container({
       }),
     ],
   );
+}
+
+class _FakeCreditsRepository implements CreditsRepository {
+  int fetchCalls = 0;
+
+  @override
+  Future<CreditBalance> fetchBalance() async {
+    fetchCalls += 1;
+    return CreditBalance(
+      balance: 128,
+      reservedBalance: 0,
+      lifetimeEarned: 128,
+      lifetimeSpent: 0,
+      updatedAt: DateTime.utc(2026, 6, 12),
+    );
+  }
+}
+
+class _FakeCreditBalanceCacheRepository
+    implements CreditBalanceCacheRepository {
+  final Map<String, CreditBalance> balances = <String, CreditBalance>{};
+
+  @override
+  Future<CreditBalance?> loadBalance(String userId) async {
+    return balances[userId];
+  }
+
+  @override
+  Future<void> saveBalance(String userId, CreditBalance balance) async {
+    balances[userId] = balance;
+  }
 }
 
 class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {

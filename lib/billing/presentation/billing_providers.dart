@@ -148,7 +148,9 @@ class BillingController extends Notifier<BillingControllerState> {
       final CreditPurchaseSyncResult result = await ref
           .read(billingRepositoryProvider)
           .syncRevenueCatPurchases();
-      ref.invalidate(creditBalanceProvider);
+      await ref
+          .read(creditBalanceProvider.notifier)
+          .refreshFromServer(userId: await _currentUserId());
       state = state.copyWith(
         isPurchasing: false,
         lastGrantedCredits: result.grantedCredits > 0
@@ -177,7 +179,9 @@ class BillingController extends Notifier<BillingControllerState> {
       final CreditPurchaseSyncResult result = await ref
           .read(billingRepositoryProvider)
           .syncRevenueCatPurchases();
-      ref.invalidate(creditBalanceProvider);
+      await ref
+          .read(creditBalanceProvider.notifier)
+          .refreshFromServer(userId: await _currentUserId());
       state = state.copyWith(
         isPurchasing: false,
         lastGrantedCredits: result.grantedCredits > 0
@@ -213,5 +217,10 @@ class BillingController extends Notifier<BillingControllerState> {
         (BillingProduct a, BillingProduct b) =>
             a.displayRank.compareTo(b.displayRank),
       );
+  }
+
+  Future<String?> _currentUserId() async {
+    return ref.read(authSessionProvider).valueOrNull?.user?.id ??
+        (await ref.read(authSessionProvider.future)).user?.id;
   }
 }

@@ -426,7 +426,9 @@ class GenerationSubmissionController
   GenerationSubmissionService? _submissionService;
   GenerationRecordRepository? _recordRepository;
   final Set<String> _observedCreatedTaskJobIds = <String>{};
+  final Set<String> _observedTerminalJobIds = <String>{};
   final Set<String> _deletedJobIds = <String>{};
+  late Future<void> Function() _refreshCreditBalance;
   GenerationSubmissionState? _lastPublishedState;
 
   GenerationSubmissionService get _service {
@@ -456,6 +458,9 @@ class GenerationSubmissionController
   @override
   GenerationSubmissionState build() {
     _recordRepository = ref.watch(generationRecordRepositoryProvider);
+    _refreshCreditBalance = ref
+        .watch(creditBalanceProvider.notifier)
+        .refreshFromServer;
     final AsyncValue<List<GenerationRecord>> records = ref.watch(
       generationRecordsProvider,
     );
@@ -574,15 +579,23 @@ class GenerationSubmissionController
     await _refreshFromRepository();
   }
 
-  void _refreshCreditBalanceAfterTaskCreation(
+  void _refreshCreditBalanceForObservedJobChanges(
     GenerationSubmissionState nextState,
   ) {
+    bool shouldRefresh = false;
     for (final GenerationSubmissionJob job in nextState.jobs) {
-      if (job.taskId == null || _observedCreatedTaskJobIds.contains(job.id)) {
-        continue;
+      if (job.taskId != null && !_observedCreatedTaskJobIds.contains(job.id)) {
+        _observedCreatedTaskJobIds.add(job.id);
+        shouldRefresh = true;
       }
-      _observedCreatedTaskJobIds.add(job.id);
-      ref.invalidate(creditBalanceProvider);
+      if (_isCreditAffectingTerminalStatus(job.status) &&
+          !_observedTerminalJobIds.contains(job.id)) {
+        _observedTerminalJobIds.add(job.id);
+        shouldRefresh = true;
+      }
+    }
+    if (shouldRefresh) {
+      unawaited(_refreshCreditBalance());
     }
   }
 
@@ -594,7 +607,7 @@ class GenerationSubmissionController
     final GenerationSubmissionState filteredNextState = _withoutDeletedJobs(
       nextState,
     );
-    _refreshCreditBalanceAfterTaskCreation(filteredNextState);
+    _refreshCreditBalanceForObservedJobChanges(filteredNextState);
     _lastPublishedState = filteredNextState;
     state = filteredNextState;
   }
@@ -603,7 +616,7 @@ class GenerationSubmissionController
     final GenerationSubmissionState nextState = _mergedWithCurrentState(
       await _service.stateForRecords(records),
     );
-    _refreshCreditBalanceAfterTaskCreation(nextState);
+    _refreshCreditBalanceForObservedJobChanges(nextState);
     _lastPublishedState = nextState;
     state = nextState;
   }
@@ -657,6 +670,12 @@ class GenerationSubmissionController
           .toList(growable: false),
     );
   }
+}
+
+bool _isCreditAffectingTerminalStatus(GenerationSubmissionStatus status) {
+  return status == GenerationSubmissionStatus.resultSaved ||
+      status == GenerationSubmissionStatus.failed ||
+      status == GenerationSubmissionStatus.resultProcessingFailed;
 }
 
 enum GenerationResultNotificationStatus { none, success, failure }

@@ -7,6 +7,7 @@ import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:drift/native.dart';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/data/credit_balance_cache_repository.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/feedback.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
@@ -95,6 +96,9 @@ void main() {
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
           ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
+          ),
           generationSubmissionServiceProvider.overrideWith((Ref ref) {
             final GenerationSubmissionService
             service = GenerationSubmissionService(
@@ -150,6 +154,9 @@ void main() {
           ),
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
+          ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
           ),
           generationSubmissionServiceProvider.overrideWith((Ref ref) {
             final GenerationSubmissionService
@@ -216,6 +223,9 @@ void main() {
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
           ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
+          ),
           generationSubmissionServiceProvider.overrideWith((Ref ref) {
             final GenerationSubmissionService
             service = GenerationSubmissionService(
@@ -279,6 +289,9 @@ void main() {
           ),
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
+          ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
           ),
           generationSubmissionServiceProvider.overrideWith((Ref ref) {
             final GenerationSubmissionService
@@ -373,6 +386,9 @@ void main() {
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
           ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
+          ),
           generationRecordDatabaseProvider.overrideWithValue(
             seededGeneration.database,
           ),
@@ -426,6 +442,9 @@ void main() {
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
           ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
+          ),
         ],
       ),
     );
@@ -462,6 +481,9 @@ void main() {
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
           ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
+          ),
         ],
       ),
     );
@@ -494,6 +516,9 @@ void main() {
           ),
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
+          ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
           ),
         ],
       ),
@@ -590,6 +615,21 @@ class _FakeCreditsRepository implements CreditsRepository {
       lifetimeSpent: 0,
       updatedAt: DateTime.parse('2026-05-29T00:00:00Z'),
     );
+  }
+}
+
+class _FakeCreditBalanceCacheRepository
+    implements CreditBalanceCacheRepository {
+  final Map<String, CreditBalance> balances = <String, CreditBalance>{};
+
+  @override
+  Future<CreditBalance?> loadBalance(String userId) async {
+    return balances[userId];
+  }
+
+  @override
+  Future<void> saveBalance(String userId, CreditBalance balance) async {
+    balances[userId] = balance;
   }
 }
 
