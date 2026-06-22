@@ -49,7 +49,7 @@
   },
   "generationSubmissionDownloadingFromICloud": "正在从 iCloud 下载",
   "generationSubmissionPreparingPhoto": "正在准备照片...",
-  "generationSubmissionRelatedMoments": "此时此刻",
+  "generationSubmissionGalleryTitle": "相册",
   "generationSubmissionImportNew": "从相册导入",
   "generationSubmissionDefaultMomentMode": "时刻",
   "generationSubmissionDefaultPromptBadge": "默认",

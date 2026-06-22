@@ -49,7 +49,7 @@
   },
   "generationSubmissionDownloadingFromICloud": "Downloading from iCloud",
   "generationSubmissionPreparingPhoto": "Preparing your photo...",
-  "generationSubmissionRelatedMoments": "THIS MOMENT",
+  "generationSubmissionGalleryTitle": "Album",
   "generationSubmissionImportNew": "IMPORT FROM ALBUM",
   "generationSubmissionDefaultMomentMode": "MOMENT",
   "generationSubmissionDefaultPromptBadge": "DEFAULT",

@@ -1,10 +1,9 @@
-import 'dart:ui';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:smooth_corner/smooth_corner.dart';
 
 import '../../auth/domain/auth_user.dart';
 import '../../auth/presentation/auth_providers.dart';
@@ -15,6 +14,8 @@ import '../../features/generation_submission/application/generation_original_cac
 import '../../features/generation_submission/presentation/generation_submission_providers.dart';
 import '../../features/notifications/presentation/notification_providers.dart';
 import '../../l10n/l10n.dart';
+import '../../shared/presentation/widgets/app_blur_navigation_bar.dart';
+import '../../theme/app_corners.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_theme.dart';
 import '../application/app_settings.dart';
@@ -189,9 +190,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             top: 0,
             left: 0,
             right: 0,
-            child: _SettingsNavigationBar(
+            child: AppBlurNavigationBar(
               topInset: topInset,
               title: l10n.settingsTitle,
+              backButtonKey: const ValueKey<String>('settings-back-button'),
               onBackPressed: () => context.pop(),
             ),
           ),
@@ -581,72 +583,6 @@ class _LanguageAction extends StatelessWidget {
   }
 }
 
-class _SettingsNavigationBar extends StatelessWidget {
-  const _SettingsNavigationBar({
-    required this.topInset,
-    required this.title,
-    required this.onBackPressed,
-  });
-
-  final double topInset;
-  final String title;
-  final VoidCallback onBackPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final AppThemeColors colors = AppThemeColors.of(context);
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: colors.navBlurBackground,
-            border: Border(
-              bottom: BorderSide(color: colors.border, width: 0.5),
-            ),
-          ),
-          child: SizedBox(
-            width: double.infinity,
-            height: topInset + 50,
-            child: Padding(
-              padding: EdgeInsets.only(top: topInset),
-              child: Stack(
-                alignment: Alignment.center,
-                children: <Widget>[
-                  Positioned(
-                    left: 12,
-                    child: CupertinoButton(
-                      key: const ValueKey<String>('settings-back-button'),
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(44, 44),
-                      onPressed: onBackPressed,
-                      child: Icon(
-                        LucideIcons.chevronLeft,
-                        color: colors.textPrimary,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    title,
-                    textScaler: TextScaler.noScaling,
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({required this.userName, required this.creditsLabel});
 
@@ -720,9 +656,9 @@ class _AvatarPlaceholder extends StatelessWidget {
       width: 72,
       height: 72,
       alignment: Alignment.center,
-      decoration: BoxDecoration(
+      decoration: AppCorners.controlDecoration(
         color: colors.surfaceMuted,
-        border: Border.all(color: colors.border, width: 1),
+        side: BorderSide(color: colors.border, width: 1),
       ),
       child: Icon(LucideIcons.user, color: colors.textPrimary, size: 27),
     );
@@ -827,37 +763,41 @@ class _AppearanceOptionCard extends StatelessWidget {
           HapticFeedback.selectionClick();
           onSelected(preference);
         },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          curve: Curves.easeOutCubic,
-          height: 126,
-          padding: const EdgeInsets.fromLTRB(18, 16, 18, 17),
-          decoration: BoxDecoration(
-            color: palette.backgroundColor,
-            border: Border.all(color: palette.borderColor, width: 0.5),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Container(
-                height: 40,
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 24),
-                color: palette.previewColor,
-              ),
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textScaler: TextScaler.noScaling,
-                style: TextStyle(
-                  color: palette.foregroundColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  height: 1,
+        child: SmoothClipRRect(
+          borderRadius: AppCorners.controlBorderRadius,
+          smoothness: AppCorners.smoothness,
+          side: BorderSide(color: palette.borderColor, width: 0.5),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOutCubic,
+            height: 126,
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 17),
+            decoration: BoxDecoration(color: palette.backgroundColor),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Container(
+                  height: 40,
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: AppCorners.controlDecoration(
+                    color: palette.previewColor,
+                  ),
                 ),
-              ),
-            ],
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textScaler: TextScaler.noScaling,
+                  style: TextStyle(
+                    color: palette.foregroundColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    height: 1,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1096,15 +1036,17 @@ class _BlockSwitch extends StatelessWidget {
           height: 22,
           padding: const EdgeInsets.all(2),
           alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-          decoration: BoxDecoration(
+          decoration: AppCorners.controlDecoration(
             color: value ? colors.accentYellow : colors.controlFillDisabled,
-            border: Border.all(color: colors.border, width: 0.5),
+            side: BorderSide(color: colors.border, width: 0.5),
           ),
           child: SizedBox(
             width: 16,
             height: 16,
             child: DecoratedBox(
-              decoration: BoxDecoration(color: colors.textPrimary),
+              decoration: AppCorners.controlDecoration(
+                color: colors.textPrimary,
+              ),
             ),
           ),
         ),

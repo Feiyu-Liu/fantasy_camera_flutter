@@ -1,10 +1,3 @@
-class CameraUiMode {
-  const CameraUiMode({required this.id, required this.label});
-
-  final String id;
-  final String label;
-}
-
 class CameraZoomOption {
   const CameraZoomOption({required this.id, required this.label});
 

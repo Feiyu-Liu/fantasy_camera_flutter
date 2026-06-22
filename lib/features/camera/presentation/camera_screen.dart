@@ -23,10 +23,11 @@ import '../../backend_api/presentation/backend_api_providers.dart';
 import '../../generation_submission/domain/generation_submission_job.dart';
 import '../../generation_submission/presentation/generation_submission_providers.dart';
 import '../data/capture_orientation_reader.dart';
+import 'camera_ui/camera_photo_option_button.dart';
 import 'camera_ui/camera_photo_ui.dart';
-import 'camera_ui/camera_ui_tokens.dart';
-import 'camera_ui/camera_ui_models.dart';
 import 'camera_message.dart';
+import 'camera_ui/camera_ui_models.dart';
+import 'camera_ui/camera_ui_tokens.dart';
 import 'camera_providers.dart';
 import 'camera_state.dart';
 
@@ -130,9 +131,7 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       message: _localizedMessage(cameraState.message),
       controlsRotationTurns: controlsRotationTurns,
       aspectRatioLabel: '4:3',
-      modes: _cameraModesForPrompt(localizedPromptSelection),
-      selectedModeId: localizedPromptSelection.selectedCaptureModeId,
-      modeExtensions: _cameraModeExtensionsForPrompt(localizedPromptSelection),
+      promptOptions: _cameraPromptOptions(localizedPromptSelection, tokens),
       zoomStops: _zoomStops(cameraState),
       currentDisplayZoom: cameraState.rawToDisplayZoom(
         cameraState.currentRawZoom,
@@ -152,9 +151,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       onShutterPressed: notifier.takePicture,
       onGalleryPressed: _openGallery,
       onZoomStopSelected: notifier.setDisplayZoom,
-      onModeSelected: ref
-          .read(promptSelectionControllerProvider.notifier)
-          .selectCaptureMode,
     );
   }
 
@@ -380,8 +376,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       switches: promptSwitchesForDefinitions(
         styles,
         promptStyle: state.selectedPromptStyleId,
-        captureMode: state.selectedCaptureModeId,
+        captureMode: defaultCaptureMode,
       ),
+      selectedCaptureModeId: defaultCaptureMode,
     );
   }
 
@@ -446,65 +443,35 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     return '${text}x';
   }
 
-  List<CameraUiMode> _cameraModesForPrompt(
+  List<Widget> _cameraPromptOptions(
     PromptSelectionState promptSelection,
-  ) {
-    if (promptSelection.captureModes.isEmpty) {
-      return CameraPhotoUi.defaultModes;
-    }
-    final List<PromptCaptureModeDefinition> sortedModes =
-        <PromptCaptureModeDefinition>[...promptSelection.captureModes]
-          ..sort(_compareCaptureModesForCameraUi);
-    return sortedModes
-        .map((PromptCaptureModeDefinition mode) {
-          return CameraUiMode(id: mode.id, label: mode.title.toUpperCase());
-        })
-        .toList(growable: false);
-  }
-
-  Map<String, List<Widget>> _cameraModeExtensionsForPrompt(
-    PromptSelectionState promptSelection,
+    CameraUiTokens tokens,
   ) {
     if (promptSelection.switches.isEmpty) {
-      return const <String, List<Widget>>{};
+      return const <Widget>[];
     }
     final PromptSelectionController promptController = ref.read(
       promptSelectionControllerProvider.notifier,
     );
-    return <String, List<Widget>>{
-      defaultCaptureMode: <Widget>[
-        for (int index = 0; index < promptSelection.switches.length; index++)
-          _PromptOptionBarButton(
-            key: ValueKey<String>(
-              'camera-prompt-option-${promptSelection.switches[index].id}',
-            ),
-            definition: promptSelection.switches[index],
-            selected:
-                promptSelection.values[promptSelection.switches[index].id] ??
-                false,
-            animationIndex: index,
-            onPressed: promptController.toggleSwitch,
+    return <Widget>[
+      for (int index = 0; index < promptSelection.switches.length; index++)
+        CameraPhotoOptionButton(
+          key: ValueKey<String>(
+            'camera-prompt-option-${promptSelection.switches[index].id}',
           ),
-      ],
-    };
+          tokens: tokens,
+          label: promptSelection.switches[index].title,
+          icon: _promptOptionIcon(promptSelection.switches[index].id),
+          selected:
+              promptSelection.values[promptSelection.switches[index].id] ??
+              false,
+          animationIndex: index,
+          onPressed: () {
+            promptController.toggleSwitch(promptSelection.switches[index].id);
+          },
+        ),
+    ];
   }
-}
-
-int _compareCaptureModesForCameraUi(
-  PromptCaptureModeDefinition first,
-  PromptCaptureModeDefinition second,
-) {
-  return _captureModeSortRank(
-    first.id,
-  ).compareTo(_captureModeSortRank(second.id));
-}
-
-int _captureModeSortRank(String id) {
-  return switch (id) {
-    'general' => 0,
-    defaultCaptureMode => 1,
-    _ => 2,
-  };
 }
 
 class _CreditsBalanceBadge extends StatelessWidget {
@@ -639,113 +606,6 @@ class _CreditCoinIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Icon(LucideIcons.tickets, color: color, size: 17);
-  }
-}
-
-class _PromptOptionBarButton extends StatelessWidget {
-  const _PromptOptionBarButton({
-    required this.definition,
-    required this.selected,
-    required this.animationIndex,
-    required this.onPressed,
-    super.key,
-  });
-
-  final PromptSwitchDefinition definition;
-  final bool selected;
-  final int animationIndex;
-  final ValueChanged<String> onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final AppThemeColors colors = AppThemeColors.of(context);
-    final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final Color selectedContentColor = colors.isDark
-        ? colors.accentYellow
-        : colors.textPrimary;
-    final Color contentColor = selected
-        ? selectedContentColor
-        : colors.textPrimary;
-    final Color backgroundColor = selected && !colors.isDark
-        ? colors.accentYellow
-        : colors.surface;
-    final Color borderColor = selected
-        ? (colors.isDark ? colors.accentYellow : colors.textPrimary)
-        : colors.textPrimary.withValues(alpha: 0.72);
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: 1),
-      duration: reduceMotion
-          ? Duration.zero
-          : Duration(milliseconds: 180 + animationIndex * 36),
-      curve: Curves.easeOutCubic,
-      builder: (BuildContext context, double value, Widget? child) {
-        return Opacity(
-          opacity: value,
-          child: Transform.translate(
-            offset: Offset((1 - value) * -10, 0),
-            child: child,
-          ),
-        );
-      },
-      child: Padding(
-        padding: const EdgeInsets.only(left: 6),
-        child: Semantics(
-          button: true,
-          selected: selected,
-          label: definition.title,
-          child: CupertinoButton(
-            padding: EdgeInsets.zero,
-            minimumSize: const Size(0, 0),
-            onPressed: () {
-              HapticFeedback.selectionClick();
-              onPressed(definition.id);
-            },
-            child: AnimatedContainer(
-              duration: reduceMotion
-                  ? Duration.zero
-                  : const Duration(milliseconds: 90),
-              curve: Curves.easeOutCubic,
-              height: 34,
-              decoration: BoxDecoration(
-                color: backgroundColor,
-                border: Border.all(
-                  color: borderColor,
-                  width: AppConfig.cameraUiDividerWidth,
-                ),
-                borderRadius: BorderRadius.zero,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    Text(
-                      definition.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textScaler: TextScaler.noScaling,
-                      style: TextStyle(
-                        color: contentColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        height: 1,
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                    Icon(
-                      _promptOptionIcon(definition.id),
-                      color: contentColor,
-                      size: 15,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 

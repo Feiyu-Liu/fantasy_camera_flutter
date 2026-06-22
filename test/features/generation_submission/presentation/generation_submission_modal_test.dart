@@ -284,7 +284,7 @@ void main() {
       find
           .ancestor(
             of: find.byKey(
-              const ValueKey<String>('generation-gallery-related-title'),
+              const ValueKey<String>('generation-submission-photo-list'),
             ),
             matching: find.byType(DecoratedBox),
           )
@@ -292,12 +292,6 @@ void main() {
     );
     final BoxDecoration stripDecoration = stripBox.decoration as BoxDecoration;
     expect(stripDecoration.color, AppThemeColors.dark.background);
-
-    final Text relatedTitle = tester.widget<Text>(
-      find.byKey(const ValueKey<String>('generation-gallery-related-title')),
-    );
-    final TextStyle? titleStyle = relatedTitle.style;
-    expect(titleStyle?.color, AppThemeColors.dark.textPrimary);
 
     final Container pickerTile = tester.widget<Container>(
       find.descendant(
