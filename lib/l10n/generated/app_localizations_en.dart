@@ -139,9 +139,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get generationSubmissionGalleryTitle => 'Album';
 
   @override
-  String get generationSubmissionRelatedMoments => 'THIS MOMENT';
-
-  @override
   String get generationSubmissionImportNew => 'IMPORT FROM ALBUM';
 
   @override

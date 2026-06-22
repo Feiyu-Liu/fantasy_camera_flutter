@@ -134,9 +134,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get generationSubmissionGalleryTitle => '相册';
 
   @override
-  String get generationSubmissionRelatedMoments => '此时此刻';
-
-  @override
   String get generationSubmissionImportNew => '从相册导入';
 
   @override

@@ -338,12 +338,6 @@ abstract class AppLocalizations {
   /// **'Album'**
   String get generationSubmissionGalleryTitle;
 
-  /// No description provided for @generationSubmissionRelatedMoments.
-  ///
-  /// In en, this message translates to:
-  /// **'THIS MOMENT'**
-  String get generationSubmissionRelatedMoments;
-
   /// No description provided for @generationSubmissionImportNew.
   ///
   /// In en, this message translates to:

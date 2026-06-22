@@ -363,7 +363,8 @@ class _GenerationSubmissionDebugModalState
         final double layoutHeight = widget.showNavigationBar
             ? contentHeight
             : height;
-        final double maxHeroHeight = (layoutHeight - 196).clamp(
+        const double heroStripGap = 12;
+        final double maxHeroHeight = (layoutHeight - 196 - heroStripGap).clamp(
           0.0,
           layoutHeight,
         );
@@ -414,6 +415,7 @@ class _GenerationSubmissionDebugModalState
               height: actualHeroViewportHeight,
               child: Center(child: hero),
             ),
+            const SizedBox(height: heroStripGap),
             Expanded(
               child: _RelatedMomentsStrip(
                 jobs: jobs,
@@ -1147,7 +1149,7 @@ class _RelatedMomentsStrip extends StatelessWidget {
       0,
       12,
       0,
-      10 + bottomInset,
+      14 + bottomInset,
     );
 
     return DecoratedBox(
@@ -1158,20 +1160,6 @@ class _RelatedMomentsStrip extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(
-                context.l10n.generationSubmissionRelatedMoments,
-                key: const ValueKey<String>('generation-gallery-related-title'),
-                style: TextStyle(
-                  color: colors.textPrimary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
             Expanded(
               child: LayoutBuilder(
                 builder: (BuildContext context, BoxConstraints constraints) {
