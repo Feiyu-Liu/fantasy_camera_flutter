@@ -1139,7 +1139,7 @@ class _GalleryExportProgressBar extends StatelessWidget {
   }
 }
 
-class _RelatedMomentsStrip extends StatelessWidget {
+class _RelatedMomentsStrip extends StatefulWidget {
   const _RelatedMomentsStrip({
     required this.jobs,
     required this.selectedJob,
@@ -1161,6 +1161,150 @@ class _RelatedMomentsStrip extends StatelessWidget {
   final ValueChanged<GenerationSubmissionJob> onCancelJob;
   final ValueChanged<GenerationSubmissionJob> onRetryJob;
   final ValueChanged<GenerationSubmissionJob> onRemoveJob;
+
+  @override
+  State<_RelatedMomentsStrip> createState() => _RelatedMomentsStripState();
+}
+
+class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
+  static const Duration _insertDuration = Duration(milliseconds: 260);
+  static const Duration _removeDuration = Duration(milliseconds: 220);
+  static const double _horizontalPadding = 24;
+  static const double _itemGap = 8;
+
+  late GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+  late List<GenerationSubmissionJob> _displayJobs =
+      List<GenerationSubmissionJob>.of(widget.jobs);
+  final Set<String> _insertingJobIds = <String>{};
+  bool _hasSyncedInitialJobs = false;
+
+  @override
+  void didUpdateWidget(covariant _RelatedMomentsStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncDisplayJobs(widget.jobs);
+  }
+
+  void _syncDisplayJobs(List<GenerationSubmissionJob> nextJobs) {
+    if (!_hasSyncedInitialJobs && _displayJobs.isEmpty && nextJobs.isNotEmpty) {
+      _hasSyncedInitialJobs = true;
+      _resetAnimatedList(nextJobs);
+      return;
+    }
+    _hasSyncedInitialJobs = true;
+    if (_sameJobOrder(_displayJobs, nextJobs)) {
+      _displayJobs = List<GenerationSubmissionJob>.of(nextJobs);
+      return;
+    }
+
+    final AnimatedListState? listState = _listKey.currentState;
+    final Set<String> previousIds = _displayJobs
+        .map((GenerationSubmissionJob job) => job.id)
+        .toSet();
+    final Set<String> nextIds = nextJobs
+        .map((GenerationSubmissionJob job) => job.id)
+        .toSet();
+    if (listState == null || _commonJobOrderChanged(previousIds, nextJobs)) {
+      _resetAnimatedList(nextJobs);
+      return;
+    }
+
+    for (int index = _displayJobs.length - 1; index >= 0; index -= 1) {
+      final GenerationSubmissionJob job = _displayJobs[index];
+      if (nextIds.contains(job.id)) {
+        continue;
+      }
+      final GenerationSubmissionJob removedJob = _displayJobs.removeAt(index);
+      listState.removeItem(index + 1, (
+        BuildContext context,
+        Animation<double> animation,
+      ) {
+        return _AnimatedGalleryJobListItem(
+          key: ValueKey<String>(
+            'generation-submission-removed-photo-${removedJob.id}',
+          ),
+          job: removedJob,
+          selected: false,
+          animation: animation,
+          removing: true,
+          onTap: () {},
+          onConfirm: null,
+          onCancel: null,
+          onRetry: null,
+          onRemove: null,
+        );
+      }, duration: _motionDuration(_removeDuration));
+    }
+
+    int displayIndex = 0;
+    for (final GenerationSubmissionJob nextJob in nextJobs) {
+      if (displayIndex < _displayJobs.length &&
+          _displayJobs[displayIndex].id == nextJob.id) {
+        _displayJobs[displayIndex] = nextJob;
+        displayIndex += 1;
+        continue;
+      }
+
+      if (previousIds.contains(nextJob.id)) {
+        _resetAnimatedList(nextJobs);
+        return;
+      }
+
+      _insertingJobIds.add(nextJob.id);
+      _displayJobs.insert(displayIndex, nextJob);
+      listState.insertItem(
+        displayIndex + 1,
+        duration: _motionDuration(_insertDuration),
+      );
+      displayIndex += 1;
+    }
+
+    _displayJobs = List<GenerationSubmissionJob>.of(_displayJobs);
+  }
+
+  void _resetAnimatedList(List<GenerationSubmissionJob> nextJobs) {
+    _insertingJobIds.clear();
+    _listKey = GlobalKey<AnimatedListState>();
+    _displayJobs = List<GenerationSubmissionJob>.of(nextJobs);
+  }
+
+  bool _sameJobOrder(
+    List<GenerationSubmissionJob> previousJobs,
+    List<GenerationSubmissionJob> nextJobs,
+  ) {
+    if (previousJobs.length != nextJobs.length) {
+      return false;
+    }
+    for (int index = 0; index < previousJobs.length; index += 1) {
+      if (previousJobs[index].id != nextJobs[index].id) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool _commonJobOrderChanged(
+    Set<String> previousIds,
+    List<GenerationSubmissionJob> nextJobs,
+  ) {
+    final Set<String> nextIds = nextJobs
+        .map((GenerationSubmissionJob job) => job.id)
+        .toSet();
+    final List<String> previousCommonIds = _displayJobs
+        .where((GenerationSubmissionJob job) => nextIds.contains(job.id))
+        .map((GenerationSubmissionJob job) => job.id)
+        .toList(growable: false);
+    final List<String> nextCommonIds = nextJobs
+        .where((GenerationSubmissionJob job) => previousIds.contains(job.id))
+        .map((GenerationSubmissionJob job) => job.id)
+        .toList(growable: false);
+    return !listEquals(previousCommonIds, nextCommonIds);
+  }
+
+  Duration _motionDuration(Duration duration) {
+    final bool reduceMotion =
+        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    return reduceMotion ? Duration.zero : duration;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1193,69 +1337,81 @@ class _RelatedMomentsStrip extends StatelessWidget {
                         280.0,
                       );
                   final double tileWidth = tileHeight * 0.72;
-                  const int actionTileCount = 1;
-                  return ListView.separated(
+                  return KeyedSubtree(
                     key: const ValueKey<String>(
                       'generation-submission-photo-list',
                     ),
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    itemCount: jobs.length + actionTileCount,
-                    separatorBuilder: (_, _) => const SizedBox(width: 8),
-                    itemBuilder: (BuildContext context, int index) {
-                      if (index == 0) {
-                        return _GalleryMomentItem(
-                          width: tileWidth,
-                          height: itemHeight,
-                          imageHeight: tileHeight,
-                          caption: context.l10n.generationSubmissionImportNew,
-                          child: _GalleryPickerTile(
-                            width: tileWidth,
-                            height: tileHeight,
-                            picking: pickingGalleryImage,
-                            onTap: onPickGalleryImage,
-                          ),
-                        );
-                      }
-                      final GenerationSubmissionJob job =
-                          jobs[index - actionTileCount];
-                      return _GalleryMomentItem(
-                        width: tileWidth,
-                        height: itemHeight,
-                        imageHeight: tileHeight,
-                        caption: _captionForJob(
-                          job,
-                          defaultMode: context
-                              .l10n
-                              .generationSubmissionDefaultMomentMode,
-                        ),
-                        child: _JobThumbnail(
-                          width: tileWidth,
-                          height: tileHeight,
-                          job: job,
-                          selected: selectedJob?.id == job.id,
-                          onTap: () => onSelectJob(job),
-                          onConfirm:
-                              job.status ==
-                                  GenerationSubmissionStatus
-                                      .awaitingConfirmation
-                              ? () => onConfirmJob(job)
-                              : null,
-                          onCancel:
-                              job.status ==
-                                  GenerationSubmissionStatus
-                                      .awaitingConfirmation
-                              ? () => onCancelJob(job)
-                              : null,
-                          onRetry: _canRetryJob(job)
-                              ? () => onRetryJob(job)
-                              : null,
-                          onRemove: _canRetryJob(job)
-                              ? () => onRemoveJob(job)
-                              : null,
-                        ),
-                      );
-                    },
+                    child: AnimatedList(
+                      key: _listKey,
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: _horizontalPadding,
+                      ),
+                      initialItemCount: _displayJobs.length + 1,
+                      itemBuilder:
+                          (
+                            BuildContext context,
+                            int index,
+                            Animation<double> animation,
+                          ) {
+                            if (index == 0) {
+                              return Padding(
+                                padding: const EdgeInsets.only(right: _itemGap),
+                                child: _GalleryMomentItem(
+                                  key: const ValueKey<String>(
+                                    'generation-submission-gallery-picker-item',
+                                  ),
+                                  width: tileWidth,
+                                  height: itemHeight,
+                                  imageHeight: tileHeight,
+                                  caption: context
+                                      .l10n
+                                      .generationSubmissionImportNew,
+                                  child: _GalleryPickerTile(
+                                    width: tileWidth,
+                                    height: tileHeight,
+                                    picking: widget.pickingGalleryImage,
+                                    onTap: widget.onPickGalleryImage,
+                                  ),
+                                ),
+                              );
+                            }
+                            final int jobIndex = index - 1;
+                            if (jobIndex < 0 ||
+                                jobIndex >= _displayJobs.length) {
+                              return const SizedBox.shrink();
+                            }
+                            final GenerationSubmissionJob job =
+                                _displayJobs[jobIndex];
+                            return _AnimatedGalleryJobListItem(
+                              key: ValueKey<String>(
+                                'generation-submission-photo-list-item-${job.id}',
+                              ),
+                              job: job,
+                              selected: widget.selectedJob?.id == job.id,
+                              animation: _animationForJob(job, animation),
+                              onTap: () => widget.onSelectJob(job),
+                              onConfirm:
+                                  job.status ==
+                                      GenerationSubmissionStatus
+                                          .awaitingConfirmation
+                                  ? () => widget.onConfirmJob(job)
+                                  : null,
+                              onCancel:
+                                  job.status ==
+                                      GenerationSubmissionStatus
+                                          .awaitingConfirmation
+                                  ? () => widget.onCancelJob(job)
+                                  : null,
+                              onRetry: _canRetryJob(job)
+                                  ? () => widget.onRetryJob(job)
+                                  : null,
+                              onRemove: _canRetryJob(job)
+                                  ? () => widget.onRemoveJob(job)
+                                  : null,
+                            );
+                          },
+                    ),
                   );
                 },
               ),
@@ -1266,26 +1422,25 @@ class _RelatedMomentsStrip extends StatelessWidget {
     );
   }
 
-  String _captionForJob(
-    GenerationSubmissionJob job, {
-    required String defaultMode,
-  }) {
-    final DateTime createdAt = job.createdAt;
-    final int hour = createdAt.hour == 0
-        ? 12
-        : createdAt.hour > 12
-        ? createdAt.hour - 12
-        : createdAt.hour;
-    final String minute = createdAt.minute.toString().padLeft(2, '0');
-    final String period = createdAt.hour >= 12 ? 'PM' : 'AM';
-    final String mode =
-        job.promptSelection?.captureMode.toUpperCase() ?? defaultMode;
-    return '$hour:$minute $period — $mode';
-  }
-
   bool _canRetryJob(GenerationSubmissionJob job) {
     return job.status == GenerationSubmissionStatus.failed ||
         job.status == GenerationSubmissionStatus.resultProcessingFailed;
+  }
+
+  Animation<double> _animationForJob(
+    GenerationSubmissionJob job,
+    Animation<double> animation,
+  ) {
+    if (!_insertingJobIds.contains(job.id) || animation.value == 1) {
+      return kAlwaysCompleteAnimation;
+    }
+    final bool reduceMotion =
+        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    if (reduceMotion) {
+      _insertingJobIds.remove(job.id);
+      return kAlwaysCompleteAnimation;
+    }
+    return animation;
   }
 }
 
@@ -1296,6 +1451,7 @@ class _GalleryMomentItem extends StatelessWidget {
     required this.imageHeight,
     required this.caption,
     required this.child,
+    super.key,
   });
 
   final double width;
@@ -1331,6 +1487,116 @@ class _GalleryMomentItem extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _AnimatedGalleryJobListItem extends StatelessWidget {
+  const _AnimatedGalleryJobListItem({
+    required this.job,
+    required this.selected,
+    required this.animation,
+    required this.onTap,
+    required this.onConfirm,
+    required this.onCancel,
+    required this.onRetry,
+    required this.onRemove,
+    super.key,
+    this.removing = false,
+  });
+
+  final GenerationSubmissionJob job;
+  final bool selected;
+  final Animation<double> animation;
+  final VoidCallback onTap;
+  final VoidCallback? onConfirm;
+  final VoidCallback? onCancel;
+  final VoidCallback? onRetry;
+  final VoidCallback? onRemove;
+  final bool removing;
+
+  @override
+  Widget build(BuildContext context) {
+    final Animation<double> curvedAnimation = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    return SizeTransition(
+      axis: Axis.horizontal,
+      axisAlignment: -1,
+      sizeFactor: curvedAnimation,
+      child: FadeTransition(
+        opacity: curvedAnimation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: removing ? const Offset(0, 0.08) : const Offset(0.18, 0),
+            end: Offset.zero,
+          ).animate(curvedAnimation),
+          child: Padding(
+            padding: const EdgeInsets.only(
+              right: _RelatedMomentsStripState._itemGap,
+            ),
+            child: IgnorePointer(
+              ignoring: removing,
+              child: LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  final double itemHeight = constraints.maxHeight;
+                  const double captionGap = 10;
+                  const double captionHeight = 12;
+                  final double tileHeight =
+                      (itemHeight - captionGap - captionHeight).clamp(
+                        0.0,
+                        280.0,
+                      );
+                  final double tileWidth = tileHeight * 0.72;
+                  return _GalleryMomentItem(
+                    width: tileWidth,
+                    height: itemHeight,
+                    imageHeight: tileHeight,
+                    caption: _captionForJob(
+                      job,
+                      defaultMode:
+                          context.l10n.generationSubmissionDefaultMomentMode,
+                    ),
+                    child: _JobThumbnail(
+                      thumbnailKey: removing
+                          ? 'generation-submission-removing-photo-${job.id}'
+                          : null,
+                      width: tileWidth,
+                      height: tileHeight,
+                      job: job,
+                      selected: selected,
+                      onTap: onTap,
+                      onConfirm: onConfirm,
+                      onCancel: onCancel,
+                      onRetry: onRetry,
+                      onRemove: onRemove,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _captionForJob(
+    GenerationSubmissionJob job, {
+    required String defaultMode,
+  }) {
+    final DateTime createdAt = job.createdAt;
+    final int hour = createdAt.hour == 0
+        ? 12
+        : createdAt.hour > 12
+        ? createdAt.hour - 12
+        : createdAt.hour;
+    final String minute = createdAt.minute.toString().padLeft(2, '0');
+    final String period = createdAt.hour >= 12 ? 'PM' : 'AM';
+    final String mode =
+        job.promptSelection?.captureMode.toUpperCase() ?? defaultMode;
+    return '$hour:$minute $period — $mode';
   }
 }
 
@@ -1386,6 +1652,7 @@ class _JobThumbnail extends StatelessWidget {
     required this.onCancel,
     required this.onRetry,
     required this.onRemove,
+    this.thumbnailKey,
   });
 
   final double width;
@@ -1397,6 +1664,7 @@ class _JobThumbnail extends StatelessWidget {
   final VoidCallback? onCancel;
   final VoidCallback? onRetry;
   final VoidCallback? onRemove;
+  final String? thumbnailKey;
 
   @override
   Widget build(BuildContext context) {
@@ -1410,7 +1678,9 @@ class _JobThumbnail extends StatelessWidget {
         ? job.processedResultPath!
         : job.imagePath;
     return GestureDetector(
-      key: ValueKey<String>('generation-submission-photo-${job.id}'),
+      key: ValueKey<String>(
+        thumbnailKey ?? 'generation-submission-photo-${job.id}',
+      ),
       onTap: onTap,
       child: TweenAnimationBuilder<double>(
         tween: Tween<double>(end: selected ? 1 : 0),
