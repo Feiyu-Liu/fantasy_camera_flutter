@@ -136,7 +136,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get generationSubmissionPreparingPhoto => 'Preparing your photo...';
 
   @override
-  String get generationSubmissionGalleryTitle => 'Album';
+  String get generationSubmissionGalleryTitle => 'GALLERY';
 
   @override
   String get generationSubmissionImportNew => 'IMPORT FROM ALBUM';
@@ -287,7 +287,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsLanguageEnglish => 'English';
 
   @override
-  String get settingsClearOriginalCacheTitle => 'Clear original cache';
+  String get settingsClearOriginalCacheTitle => 'Clear cached originals';
 
   @override
   String get settingsClearOriginalCacheSubtitle =>
@@ -297,7 +297,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsClearOriginalCacheCalculating => 'Recalculating...';
 
   @override
-  String get settingsClearOriginalCacheNoClearable => 'No clearable originals';
+  String get settingsClearOriginalCacheNoClearable =>
+      'No cached originals to clear';
 
   @override
   String get settingsClearOriginalCacheConfirmTitle => 'Clear original cache?';

@@ -890,11 +890,19 @@ class _CameraPhotoPromptOptionsState extends State<CameraPhotoPromptOptions>
           ),
           child: LayoutBuilder(
             builder: (BuildContext context, BoxConstraints constraints) {
+              const double horizontalPadding = 12;
+              final double minContentWidth =
+                  constraints.maxWidth > horizontalPadding * 2
+                  ? constraints.maxWidth - horizontalPadding * 2
+                  : 0;
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
+                ),
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  constraints: BoxConstraints(minWidth: minContentWidth),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Row(

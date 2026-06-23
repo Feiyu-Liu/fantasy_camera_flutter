@@ -335,7 +335,7 @@ abstract class AppLocalizations {
   /// No description provided for @generationSubmissionGalleryTitle.
   ///
   /// In en, this message translates to:
-  /// **'Album'**
+  /// **'GALLERY'**
   String get generationSubmissionGalleryTitle;
 
   /// No description provided for @generationSubmissionImportNew.
@@ -611,7 +611,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsClearOriginalCacheTitle.
   ///
   /// In en, this message translates to:
-  /// **'Clear original cache'**
+  /// **'Clear cached originals'**
   String get settingsClearOriginalCacheTitle;
 
   /// No description provided for @settingsClearOriginalCacheSubtitle.
@@ -629,7 +629,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsClearOriginalCacheNoClearable.
   ///
   /// In en, this message translates to:
-  /// **'No clearable originals'**
+  /// **'No cached originals to clear'**
   String get settingsClearOriginalCacheNoClearable;
 
   /// No description provided for @settingsClearOriginalCacheConfirmTitle.
