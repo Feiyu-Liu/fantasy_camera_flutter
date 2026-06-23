@@ -14,7 +14,7 @@ class CameraUiTokens {
     this.dividerColor = const Color(0xFF000000),
     this.dividerWidth = 0.5,
     this.topBarHeight = 44,
-    this.topBarTrailingWidth = 82,
+    this.topBarTrailingWidth = 88,
     this.topBarButtonSize = 44,
     this.topBarIconSize = 21,
     this.aspectRatioTextStyle = const TextStyle(

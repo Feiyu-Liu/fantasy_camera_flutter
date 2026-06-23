@@ -9,8 +9,11 @@ import '../domain/auth_session_state.dart';
 
 class SupabaseSessionCoordinator
     implements AccessTokenProvider, AppLocalizationsAware {
-  SupabaseSessionCoordinator({required AuthGateway authGateway})
-    : _authGateway = authGateway {
+  SupabaseSessionCoordinator({
+    required AuthGateway authGateway,
+    Duration initialAuthEventTimeout = const Duration(milliseconds: 300),
+  }) : _initialAuthEventTimeout = initialAuthEventTimeout,
+       _authGateway = authGateway {
     _authSubscription = _authGateway.authStateChanges.listen(
       _handleAuthEvent,
       onError: (Object error, StackTrace stackTrace) {
@@ -20,10 +23,12 @@ class SupabaseSessionCoordinator
   }
 
   final AuthGateway _authGateway;
+  final Duration _initialAuthEventTimeout;
   final StreamController<AuthSessionState> _stateController =
       StreamController<AuthSessionState>.broadcast();
 
   StreamSubscription<AuthGatewayEvent>? _authSubscription;
+  Completer<AuthGatewayEvent?>? _initialAuthEventCompleter;
   AuthSessionState _state = const AuthSessionState.restoring();
   AppLocalizations _localizations = appLocalizationsFor(defaultAppLocale);
   Future<AuthSessionSnapshot?>? _refreshFuture;
@@ -47,7 +52,15 @@ class SupabaseSessionCoordinator
       final AuthSessionSnapshot? session = await _authGateway
           .restoreCurrentSession();
       if (session == null) {
-        _setState(const AuthSessionState.signedOut());
+        final AuthGatewayEvent? initialEvent = await _waitForInitialAuthEvent();
+        if (initialEvent?.session case final AuthSessionSnapshot session) {
+          _setState(AuthSessionState.signedIn(session.user));
+          return;
+        }
+        if (initialEvent?.type == AuthGatewayEventType.signedOut ||
+            initialEvent == null) {
+          _setState(const AuthSessionState.signedOut());
+        }
         return;
       }
       _setState(AuthSessionState.signedIn(session.user));
@@ -148,6 +161,11 @@ class SupabaseSessionCoordinator
   }
 
   void _handleAuthEvent(AuthGatewayEvent event) {
+    if (_initialAuthEventCompleter
+        case final Completer<AuthGatewayEvent?> completer
+        when !completer.isCompleted) {
+      completer.complete(event);
+    }
     switch (event.type) {
       case AuthGatewayEventType.signedIn:
       case AuthGatewayEventType.tokenRefreshed:
@@ -167,6 +185,18 @@ class SupabaseSessionCoordinator
           );
         }
     }
+  }
+
+  Future<AuthGatewayEvent?> _waitForInitialAuthEvent() {
+    if (_initialAuthEventTimeout <= Duration.zero) {
+      return Future<AuthGatewayEvent?>.value();
+    }
+    final Completer<AuthGatewayEvent?> completer =
+        _initialAuthEventCompleter ??= Completer<AuthGatewayEvent?>();
+    return completer.future.timeout(
+      _initialAuthEventTimeout,
+      onTimeout: () => null,
+    );
   }
 
   void _setState(AuthSessionState state) {

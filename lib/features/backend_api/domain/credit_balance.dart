@@ -24,6 +24,16 @@ class CreditBalance {
       updatedAt: DateTime.parse(_readString(json, 'updatedAt')),
     );
   }
+
+  JsonObject toJson() {
+    return <String, Object?>{
+      'balance': balance,
+      'reservedBalance': reservedBalance,
+      'lifetimeEarned': lifetimeEarned,
+      'lifetimeSpent': lifetimeSpent,
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
 }
 
 int _readInt(JsonObject json, String key) {

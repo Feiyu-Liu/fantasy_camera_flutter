@@ -267,4 +267,130 @@ void main() {
     expect(record.resultSha256, 'sha-result');
     expect(record.resultHashStatus, GenerationRecordHashStatus.completed.name);
   });
+
+  test(
+    'marks terminal result notifications seen only for result outcomes',
+    () async {
+      final DateTime createdAt = DateTime.utc(2026, 6, 4, 7);
+      final DateTime seenAt = DateTime.utc(2026, 6, 4, 8);
+
+      await repository.createCameraRecord(
+        recordId: 'saved',
+        originalLocalPath: '/tmp/saved.heic',
+        createdAt: createdAt,
+      );
+      await repository.updatePipelineStatus(
+        recordId: 'saved',
+        status: GenerationRecordPipelineStatus.resultSaved,
+        updatedAt: createdAt,
+      );
+
+      await repository.createCameraRecord(
+        recordId: 'failed',
+        originalLocalPath: '/tmp/failed.heic',
+        createdAt: createdAt,
+      );
+      await repository.updatePipelineStatus(
+        recordId: 'failed',
+        status: GenerationRecordPipelineStatus.generationFailed,
+        updatedAt: createdAt,
+      );
+
+      await repository.createCameraRecord(
+        recordId: 'result-save-failed',
+        originalLocalPath: '/tmp/result-save-failed.heic',
+        createdAt: createdAt,
+      );
+      await repository.updatePipelineStatus(
+        recordId: 'result-save-failed',
+        status: GenerationRecordPipelineStatus.resultSaveFailed,
+        updatedAt: createdAt,
+      );
+
+      await repository.createCameraRecord(
+        recordId: 'processing',
+        originalLocalPath: '/tmp/processing.heic',
+        createdAt: createdAt,
+      );
+      await repository.updatePipelineStatus(
+        recordId: 'processing',
+        status: GenerationRecordPipelineStatus.pollingTask,
+        updatedAt: createdAt,
+      );
+
+      await repository.createCameraRecord(
+        recordId: 'canceled',
+        originalLocalPath: '/tmp/canceled.heic',
+        createdAt: createdAt,
+      );
+      await repository.updatePipelineStatus(
+        recordId: 'canceled',
+        status: GenerationRecordPipelineStatus.canceled,
+        updatedAt: createdAt,
+      );
+
+      await repository.markTerminalResultNotificationsSeen(seenAt);
+
+      final GenerationRecord saved = (await repository.findById('saved'))!;
+      final GenerationRecord failed = (await repository.findById('failed'))!;
+      final GenerationRecord resultSaveFailed = (await repository.findById(
+        'result-save-failed',
+      ))!;
+      final GenerationRecord processing = (await repository.findById(
+        'processing',
+      ))!;
+      final GenerationRecord canceled = (await repository.findById(
+        'canceled',
+      ))!;
+
+      expect(
+        saved.resultNotificationSeenAt?.millisecondsSinceEpoch,
+        seenAt.millisecondsSinceEpoch,
+      );
+      expect(
+        failed.resultNotificationSeenAt?.millisecondsSinceEpoch,
+        seenAt.millisecondsSinceEpoch,
+      );
+      expect(
+        resultSaveFailed.resultNotificationSeenAt?.millisecondsSinceEpoch,
+        seenAt.millisecondsSinceEpoch,
+      );
+      expect(processing.resultNotificationSeenAt, isNull);
+      expect(canceled.resultNotificationSeenAt, isNull);
+    },
+  );
+
+  test('retry clears result notification seen timestamp', () async {
+    final DateTime createdAt = DateTime.utc(2026, 6, 4, 9);
+    final DateTime failedAt = DateTime.utc(2026, 6, 4, 10);
+    final DateTime seenAt = DateTime.utc(2026, 6, 4, 11);
+    final DateTime retryAt = DateTime.utc(2026, 6, 4, 12);
+
+    await repository.createCameraRecord(
+      recordId: 'retry',
+      originalLocalPath: '/tmp/retry.heic',
+      createdAt: createdAt,
+    );
+    await repository.updatePipelineStatus(
+      recordId: 'retry',
+      status: GenerationRecordPipelineStatus.generationFailed,
+      updatedAt: failedAt,
+    );
+    await repository.markTerminalResultNotificationsSeen(seenAt);
+
+    GenerationRecord record = (await repository.findById('retry'))!;
+    expect(
+      record.resultNotificationSeenAt?.millisecondsSinceEpoch,
+      seenAt.millisecondsSinceEpoch,
+    );
+
+    await repository.resetForRetry(recordId: 'retry', updatedAt: retryAt);
+
+    record = (await repository.findById('retry'))!;
+    expect(
+      record.pipelineStatus,
+      GenerationRecordPipelineStatus.awaitingRetry.name,
+    );
+    expect(record.resultNotificationSeenAt, isNull);
+  });
 }

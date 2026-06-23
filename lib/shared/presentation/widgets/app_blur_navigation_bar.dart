@@ -65,7 +65,7 @@ class AppBlurNavigationBar extends StatelessWidget {
                       color: colors.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: 4,
+                      letterSpacing: 2.4,
                     ),
                   ),
                 ],

@@ -7,6 +7,7 @@ abstract final class AppColors {
   static const Color accentYellow = Color(0xFFFFDE55);
 
   static const Color success = CupertinoColors.activeGreen;
+  static const Color purchaseSuccessGreen = Color(0xFF0F7A34);
   static const Color danger = CupertinoColors.systemRed;
   static const Color link = CupertinoColors.activeBlue;
 

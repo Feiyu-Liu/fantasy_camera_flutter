@@ -6,6 +6,7 @@ import 'package:fantasy_camera_flutter/billing/data/revenuecat_billing_gateway.d
 import 'package:fantasy_camera_flutter/billing/domain/billing_product.dart';
 import 'package:fantasy_camera_flutter/billing/domain/credit_product.dart';
 import 'package:fantasy_camera_flutter/billing/presentation/billing_providers.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/data/credit_balance_cache_repository.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
@@ -115,6 +116,7 @@ void main() {
       final ProviderContainer container = _container(
         gateway: gateway,
         billingRepository: billingRepository,
+        creditsRepository: _FakeCreditsRepository(balance: 158),
       );
       addTearDown(container.dispose);
 
@@ -138,8 +140,51 @@ void main() {
       expect(state.isPurchasing, isFalse);
       expect(state.errorMessage, isNull);
       expect(state.lastGrantedCredits, 30);
+      expect(state.purchaseSuccessCredits, 30);
+      expect(container.read(creditBalanceProvider).valueOrNull?.balance, 158);
     },
   );
+
+  test('clearPurchaseSuccess clears purchase button feedback', () async {
+    final _FakeBillingGateway gateway = _FakeBillingGateway(
+      purchaseOutcome: const BillingPurchaseCompleted(),
+    );
+    final _FakeBillingRepository billingRepository = _FakeBillingRepository(
+      syncResult: const CreditPurchaseSyncResult(
+        grantedCredits: 30,
+        processedPurchases: 1,
+        balance: 158,
+        products: <CreditProduct>[],
+      ),
+    );
+    final ProviderContainer container = _container(
+      gateway: gateway,
+      billingRepository: billingRepository,
+      creditsRepository: _FakeCreditsRepository(balance: 158),
+    );
+    addTearDown(container.dispose);
+
+    await container
+        .read(billingControllerProvider.notifier)
+        .purchase(
+          const BillingProduct(
+            productId: 'tessercam_credits_30',
+            credits: 30,
+            displayRank: 0,
+            price: r'$2.99',
+            packageIdentifier: r'$rc_custom_30',
+          ),
+        );
+    BillingControllerState state = container.read(billingControllerProvider);
+    expect(state.lastGrantedCredits, 30);
+    expect(state.purchaseSuccessCredits, 30);
+
+    container.read(billingControllerProvider.notifier).clearPurchaseSuccess();
+
+    state = container.read(billingControllerProvider);
+    expect(state.lastGrantedCredits, 30);
+    expect(state.purchaseSuccessCredits, isNull);
+  });
 
   test('purchase sync failure reports server sync error', () async {
     final _FakeBillingGateway gateway = _FakeBillingGateway(
@@ -177,6 +222,32 @@ void main() {
     );
     expect(state.lastGrantedCredits, isNull);
   });
+
+  test('restore success does not set purchase button feedback', () async {
+    final _FakeBillingGateway gateway = _FakeBillingGateway();
+    final _FakeBillingRepository billingRepository = _FakeBillingRepository(
+      syncResult: const CreditPurchaseSyncResult(
+        grantedCredits: 30,
+        processedPurchases: 1,
+        balance: 158,
+        products: <CreditProduct>[],
+      ),
+    );
+    final ProviderContainer container = _container(
+      gateway: gateway,
+      billingRepository: billingRepository,
+      creditsRepository: _FakeCreditsRepository(balance: 158),
+    );
+    addTearDown(container.dispose);
+
+    await container.read(billingControllerProvider.notifier).restore();
+
+    final BillingControllerState state = container.read(
+      billingControllerProvider,
+    );
+    expect(state.lastGrantedCredits, 30);
+    expect(state.purchaseSuccessCredits, isNull);
+  });
 }
 
 ProviderContainer _container({
@@ -197,6 +268,9 @@ ProviderContainer _container({
       billingRepositoryProvider.overrideWithValue(billingRepository),
       creditsRepositoryProvider.overrideWithValue(
         creditsRepository ?? _FakeCreditsRepository(),
+      ),
+      creditBalanceCacheRepositoryProvider.overrideWithValue(
+        _FakeCreditBalanceCacheRepository(),
       ),
     ],
   );
@@ -272,17 +346,35 @@ class _FakeBillingRepository implements BillingRepository {
 }
 
 class _FakeCreditsRepository implements CreditsRepository {
+  _FakeCreditsRepository({this.balance = 128});
+
+  final int balance;
   int fetchCalls = 0;
 
   @override
   Future<CreditBalance> fetchBalance() async {
     fetchCalls += 1;
     return CreditBalance(
-      balance: 128,
+      balance: balance,
       reservedBalance: 0,
-      lifetimeEarned: 128,
+      lifetimeEarned: balance,
       lifetimeSpent: 0,
       updatedAt: DateTime.utc(2026, 6, 12),
     );
+  }
+}
+
+class _FakeCreditBalanceCacheRepository
+    implements CreditBalanceCacheRepository {
+  final Map<String, CreditBalance> balances = <String, CreditBalance>{};
+
+  @override
+  Future<CreditBalance?> loadBalance(String userId) async {
+    return balances[userId];
+  }
+
+  @override
+  Future<void> saveBalance(String userId, CreditBalance balance) async {
+    balances[userId] = balance;
   }
 }

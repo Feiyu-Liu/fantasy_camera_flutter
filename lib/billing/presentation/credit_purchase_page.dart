@@ -82,12 +82,16 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
                         setState(() {
                           _selectedProductId = product.productId;
                         });
+                        ref
+                            .read(billingControllerProvider.notifier)
+                            .clearPurchaseSuccess();
                       },
                     ),
                   ),
                 const SizedBox(height: 2),
                 _PurchaseButton(
                   isBusy: state.isPurchasing,
+                  grantedCredits: state.purchaseSuccessCredits,
                   onPressed: selectedProduct == null
                       ? null
                       : () {
@@ -100,11 +104,6 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
               ],
               if (state.errorMessage case final String message)
                 _MessageBanner(message: message, danger: true),
-              if (state.lastGrantedCredits case final int credits)
-                _MessageBanner(
-                  message: context.l10n.billingGrantedCreditsMessage(credits),
-                  danger: false,
-                ),
               const SizedBox(height: 10),
               _PurchaseFooterLinks(
                 isBusy: state.isPurchasing,
@@ -328,21 +327,35 @@ class _CreditPackRow extends StatelessWidget {
 }
 
 class _PurchaseButton extends StatelessWidget {
-  const _PurchaseButton({required this.isBusy, required this.onPressed});
+  const _PurchaseButton({
+    required this.isBusy,
+    required this.grantedCredits,
+    required this.onPressed,
+  });
 
   final bool isBusy;
+  final int? grantedCredits;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     final AppThemeColors colors = AppThemeColors.of(context);
+    final int? successCredits = grantedCredits;
+    final bool isSuccess = successCredits != null;
+    final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
     return CupertinoButton(
       padding: EdgeInsets.zero,
       minimumSize: Size.zero,
-      onPressed: isBusy ? null : onPressed,
-      child: DecoratedBox(
+      onPressed: isBusy || isSuccess ? null : onPressed,
+      child: AnimatedContainer(
+        duration: reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
         decoration: AppCorners.controlDecoration(
-          color: isBusy || onPressed == null
+          color: isSuccess
+              ? AppColors.purchaseSuccessGreen
+              : isBusy || onPressed == null
               ? colors.controlFillDisabled
               : colors.textPrimary,
           side: BorderSide(color: colors.border, width: 0.5),
@@ -353,10 +366,14 @@ class _PurchaseButton extends StatelessWidget {
             child: isBusy
                 ? CupertinoActivityIndicator(color: colors.inverseText)
                 : Text(
-                    context.l10n.billingPurchaseButton,
+                    isSuccess
+                        ? context.l10n.billingPurchaseSuccessButton(
+                            successCredits,
+                          )
+                        : context.l10n.billingPurchaseButton,
                     textScaler: TextScaler.noScaling,
                     style: TextStyle(
-                      color: colors.inverseText,
+                      color: AppColors.white,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                     ),

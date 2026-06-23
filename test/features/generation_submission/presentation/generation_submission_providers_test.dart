@@ -3,8 +3,13 @@ import 'dart:typed_data';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:drift/native.dart';
+import 'package:fantasy_camera_flutter/auth/domain/auth_session_state.dart';
+import 'package:fantasy_camera_flutter/auth/domain/auth_user.dart';
+import 'package:fantasy_camera_flutter/auth/presentation/auth_providers.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/data/credit_balance_cache_repository.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/api_failure.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/feedback.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
@@ -1428,6 +1433,246 @@ void main() {
     expect(job.resultUrlExpiresAt, isNotNull);
   });
 
+  test(
+    'result notification ignores persisted seen results on first read',
+    () async {
+      final ProviderContainer container = _container(
+        taskRepository: _completedTaskRepository(),
+      );
+      addTearDown(container.dispose);
+
+      final String jobId = await _createSavedResultJob(container);
+      await container
+          .read(generationRecordRepositoryProvider)
+          .markTerminalResultNotificationsSeen(
+            DateTime.parse('2026-05-29T00:00:01Z'),
+          );
+      await container
+          .read(generationSubmissionControllerProvider.notifier)
+          .refreshFromRepositoryForNotifications();
+
+      final GenerationResultNotificationState notificationState = container
+          .read(generationResultNotificationControllerProvider);
+
+      expect(jobId, isNotEmpty);
+      expect(notificationState.hasUnreadResult, isFalse);
+      expect(notificationState.status, GenerationResultNotificationStatus.none);
+    },
+  );
+
+  test('result notification marks newly saved result as success', () async {
+    final ProviderContainer container = _container(
+      taskRepository: _completedTaskRepository(),
+    );
+    addTearDown(container.dispose);
+
+    expect(
+      container
+          .read(generationResultNotificationControllerProvider)
+          .hasUnreadResult,
+      isFalse,
+    );
+    expect(
+      container.read(generationResultNotificationControllerProvider).status,
+      GenerationResultNotificationStatus.none,
+    );
+
+    await _createSavedResultJob(container);
+
+    expect(
+      container
+          .read(generationResultNotificationControllerProvider)
+          .hasUnreadResult,
+      isTrue,
+    );
+    expect(
+      container.read(generationResultNotificationControllerProvider).status,
+      GenerationResultNotificationStatus.success,
+    );
+
+    container
+        .read(generationResultNotificationControllerProvider.notifier)
+        .markAllSeen();
+    await _waitForNotificationStatus(
+      container,
+      GenerationResultNotificationStatus.none,
+    );
+
+    expect(
+      container
+          .read(generationResultNotificationControllerProvider)
+          .hasUnreadResult,
+      isFalse,
+    );
+    expect(
+      container.read(generationResultNotificationControllerProvider).status,
+      GenerationResultNotificationStatus.none,
+    );
+  });
+
+  test('result notification stays seen after container restart', () async {
+    final GenerationRecordDatabase database =
+        GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+    final ProviderContainer firstContainer = _container(
+      database: database,
+      taskRepository: _completedTaskRepository(),
+    );
+    addTearDown(database.close);
+
+    await _createSavedResultJob(firstContainer);
+    expect(
+      firstContainer
+          .read(generationResultNotificationControllerProvider)
+          .status,
+      GenerationResultNotificationStatus.success,
+    );
+
+    firstContainer
+        .read(generationResultNotificationControllerProvider.notifier)
+        .markAllSeen();
+    await _waitForNotificationStatus(
+      firstContainer,
+      GenerationResultNotificationStatus.none,
+    );
+    firstContainer.dispose();
+
+    final ProviderContainer secondContainer = _container(
+      database: database,
+      taskRepository: _completedTaskRepository(),
+    );
+    addTearDown(secondContainer.dispose);
+
+    await secondContainer
+        .read(generationSubmissionControllerProvider.notifier)
+        .resumeActiveRecords();
+
+    await _waitForJobStatus(
+      secondContainer,
+      GenerationSubmissionStatus.resultSaved,
+      expectedCount: 1,
+    );
+    final GenerationResultNotificationStatus status =
+        await _waitForNotificationStatus(
+          secondContainer,
+          GenerationResultNotificationStatus.none,
+        );
+
+    expect(status, GenerationResultNotificationStatus.none);
+  });
+
+  test('result notification marks generation failure as failure', () async {
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..fetchTaskResponses.add(
+            _task(
+              status: GenerationTaskStatus.failed,
+              lastErrorCode: 'provider_error',
+              lastErrorMessage: 'Provider failed',
+            ),
+          );
+    final ProviderContainer container = _container(
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    expect(
+      container.read(generationResultNotificationControllerProvider).status,
+      GenerationResultNotificationStatus.none,
+    );
+
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .submitCapturedFile(XFile('/tmp/photo.jpg'));
+
+    final GenerationSubmissionJob job = await _waitForSingleJobStatus(
+      container,
+      GenerationSubmissionStatus.failed,
+    );
+
+    expect(job.status, GenerationSubmissionStatus.failed);
+    expect(
+      container.read(generationResultNotificationControllerProvider).status,
+      GenerationResultNotificationStatus.failure,
+    );
+  });
+
+  test(
+    'result notification marks result processing failure as failure',
+    () async {
+      final _FakeGenerationImageProcessor imageProcessor =
+          _FakeGenerationImageProcessor()
+            ..processFailure = StateError('heif unsupported');
+      final ProviderContainer container = _container(
+        imageProcessor: imageProcessor,
+        taskRepository: _completedTaskRepository(),
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        container.read(generationResultNotificationControllerProvider).status,
+        GenerationResultNotificationStatus.none,
+      );
+
+      await container
+          .read(generationSubmissionControllerProvider.notifier)
+          .submitCapturedFile(XFile('/tmp/photo.jpg'));
+
+      final GenerationSubmissionJob job = await _waitForSingleJobStatus(
+        container,
+        GenerationSubmissionStatus.resultProcessingFailed,
+      );
+
+      expect(job.status, GenerationSubmissionStatus.resultProcessingFailed);
+      expect(
+        container.read(generationResultNotificationControllerProvider).status,
+        GenerationResultNotificationStatus.failure,
+      );
+    },
+  );
+
+  test('result notification prioritizes failure over success', () async {
+    final ProviderContainer container = _container(
+      taskRepository: _completedTaskRepository(),
+    );
+    addTearDown(container.dispose);
+
+    expect(
+      container.read(generationResultNotificationControllerProvider).status,
+      GenerationResultNotificationStatus.none,
+    );
+
+    await _createSavedResultJob(container);
+    expect(
+      container.read(generationResultNotificationControllerProvider).status,
+      GenerationResultNotificationStatus.success,
+    );
+
+    final _FakeGenerationTaskRepository taskRepository =
+        container.read(generationTaskRepositoryProvider)
+            as _FakeGenerationTaskRepository;
+    taskRepository.fetchTaskResponses.add(
+      _task(
+        status: GenerationTaskStatus.failed,
+        lastErrorCode: 'provider_error',
+        lastErrorMessage: 'Provider failed',
+      ),
+    );
+
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .submitCapturedFile(XFile('/tmp/failed-photo.jpg'));
+    await _waitForJobStatus(
+      container,
+      GenerationSubmissionStatus.failed,
+      expectedCount: 2,
+    );
+
+    expect(
+      container.read(generationResultNotificationControllerProvider).status,
+      GenerationResultNotificationStatus.failure,
+    );
+  });
+
   test('concurrent result url loads share one backend request', () async {
     final _FakeGenerationTaskRepository taskRepository =
         _FakeGenerationTaskRepository()
@@ -1491,6 +1736,44 @@ Future<GenerationSubmissionJob> _waitForSingleJobStatus(
   return container.read(generationSubmissionControllerProvider).jobs.single;
 }
 
+Future<List<GenerationSubmissionJob>> _waitForJobStatus(
+  ProviderContainer container,
+  GenerationSubmissionStatus status, {
+  required int expectedCount,
+  Duration timeout = const Duration(seconds: 3),
+}) async {
+  final DateTime deadline = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(deadline)) {
+    final List<GenerationSubmissionJob> jobs = container
+        .read(generationSubmissionControllerProvider)
+        .jobs;
+    if (jobs.length == expectedCount &&
+        jobs.any((GenerationSubmissionJob job) => job.status == status)) {
+      return jobs;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  return container.read(generationSubmissionControllerProvider).jobs;
+}
+
+Future<GenerationResultNotificationStatus> _waitForNotificationStatus(
+  ProviderContainer container,
+  GenerationResultNotificationStatus status, {
+  Duration timeout = const Duration(seconds: 3),
+}) async {
+  final DateTime deadline = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(deadline)) {
+    final GenerationResultNotificationStatus current = container
+        .read(generationResultNotificationControllerProvider)
+        .status;
+    if (current == status) {
+      return current;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  return container.read(generationResultNotificationControllerProvider).status;
+}
+
 Future<String> _createSavedResultJob(ProviderContainer container) async {
   await container
       .read(generationSubmissionControllerProvider.notifier)
@@ -1531,6 +1814,7 @@ _FakeGenerationTaskRepository _completedTaskRepository() {
 }
 
 ProviderContainer _container({
+  GenerationRecordDatabase? database,
   _FakePhotoLibraryAssetStore? photoLibraryAssetStore,
   _FakeGenerationImageProcessor? imageProcessor,
   _FakeUploadRepository? uploadRepository,
@@ -1539,11 +1823,11 @@ ProviderContainer _container({
   _FakeGenerationOriginalFileStore? originalFileStore,
   _FakeBackgroundR2UploadService? backgroundR2UploadService,
 }) {
-  final GenerationRecordDatabase database =
-      GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+  final GenerationRecordDatabase resolvedDatabase =
+      database ?? GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
   return ProviderContainer(
     overrides: <Override>[
-      generationRecordDatabaseProvider.overrideWithValue(database),
+      generationRecordDatabaseProvider.overrideWithValue(resolvedDatabase),
       generationOriginalFileStoreProvider.overrideWithValue(
         originalFileStore ?? _FakeGenerationOriginalFileStore(),
       ),
@@ -1564,6 +1848,17 @@ ProviderContainer _container({
       ),
       backgroundR2UploadServiceProvider.overrideWithValue(
         backgroundR2UploadService ?? _FakeBackgroundR2UploadService(),
+      ),
+      authSessionProvider.overrideWith(
+        (_) => Stream<AuthSessionState>.value(
+          const AuthSessionState.signedIn(
+            AuthUser(id: 'user-1', email: 'alex@example.com'),
+          ),
+        ),
+      ),
+      creditsRepositoryProvider.overrideWithValue(_FakeCreditsRepository()),
+      creditBalanceCacheRepositoryProvider.overrideWithValue(
+        _FakeCreditBalanceCacheRepository(),
       ),
       generationSubmissionServiceProvider.overrideWith((Ref ref) {
         final GenerationSubmissionService service = GenerationSubmissionService(
@@ -1587,6 +1882,37 @@ ProviderContainer _container({
       }),
     ],
   );
+}
+
+class _FakeCreditsRepository implements CreditsRepository {
+  int fetchCalls = 0;
+
+  @override
+  Future<CreditBalance> fetchBalance() async {
+    fetchCalls += 1;
+    return CreditBalance(
+      balance: 128,
+      reservedBalance: 0,
+      lifetimeEarned: 128,
+      lifetimeSpent: 0,
+      updatedAt: DateTime.utc(2026, 6, 12),
+    );
+  }
+}
+
+class _FakeCreditBalanceCacheRepository
+    implements CreditBalanceCacheRepository {
+  final Map<String, CreditBalance> balances = <String, CreditBalance>{};
+
+  @override
+  Future<CreditBalance?> loadBalance(String userId) async {
+    return balances[userId];
+  }
+
+  @override
+  Future<void> saveBalance(String userId, CreditBalance balance) async {
+    balances[userId] = balance;
+  }
 }
 
 class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {

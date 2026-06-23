@@ -5,6 +5,7 @@ import 'package:fantasy_camera_flutter/auth/domain/auth_session_state.dart';
 import 'package:fantasy_camera_flutter/auth/domain/auth_user.dart';
 import 'package:fantasy_camera_flutter/auth/presentation/auth_providers.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/data/credit_balance_cache_repository.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_original_cache_cleaner.dart';
@@ -48,6 +49,9 @@ void main() {
           ),
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
+          ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
           ),
           appSettingsRepositoryProvider.overrideWithValue(settingsRepository),
           generationOriginalCacheCleanerProvider.overrideWithValue(
@@ -624,6 +628,21 @@ class _FakeCreditsRepository implements CreditsRepository {
       lifetimeSpent: 0,
       updatedAt: DateTime.utc(2026, 6, 12),
     );
+  }
+}
+
+class _FakeCreditBalanceCacheRepository
+    implements CreditBalanceCacheRepository {
+  final Map<String, CreditBalance> balances = <String, CreditBalance>{};
+
+  @override
+  Future<CreditBalance?> loadBalance(String userId) async {
+    return balances[userId];
+  }
+
+  @override
+  Future<void> saveBalance(String userId, CreditBalance balance) async {
+    balances[userId] = balance;
   }
 }
 

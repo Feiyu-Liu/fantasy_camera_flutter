@@ -143,13 +143,13 @@ abstract class AppLocalizations {
   /// No description provided for @authContinueWithApple.
   ///
   /// In en, this message translates to:
-  /// **'Continue with Apple'**
+  /// **'Sign in with Apple'**
   String get authContinueWithApple;
 
   /// No description provided for @authContinueWithGoogle.
   ///
   /// In en, this message translates to:
-  /// **'Continue with Google'**
+  /// **'Sign in with Google'**
   String get authContinueWithGoogle;
 
   /// No description provided for @authCreateAccountButton.
@@ -335,7 +335,7 @@ abstract class AppLocalizations {
   /// No description provided for @generationSubmissionGalleryTitle.
   ///
   /// In en, this message translates to:
-  /// **'Album'**
+  /// **'GALLERY'**
   String get generationSubmissionGalleryTitle;
 
   /// No description provided for @generationSubmissionImportNew.
@@ -473,19 +473,19 @@ abstract class AppLocalizations {
   /// No description provided for @promptSwitchBeautifyFaceTitle.
   ///
   /// In en, this message translates to:
-  /// **'Face refine'**
+  /// **'Portrait Enhance'**
   String get promptSwitchBeautifyFaceTitle;
 
   /// No description provided for @promptSwitchCleanFrameTitle.
   ///
   /// In en, this message translates to:
-  /// **'Clean frame'**
+  /// **'Declutter'**
   String get promptSwitchCleanFrameTitle;
 
   /// No description provided for @promptSwitchBackgroundBlurTitle.
   ///
   /// In en, this message translates to:
-  /// **'Background blur'**
+  /// **'Background Blur'**
   String get promptSwitchBackgroundBlurTitle;
 
   /// No description provided for @promptStyleRealisticTitle.
@@ -611,7 +611,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsClearOriginalCacheTitle.
   ///
   /// In en, this message translates to:
-  /// **'Clear original cache'**
+  /// **'Clear cached originals'**
   String get settingsClearOriginalCacheTitle;
 
   /// No description provided for @settingsClearOriginalCacheSubtitle.
@@ -629,7 +629,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsClearOriginalCacheNoClearable.
   ///
   /// In en, this message translates to:
-  /// **'No clearable originals'**
+  /// **'No cached originals to clear'**
   String get settingsClearOriginalCacheNoClearable;
 
   /// No description provided for @settingsClearOriginalCacheConfirmTitle.
@@ -862,6 +862,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Purchase'**
   String get billingPurchaseButton;
+
+  /// No description provided for @billingPurchaseSuccessButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase complete (+{credits} credits)'**
+  String billingPurchaseSuccessButton(int credits);
 
   /// No description provided for @billingRestorePurchases.
   ///

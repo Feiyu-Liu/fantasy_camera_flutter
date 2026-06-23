@@ -1584,8 +1584,8 @@ class GenerationSubmissionService extends ChangeNotifier {
     required String errorMessage,
   }) {
     final GenerationRecordPipelineStatus status = switch (stage) {
-      'preparingUploadImage' || 'readingFile' =>
-        GenerationRecordPipelineStatus.preparingUploadImage,
+      'preparingUploadImage' ||
+      'readingFile' => GenerationRecordPipelineStatus.preparingUploadImage,
       'creatingUpload' => GenerationRecordPipelineStatus.creatingUpload,
       _ => GenerationRecordPipelineStatus.preparingUploadImage,
     };
@@ -1705,6 +1705,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         promptSelection: _promptSelectionForRecord(record),
         processedResultPath: processedResultPath,
         resultAssetId: record.resultAssetId,
+        resultNotificationSeenAt: record.resultNotificationSeenAt,
         canSaveOriginalToPhotoLibrary: _canSaveOriginalToPhotoLibrary(record),
         isResultFavorite: record.resultIsFavorite,
         resultFavoriteFeedbackSubmittedAt:
@@ -1741,6 +1742,7 @@ class GenerationSubmissionService extends ChangeNotifier {
       sourceExif: runtime?.sourceExif,
       processedResultPath: processedResultPath,
       resultAssetId: record.resultAssetId,
+      resultNotificationSeenAt: record.resultNotificationSeenAt,
       canSaveOriginalToPhotoLibrary: _canSaveOriginalToPhotoLibrary(record),
       isResultFavorite: record.resultIsFavorite,
       resultFavoriteFeedbackSubmittedAt:

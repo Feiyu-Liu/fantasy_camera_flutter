@@ -32,10 +32,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Camera devices could not be loaded.';
 
   @override
-  String get authContinueWithApple => 'Continue with Apple';
+  String get authContinueWithApple => 'Sign in with Apple';
 
   @override
-  String get authContinueWithGoogle => 'Continue with Google';
+  String get authContinueWithGoogle => 'Sign in with Google';
 
   @override
   String get authCreateAccountButton => 'Create account';
@@ -136,7 +136,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get generationSubmissionPreparingPhoto => 'Preparing your photo...';
 
   @override
-  String get generationSubmissionGalleryTitle => 'Album';
+  String get generationSubmissionGalleryTitle => 'GALLERY';
 
   @override
   String get generationSubmissionImportNew => 'IMPORT FROM ALBUM';
@@ -214,13 +214,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get promptSwitchRecomposeTitle => 'Recompose';
 
   @override
-  String get promptSwitchBeautifyFaceTitle => 'Face refine';
+  String get promptSwitchBeautifyFaceTitle => 'Portrait Enhance';
 
   @override
-  String get promptSwitchCleanFrameTitle => 'Clean frame';
+  String get promptSwitchCleanFrameTitle => 'Declutter';
 
   @override
-  String get promptSwitchBackgroundBlurTitle => 'Background blur';
+  String get promptSwitchBackgroundBlurTitle => 'Background Blur';
 
   @override
   String get promptStyleRealisticTitle => 'Realistic';
@@ -287,7 +287,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsLanguageEnglish => 'English';
 
   @override
-  String get settingsClearOriginalCacheTitle => 'Clear original cache';
+  String get settingsClearOriginalCacheTitle => 'Clear cached originals';
 
   @override
   String get settingsClearOriginalCacheSubtitle =>
@@ -297,7 +297,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsClearOriginalCacheCalculating => 'Recalculating...';
 
   @override
-  String get settingsClearOriginalCacheNoClearable => 'No clearable originals';
+  String get settingsClearOriginalCacheNoClearable =>
+      'No cached originals to clear';
 
   @override
   String get settingsClearOriginalCacheConfirmTitle => 'Clear original cache?';
@@ -431,6 +432,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get billingPurchaseButton => 'Purchase';
+
+  @override
+  String billingPurchaseSuccessButton(int credits) {
+    return 'Purchase complete (+$credits credits)';
+  }
 
   @override
   String get billingRestorePurchases => 'Restore purchases';

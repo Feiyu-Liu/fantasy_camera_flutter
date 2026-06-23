@@ -7,6 +7,7 @@ import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:drift/native.dart';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/data/credit_balance_cache_repository.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/feedback.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
@@ -21,7 +22,9 @@ import 'package:fantasy_camera_flutter/app/fantasy_camera_app.dart';
 import 'package:fantasy_camera_flutter/auth/domain/auth_session_state.dart';
 import 'package:fantasy_camera_flutter/auth/domain/auth_user.dart';
 import 'package:fantasy_camera_flutter/auth/presentation/auth_page.dart';
+import 'package:fantasy_camera_flutter/auth/presentation/auth_gate.dart';
 import 'package:fantasy_camera_flutter/auth/presentation/auth_providers.dart';
+import 'package:fantasy_camera_flutter/config/app_config.dart';
 import 'package:fantasy_camera_flutter/features/camera/data/camera_device_repository.dart';
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_choice.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_providers.dart';
@@ -69,7 +72,7 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey<String>('auth_google_button')),
-      findsOneWidget,
+      AppConfig.hasGoogleSignInConfig ? findsOneWidget : findsNothing,
     );
   });
 
@@ -94,6 +97,9 @@ void main() {
           ),
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
+          ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
           ),
           generationSubmissionServiceProvider.overrideWith((Ref ref) {
             final GenerationSubmissionService
@@ -150,6 +156,9 @@ void main() {
           ),
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
+          ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
           ),
           generationSubmissionServiceProvider.overrideWith((Ref ref) {
             final GenerationSubmissionService
@@ -216,6 +225,9 @@ void main() {
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
           ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
+          ),
           generationSubmissionServiceProvider.overrideWith((Ref ref) {
             final GenerationSubmissionService
             service = GenerationSubmissionService(
@@ -279,6 +291,9 @@ void main() {
           ),
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
+          ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
           ),
           generationSubmissionServiceProvider.overrideWith((Ref ref) {
             final GenerationSubmissionService
@@ -373,6 +388,9 @@ void main() {
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
           ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
+          ),
           generationRecordDatabaseProvider.overrideWithValue(
             seededGeneration.database,
           ),
@@ -426,13 +444,16 @@ void main() {
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
           ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
+          ),
         ],
       ),
     );
     await tester.pump();
     await tester.pump();
 
-    expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
+    expect(find.byType(AuthCameraLoadingPage), findsOneWidget);
     expect(find.byType(CameraPhotoUi), findsNothing);
     expect(find.text('No camera found.'), findsNothing);
   });
@@ -462,12 +483,16 @@ void main() {
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
           ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
+          ),
         ],
       ),
     );
     await tester.pump();
 
     cameraChoicesCompleter.complete(const <CameraChoice>[]);
+    await tester.pump();
     await tester.pump();
 
     expect(find.byType(CameraPhotoUi), findsOneWidget);
@@ -495,6 +520,9 @@ void main() {
           creditsRepositoryProvider.overrideWithValue(
             const _FakeCreditsRepository(),
           ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
+          ),
         ],
       ),
     );
@@ -508,12 +536,16 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    await tester.pump();
 
     expect(cameraDeviceRepository.loadCount, 1);
     expect(find.byType(CameraPhotoUi), findsOneWidget);
   });
 
-  testWidgets('shows restoring loading state', (WidgetTester tester) async {
+  testWidgets('shows camera shell while restoring session', (
+    WidgetTester tester,
+  ) async {
+    await usePortraitSurface(tester);
     await tester.pumpWidget(
       FantasyCameraApp(
         overrides: <Override>[
@@ -529,7 +561,13 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
+    expect(find.byType(AuthCameraLoadingPage), findsOneWidget);
+    expect(find.byType(CameraPhotoUi), findsNothing);
+    expect(find.byType(AuthPage), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('camera-prompt-option-recompose')),
+      findsNothing,
+    );
   });
 }
 
@@ -590,6 +628,21 @@ class _FakeCreditsRepository implements CreditsRepository {
       lifetimeSpent: 0,
       updatedAt: DateTime.parse('2026-05-29T00:00:00Z'),
     );
+  }
+}
+
+class _FakeCreditBalanceCacheRepository
+    implements CreditBalanceCacheRepository {
+  final Map<String, CreditBalance> balances = <String, CreditBalance>{};
+
+  @override
+  Future<CreditBalance?> loadBalance(String userId) async {
+    return balances[userId];
+  }
+
+  @override
+  Future<void> saveBalance(String userId, CreditBalance balance) async {
+    balances[userId] = balance;
   }
 }
 

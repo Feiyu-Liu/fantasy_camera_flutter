@@ -30,10 +30,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get authCameraDevicesLoadFailed => '无法加载相机设备。';
 
   @override
-  String get authContinueWithApple => '通过 Apple 继续';
+  String get authContinueWithApple => '通过 Apple 登录';
 
   @override
-  String get authContinueWithGoogle => '通过 Google 继续';
+  String get authContinueWithGoogle => '通过 Google 登录';
 
   @override
   String get authCreateAccountButton => '创建账号';
@@ -131,7 +131,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get generationSubmissionPreparingPhoto => '正在准备照片...';
 
   @override
-  String get generationSubmissionGalleryTitle => '相册';
+  String get generationSubmissionGalleryTitle => '画廊';
 
   @override
   String get generationSubmissionImportNew => '从相册导入';
@@ -410,6 +410,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get billingPurchaseButton => '购买';
+
+  @override
+  String billingPurchaseSuccessButton(int credits) {
+    return '购买成功（积分 +$credits）';
+  }
 
   @override
   String get billingRestorePurchases => '恢复购买';

@@ -6,6 +6,9 @@ import 'package:smooth_corner/smooth_corner.dart';
 import 'camera_ui_models.dart';
 import 'camera_ui_tokens.dart';
 import '../../../../theme/app_corners.dart';
+import '../../../../theme/app_colors.dart';
+
+enum CameraGalleryBadgeStatus { none, success, failure }
 
 class CameraPhotoUi extends StatelessWidget {
   const CameraPhotoUi({
@@ -14,13 +17,13 @@ class CameraPhotoUi extends StatelessWidget {
     this.viewfinder,
     this.galleryPreview,
     this.message,
-    this.aspectRatioLabel = '4:3',
     this.promptOptions = const <Widget>[],
     this.zoomStops = const <CameraZoomStop>[],
     this.currentDisplayZoom = 1.0,
     this.controlsRotationTurns = 0,
     this.zoomEnabled = true,
     this.galleryEnabled = true,
+    this.galleryBadgeStatus = CameraGalleryBadgeStatus.none,
     this.shutterEnabled = true,
     this.shutterBusy = false,
     this.flashMode = CameraFlashUiMode.off,
@@ -31,7 +34,6 @@ class CameraPhotoUi extends StatelessWidget {
     this.flipBusy = false,
     this.onFlashPressed,
     this.onTimerPressed,
-    this.onAspectRatioPressed,
     this.onBrightnessPressed,
     this.leadingContent,
     this.trailingContent,
@@ -51,13 +53,13 @@ class CameraPhotoUi extends StatelessWidget {
   final Widget? viewfinder;
   final Widget? galleryPreview;
   final String? message;
-  final String aspectRatioLabel;
   final List<Widget> promptOptions;
   final List<CameraZoomStop> zoomStops;
   final double currentDisplayZoom;
   final double controlsRotationTurns;
   final bool zoomEnabled;
   final bool galleryEnabled;
+  final CameraGalleryBadgeStatus galleryBadgeStatus;
   final bool shutterEnabled;
   final bool shutterBusy;
   final CameraFlashUiMode flashMode;
@@ -68,7 +70,6 @@ class CameraPhotoUi extends StatelessWidget {
   final bool flipBusy;
   final VoidCallback? onFlashPressed;
   final VoidCallback? onTimerPressed;
-  final VoidCallback? onAspectRatioPressed;
   final VoidCallback? onBrightnessPressed;
   final Widget? leadingContent;
   final Widget? trailingContent;
@@ -93,13 +94,11 @@ class CameraPhotoUi extends StatelessWidget {
         children: <Widget>[
           CameraPhotoTopBar(
             tokens: tokens,
-            aspectRatioLabel: aspectRatioLabel,
             flashMode: flashMode,
             flashEnabled: flashEnabled,
             flashBusy: flashBusy,
             onFlashPressed: onFlashPressed,
             onTimerPressed: onTimerPressed,
-            onAspectRatioPressed: onAspectRatioPressed,
             onBrightnessPressed: onBrightnessPressed,
             leadingContent: leadingContent,
             trailingIcon: trailingIcon,
@@ -144,6 +143,7 @@ class CameraPhotoUi extends StatelessWidget {
                       galleryPreview: galleryPreview,
                       controlsRotationTurns: controlsRotationTurns,
                       galleryEnabled: galleryEnabled,
+                      galleryBadgeStatus: galleryBadgeStatus,
                       shutterEnabled: shutterEnabled,
                       shutterBusy: shutterBusy,
                       cameraFacing: cameraFacing,
@@ -176,13 +176,11 @@ class CameraPhotoTopBar extends StatelessWidget {
   const CameraPhotoTopBar({
     required this.tokens,
     super.key,
-    this.aspectRatioLabel = '4:3',
     this.flashMode = CameraFlashUiMode.off,
     this.flashEnabled = true,
     this.flashBusy = false,
     this.onFlashPressed,
     this.onTimerPressed,
-    this.onAspectRatioPressed,
     this.onBrightnessPressed,
     this.leadingContent,
     this.trailingContent,
@@ -193,13 +191,11 @@ class CameraPhotoTopBar extends StatelessWidget {
   });
 
   final CameraUiTokens tokens;
-  final String aspectRatioLabel;
   final CameraFlashUiMode flashMode;
   final bool flashEnabled;
   final bool flashBusy;
   final VoidCallback? onFlashPressed;
   final VoidCallback? onTimerPressed;
-  final VoidCallback? onAspectRatioPressed;
   final VoidCallback? onBrightnessPressed;
   final Widget? leadingContent;
   final Widget? trailingContent;
@@ -226,42 +222,45 @@ class CameraPhotoTopBar extends StatelessWidget {
           ),
           child: Row(
             children: <Widget>[
-              Expanded(
+              SizedBox(
+                width: tokens.topBarButtonSize,
                 child: _TopBarSlot(
                   tokens: tokens,
                   borderRight: true,
                   child: leadingContent ?? const SizedBox.shrink(),
                 ),
               ),
-              Expanded(
-                child: CameraPhotoFlashButton(
+              SizedBox(
+                width: tokens.topBarButtonSize,
+                child: _TopBarSlot(
                   tokens: tokens,
-                  mode: flashMode,
-                  enabled: flashEnabled,
-                  busy: flashBusy,
-                  rotationTurns: controlsRotationTurns,
-                  onPressed: onFlashPressed,
+                  borderRight: true,
+                  child: CameraPhotoFlashButton(
+                    tokens: tokens,
+                    mode: flashMode,
+                    enabled: flashEnabled,
+                    busy: flashBusy,
+                    rotationTurns: controlsRotationTurns,
+                    onPressed: onFlashPressed,
+                  ),
                 ),
               ),
-              Expanded(
-                flex: 5,
-                child: _AspectRatioButton(
-                  tokens: tokens,
-                  label: aspectRatioLabel,
-                  onPressed: onAspectRatioPressed,
-                ),
-              ),
+              const Spacer(flex: 5),
               SizedBox(
                 width: tokens.topBarTrailingWidth,
-                child:
-                    trailingContent ??
-                    _TopBarButton(
-                      tokens: tokens,
-                      icon: trailingIcon,
-                      rotationTurns: controlsRotationTurns,
-                      onPressed: onTrailingPressed ?? onBrightnessPressed,
-                      tooltip: trailingTooltip,
-                    ),
+                child: _TopBarSlot(
+                  tokens: tokens,
+                  borderLeft: true,
+                  child:
+                      trailingContent ??
+                      _TopBarButton(
+                        tokens: tokens,
+                        icon: trailingIcon,
+                        rotationTurns: controlsRotationTurns,
+                        onPressed: onTrailingPressed ?? onBrightnessPressed,
+                        tooltip: trailingTooltip,
+                      ),
+                ),
               ),
             ],
           ),
@@ -891,11 +890,19 @@ class _CameraPhotoPromptOptionsState extends State<CameraPhotoPromptOptions>
           ),
           child: LayoutBuilder(
             builder: (BuildContext context, BoxConstraints constraints) {
+              const double horizontalPadding = 12;
+              final double minContentWidth =
+                  constraints.maxWidth > horizontalPadding * 2
+                  ? constraints.maxWidth - horizontalPadding * 2
+                  : 0;
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
+                ),
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  constraints: BoxConstraints(minWidth: minContentWidth),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Row(
@@ -973,6 +980,7 @@ class CameraPhotoBottomControls extends StatelessWidget {
     this.galleryPreview,
     this.controlsRotationTurns = 0,
     this.galleryEnabled = true,
+    this.galleryBadgeStatus = CameraGalleryBadgeStatus.none,
     this.shutterEnabled = true,
     this.shutterBusy = false,
     this.cameraFacing = CameraFacingUi.unknown,
@@ -987,6 +995,7 @@ class CameraPhotoBottomControls extends StatelessWidget {
   final Widget? galleryPreview;
   final double controlsRotationTurns;
   final bool galleryEnabled;
+  final CameraGalleryBadgeStatus galleryBadgeStatus;
   final bool shutterEnabled;
   final bool shutterBusy;
   final CameraFacingUi cameraFacing;
@@ -1015,6 +1024,7 @@ class CameraPhotoBottomControls extends StatelessWidget {
                     tokens: tokens,
                     preview: galleryPreview,
                     rotationTurns: controlsRotationTurns,
+                    badgeStatus: galleryBadgeStatus,
                     onPressed: galleryEnabled ? onGalleryPressed : null,
                   ),
                 ),
@@ -1050,37 +1060,78 @@ class CameraPhotoGalleryButton extends StatelessWidget {
     super.key,
     this.preview,
     this.rotationTurns = 0,
+    this.badgeStatus = CameraGalleryBadgeStatus.none,
     this.onPressed,
   });
 
   final CameraUiTokens tokens;
   final Widget? preview;
   final double rotationTurns;
+  final CameraGalleryBadgeStatus badgeStatus;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
+    final Color? badgeColor = _galleryBadgeColor(badgeStatus);
     return GestureDetector(
       onTap: onPressed,
       behavior: HitTestBehavior.opaque,
-      child: SmoothClipRRect(
-        borderRadius: AppCorners.controlBorderRadius,
-        smoothness: AppCorners.smoothness,
-        side: BorderSide(
-          color: tokens.primaryTextColor,
-          width: tokens.dividerWidth,
-        ),
-        child: SizedBox(
-          width: tokens.galleryButtonSize,
-          height: tokens.galleryButtonSize,
-          child: _RotatingCameraControl(
-            tokens: tokens,
-            turns: rotationTurns,
-            child: preview ?? CameraCheckerboardThumbnail(tokens: tokens),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          SmoothClipRRect(
+            borderRadius: AppCorners.controlBorderRadius,
+            smoothness: AppCorners.smoothness,
+            side: BorderSide(
+              color: tokens.primaryTextColor,
+              width: tokens.dividerWidth,
+            ),
+            child: SizedBox(
+              width: tokens.galleryButtonSize,
+              height: tokens.galleryButtonSize,
+              child: _RotatingCameraControl(
+                tokens: tokens,
+                turns: rotationTurns,
+                child: preview ?? CameraCheckerboardThumbnail(tokens: tokens),
+              ),
+            ),
           ),
-        ),
+          if (badgeColor != null)
+            Positioned(
+              top: -2,
+              right: -2,
+              child: DecoratedBox(
+                key: const ValueKey<String>('camera-gallery-result-badge'),
+                decoration: BoxDecoration(
+                  color: badgeColor,
+                  shape: BoxShape.circle,
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: badgeColor.withValues(alpha: 0.62),
+                      blurRadius: 4,
+                      spreadRadius: 0.4,
+                    ),
+                    BoxShadow(
+                      color: badgeColor.withValues(alpha: 0.34),
+                      blurRadius: 7,
+                      spreadRadius: 1.2,
+                    ),
+                  ],
+                ),
+                child: const SizedBox(width: 5, height: 5),
+              ),
+            ),
+        ],
       ),
     );
+  }
+
+  Color? _galleryBadgeColor(CameraGalleryBadgeStatus status) {
+    return switch (status) {
+      CameraGalleryBadgeStatus.none => null,
+      CameraGalleryBadgeStatus.success => AppColors.success,
+      CameraGalleryBadgeStatus.failure => AppColors.danger,
+    };
   }
 }
 
@@ -1336,22 +1387,32 @@ class _TopBarSlot extends StatelessWidget {
   const _TopBarSlot({
     required this.tokens,
     required this.child,
+    this.borderLeft = false,
     this.borderRight = false,
   });
 
   final CameraUiTokens tokens;
   final Widget child;
+  final bool borderLeft;
   final bool borderRight;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: borderRight
+        border: borderLeft || borderRight
             ? Border(
+                left: borderLeft
+                    ? BorderSide(
+                        color: tokens.dividerColor,
+                        width: tokens.dividerWidth,
+                      )
+                    : BorderSide.none,
                 right: BorderSide(
-                  color: tokens.dividerColor,
-                  width: tokens.dividerWidth,
+                  color: borderRight
+                      ? tokens.dividerColor
+                      : CupertinoColors.transparent,
+                  width: borderRight ? tokens.dividerWidth : 0,
                 ),
               )
             : null,
@@ -1434,44 +1495,6 @@ class _RotatingCameraControl extends StatelessWidget {
       duration: tokens.rotationDuration,
       curve: tokens.rotationCurve,
       child: child,
-    );
-  }
-}
-
-class _AspectRatioButton extends StatelessWidget {
-  const _AspectRatioButton({
-    required this.tokens,
-    required this.label,
-    this.onPressed,
-  });
-
-  final CameraUiTokens tokens;
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(
-          right: BorderSide(
-            color: tokens.dividerColor,
-            width: tokens.dividerWidth,
-          ),
-        ),
-      ),
-      child: GestureDetector(
-        onTap: onPressed,
-        behavior: HitTestBehavior.opaque,
-        child: Center(
-          child: Text(
-            label,
-            style: tokens.aspectRatioTextStyle.copyWith(
-              color: tokens.primaryTextColor,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

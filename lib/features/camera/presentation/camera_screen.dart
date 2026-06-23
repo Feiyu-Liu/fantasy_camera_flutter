@@ -105,6 +105,10 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final GenerationSubmissionJob? latestGenerationJob = ref
         .watch(generationSubmissionControllerProvider)
         .latestJob;
+    final GenerationResultNotificationStatus
+    generationResultNotificationStatus = ref
+        .watch(generationResultNotificationControllerProvider)
+        .status;
     final DeviceOrientation captureOrientation =
         ref.watch(captureOrientationProvider).valueOrNull ??
         DeviceOrientation.portraitUp;
@@ -130,7 +134,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       ),
       message: _localizedMessage(cameraState.message),
       controlsRotationTurns: controlsRotationTurns,
-      aspectRatioLabel: '4:3',
       promptOptions: _cameraPromptOptions(localizedPromptSelection, tokens),
       zoomStops: _zoomStops(cameraState),
       currentDisplayZoom: cameraState.rawToDisplayZoom(
@@ -138,6 +141,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       ),
       zoomEnabled: cameraState.canScaleZoom,
       galleryEnabled: !cameraState.isTakingPicture,
+      galleryBadgeStatus: _galleryBadgeStatus(
+        generationResultNotificationStatus,
+      ),
       shutterEnabled: cameraState.canShowShutter,
       shutterBusy: false,
       flashMode: _flashUiMode(cameraState),
@@ -152,6 +158,18 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       onGalleryPressed: _openGallery,
       onZoomStopSelected: notifier.setDisplayZoom,
     );
+  }
+
+  CameraGalleryBadgeStatus _galleryBadgeStatus(
+    GenerationResultNotificationStatus status,
+  ) {
+    return switch (status) {
+      GenerationResultNotificationStatus.none => CameraGalleryBadgeStatus.none,
+      GenerationResultNotificationStatus.success =>
+        CameraGalleryBadgeStatus.success,
+      GenerationResultNotificationStatus.failure =>
+        CameraGalleryBadgeStatus.failure,
+    };
   }
 
   double _resolveControlsRotationTurns(DeviceOrientation orientation) {
@@ -176,6 +194,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       if (!mounted) {
         return;
       }
+      ref
+          .read(generationResultNotificationControllerProvider.notifier)
+          .markAllSeen();
       await context.push(generationGalleryRoute);
       if (!mounted) {
         return;
