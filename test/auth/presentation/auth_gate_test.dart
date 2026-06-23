@@ -24,6 +24,7 @@ import 'package:fantasy_camera_flutter/auth/domain/auth_user.dart';
 import 'package:fantasy_camera_flutter/auth/presentation/auth_page.dart';
 import 'package:fantasy_camera_flutter/auth/presentation/auth_gate.dart';
 import 'package:fantasy_camera_flutter/auth/presentation/auth_providers.dart';
+import 'package:fantasy_camera_flutter/config/app_config.dart';
 import 'package:fantasy_camera_flutter/features/camera/data/camera_device_repository.dart';
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_choice.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_providers.dart';
@@ -71,7 +72,7 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey<String>('auth_google_button')),
-      findsOneWidget,
+      AppConfig.hasGoogleSignInConfig ? findsOneWidget : findsNothing,
     );
   });
 
