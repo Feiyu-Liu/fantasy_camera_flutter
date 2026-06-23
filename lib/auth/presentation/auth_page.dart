@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../config/app_config.dart';
 import '../../l10n/l10n.dart';
@@ -39,8 +40,9 @@ class _AuthPageState extends ConsumerState<AuthPage> {
   Widget build(BuildContext context) {
     final AuthControllerState state = ref.watch(authControllerProvider);
     final String? message = state.errorMessage ?? widget.sessionMessage;
+    final AppThemeColors colors = AppThemeColors.of(context);
     return CupertinoPageScaffold(
-      backgroundColor: AppColors.authEditorialBackground,
+      backgroundColor: colors.background,
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           final MediaQueryData mediaQuery = MediaQuery.of(context);
@@ -237,8 +239,8 @@ class _EditorialAuthForm extends StatelessWidget {
           const SizedBox(height: 18),
           Text(
             message!,
-            style: const TextStyle(
-              color: AppColors.authEditorialError,
+            style: TextStyle(
+              color: AppColors.danger,
               fontSize: 13,
               fontWeight: FontWeight.w600,
               height: 1.35,
@@ -289,28 +291,19 @@ class _AuthEditorialTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AppLocalizations l10n = context.l10n;
-    final Color accentYellow = AppThemeColors.of(context).accentYellow;
-    return RichText(
-      text: TextSpan(
-        style: const TextStyle(
-          color: AppColors.black,
-          fontFamily: 'Times New Roman',
-          fontSize: 46,
+    final AppThemeColors colors = AppThemeColors.of(context);
+    return Center(
+      child: Text(
+        'TesserCam',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: colors.textPrimary,
+          fontFamily: 'Avenir Next',
+          fontSize: 40,
           fontWeight: FontWeight.w600,
           letterSpacing: 0,
-          height: 0.94,
+          height: 1,
         ),
-        children: <InlineSpan>[
-          TextSpan(
-            text:
-                '${l10n.authEditorialTitleLine1}\n${l10n.authEditorialTitleLine2}',
-          ),
-          TextSpan(
-            text: '.',
-            style: TextStyle(color: accentYellow),
-          ),
-        ],
       ),
     );
   }
@@ -331,6 +324,7 @@ class _EditorialSubmitButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppLocalizations l10n = context.l10n;
     final Color accentYellow = AppThemeColors.of(context).accentYellow;
+    final AppThemeColors colors = AppThemeColors.of(context);
     return CupertinoButton(
       key: const ValueKey<String>('auth_password_submit'),
       onPressed: onPressed,
@@ -338,7 +332,9 @@ class _EditorialSubmitButton extends StatelessWidget {
       padding: EdgeInsets.zero,
       child: DecoratedBox(
         decoration: AppCorners.controlDecoration(
-          color: onPressed == null ? AppColors.disabledDark : AppColors.black,
+          color: onPressed == null
+              ? colors.controlFillDisabled
+              : colors.textPrimary,
         ),
         child: SizedBox(
           height: 52,
@@ -353,11 +349,11 @@ class _EditorialSubmitButton extends StatelessWidget {
                                 ? l10n.authCreateAccountButton
                                 : l10n.authSignInButton)
                             .toUpperCase(),
-                        style: const TextStyle(
-                          color: AppColors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 3,
+                        style: TextStyle(
+                          color: colors.inverseText,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.6,
                           height: 1,
                         ),
                       ),
@@ -384,6 +380,7 @@ class _EditorialTextAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return CupertinoButton(
       onPressed: onPressed,
       minimumSize: Size.zero,
@@ -391,10 +388,10 @@ class _EditorialTextAction extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          color: onPressed == null ? AppColors.disabledText : AppColors.black,
+          color: onPressed == null ? colors.textMuted : colors.textPrimary,
           fontSize: 13,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 2.8,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.4,
           height: 1,
         ),
       ),
@@ -407,37 +404,37 @@ class _EditorialOrDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return Row(
       children: <Widget>[
-        const Expanded(child: _EditorialDividerLine()),
+        Expanded(child: _EditorialDividerLine(color: colors.border)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Text(
             context.l10n.authOrDividerLabel,
-            style: const TextStyle(
-              color: AppColors.black,
+            style: TextStyle(
+              color: colors.textPrimary,
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              letterSpacing: 1.6,
+              letterSpacing: 0.8,
               height: 1,
             ),
           ),
         ),
-        const Expanded(child: _EditorialDividerLine()),
+        Expanded(child: _EditorialDividerLine(color: colors.border)),
       ],
     );
   }
 }
 
 class _EditorialDividerLine extends StatelessWidget {
-  const _EditorialDividerLine();
+  const _EditorialDividerLine({required this.color});
+
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
-      height: 0.5,
-      child: ColoredBox(color: AppColors.black),
-    );
+    return SizedBox(height: 0.5, child: ColoredBox(color: color));
   }
 }
 
@@ -459,30 +456,97 @@ class _AuthProviderRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool enabled = !state.isSubmitting;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        _SquareAuthIconButton(
+        _AppleAuthButton(
           key: const ValueKey<String>('auth_apple_button'),
-          icon: LucideIcons.apple,
-          semanticLabel: context.l10n.authContinueWithApple,
+          label: context.l10n.authContinueWithApple,
           onPressed: supportsAppleSignIn && enabled ? onAppleSignIn : null,
         ),
-        const SizedBox(width: 34),
-        _SquareAuthIconButton(
-          key: const ValueKey<String>('auth_google_button'),
-          icon: LucideIcons.globe2,
-          semanticLabel: context.l10n.authContinueWithGoogle,
-          onPressed: supportsGoogleSignIn && enabled ? onGoogleSignIn : null,
-        ),
-        const SizedBox(width: 34),
-        _SquareAuthIconButton(
-          key: const ValueKey<String>('auth_placeholder_button'),
-          icon: LucideIcons.camera,
-          semanticLabel: context.l10n.appName,
-          onPressed: null,
-        ),
+        if (supportsGoogleSignIn) ...<Widget>[
+          const SizedBox(height: 18),
+          Center(
+            child: _SquareAuthIconButton(
+              key: const ValueKey<String>('auth_google_button'),
+              icon: LucideIcons.globe2,
+              semanticLabel: context.l10n.authContinueWithGoogle,
+              onPressed: enabled ? onGoogleSignIn : null,
+            ),
+          ),
+        ],
       ],
+    );
+  }
+}
+
+class _AppleAuthButton extends StatelessWidget {
+  const _AppleAuthButton({
+    required this.label,
+    required this.onPressed,
+    super.key,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool enabled = onPressed != null;
+    final Color background = enabled
+        ? AppColors.black
+        : AppColors.black.withValues(alpha: 0.34);
+    final Color foreground = enabled
+        ? AppColors.white
+        : AppColors.white.withValues(alpha: 0.62);
+    return Semantics(
+      button: true,
+      label: label,
+      enabled: enabled,
+      child: CupertinoButton(
+        onPressed: onPressed,
+        minimumSize: Size.zero,
+        padding: EdgeInsets.zero,
+        child: DecoratedBox(
+          decoration: AppCorners.controlDecoration(color: background),
+          child: SizedBox(
+            height: 52,
+            child: Stack(
+              alignment: Alignment.center,
+              children: <Widget>[
+                Positioned(
+                  left: 18,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: SizedBox(
+                      width: 19.4,
+                      height: 24,
+                      child: CustomPaint(
+                        painter: AppleLogoPainter(color: foreground),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 56),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: foreground,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -502,6 +566,7 @@ class _SquareAuthIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool enabled = onPressed != null;
+    final AppThemeColors colors = AppThemeColors.of(context);
     return Semantics(
       button: true,
       label: semanticLabel,
@@ -512,11 +577,9 @@ class _SquareAuthIconButton extends StatelessWidget {
         padding: EdgeInsets.zero,
         child: DecoratedBox(
           decoration: AppCorners.controlDecoration(
-            color: AppColors.authEditorialBackground,
+            color: colors.background,
             side: BorderSide(
-              color: enabled
-                  ? AppColors.black
-                  : AppColors.authEditorialDisabled,
+              color: enabled ? colors.textPrimary : colors.controlFillDisabled,
               width: 0.8,
             ),
           ),
@@ -524,9 +587,7 @@ class _SquareAuthIconButton extends StatelessWidget {
             dimension: 48,
             child: Icon(
               icon,
-              color: enabled
-                  ? AppColors.black
-                  : AppColors.authEditorialDisabled,
+              color: enabled ? colors.textPrimary : colors.controlFillDisabled,
               size: 22,
             ),
           ),
@@ -567,16 +628,17 @@ class _EditorialAuthTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool hasError = errorText != null;
+    final AppThemeColors colors = AppThemeColors.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Text(
           label,
-          style: const TextStyle(
-            color: AppColors.black,
-            fontSize: 11.5,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 3,
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
             height: 1,
           ),
         ),
@@ -591,27 +653,25 @@ class _EditorialAuthTextField extends StatelessWidget {
           onChanged: onChanged,
           onSubmitted: onSubmitted,
           placeholder: placeholder,
-          placeholderStyle: const TextStyle(
-            color: AppColors.authEditorialPlaceholder,
-            fontFamily: 'Times New Roman',
-            fontSize: 18,
-            fontStyle: FontStyle.italic,
-            fontWeight: FontWeight.w600,
+          placeholderStyle: TextStyle(
+            color: colors.textMuted,
+            fontSize: 17,
+            fontWeight: FontWeight.w400,
             letterSpacing: 0,
           ),
-          style: const TextStyle(
-            color: AppColors.black,
-            fontFamily: 'Times New Roman',
-            fontSize: 18,
-            fontStyle: FontStyle.italic,
-            fontWeight: FontWeight.w600,
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w400,
+            letterSpacing: 0,
+            height: 1.25,
           ),
-          cursorColor: AppColors.black,
+          cursorColor: colors.textPrimary,
           padding: const EdgeInsets.fromLTRB(0, 0, 0, 13),
-          decoration: const BoxDecoration(
-            color: AppColors.authEditorialBackground,
+          decoration: BoxDecoration(
+            color: colors.background,
             border: Border(
-              bottom: BorderSide(color: AppColors.black, width: 0.8),
+              bottom: BorderSide(color: colors.border, width: 0.8),
             ),
           ),
         ),
@@ -619,8 +679,8 @@ class _EditorialAuthTextField extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             errorText!,
-            style: const TextStyle(
-              color: AppColors.authEditorialError,
+            style: TextStyle(
+              color: AppColors.danger,
               fontSize: 12,
               fontWeight: FontWeight.w600,
               height: 1.25,
