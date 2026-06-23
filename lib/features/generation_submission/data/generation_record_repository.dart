@@ -349,6 +349,19 @@ class GenerationRecordRepository {
     );
   }
 
+  Future<void> markNegativeFeedbackSubmitted({
+    required String recordId,
+    required DateTime submittedAt,
+  }) {
+    return _updateById(
+      recordId,
+      GenerationRecordsCompanion(
+        updatedAt: Value<DateTime>(submittedAt),
+        resultNegativeFeedbackSubmittedAt: Value<DateTime?>(submittedAt),
+      ),
+    );
+  }
+
   Future<void> resetForRetry({
     required String recordId,
     required DateTime updatedAt,

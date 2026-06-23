@@ -373,6 +373,7 @@ void main() {
           taskId: 'task-1',
           rating: FeedbackRating.negative,
           tags: <String>['face'],
+          note: 'Face changed too much',
           improveOptIn: true,
         ),
       );
@@ -382,6 +383,7 @@ void main() {
       expect(result.url, 'https://example.com/result');
       expect(feedback.rating, FeedbackRating.negative);
       expect(adapter.requests.last.bodyAsJson['rating'], 'negative');
+      expect(adapter.requests.last.bodyAsJson['note'], 'Face changed too much');
     });
   });
 

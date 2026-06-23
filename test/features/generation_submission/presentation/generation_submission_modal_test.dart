@@ -883,7 +883,7 @@ void main() {
     );
   });
 
-  testWidgets('more action submits negative feedback', (
+  testWidgets('more action asks for dislike reason and submits feedback', (
     WidgetTester tester,
   ) async {
     final File processedFile = _writeImageFile('processed-dislike');
@@ -905,6 +905,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 260));
     await tester.pump();
 
+    expect(_FakeFeedbackRepository.inputs, isEmpty);
+    expect(find.text('这张不太满意？'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('generation-submission-dislike-note')),
+      '  人脸不像本人  ',
+    );
+    await tester.tap(find.text('提交'));
+    await tester.pumpAndSettle();
+
     expect(_FakeFeedbackRepository.inputs, hasLength(1));
     expect(
       _FakeFeedbackRepository.inputs.single.rating,
@@ -913,6 +923,98 @@ void main() {
     expect(_FakeFeedbackRepository.inputs.single.tags, <String>[
       'dislike_result',
     ]);
+    expect(_FakeFeedbackRepository.inputs.single.note, '人脸不像本人');
+  });
+
+  testWidgets('more action submits negative feedback with empty note', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-dislike-empty');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'dislike-empty',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    await _tapExpandedMoreAction(tester, 3);
+    await tester.pump(const Duration(milliseconds: 260));
+    await tester.pump();
+    await tester.tap(find.text('提交'));
+    await tester.pumpAndSettle();
+
+    expect(_FakeFeedbackRepository.inputs, hasLength(1));
+    expect(
+      _FakeFeedbackRepository.inputs.single.rating,
+      FeedbackRating.negative,
+    );
+    expect(_FakeFeedbackRepository.inputs.single.note, isNull);
+  });
+
+  testWidgets('more action cancels dislike feedback without submitting', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-dislike-cancel');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'dislike-cancel',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    await _tapExpandedMoreAction(tester, 3);
+    await tester.pump(const Duration(milliseconds: 260));
+    await tester.pump();
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    expect(_FakeFeedbackRepository.inputs, isEmpty);
+  });
+
+  testWidgets('submitted negative feedback disables dislike action', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-dislike-submitted');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'dislike-submitted',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+        resultNegativeFeedbackSubmittedAt: DateTime.parse(
+          '2026-05-29T00:10:00Z',
+        ),
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+
+    expect(find.text('已提交反馈'), findsOneWidget);
+
+    await _tapExpandedMoreAction(tester, 3);
+    await tester.pump(const Duration(milliseconds: 260));
+    await tester.pump();
+
+    expect(find.text('这张不太满意？'), findsNothing);
+    expect(_FakeFeedbackRepository.inputs, isEmpty);
   });
 
   testWidgets(
@@ -1515,6 +1617,14 @@ Future<void> _seedJobs(
         resultAssetId: 'asset-result-${job.id}',
       );
     }
+    final DateTime? negativeFeedbackSubmittedAt =
+        job.resultNegativeFeedbackSubmittedAt;
+    if (negativeFeedbackSubmittedAt != null) {
+      await repository.markNegativeFeedbackSubmitted(
+        recordId: job.id,
+        submittedAt: negativeFeedbackSubmittedAt,
+      );
+    }
   }
 }
 
@@ -1877,6 +1987,7 @@ GenerationSubmissionJob _job({
   String? processedResultPath,
   String? resultUrl,
   String? resultSaveErrorMessage,
+  DateTime? resultNegativeFeedbackSubmittedAt,
 }) {
   final DateTime now = DateTime.parse('2026-05-29T00:00:00Z');
   final String resolvedImagePath = imagePath ?? _writeImageFile(id).path;
@@ -1897,6 +2008,7 @@ GenerationSubmissionJob _job({
     ),
     resultUrl: resultUrl,
     processedResultPath: processedResultPath,
+    resultNegativeFeedbackSubmittedAt: resultNegativeFeedbackSubmittedAt,
     resultSaveErrorMessage: resultSaveErrorMessage,
     createdAt: now,
     updatedAt: now,

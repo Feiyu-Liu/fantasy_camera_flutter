@@ -806,7 +806,7 @@ class _GenerationSubmissionDebugModalState
           await _retryJob(job);
         case _HeroMoreAction.dislike:
           _debugLog('more action dislike job=${job.id}');
-          await controller.submitNegativeFeedback(job.id);
+          await _submitNegativeFeedbackWithReason(job);
         case _HeroMoreAction.remove:
           _debugLog('more action remove job=${job.id}');
           await _removeJob(job);
@@ -816,6 +816,23 @@ class _GenerationSubmissionDebugModalState
         'more action failure job=${job.id} action=${action.name} error=$error',
       );
     }
+  }
+
+  Future<void> _submitNegativeFeedbackWithReason(
+    GenerationSubmissionJob job,
+  ) async {
+    final String? note = await showCupertinoDialog<String?>(
+      context: context,
+      builder: (BuildContext context) {
+        return const _DislikeFeedbackDialog();
+      },
+    );
+    if (!mounted || note == null) {
+      return;
+    }
+    await ref
+        .read(generationSubmissionControllerProvider.notifier)
+        .submitNegativeFeedback(job.id, note: note);
   }
 
   Future<void> _loadResult(String jobId) async {
@@ -1135,6 +1152,77 @@ class _GalleryExportProgressBar extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DislikeFeedbackDialog extends StatefulWidget {
+  const _DislikeFeedbackDialog();
+
+  @override
+  State<_DislikeFeedbackDialog> createState() => _DislikeFeedbackDialogState();
+}
+
+class _DislikeFeedbackDialogState extends State<_DislikeFeedbackDialog> {
+  static const int _maxNoteLength = 2000;
+
+  final TextEditingController _noteController = TextEditingController();
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    Navigator.of(context).pop<String>(_noteController.text.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
+    final AppLocalizations l10n = context.l10n;
+    return CupertinoAlertDialog(
+      title: Text(l10n.generationSubmissionDislikeFeedbackTitle),
+      content: Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            CupertinoTextField(
+              key: const ValueKey<String>('generation-submission-dislike-note'),
+              controller: _noteController,
+              maxLength: _maxNoteLength,
+              maxLines: 4,
+              minLines: 3,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              placeholder: l10n.generationSubmissionDislikeFeedbackPlaceholder,
+              textInputAction: TextInputAction.newline,
+              style: TextStyle(color: colors.textPrimary, fontSize: 14),
+              placeholderStyle: TextStyle(
+                color: colors.textMuted,
+                fontSize: 14,
+              ),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                border: Border.all(color: colors.border),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        CupertinoDialogAction(
+          onPressed: () => Navigator.of(context).pop<String?>(null),
+          child: Text(l10n.commonCancel),
+        ),
+        CupertinoDialogAction(
+          onPressed: _submit,
+          isDefaultAction: true,
+          child: Text(l10n.generationSubmissionDislikeFeedbackSubmit),
+        ),
+      ],
     );
   }
 }
@@ -2731,8 +2819,12 @@ class _HeroToolbarState extends State<_HeroToolbar>
       ),
       _HeroMoreActionItem(
         action: _HeroMoreAction.dislike,
-        title: l10n.generationSubmissionActionDislikeImage,
-        icon: LucideIcons.thumbsDown,
+        title: widget.selectedJob.hasSubmittedNegativeFeedback
+            ? l10n.generationSubmissionActionFeedbackSubmitted
+            : l10n.generationSubmissionActionDislikeImage,
+        icon: widget.selectedJob.hasSubmittedNegativeFeedback
+            ? LucideIcons.check
+            : LucideIcons.thumbsDown,
         enabled: _canDislike,
       ),
       _HeroMoreActionItem(
@@ -2759,7 +2851,8 @@ class _HeroToolbarState extends State<_HeroToolbar>
 
   bool get _canDislike {
     return widget.selectedJob.taskId != null &&
-        widget.selectedJob.taskId!.isNotEmpty;
+        widget.selectedJob.taskId!.isNotEmpty &&
+        !widget.selectedJob.hasSubmittedNegativeFeedback;
   }
 
   @override

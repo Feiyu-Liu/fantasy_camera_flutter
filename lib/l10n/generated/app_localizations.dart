@@ -458,6 +458,30 @@ abstract class AppLocalizations {
   /// **'Dislike this image'**
   String get generationSubmissionActionDislikeImage;
 
+  /// No description provided for @generationSubmissionActionFeedbackSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback sent'**
+  String get generationSubmissionActionFeedbackSubmitted;
+
+  /// No description provided for @generationSubmissionDislikeFeedbackTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Not quite right?'**
+  String get generationSubmissionDislikeFeedbackTitle;
+
+  /// No description provided for @generationSubmissionDislikeFeedbackPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave your feedback (optional)'**
+  String get generationSubmissionDislikeFeedbackPlaceholder;
+
+  /// No description provided for @generationSubmissionDislikeFeedbackSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit'**
+  String get generationSubmissionDislikeFeedbackSubmit;
+
   /// No description provided for @generationSubmissionActionRemove.
   ///
   /// In en, this message translates to:

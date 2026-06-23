@@ -195,6 +195,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get generationSubmissionActionDislikeImage => '不喜欢这张图片';
 
   @override
+  String get generationSubmissionActionFeedbackSubmitted => '已提交反馈';
+
+  @override
+  String get generationSubmissionDislikeFeedbackTitle => '这张不太满意？';
+
+  @override
+  String get generationSubmissionDislikeFeedbackPlaceholder => '请留下宝贵建议（可选）';
+
+  @override
+  String get generationSubmissionDislikeFeedbackSubmit => '提交';
+
+  @override
   String get generationSubmissionActionRemove => '移除';
 
   @override

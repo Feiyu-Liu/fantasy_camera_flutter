@@ -1309,6 +1309,71 @@ void main() {
     },
   );
 
+  test(
+    'negative feedback submits optional note and persists submitted state',
+    () async {
+      final _FakeFeedbackRepository feedbackRepository =
+          _FakeFeedbackRepository();
+      final ProviderContainer container = _container(
+        feedbackRepository: feedbackRepository,
+        taskRepository: _completedTaskRepository(),
+      );
+      addTearDown(container.dispose);
+      final String jobId = await _createSavedResultJob(container);
+
+      await container
+          .read(generationSubmissionControllerProvider.notifier)
+          .submitNegativeFeedback(jobId, note: '  人脸不像本人  ');
+
+      expect(feedbackRepository.inputs, hasLength(1));
+      expect(feedbackRepository.inputs.single.taskId, 'task-1');
+      expect(feedbackRepository.inputs.single.rating, FeedbackRating.negative);
+      expect(feedbackRepository.inputs.single.tags, <String>['dislike_result']);
+      expect(feedbackRepository.inputs.single.note, '人脸不像本人');
+      GenerationSubmissionJob job = container
+          .read(generationSubmissionControllerProvider)
+          .jobs
+          .single;
+      expect(job.hasSubmittedNegativeFeedback, isTrue);
+      expect(job.resultNegativeFeedbackSubmittedAt, isNotNull);
+
+      await container
+          .read(generationSubmissionControllerProvider.notifier)
+          .submitNegativeFeedback(jobId, note: '再次提交');
+
+      expect(feedbackRepository.inputs, hasLength(1));
+      job = container.read(generationSubmissionControllerProvider).jobs.single;
+      expect(job.hasSubmittedNegativeFeedback, isTrue);
+    },
+  );
+
+  test('negative feedback failure does not mark submitted state', () async {
+    final _FakeFeedbackRepository feedbackRepository =
+        _FakeFeedbackRepository();
+    final ProviderContainer container = _container(
+      feedbackRepository: feedbackRepository,
+      taskRepository: _completedTaskRepository(),
+    );
+    addTearDown(container.dispose);
+    final String jobId = await _createSavedResultJob(container);
+    feedbackRepository.failure = StateError('feedback failed');
+
+    await expectLater(
+      container
+          .read(generationSubmissionControllerProvider.notifier)
+          .submitNegativeFeedback(jobId, note: '不好看'),
+      throwsStateError,
+    );
+
+    final GenerationSubmissionJob job = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(feedbackRepository.inputs, hasLength(1));
+    expect(job.hasSubmittedNegativeFeedback, isFalse);
+    expect(job.resultNegativeFeedbackSubmittedAt, isNull);
+  });
+
   test('favorite failure keeps local state unchanged', () async {
     final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
         _FakePhotoLibraryAssetStore();
