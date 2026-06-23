@@ -208,6 +208,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get generationSubmissionActionDislikeImage => 'Dislike this image';
 
   @override
+  String get generationSubmissionActionFeedbackSubmitted => 'Feedback sent';
+
+  @override
+  String get generationSubmissionDislikeFeedbackTitle => 'Not quite right?';
+
+  @override
+  String get generationSubmissionDislikeFeedbackPlaceholder =>
+      'Leave your feedback (optional)';
+
+  @override
+  String get generationSubmissionDislikeFeedbackSubmit => 'Submit';
+
+  @override
   String get generationSubmissionActionRemove => 'Remove';
 
   @override

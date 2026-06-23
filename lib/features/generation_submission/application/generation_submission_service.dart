@@ -480,7 +480,7 @@ class GenerationSubmissionService extends ChangeNotifier {
     }
   }
 
-  Future<void> submitNegativeFeedback(String recordId) async {
+  Future<void> submitNegativeFeedback(String recordId, {String? note}) async {
     final GenerationRecord? record = await _generationRecordRepository.findById(
       recordId,
     );
@@ -497,6 +497,12 @@ class GenerationSubmissionService extends ChangeNotifier {
       );
       return;
     }
+    if (record.resultNegativeFeedbackSubmittedAt != null) {
+      _debugLog(
+        'negative feedback skipped record=$recordId reason=already-submitted',
+      );
+      return;
+    }
     try {
       _debugLog('negative feedback start record=$recordId task=$taskId');
       await _feedbackRepository.submitFeedback(
@@ -504,8 +510,14 @@ class GenerationSubmissionService extends ChangeNotifier {
           taskId: taskId,
           rating: FeedbackRating.negative,
           tags: const <String>['dislike_result'],
+          note: _normalizedOptionalNote(note),
           metadata: const <String, Object?>{'entry': 'gallery_more_menu'},
         ),
+      );
+      final DateTime submittedAt = DateTime.now();
+      await _generationRecordRepository.markNegativeFeedbackSubmitted(
+        recordId: recordId,
+        submittedAt: submittedAt,
       );
       _debugLog('negative feedback success record=$recordId task=$taskId');
     } on BackendApiFailure catch (error) {
@@ -519,6 +531,14 @@ class GenerationSubmissionService extends ChangeNotifier {
       );
       rethrow;
     }
+  }
+
+  String? _normalizedOptionalNote(String? note) {
+    final String? trimmed = note?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    return trimmed;
   }
 
   Future<void> removeRecord(String recordId) async {
@@ -1710,6 +1730,8 @@ class GenerationSubmissionService extends ChangeNotifier {
         isResultFavorite: record.resultIsFavorite,
         resultFavoriteFeedbackSubmittedAt:
             record.resultFavoriteFeedbackSubmittedAt,
+        resultNegativeFeedbackSubmittedAt:
+            record.resultNegativeFeedbackSubmittedAt,
         resultSaveErrorCode:
             record.pipelineStatus ==
                 GenerationRecordPipelineStatus.resultSaveFailed.name
@@ -1747,6 +1769,8 @@ class GenerationSubmissionService extends ChangeNotifier {
       isResultFavorite: record.resultIsFavorite,
       resultFavoriteFeedbackSubmittedAt:
           record.resultFavoriteFeedbackSubmittedAt,
+      resultNegativeFeedbackSubmittedAt:
+          record.resultNegativeFeedbackSubmittedAt,
       resultSaveErrorCode:
           status == GenerationSubmissionStatus.resultProcessingFailed
           ? record.errorCode

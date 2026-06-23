@@ -413,6 +413,17 @@ class $GenerationRecordsTable extends GenerationRecords
         type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _resultNegativeFeedbackSubmittedAtMeta =
+      const VerificationMeta('resultNegativeFeedbackSubmittedAt');
+  @override
+  late final GeneratedColumn<DateTime> resultNegativeFeedbackSubmittedAt =
+      GeneratedColumn<DateTime>(
+        'result_negative_feedback_submitted_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _promptStyleMeta = const VerificationMeta(
     'promptStyle',
   );
@@ -539,6 +550,7 @@ class $GenerationRecordsTable extends GenerationRecords
     resultIsFavorite,
     resultFavoritedAt,
     resultFavoriteFeedbackSubmittedAt,
+    resultNegativeFeedbackSubmittedAt,
     promptStyle,
     captureMode,
     appInputContractId,
@@ -883,6 +895,15 @@ class $GenerationRecordsTable extends GenerationRecords
         ),
       );
     }
+    if (data.containsKey('result_negative_feedback_submitted_at')) {
+      context.handle(
+        _resultNegativeFeedbackSubmittedAtMeta,
+        resultNegativeFeedbackSubmittedAt.isAcceptableOrUnknown(
+          data['result_negative_feedback_submitted_at']!,
+          _resultNegativeFeedbackSubmittedAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('prompt_style')) {
       context.handle(
         _promptStyleMeta,
@@ -1105,6 +1126,10 @@ class $GenerationRecordsTable extends GenerationRecords
         DriftSqlType.dateTime,
         data['${effectivePrefix}result_favorite_feedback_submitted_at'],
       ),
+      resultNegativeFeedbackSubmittedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}result_negative_feedback_submitted_at'],
+      ),
       promptStyle: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}prompt_style'],
@@ -1184,6 +1209,7 @@ class GenerationRecord extends DataClass
   final bool resultIsFavorite;
   final DateTime? resultFavoritedAt;
   final DateTime? resultFavoriteFeedbackSubmittedAt;
+  final DateTime? resultNegativeFeedbackSubmittedAt;
   final String? promptStyle;
   final String? captureMode;
   final String? appInputContractId;
@@ -1229,6 +1255,7 @@ class GenerationRecord extends DataClass
     required this.resultIsFavorite,
     this.resultFavoritedAt,
     this.resultFavoriteFeedbackSubmittedAt,
+    this.resultNegativeFeedbackSubmittedAt,
     this.promptStyle,
     this.captureMode,
     this.appInputContractId,
@@ -1333,6 +1360,11 @@ class GenerationRecord extends DataClass
     if (!nullToAbsent || resultFavoriteFeedbackSubmittedAt != null) {
       map['result_favorite_feedback_submitted_at'] = Variable<DateTime>(
         resultFavoriteFeedbackSubmittedAt,
+      );
+    }
+    if (!nullToAbsent || resultNegativeFeedbackSubmittedAt != null) {
+      map['result_negative_feedback_submitted_at'] = Variable<DateTime>(
+        resultNegativeFeedbackSubmittedAt,
       );
     }
     if (!nullToAbsent || promptStyle != null) {
@@ -1459,6 +1491,10 @@ class GenerationRecord extends DataClass
           resultFavoriteFeedbackSubmittedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(resultFavoriteFeedbackSubmittedAt),
+      resultNegativeFeedbackSubmittedAt:
+          resultNegativeFeedbackSubmittedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resultNegativeFeedbackSubmittedAt),
       promptStyle: promptStyle == null && nullToAbsent
           ? const Value.absent()
           : Value(promptStyle),
@@ -1556,6 +1592,9 @@ class GenerationRecord extends DataClass
       resultFavoriteFeedbackSubmittedAt: serializer.fromJson<DateTime?>(
         json['resultFavoriteFeedbackSubmittedAt'],
       ),
+      resultNegativeFeedbackSubmittedAt: serializer.fromJson<DateTime?>(
+        json['resultNegativeFeedbackSubmittedAt'],
+      ),
       promptStyle: serializer.fromJson<String?>(json['promptStyle']),
       captureMode: serializer.fromJson<String?>(json['captureMode']),
       appInputContractId: serializer.fromJson<String?>(
@@ -1614,6 +1653,9 @@ class GenerationRecord extends DataClass
       'resultFavoriteFeedbackSubmittedAt': serializer.toJson<DateTime?>(
         resultFavoriteFeedbackSubmittedAt,
       ),
+      'resultNegativeFeedbackSubmittedAt': serializer.toJson<DateTime?>(
+        resultNegativeFeedbackSubmittedAt,
+      ),
       'promptStyle': serializer.toJson<String?>(promptStyle),
       'captureMode': serializer.toJson<String?>(captureMode),
       'appInputContractId': serializer.toJson<String?>(appInputContractId),
@@ -1664,6 +1706,7 @@ class GenerationRecord extends DataClass
     bool? resultIsFavorite,
     Value<DateTime?> resultFavoritedAt = const Value.absent(),
     Value<DateTime?> resultFavoriteFeedbackSubmittedAt = const Value.absent(),
+    Value<DateTime?> resultNegativeFeedbackSubmittedAt = const Value.absent(),
     Value<String?> promptStyle = const Value.absent(),
     Value<String?> captureMode = const Value.absent(),
     Value<String?> appInputContractId = const Value.absent(),
@@ -1757,6 +1800,9 @@ class GenerationRecord extends DataClass
     resultFavoriteFeedbackSubmittedAt: resultFavoriteFeedbackSubmittedAt.present
         ? resultFavoriteFeedbackSubmittedAt.value
         : this.resultFavoriteFeedbackSubmittedAt,
+    resultNegativeFeedbackSubmittedAt: resultNegativeFeedbackSubmittedAt.present
+        ? resultNegativeFeedbackSubmittedAt.value
+        : this.resultNegativeFeedbackSubmittedAt,
     promptStyle: promptStyle.present ? promptStyle.value : this.promptStyle,
     captureMode: captureMode.present ? captureMode.value : this.captureMode,
     appInputContractId: appInputContractId.present
@@ -1877,6 +1923,10 @@ class GenerationRecord extends DataClass
           data.resultFavoriteFeedbackSubmittedAt.present
           ? data.resultFavoriteFeedbackSubmittedAt.value
           : this.resultFavoriteFeedbackSubmittedAt,
+      resultNegativeFeedbackSubmittedAt:
+          data.resultNegativeFeedbackSubmittedAt.present
+          ? data.resultNegativeFeedbackSubmittedAt.value
+          : this.resultNegativeFeedbackSubmittedAt,
       promptStyle: data.promptStyle.present
           ? data.promptStyle.value
           : this.promptStyle,
@@ -1943,6 +1993,9 @@ class GenerationRecord extends DataClass
           ..write(
             'resultFavoriteFeedbackSubmittedAt: $resultFavoriteFeedbackSubmittedAt, ',
           )
+          ..write(
+            'resultNegativeFeedbackSubmittedAt: $resultNegativeFeedbackSubmittedAt, ',
+          )
           ..write('promptStyle: $promptStyle, ')
           ..write('captureMode: $captureMode, ')
           ..write('appInputContractId: $appInputContractId, ')
@@ -1993,6 +2046,7 @@ class GenerationRecord extends DataClass
     resultIsFavorite,
     resultFavoritedAt,
     resultFavoriteFeedbackSubmittedAt,
+    resultNegativeFeedbackSubmittedAt,
     promptStyle,
     captureMode,
     appInputContractId,
@@ -2043,6 +2097,8 @@ class GenerationRecord extends DataClass
           other.resultFavoritedAt == this.resultFavoritedAt &&
           other.resultFavoriteFeedbackSubmittedAt ==
               this.resultFavoriteFeedbackSubmittedAt &&
+          other.resultNegativeFeedbackSubmittedAt ==
+              this.resultNegativeFeedbackSubmittedAt &&
           other.promptStyle == this.promptStyle &&
           other.captureMode == this.captureMode &&
           other.appInputContractId == this.appInputContractId &&
@@ -2090,6 +2146,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
   final Value<bool> resultIsFavorite;
   final Value<DateTime?> resultFavoritedAt;
   final Value<DateTime?> resultFavoriteFeedbackSubmittedAt;
+  final Value<DateTime?> resultNegativeFeedbackSubmittedAt;
   final Value<String?> promptStyle;
   final Value<String?> captureMode;
   final Value<String?> appInputContractId;
@@ -2136,6 +2193,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     this.resultIsFavorite = const Value.absent(),
     this.resultFavoritedAt = const Value.absent(),
     this.resultFavoriteFeedbackSubmittedAt = const Value.absent(),
+    this.resultNegativeFeedbackSubmittedAt = const Value.absent(),
     this.promptStyle = const Value.absent(),
     this.captureMode = const Value.absent(),
     this.appInputContractId = const Value.absent(),
@@ -2183,6 +2241,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     this.resultIsFavorite = const Value.absent(),
     this.resultFavoritedAt = const Value.absent(),
     this.resultFavoriteFeedbackSubmittedAt = const Value.absent(),
+    this.resultNegativeFeedbackSubmittedAt = const Value.absent(),
     this.promptStyle = const Value.absent(),
     this.captureMode = const Value.absent(),
     this.appInputContractId = const Value.absent(),
@@ -2236,6 +2295,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     Expression<bool>? resultIsFavorite,
     Expression<DateTime>? resultFavoritedAt,
     Expression<DateTime>? resultFavoriteFeedbackSubmittedAt,
+    Expression<DateTime>? resultNegativeFeedbackSubmittedAt,
     Expression<String>? promptStyle,
     Expression<String>? captureMode,
     Expression<String>? appInputContractId,
@@ -2292,6 +2352,9 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
       if (resultFavoriteFeedbackSubmittedAt != null)
         'result_favorite_feedback_submitted_at':
             resultFavoriteFeedbackSubmittedAt,
+      if (resultNegativeFeedbackSubmittedAt != null)
+        'result_negative_feedback_submitted_at':
+            resultNegativeFeedbackSubmittedAt,
       if (promptStyle != null) 'prompt_style': promptStyle,
       if (captureMode != null) 'capture_mode': captureMode,
       if (appInputContractId != null)
@@ -2344,6 +2407,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     Value<bool>? resultIsFavorite,
     Value<DateTime?>? resultFavoritedAt,
     Value<DateTime?>? resultFavoriteFeedbackSubmittedAt,
+    Value<DateTime?>? resultNegativeFeedbackSubmittedAt,
     Value<String?>? promptStyle,
     Value<String?>? captureMode,
     Value<String?>? appInputContractId,
@@ -2393,6 +2457,9 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
       resultFavoriteFeedbackSubmittedAt:
           resultFavoriteFeedbackSubmittedAt ??
           this.resultFavoriteFeedbackSubmittedAt,
+      resultNegativeFeedbackSubmittedAt:
+          resultNegativeFeedbackSubmittedAt ??
+          this.resultNegativeFeedbackSubmittedAt,
       promptStyle: promptStyle ?? this.promptStyle,
       captureMode: captureMode ?? this.captureMode,
       appInputContractId: appInputContractId ?? this.appInputContractId,
@@ -2529,6 +2596,11 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
         resultFavoriteFeedbackSubmittedAt.value,
       );
     }
+    if (resultNegativeFeedbackSubmittedAt.present) {
+      map['result_negative_feedback_submitted_at'] = Variable<DateTime>(
+        resultNegativeFeedbackSubmittedAt.value,
+      );
+    }
     if (promptStyle.present) {
       map['prompt_style'] = Variable<String>(promptStyle.value);
     }
@@ -2604,6 +2676,9 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
           ..write(
             'resultFavoriteFeedbackSubmittedAt: $resultFavoriteFeedbackSubmittedAt, ',
           )
+          ..write(
+            'resultNegativeFeedbackSubmittedAt: $resultNegativeFeedbackSubmittedAt, ',
+          )
           ..write('promptStyle: $promptStyle, ')
           ..write('captureMode: $captureMode, ')
           ..write('appInputContractId: $appInputContractId, ')
@@ -2669,6 +2744,7 @@ typedef $$GenerationRecordsTableCreateCompanionBuilder =
       Value<bool> resultIsFavorite,
       Value<DateTime?> resultFavoritedAt,
       Value<DateTime?> resultFavoriteFeedbackSubmittedAt,
+      Value<DateTime?> resultNegativeFeedbackSubmittedAt,
       Value<String?> promptStyle,
       Value<String?> captureMode,
       Value<String?> appInputContractId,
@@ -2717,6 +2793,7 @@ typedef $$GenerationRecordsTableUpdateCompanionBuilder =
       Value<bool> resultIsFavorite,
       Value<DateTime?> resultFavoritedAt,
       Value<DateTime?> resultFavoriteFeedbackSubmittedAt,
+      Value<DateTime?> resultNegativeFeedbackSubmittedAt,
       Value<String?> promptStyle,
       Value<String?> captureMode,
       Value<String?> appInputContractId,
@@ -2915,6 +2992,12 @@ class $$GenerationRecordsTableFilterComposer
   ColumnFilters<DateTime> get resultFavoriteFeedbackSubmittedAt =>
       $composableBuilder(
         column: $table.resultFavoriteFeedbackSubmittedAt,
+        builder: (column) => ColumnFilters(column),
+      );
+
+  ColumnFilters<DateTime> get resultNegativeFeedbackSubmittedAt =>
+      $composableBuilder(
+        column: $table.resultNegativeFeedbackSubmittedAt,
         builder: (column) => ColumnFilters(column),
       );
 
@@ -3149,6 +3232,12 @@ class $$GenerationRecordsTableOrderingComposer
         builder: (column) => ColumnOrderings(column),
       );
 
+  ColumnOrderings<DateTime> get resultNegativeFeedbackSubmittedAt =>
+      $composableBuilder(
+        column: $table.resultNegativeFeedbackSubmittedAt,
+        builder: (column) => ColumnOrderings(column),
+      );
+
   ColumnOrderings<String> get promptStyle => $composableBuilder(
     column: $table.promptStyle,
     builder: (column) => ColumnOrderings(column),
@@ -3372,6 +3461,12 @@ class $$GenerationRecordsTableAnnotationComposer
         builder: (column) => column,
       );
 
+  GeneratedColumn<DateTime> get resultNegativeFeedbackSubmittedAt =>
+      $composableBuilder(
+        column: $table.resultNegativeFeedbackSubmittedAt,
+        builder: (column) => column,
+      );
+
   GeneratedColumn<String> get promptStyle => $composableBuilder(
     column: $table.promptStyle,
     builder: (column) => column,
@@ -3488,6 +3583,8 @@ class $$GenerationRecordsTableTableManager
                 Value<DateTime?> resultFavoritedAt = const Value.absent(),
                 Value<DateTime?> resultFavoriteFeedbackSubmittedAt =
                     const Value.absent(),
+                Value<DateTime?> resultNegativeFeedbackSubmittedAt =
+                    const Value.absent(),
                 Value<String?> promptStyle = const Value.absent(),
                 Value<String?> captureMode = const Value.absent(),
                 Value<String?> appInputContractId = const Value.absent(),
@@ -3536,6 +3633,8 @@ class $$GenerationRecordsTableTableManager
                 resultFavoritedAt: resultFavoritedAt,
                 resultFavoriteFeedbackSubmittedAt:
                     resultFavoriteFeedbackSubmittedAt,
+                resultNegativeFeedbackSubmittedAt:
+                    resultNegativeFeedbackSubmittedAt,
                 promptStyle: promptStyle,
                 captureMode: captureMode,
                 appInputContractId: appInputContractId,
@@ -3585,6 +3684,8 @@ class $$GenerationRecordsTableTableManager
                 Value<DateTime?> resultFavoritedAt = const Value.absent(),
                 Value<DateTime?> resultFavoriteFeedbackSubmittedAt =
                     const Value.absent(),
+                Value<DateTime?> resultNegativeFeedbackSubmittedAt =
+                    const Value.absent(),
                 Value<String?> promptStyle = const Value.absent(),
                 Value<String?> captureMode = const Value.absent(),
                 Value<String?> appInputContractId = const Value.absent(),
@@ -3633,6 +3734,8 @@ class $$GenerationRecordsTableTableManager
                 resultFavoritedAt: resultFavoritedAt,
                 resultFavoriteFeedbackSubmittedAt:
                     resultFavoriteFeedbackSubmittedAt,
+                resultNegativeFeedbackSubmittedAt:
+                    resultNegativeFeedbackSubmittedAt,
                 promptStyle: promptStyle,
                 captureMode: captureMode,
                 appInputContractId: appInputContractId,

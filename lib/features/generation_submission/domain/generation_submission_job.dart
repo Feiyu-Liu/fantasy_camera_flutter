@@ -42,6 +42,7 @@ class GenerationSubmissionJob {
     this.canSaveOriginalToPhotoLibrary = false,
     this.isResultFavorite = false,
     this.resultFavoriteFeedbackSubmittedAt,
+    this.resultNegativeFeedbackSubmittedAt,
     this.resultSaveErrorCode,
     this.resultSaveErrorMessage,
     this.errorCode,
@@ -69,6 +70,7 @@ class GenerationSubmissionJob {
   final bool canSaveOriginalToPhotoLibrary;
   final bool isResultFavorite;
   final DateTime? resultFavoriteFeedbackSubmittedAt;
+  final DateTime? resultNegativeFeedbackSubmittedAt;
   final String? resultSaveErrorCode;
   final String? resultSaveErrorMessage;
   final String? errorCode;
@@ -87,6 +89,9 @@ class GenerationSubmissionJob {
         expiresAt != null &&
         expiresAt.isAfter(DateTime.now());
   }
+
+  bool get hasSubmittedNegativeFeedback =>
+      resultNegativeFeedbackSubmittedAt != null;
 
   GenerationSubmissionJob copyWith({
     GenerationSubmissionStatus? status,
@@ -107,6 +112,7 @@ class GenerationSubmissionJob {
     bool? canSaveOriginalToPhotoLibrary,
     bool? isResultFavorite,
     DateTime? resultFavoriteFeedbackSubmittedAt,
+    DateTime? resultNegativeFeedbackSubmittedAt,
     String? resultSaveErrorCode,
     String? resultSaveErrorMessage,
     String? errorCode,
@@ -140,6 +146,9 @@ class GenerationSubmissionJob {
       resultFavoriteFeedbackSubmittedAt:
           resultFavoriteFeedbackSubmittedAt ??
           this.resultFavoriteFeedbackSubmittedAt,
+      resultNegativeFeedbackSubmittedAt:
+          resultNegativeFeedbackSubmittedAt ??
+          this.resultNegativeFeedbackSubmittedAt,
       resultSaveErrorCode: clearResultSaveError
           ? null
           : resultSaveErrorCode ?? this.resultSaveErrorCode,

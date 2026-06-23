@@ -580,8 +580,8 @@ class GenerationSubmissionController
     await _refreshFromRepository();
   }
 
-  Future<void> submitNegativeFeedback(String jobId) async {
-    await _service.submitNegativeFeedback(jobId);
+  Future<void> submitNegativeFeedback(String jobId, {String? note}) async {
+    await _service.submitNegativeFeedback(jobId, note: note);
     await _refreshFromRepository();
   }
 
