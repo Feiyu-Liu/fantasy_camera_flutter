@@ -17,7 +17,6 @@ class CameraPhotoUi extends StatelessWidget {
     this.viewfinder,
     this.galleryPreview,
     this.message,
-    this.aspectRatioLabel = '4:3',
     this.promptOptions = const <Widget>[],
     this.zoomStops = const <CameraZoomStop>[],
     this.currentDisplayZoom = 1.0,
@@ -35,7 +34,6 @@ class CameraPhotoUi extends StatelessWidget {
     this.flipBusy = false,
     this.onFlashPressed,
     this.onTimerPressed,
-    this.onAspectRatioPressed,
     this.onBrightnessPressed,
     this.leadingContent,
     this.trailingContent,
@@ -55,7 +53,6 @@ class CameraPhotoUi extends StatelessWidget {
   final Widget? viewfinder;
   final Widget? galleryPreview;
   final String? message;
-  final String aspectRatioLabel;
   final List<Widget> promptOptions;
   final List<CameraZoomStop> zoomStops;
   final double currentDisplayZoom;
@@ -73,7 +70,6 @@ class CameraPhotoUi extends StatelessWidget {
   final bool flipBusy;
   final VoidCallback? onFlashPressed;
   final VoidCallback? onTimerPressed;
-  final VoidCallback? onAspectRatioPressed;
   final VoidCallback? onBrightnessPressed;
   final Widget? leadingContent;
   final Widget? trailingContent;
@@ -98,13 +94,11 @@ class CameraPhotoUi extends StatelessWidget {
         children: <Widget>[
           CameraPhotoTopBar(
             tokens: tokens,
-            aspectRatioLabel: aspectRatioLabel,
             flashMode: flashMode,
             flashEnabled: flashEnabled,
             flashBusy: flashBusy,
             onFlashPressed: onFlashPressed,
             onTimerPressed: onTimerPressed,
-            onAspectRatioPressed: onAspectRatioPressed,
             onBrightnessPressed: onBrightnessPressed,
             leadingContent: leadingContent,
             trailingIcon: trailingIcon,
@@ -182,13 +176,11 @@ class CameraPhotoTopBar extends StatelessWidget {
   const CameraPhotoTopBar({
     required this.tokens,
     super.key,
-    this.aspectRatioLabel = '4:3',
     this.flashMode = CameraFlashUiMode.off,
     this.flashEnabled = true,
     this.flashBusy = false,
     this.onFlashPressed,
     this.onTimerPressed,
-    this.onAspectRatioPressed,
     this.onBrightnessPressed,
     this.leadingContent,
     this.trailingContent,
@@ -199,13 +191,11 @@ class CameraPhotoTopBar extends StatelessWidget {
   });
 
   final CameraUiTokens tokens;
-  final String aspectRatioLabel;
   final CameraFlashUiMode flashMode;
   final bool flashEnabled;
   final bool flashBusy;
   final VoidCallback? onFlashPressed;
   final VoidCallback? onTimerPressed;
-  final VoidCallback? onAspectRatioPressed;
   final VoidCallback? onBrightnessPressed;
   final Widget? leadingContent;
   final Widget? trailingContent;
@@ -240,34 +230,35 @@ class CameraPhotoTopBar extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: CameraPhotoFlashButton(
+                child: _TopBarSlot(
                   tokens: tokens,
-                  mode: flashMode,
-                  enabled: flashEnabled,
-                  busy: flashBusy,
-                  rotationTurns: controlsRotationTurns,
-                  onPressed: onFlashPressed,
+                  borderRight: true,
+                  child: CameraPhotoFlashButton(
+                    tokens: tokens,
+                    mode: flashMode,
+                    enabled: flashEnabled,
+                    busy: flashBusy,
+                    rotationTurns: controlsRotationTurns,
+                    onPressed: onFlashPressed,
+                  ),
                 ),
               ),
-              Expanded(
-                flex: 5,
-                child: _AspectRatioButton(
-                  tokens: tokens,
-                  label: aspectRatioLabel,
-                  onPressed: onAspectRatioPressed,
-                ),
-              ),
+              const Spacer(flex: 5),
               SizedBox(
                 width: tokens.topBarTrailingWidth,
-                child:
-                    trailingContent ??
-                    _TopBarButton(
-                      tokens: tokens,
-                      icon: trailingIcon,
-                      rotationTurns: controlsRotationTurns,
-                      onPressed: onTrailingPressed ?? onBrightnessPressed,
-                      tooltip: trailingTooltip,
-                    ),
+                child: _TopBarSlot(
+                  tokens: tokens,
+                  borderLeft: true,
+                  child:
+                      trailingContent ??
+                      _TopBarButton(
+                        tokens: tokens,
+                        icon: trailingIcon,
+                        rotationTurns: controlsRotationTurns,
+                        onPressed: onTrailingPressed ?? onBrightnessPressed,
+                        tooltip: trailingTooltip,
+                      ),
+                ),
               ),
             ],
           ),
@@ -1386,22 +1377,32 @@ class _TopBarSlot extends StatelessWidget {
   const _TopBarSlot({
     required this.tokens,
     required this.child,
+    this.borderLeft = false,
     this.borderRight = false,
   });
 
   final CameraUiTokens tokens;
   final Widget child;
+  final bool borderLeft;
   final bool borderRight;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        border: borderRight
+        border: borderLeft || borderRight
             ? Border(
+                left: borderLeft
+                    ? BorderSide(
+                        color: tokens.dividerColor,
+                        width: tokens.dividerWidth,
+                      )
+                    : BorderSide.none,
                 right: BorderSide(
-                  color: tokens.dividerColor,
-                  width: tokens.dividerWidth,
+                  color: borderRight
+                      ? tokens.dividerColor
+                      : CupertinoColors.transparent,
+                  width: borderRight ? tokens.dividerWidth : 0,
                 ),
               )
             : null,
@@ -1484,44 +1485,6 @@ class _RotatingCameraControl extends StatelessWidget {
       duration: tokens.rotationDuration,
       curve: tokens.rotationCurve,
       child: child,
-    );
-  }
-}
-
-class _AspectRatioButton extends StatelessWidget {
-  const _AspectRatioButton({
-    required this.tokens,
-    required this.label,
-    this.onPressed,
-  });
-
-  final CameraUiTokens tokens;
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(
-          right: BorderSide(
-            color: tokens.dividerColor,
-            width: tokens.dividerWidth,
-          ),
-        ),
-      ),
-      child: GestureDetector(
-        onTap: onPressed,
-        behavior: HitTestBehavior.opaque,
-        child: Center(
-          child: Text(
-            label,
-            style: tokens.aspectRatioTextStyle.copyWith(
-              color: tokens.primaryTextColor,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

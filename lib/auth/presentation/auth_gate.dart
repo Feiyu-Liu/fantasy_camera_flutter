@@ -113,20 +113,20 @@ class _LoadingTopBar extends StatelessWidget {
             children: <Widget>[
               Expanded(child: _LoadingTopBarPlaceholder(tokens: tokens)),
               Expanded(child: _LoadingTopBarPlaceholder(tokens: tokens)),
-              Expanded(
-                flex: 5,
-                child: Center(
-                  child: Text(
-                    '4:3',
-                    style: tokens.aspectRatioTextStyle.copyWith(
-                      color: tokens.primaryTextColor,
-                    ),
-                  ),
-                ),
-              ),
+              const Spacer(flex: 5),
               SizedBox(
                 width: tokens.topBarTrailingWidth,
-                child: _LoadingTopBarPlaceholder(tokens: tokens),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      left: BorderSide(
+                        color: tokens.dividerColor,
+                        width: tokens.dividerWidth,
+                      ),
+                    ),
+                  ),
+                  child: _LoadingTopBarPlaceholder(tokens: tokens),
+                ),
               ),
             ],
           ),

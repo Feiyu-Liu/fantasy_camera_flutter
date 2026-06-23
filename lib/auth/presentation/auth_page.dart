@@ -214,7 +214,7 @@ class _EditorialAuthForm extends StatelessWidget {
           controller: emailController,
           enabled: !state.isSubmitting,
           label: l10n.authEmailLabel.toUpperCase(),
-          placeholder: l10n.authEmailPlaceholder,
+          placeholder: '',
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.next,
           autofillHints: const <String>[AutofillHints.email],
@@ -227,7 +227,7 @@ class _EditorialAuthForm extends StatelessWidget {
           controller: passwordController,
           enabled: !state.isSubmitting,
           label: l10n.authPasswordLabel.toUpperCase(),
-          placeholder: l10n.authSecretKeyPlaceholder,
+          placeholder: '',
           obscureText: true,
           textInputAction: TextInputAction.done,
           autofillHints: const <String>[AutofillHints.password],
@@ -293,17 +293,33 @@ class _AuthEditorialTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppThemeColors colors = AppThemeColors.of(context);
     return Center(
-      child: Text(
-        'TesserCam',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: colors.textPrimary,
-          fontFamily: 'Avenir Next',
-          fontSize: 40,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0,
-          height: 1,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: <Widget>[
+          Text(
+            'TesserCam',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontFamily: 'Snell Roundhand',
+              fontSize: 40,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+              height: 1,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 3, bottom: 4),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.accentYellow,
+                shape: BoxShape.circle,
+              ),
+              child: const SizedBox(width: 7, height: 7),
+            ),
+          ),
+        ],
       ),
     );
   }

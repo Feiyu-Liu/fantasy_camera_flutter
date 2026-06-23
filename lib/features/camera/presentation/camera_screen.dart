@@ -134,7 +134,6 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       ),
       message: _localizedMessage(cameraState.message),
       controlsRotationTurns: controlsRotationTurns,
-      aspectRatioLabel: '4:3',
       promptOptions: _cameraPromptOptions(localizedPromptSelection, tokens),
       zoomStops: _zoomStops(cameraState),
       currentDisplayZoom: cameraState.rawToDisplayZoom(
