@@ -32,10 +32,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Camera devices could not be loaded.';
 
   @override
-  String get authContinueWithApple => 'Continue with Apple';
+  String get authContinueWithApple => 'Sign in with Apple';
 
   @override
-  String get authContinueWithGoogle => 'Continue with Google';
+  String get authContinueWithGoogle => 'Sign in with Google';
 
   @override
   String get authCreateAccountButton => 'Create account';

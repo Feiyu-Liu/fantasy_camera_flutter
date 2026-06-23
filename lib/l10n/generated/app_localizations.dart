@@ -143,13 +143,13 @@ abstract class AppLocalizations {
   /// No description provided for @authContinueWithApple.
   ///
   /// In en, this message translates to:
-  /// **'Continue with Apple'**
+  /// **'Sign in with Apple'**
   String get authContinueWithApple;
 
   /// No description provided for @authContinueWithGoogle.
   ///
   /// In en, this message translates to:
-  /// **'Continue with Google'**
+  /// **'Sign in with Google'**
   String get authContinueWithGoogle;
 
   /// No description provided for @authCreateAccountButton.

@@ -90,6 +90,7 @@ dependency_overrides:
 flutter:
   generate: true
   assets:
+    - assets/auth/ios_neutral_sq_na.png
     - test/fixtures/image_pipeline/raw.HEIC
     - test/fixtures/image_pipeline/res.png
 

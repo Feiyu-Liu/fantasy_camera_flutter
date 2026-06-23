@@ -456,21 +456,21 @@ class _AuthProviderRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool enabled = !state.isSubmitting;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Row(
       children: <Widget>[
-        _AppleAuthButton(
-          key: const ValueKey<String>('auth_apple_button'),
-          label: context.l10n.authContinueWithApple,
-          onPressed: supportsAppleSignIn && enabled ? onAppleSignIn : null,
+        Expanded(
+          child: _AppleAuthButton(
+            key: const ValueKey<String>('auth_apple_button'),
+            label: context.l10n.authContinueWithApple,
+            onPressed: supportsAppleSignIn && enabled ? onAppleSignIn : null,
+          ),
         ),
         if (supportsGoogleSignIn) ...<Widget>[
-          const SizedBox(height: 18),
-          Center(
-            child: _SquareAuthIconButton(
+          const SizedBox(width: 12),
+          Expanded(
+            child: _GoogleAuthButton(
               key: const ValueKey<String>('auth_google_button'),
-              icon: LucideIcons.globe2,
-              semanticLabel: context.l10n.authContinueWithGoogle,
+              label: context.l10n.authContinueWithGoogle,
               onPressed: enabled ? onGoogleSignIn : null,
             ),
           ),
@@ -511,34 +511,34 @@ class _AppleAuthButton extends StatelessWidget {
           decoration: AppCorners.controlDecoration(color: background),
           child: SizedBox(
             height: 52,
-            child: Stack(
-              alignment: Alignment.center,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                Positioned(
-                  left: 18,
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: SizedBox(
-                      width: 19.4,
-                      height: 24,
-                      child: CustomPaint(
-                        painter: AppleLogoPainter(color: foreground),
-                      ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: SizedBox(
+                    width: 17.8,
+                    height: 22,
+                    child: CustomPaint(
+                      painter: AppleLogoPainter(color: foreground),
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 56),
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: foreground,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
-                      height: 1,
+                const SizedBox(width: 10),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: foreground,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
+                        height: 1,
+                      ),
                     ),
                   ),
                 ),
@@ -551,25 +551,30 @@ class _AppleAuthButton extends StatelessWidget {
   }
 }
 
-class _SquareAuthIconButton extends StatelessWidget {
-  const _SquareAuthIconButton({
-    required this.icon,
-    required this.semanticLabel,
+class _GoogleAuthButton extends StatelessWidget {
+  const _GoogleAuthButton({
+    required this.label,
     required this.onPressed,
     super.key,
   });
 
-  final IconData icon;
-  final String semanticLabel;
+  static const String _logoAsset = 'assets/auth/ios_neutral_sq_na.png';
+
+  final String label;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     final bool enabled = onPressed != null;
-    final AppThemeColors colors = AppThemeColors.of(context);
+    final Color foreground = enabled
+        ? AppColors.black
+        : AppColors.black.withValues(alpha: 0.42);
+    final Color border = enabled
+        ? AppColors.black
+        : AppColors.black.withValues(alpha: 0.18);
     return Semantics(
       button: true,
-      label: semanticLabel,
+      label: label,
       enabled: enabled,
       child: CupertinoButton(
         onPressed: onPressed,
@@ -577,18 +582,43 @@ class _SquareAuthIconButton extends StatelessWidget {
         padding: EdgeInsets.zero,
         child: DecoratedBox(
           decoration: AppCorners.controlDecoration(
-            color: colors.background,
-            side: BorderSide(
-              color: enabled ? colors.textPrimary : colors.controlFillDisabled,
-              width: 0.8,
-            ),
+            color: AppColors.white,
+            side: BorderSide(color: border, width: 0.8),
           ),
-          child: SizedBox.square(
-            dimension: 48,
-            child: Icon(
-              icon,
-              color: enabled ? colors.textPrimary : colors.controlFillDisabled,
-              size: 22,
+          child: SizedBox(
+            height: 52,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Opacity(
+                  opacity: enabled ? 1 : 0.42,
+                  child: Image.asset(
+                    _logoAsset,
+                    width: 24,
+                    height: 24,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: foreground,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
