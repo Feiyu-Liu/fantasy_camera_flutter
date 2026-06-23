@@ -111,8 +111,14 @@ class _LoadingTopBar extends StatelessWidget {
           ),
           child: Row(
             children: <Widget>[
-              Expanded(child: _LoadingTopBarPlaceholder(tokens: tokens)),
-              Expanded(child: _LoadingTopBarPlaceholder(tokens: tokens)),
+              SizedBox(
+                width: tokens.topBarButtonSize,
+                child: _LoadingTopBarPlaceholder(tokens: tokens),
+              ),
+              SizedBox(
+                width: tokens.topBarButtonSize,
+                child: _LoadingTopBarPlaceholder(tokens: tokens),
+              ),
               const Spacer(flex: 5),
               SizedBox(
                 width: tokens.topBarTrailingWidth,

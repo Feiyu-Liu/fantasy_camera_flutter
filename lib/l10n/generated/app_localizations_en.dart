@@ -214,13 +214,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get promptSwitchRecomposeTitle => 'Recompose';
 
   @override
-  String get promptSwitchBeautifyFaceTitle => 'Face refine';
+  String get promptSwitchBeautifyFaceTitle => 'Portrait Enhance';
 
   @override
-  String get promptSwitchCleanFrameTitle => 'Clean frame';
+  String get promptSwitchCleanFrameTitle => 'Declutter';
 
   @override
-  String get promptSwitchBackgroundBlurTitle => 'Background blur';
+  String get promptSwitchBackgroundBlurTitle => 'Background Blur';
 
   @override
   String get promptStyleRealisticTitle => 'Realistic';

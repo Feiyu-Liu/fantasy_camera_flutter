@@ -473,19 +473,19 @@ abstract class AppLocalizations {
   /// No description provided for @promptSwitchBeautifyFaceTitle.
   ///
   /// In en, this message translates to:
-  /// **'Face refine'**
+  /// **'Portrait Enhance'**
   String get promptSwitchBeautifyFaceTitle;
 
   /// No description provided for @promptSwitchCleanFrameTitle.
   ///
   /// In en, this message translates to:
-  /// **'Clean frame'**
+  /// **'Declutter'**
   String get promptSwitchCleanFrameTitle;
 
   /// No description provided for @promptSwitchBackgroundBlurTitle.
   ///
   /// In en, this message translates to:
-  /// **'Background blur'**
+  /// **'Background Blur'**
   String get promptSwitchBackgroundBlurTitle;
 
   /// No description provided for @promptStyleRealisticTitle.

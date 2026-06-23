@@ -222,14 +222,16 @@ class CameraPhotoTopBar extends StatelessWidget {
           ),
           child: Row(
             children: <Widget>[
-              Expanded(
+              SizedBox(
+                width: tokens.topBarButtonSize,
                 child: _TopBarSlot(
                   tokens: tokens,
                   borderRight: true,
                   child: leadingContent ?? const SizedBox.shrink(),
                 ),
               ),
-              Expanded(
+              SizedBox(
+                width: tokens.topBarButtonSize,
                 child: _TopBarSlot(
                   tokens: tokens,
                   borderRight: true,
