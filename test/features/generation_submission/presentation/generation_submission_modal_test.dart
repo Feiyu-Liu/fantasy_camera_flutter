@@ -26,6 +26,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/presentati
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
+import 'package:fantasy_camera_flutter/shared/toast/app_toast.dart';
 import 'package:fantasy_camera_flutter/theme/app_theme.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1298,68 +1299,78 @@ class _ModalHostState extends State<_ModalHost> {
     );
     final bool useExplicitTheme =
         widget.themePreference != AppThemePreference.light;
-    return ProviderScope(
-      overrides: <Override>[
-        generationRecordDatabaseProvider.overrideWithValue(_database),
-        generationRecordRepositoryProvider.overrideWithValue(_recordRepository),
-        galleryResumeActiveRecordsOnOpenProvider.overrideWithValue(false),
-        generationRecordsProvider.overrideWith((Ref ref) {
-          return (() async* {
-            yield await _seedFuture;
-            yield* _recordsController.stream;
-          })();
-        }),
-        generationImageProcessorProvider.overrideWithValue(
-          const _FakeGenerationImageProcessor(),
-        ),
-        generationOriginalFileStoreProvider.overrideWithValue(
-          const _FakeGenerationOriginalFileStore(),
-        ),
-        galleryImagePickerProvider.overrideWithValue(
-          widget.imagePicker ?? _FakeGalleryImagePicker(null),
-        ),
-        heroImagePrecacheProvider.overrideWithValue(
-          widget.heroImagePrecache ??
-              (ImageProvider imageProvider) async {
-                return true;
-              },
-        ),
-        uploadRepositoryProvider.overrideWithValue(
-          widget.uploadRepository ?? _FakeUploadRepository(),
-        ),
-        generationTaskRepositoryProvider.overrideWithValue(
-          widget.taskRepository ?? _FakeGenerationTaskRepository(),
-        ),
-        generationSubmissionServiceProvider.overrideWith((Ref ref) {
-          final GenerationSubmissionService service =
-              GenerationSubmissionService(
-                uploadRepository: ref.watch(uploadRepositoryProvider),
-                generationTaskRepository: ref.watch(
-                  generationTaskRepositoryProvider,
+    return AppToastHost(
+      child: ProviderScope(
+        overrides: <Override>[
+          generationRecordDatabaseProvider.overrideWithValue(_database),
+          generationRecordRepositoryProvider.overrideWithValue(
+            _recordRepository,
+          ),
+          appToastPresenterProvider.overrideWithValue(_NoopAppToastPresenter()),
+          galleryResumeActiveRecordsOnOpenProvider.overrideWithValue(false),
+          generationRecordsProvider.overrideWith((Ref ref) {
+            return (() async* {
+              yield await _seedFuture;
+              yield* _recordsController.stream;
+            })();
+          }),
+          generationImageProcessorProvider.overrideWithValue(
+            const _FakeGenerationImageProcessor(),
+          ),
+          generationOriginalFileStoreProvider.overrideWithValue(
+            const _FakeGenerationOriginalFileStore(),
+          ),
+          galleryImagePickerProvider.overrideWithValue(
+            widget.imagePicker ?? _FakeGalleryImagePicker(null),
+          ),
+          heroImagePrecacheProvider.overrideWithValue(
+            widget.heroImagePrecache ??
+                (ImageProvider imageProvider) async {
+                  return true;
+                },
+          ),
+          uploadRepositoryProvider.overrideWithValue(
+            widget.uploadRepository ?? _FakeUploadRepository(),
+          ),
+          generationTaskRepositoryProvider.overrideWithValue(
+            widget.taskRepository ?? _FakeGenerationTaskRepository(),
+          ),
+          generationSubmissionServiceProvider.overrideWith((Ref ref) {
+            final GenerationSubmissionService service =
+                GenerationSubmissionService(
+                  uploadRepository: ref.watch(uploadRepositoryProvider),
+                  generationTaskRepository: ref.watch(
+                    generationTaskRepositoryProvider,
+                  ),
+                  feedbackRepository: const _FakeFeedbackRepository(),
+                  generationRecordRepository: _recordRepository,
+                  originalFileStore: const _FakeGenerationOriginalFileStore(),
+                  photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
+                  imageProcessor: const _FakeGenerationImageProcessor(),
+                  backgroundR2UploadService:
+                      const _FakeBackgroundR2UploadService(),
+                );
+            ref.onDispose(service.dispose);
+            return service;
+          }),
+        ],
+        child: useExplicitTheme
+            ? CupertinoApp(
+                theme: appCupertinoThemeForPreference(widget.themePreference),
+                home: AppThemeColorsScope(
+                  colors: appThemeColorsForPreference(widget.themePreference),
+                  child: page,
                 ),
-                feedbackRepository: const _FakeFeedbackRepository(),
-                generationRecordRepository: _recordRepository,
-                originalFileStore: const _FakeGenerationOriginalFileStore(),
-                photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
-                imageProcessor: const _FakeGenerationImageProcessor(),
-                backgroundR2UploadService:
-                    const _FakeBackgroundR2UploadService(),
-              );
-          ref.onDispose(service.dispose);
-          return service;
-        }),
-      ],
-      child: useExplicitTheme
-          ? CupertinoApp(
-              theme: appCupertinoThemeForPreference(widget.themePreference),
-              home: AppThemeColorsScope(
-                colors: appThemeColorsForPreference(widget.themePreference),
-                child: page,
-              ),
-            )
-          : CupertinoApp(home: page),
+              )
+            : CupertinoApp(home: page),
+      ),
     );
   }
+}
+
+class _NoopAppToastPresenter extends AppToastPresenter {
+  @override
+  void show(AppToastMessage message) {}
 }
 
 class _SeededModal extends StatefulWidget {

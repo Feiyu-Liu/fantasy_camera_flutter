@@ -506,7 +506,7 @@ void main() {
     expect(taskRepository.createdInputs, isEmpty);
   });
 
-  test('create upload network timeout stays recoverable and resumes', () async {
+  test('create upload network timeout marks failed and can retry', () async {
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository()
       ..createUploadFailures.add(
         const BackendApiFailure(
@@ -535,12 +535,12 @@ void main() {
         .read(generationSubmissionControllerProvider)
         .jobs
         .single;
-    expect(job.status, GenerationSubmissionStatus.creatingUpload);
+    expect(job.status, GenerationSubmissionStatus.failed);
     expect(job.errorCode, 'network_timeout');
     expect(uploadRepository.events, <String>['create:image/jpeg:4']);
     expect(taskRepository.fetchTaskByUploadSessionIds, isEmpty);
 
-    await controller.resumeActiveRecords();
+    await controller.retryJob(jobId);
 
     job = container.read(generationSubmissionControllerProvider).jobs.single;
     expect(job.status, GenerationSubmissionStatus.pollingTask);

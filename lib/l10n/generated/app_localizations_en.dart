@@ -475,4 +475,64 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get billingLegalNote =>
       'Purchases are processed by the App Store. By continuing, you agree to the Terms of Use and Privacy Policy.';
+
+  @override
+  String get toastGenerationNetworkFailed =>
+      'The network is unstable, so the photo was not uploaded. Try again later.';
+
+  @override
+  String get toastOriginalUnavailable =>
+      'The original photo could not be read. Take or choose another photo.';
+
+  @override
+  String get toastInsufficientCredits =>
+      'You do not have enough creation credits.';
+
+  @override
+  String get toastGenerationSubmitFailed =>
+      'The generation request failed. Please try again.';
+
+  @override
+  String get toastResultSaveFailed =>
+      'The result image could not be saved. Please try again.';
+
+  @override
+  String get toastGalleryICloudImportFailed =>
+      'This photo could not be downloaded from iCloud. Try again later.';
+
+  @override
+  String get toastGalleryImportFailed =>
+      'This photo could not be imported. Try another one.';
+
+  @override
+  String get toastFavoriteFailed =>
+      'Could not update system favorites. Try again later.';
+
+  @override
+  String get toastOriginalSaved => 'Original photo saved to Photos.';
+
+  @override
+  String get toastOriginalSaveFailed =>
+      'Original photo could not be saved. Check Photos permission and try again.';
+
+  @override
+  String get toastFeedbackSubmitted => 'Feedback sent.';
+
+  @override
+  String get toastFeedbackFailed =>
+      'Feedback could not be sent. Try again later.';
+
+  @override
+  String get toastOpenPhotoLibraryFailed => 'Could not open Photos.';
+
+  @override
+  String get settingsClearOriginalCachePartialTitle => 'Partially cleared';
+
+  @override
+  String get toastPurchaseFailed =>
+      'Purchase was not completed. Try again later.';
+
+  @override
+  String get toastRestorePurchaseFailed =>
+      'Purchases could not be restored. Try again later.';
 }

@@ -934,6 +934,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Purchases are processed by the App Store. By continuing, you agree to the Terms of Use and Privacy Policy.'**
   String get billingLegalNote;
+
+  /// No description provided for @toastGenerationNetworkFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The network is unstable, so the photo was not uploaded. Try again later.'**
+  String get toastGenerationNetworkFailed;
+
+  /// No description provided for @toastOriginalUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The original photo could not be read. Take or choose another photo.'**
+  String get toastOriginalUnavailable;
+
+  /// No description provided for @toastInsufficientCredits.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have enough creation credits.'**
+  String get toastInsufficientCredits;
+
+  /// No description provided for @toastGenerationSubmitFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The generation request failed. Please try again.'**
+  String get toastGenerationSubmitFailed;
+
+  /// No description provided for @toastResultSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The result image could not be saved. Please try again.'**
+  String get toastResultSaveFailed;
+
+  /// No description provided for @toastGalleryICloudImportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'This photo could not be downloaded from iCloud. Try again later.'**
+  String get toastGalleryICloudImportFailed;
+
+  /// No description provided for @toastGalleryImportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'This photo could not be imported. Try another one.'**
+  String get toastGalleryImportFailed;
+
+  /// No description provided for @toastFavoriteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update system favorites. Try again later.'**
+  String get toastFavoriteFailed;
+
+  /// No description provided for @toastOriginalSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Original photo saved to Photos.'**
+  String get toastOriginalSaved;
+
+  /// No description provided for @toastOriginalSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Original photo could not be saved. Check Photos permission and try again.'**
+  String get toastOriginalSaveFailed;
+
+  /// No description provided for @toastFeedbackSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback sent.'**
+  String get toastFeedbackSubmitted;
+
+  /// No description provided for @toastFeedbackFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback could not be sent. Try again later.'**
+  String get toastFeedbackFailed;
+
+  /// No description provided for @toastOpenPhotoLibraryFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open Photos.'**
+  String get toastOpenPhotoLibraryFailed;
+
+  /// No description provided for @settingsClearOriginalCachePartialTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Partially cleared'**
+  String get settingsClearOriginalCachePartialTitle;
+
+  /// No description provided for @toastPurchaseFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase was not completed. Try again later.'**
+  String get toastPurchaseFailed;
+
+  /// No description provided for @toastRestorePurchaseFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchases could not be restored. Try again later.'**
+  String get toastRestorePurchaseFailed;
 }
 
 class _AppLocalizationsDelegate

@@ -16,6 +16,7 @@ import 'package:smooth_corner/smooth_corner.dart';
 import '../../../app/app_router.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/presentation/widgets/app_blur_navigation_bar.dart';
+import '../../../shared/toast/app_toast.dart';
 import '../../../theme/app_corners.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_theme.dart';
@@ -726,9 +727,15 @@ class _GenerationSubmissionDebugModalState
         phase: _GalleryHeroArrivalPhase.idle,
       );
     });
-    await ref
-        .read(generationSubmissionControllerProvider.notifier)
-        .confirmJob(job.id);
+    try {
+      await ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .confirmJob(job.id);
+      _showToastForFailedUserSubmission(job.id);
+    } on Object catch (error) {
+      _debugLog('confirm job failure job=${job.id} error=$error');
+      ref.read(appToastServiceProvider).showGenerationSubmitFailure(null);
+    }
   }
 
   Future<void> _cancelJob(GenerationSubmissionJob job) async {
@@ -757,9 +764,15 @@ class _GenerationSubmissionDebugModalState
         phase: _GalleryHeroArrivalPhase.idle,
       );
     });
-    await ref
-        .read(generationSubmissionControllerProvider.notifier)
-        .retryJob(job.id);
+    try {
+      await ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .retryJob(job.id);
+      _showToastForFailedUserSubmission(job.id);
+    } on Object catch (error) {
+      _debugLog('retry job failure job=${job.id} error=$error');
+      _showToastForFailedUserSubmission(job.id, fallbackErrorCode: null);
+    }
   }
 
   Future<void> _removeJob(GenerationSubmissionJob job) async {
@@ -781,9 +794,14 @@ class _GenerationSubmissionDebugModalState
 
   Future<void> _toggleFavorite(GenerationSubmissionJob job) async {
     _debugLog('toggle favorite job=${job.id}');
-    await ref
-        .read(generationSubmissionControllerProvider.notifier)
-        .toggleResultFavorite(job.id);
+    try {
+      await ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .toggleResultFavorite(job.id);
+    } on Object catch (error) {
+      _debugLog('toggle favorite failure job=${job.id} error=$error');
+      ref.read(appToastServiceProvider).showFavoriteFailure();
+    }
   }
 
   Future<void> _performMoreAction(
@@ -793,28 +811,33 @@ class _GenerationSubmissionDebugModalState
     final GenerationSubmissionController controller = ref.read(
       generationSubmissionControllerProvider.notifier,
     );
-    try {
-      switch (action) {
-        case _HeroMoreAction.viewInAlbum:
-          _debugLog('more action view in album job=${job.id}');
+    switch (action) {
+      case _HeroMoreAction.viewInAlbum:
+        _debugLog('more action view in album job=${job.id}');
+        try {
           await controller.openPhotoLibrary(job.id);
-        case _HeroMoreAction.saveOriginal:
-          _debugLog('more action save original job=${job.id}');
+        } on Object catch (error) {
+          _debugLog('open photo library failure job=${job.id} error=$error');
+          ref.read(appToastServiceProvider).showOpenPhotoLibraryFailure();
+        }
+      case _HeroMoreAction.saveOriginal:
+        _debugLog('more action save original job=${job.id}');
+        try {
           await controller.saveOriginalToPhotoLibrary(job.id);
-        case _HeroMoreAction.retry:
-          _debugLog('more action retry job=${job.id}');
-          await _retryJob(job);
-        case _HeroMoreAction.dislike:
-          _debugLog('more action dislike job=${job.id}');
-          await _submitNegativeFeedbackWithReason(job);
-        case _HeroMoreAction.remove:
-          _debugLog('more action remove job=${job.id}');
-          await _removeJob(job);
-      }
-    } on Object catch (error) {
-      _debugLog(
-        'more action failure job=${job.id} action=${action.name} error=$error',
-      );
+          ref.read(appToastServiceProvider).showSaveOriginalSuccess();
+        } on Object catch (error) {
+          _debugLog('save original failure job=${job.id} error=$error');
+          ref.read(appToastServiceProvider).showSaveOriginalFailure();
+        }
+      case _HeroMoreAction.retry:
+        _debugLog('more action retry job=${job.id}');
+        await _retryJob(job);
+      case _HeroMoreAction.dislike:
+        _debugLog('more action dislike job=${job.id}');
+        await _submitNegativeFeedbackWithReason(job);
+      case _HeroMoreAction.remove:
+        _debugLog('more action remove job=${job.id}');
+        await _removeJob(job);
     }
   }
 
@@ -830,9 +853,15 @@ class _GenerationSubmissionDebugModalState
     if (!mounted || note == null) {
       return;
     }
-    await ref
-        .read(generationSubmissionControllerProvider.notifier)
-        .submitNegativeFeedback(job.id, note: note);
+    try {
+      await ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .submitNegativeFeedback(job.id, note: note);
+      ref.read(appToastServiceProvider).showFeedbackSuccess();
+    } on Object catch (error) {
+      _debugLog('submit negative feedback failure job=${job.id} error=$error');
+      ref.read(appToastServiceProvider).showFeedbackFailure();
+    }
   }
 
   Future<void> _loadResult(String jobId) async {
@@ -907,6 +936,7 @@ class _GenerationSubmissionDebugModalState
           );
     } on Object catch (error) {
       _debugLog('pick gallery failure error=$error');
+      ref.read(appToastServiceProvider).showGalleryImportFailure(error);
     } finally {
       _cancelGalleryExportProgressSubscription();
       if (mounted) {
@@ -918,6 +948,46 @@ class _GenerationSubmissionDebugModalState
         });
         _galleryExportProgress.value = 0;
       }
+    }
+  }
+
+  void _showToastForFailedUserSubmission(
+    String jobId, {
+    String? fallbackErrorCode,
+  }) {
+    final GenerationSubmissionJob? updatedJob = _findJobById(
+      ref.read(generationSubmissionControllerProvider).jobs,
+      jobId,
+    );
+    if (updatedJob == null) {
+      ref
+          .read(appToastServiceProvider)
+          .showGenerationSubmitFailure(fallbackErrorCode);
+      return;
+    }
+    switch (updatedJob.status) {
+      case GenerationSubmissionStatus.failed:
+        ref
+            .read(appToastServiceProvider)
+            .showGenerationSubmitFailure(
+              updatedJob.errorCode ?? fallbackErrorCode,
+            );
+      case GenerationSubmissionStatus.resultProcessingFailed:
+        ref.read(appToastServiceProvider).showResultSaveFailure();
+      case GenerationSubmissionStatus.awaitingConfirmation:
+      case GenerationSubmissionStatus.queued:
+      case GenerationSubmissionStatus.preparingUploadImage:
+      case GenerationSubmissionStatus.readingFile:
+      case GenerationSubmissionStatus.creatingUpload:
+      case GenerationSubmissionStatus.uploading:
+      case GenerationSubmissionStatus.uploadedWaitingTask:
+      case GenerationSubmissionStatus.creatingTask:
+      case GenerationSubmissionStatus.submitted:
+      case GenerationSubmissionStatus.pollingTask:
+      case GenerationSubmissionStatus.completed:
+      case GenerationSubmissionStatus.processingResultImage:
+      case GenerationSubmissionStatus.resultSaved:
+        break;
     }
   }
 

@@ -55,6 +55,7 @@ dependencies:
   sign_in_with_apple: ^8.0.0
   shared_preferences: ^2.5.5
   supabase_flutter: ^2.12.4
+  toastification: ^3.2.0
   video_player: ^2.7.0
   drift: ^2.33.0
   sqlite3_flutter_libs: ^0.6.0+eol

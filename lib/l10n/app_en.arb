@@ -203,5 +203,21 @@
       }
     }
   },
-  "billingLegalNote": "Purchases are processed by the App Store. By continuing, you agree to the Terms of Use and Privacy Policy."
+  "billingLegalNote": "Purchases are processed by the App Store. By continuing, you agree to the Terms of Use and Privacy Policy.",
+  "toastGenerationNetworkFailed": "The network is unstable, so the photo was not uploaded. Try again later.",
+  "toastOriginalUnavailable": "The original photo could not be read. Take or choose another photo.",
+  "toastInsufficientCredits": "You do not have enough creation credits.",
+  "toastGenerationSubmitFailed": "The generation request failed. Please try again.",
+  "toastResultSaveFailed": "The result image could not be saved. Please try again.",
+  "toastGalleryICloudImportFailed": "This photo could not be downloaded from iCloud. Try again later.",
+  "toastGalleryImportFailed": "This photo could not be imported. Try another one.",
+  "toastFavoriteFailed": "Could not update system favorites. Try again later.",
+  "toastOriginalSaved": "Original photo saved to Photos.",
+  "toastOriginalSaveFailed": "Original photo could not be saved. Check Photos permission and try again.",
+  "toastFeedbackSubmitted": "Feedback sent.",
+  "toastFeedbackFailed": "Feedback could not be sent. Try again later.",
+  "toastOpenPhotoLibraryFailed": "Could not open Photos.",
+  "settingsClearOriginalCachePartialTitle": "Partially cleared",
+  "toastPurchaseFailed": "Purchase was not completed. Try again later.",
+  "toastRestorePurchaseFailed": "Purchases could not be restored. Try again later."
 }

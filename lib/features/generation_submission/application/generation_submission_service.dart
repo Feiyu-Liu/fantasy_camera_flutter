@@ -347,7 +347,7 @@ class GenerationSubmissionService extends ChangeNotifier {
     _debugLog('retry start record=$recordId status=${record.pipelineStatus}');
     _stopTaskPolling(recordId);
     _cancelResultRetry(recordId);
-    _runtimeState.remove(recordId);
+    _runtimeState[recordId]?.clearSubmissionAttempt();
 
     if (status == GenerationRecordPipelineStatus.resultSaveFailed &&
         record.taskId != null) {
@@ -799,15 +799,6 @@ class GenerationSubmissionService extends ChangeNotifier {
       _debugLog(
         'submit backend failure record=$recordId stage=$stage code=${error.code} status=${error.statusCode} requestId=${error.requestId ?? 'none'} message=${error.message} details=${error.details ?? 'none'}',
       );
-      if (_isRecoverablePreUploadFailure(stage: stage, errorCode: error.code)) {
-        await _markRecoverablePreUploadFailure(
-          recordId: recordId,
-          stage: stage,
-          errorCode: error.code,
-          errorMessage: error.message,
-        );
-        return;
-      }
       await _failRecord(
         recordId: recordId,
         errorCode: error.code,
@@ -1587,41 +1578,6 @@ class GenerationSubmissionService extends ChangeNotifier {
     );
   }
 
-  bool _isRecoverablePreUploadFailure({
-    required String stage,
-    required String errorCode,
-  }) {
-    return (stage == 'preparingUploadImage' ||
-            stage == 'readingFile' ||
-            stage == 'creatingUpload') &&
-        (errorCode == 'network_timeout' || errorCode == 'network_error');
-  }
-
-  Future<void> _markRecoverablePreUploadFailure({
-    required String recordId,
-    required String stage,
-    required String errorCode,
-    required String errorMessage,
-  }) {
-    final GenerationRecordPipelineStatus status = switch (stage) {
-      'preparingUploadImage' ||
-      'readingFile' => GenerationRecordPipelineStatus.preparingUploadImage,
-      'creatingUpload' => GenerationRecordPipelineStatus.creatingUpload,
-      _ => GenerationRecordPipelineStatus.preparingUploadImage,
-    };
-    _debugLog(
-      'mark recoverable pre-upload failure record=$recordId status=${status.name} code=$errorCode message=$errorMessage',
-    );
-    _ensureBatchPollingStarted();
-    return _generationRecordRepository.updatePipelineStatus(
-      recordId: recordId,
-      status: status,
-      updatedAt: DateTime.now(),
-      errorCode: errorCode,
-      errorMessage: errorMessage,
-    );
-  }
-
   void _stopTaskPolling(String jobId) {
     _debugLog('batch polling forget job=$jobId');
   }
@@ -1987,6 +1943,14 @@ class _RuntimeGenerationRecordState {
   String? uploadImagePath;
   Map<String, Object>? sourceExif;
   String? processedResultPath;
+
+  void clearSubmissionAttempt() {
+    resultUrl = null;
+    resultUrlExpiresAt = null;
+    uploadImagePath = null;
+    sourceExif = null;
+    processedResultPath = null;
+  }
 
   bool get hasFreshResultUrl {
     final String? url = resultUrl;
