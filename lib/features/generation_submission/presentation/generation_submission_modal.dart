@@ -1711,11 +1711,7 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
                     width: tileWidth,
                     height: itemHeight,
                     imageHeight: tileHeight,
-                    caption: _captionForJob(
-                      job,
-                      defaultMode:
-                          context.l10n.generationSubmissionDefaultMomentMode,
-                    ),
+                    caption: _captionForJob(job),
                     child: _JobThumbnail(
                       thumbnailKey: removing
                           ? 'generation-submission-removing-photo-${job.id}'
@@ -1740,10 +1736,7 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
     );
   }
 
-  String _captionForJob(
-    GenerationSubmissionJob job, {
-    required String defaultMode,
-  }) {
+  String _captionForJob(GenerationSubmissionJob job) {
     final DateTime createdAt = job.createdAt;
     final int hour = createdAt.hour == 0
         ? 12
