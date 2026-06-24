@@ -876,6 +876,46 @@ void main() {
     );
   });
 
+  testWidgets('hero more actions stay expanded across parent rebuilds', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-more-rebuild');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'more-rebuild',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+
+    await _pumpModalHost(tester, _ModalHost(key: hostKey, jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    expect(find.text('在相册中查看'), findsOneWidget);
+
+    await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+      _job(
+        id: 'more-rebuild',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+
+    expect(find.text('在相册中查看'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-more-dismiss-layer'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('more action opens photo library', (WidgetTester tester) async {
     final File processedFile = _writeImageFile('processed-open-library');
     final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[

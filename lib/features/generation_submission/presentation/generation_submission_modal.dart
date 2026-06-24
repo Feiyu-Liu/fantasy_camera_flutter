@@ -2846,7 +2846,11 @@ class _HeroToolbarState extends State<_HeroToolbar>
   @override
   void didUpdateWidget(covariant _HeroToolbar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.onMoreActions != widget.onMoreActions && _expanded) {
+    final bool selectedJobChanged =
+        oldWidget.selectedJob.id != widget.selectedJob.id;
+    final bool menuBecameUnavailable =
+        oldWidget.onMoreActions != null && widget.onMoreActions == null;
+    if ((selectedJobChanged || menuBecameUnavailable) && _expanded) {
       _setExpanded(false);
     }
   }
