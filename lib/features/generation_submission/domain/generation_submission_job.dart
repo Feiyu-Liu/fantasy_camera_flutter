@@ -1,5 +1,6 @@
 import '../../backend_api/domain/generation_task.dart';
 import '../../backend_api/domain/prompt_config.dart';
+import 'generation_record.dart';
 
 enum GenerationSubmissionStatus {
   awaitingConfirmation,
@@ -37,6 +38,7 @@ class GenerationSubmissionJob {
     this.uploadImageSizeBytes,
     this.sourceExif,
     this.processedResultPath,
+    this.resultAvailability = GenerationRecordResultAvailability.none,
     this.resultAssetId,
     this.resultNotificationSeenAt,
     this.canSaveOriginalToPhotoLibrary = false,
@@ -65,6 +67,7 @@ class GenerationSubmissionJob {
   final int? uploadImageSizeBytes;
   final Map<String, Object>? sourceExif;
   final String? processedResultPath;
+  final GenerationRecordResultAvailability resultAvailability;
   final String? resultAssetId;
   final DateTime? resultNotificationSeenAt;
   final bool canSaveOriginalToPhotoLibrary;
@@ -93,6 +96,22 @@ class GenerationSubmissionJob {
   bool get hasSubmittedNegativeFeedback =>
       resultNegativeFeedbackSubmittedAt != null;
 
+  bool get hasProcessedResultPath =>
+      processedResultPath != null && processedResultPath!.isNotEmpty;
+
+  bool get hasMissingSavedResult =>
+      status == GenerationSubmissionStatus.resultSaved &&
+      resultAvailability == GenerationRecordResultAvailability.missing;
+
+  bool get hasResultDisplayTarget {
+    return switch (status) {
+      GenerationSubmissionStatus.completed => resultUrl != null,
+      GenerationSubmissionStatus.resultSaved =>
+        hasProcessedResultPath || hasMissingSavedResult,
+      _ => false,
+    };
+  }
+
   GenerationSubmissionJob copyWith({
     GenerationSubmissionStatus? status,
     DateTime? updatedAt,
@@ -107,6 +126,7 @@ class GenerationSubmissionJob {
     int? uploadImageSizeBytes,
     Map<String, Object>? sourceExif,
     String? processedResultPath,
+    GenerationRecordResultAvailability? resultAvailability,
     String? resultAssetId,
     DateTime? resultNotificationSeenAt,
     bool? canSaveOriginalToPhotoLibrary,
@@ -137,6 +157,7 @@ class GenerationSubmissionJob {
       uploadImageSizeBytes: uploadImageSizeBytes ?? this.uploadImageSizeBytes,
       sourceExif: sourceExif ?? this.sourceExif,
       processedResultPath: processedResultPath ?? this.processedResultPath,
+      resultAvailability: resultAvailability ?? this.resultAvailability,
       resultAssetId: resultAssetId ?? this.resultAssetId,
       resultNotificationSeenAt:
           resultNotificationSeenAt ?? this.resultNotificationSeenAt,

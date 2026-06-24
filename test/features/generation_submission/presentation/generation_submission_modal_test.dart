@@ -477,6 +477,48 @@ void main() {
     );
   });
 
+  testWidgets(
+    'missing saved result shows result load failure instead of original',
+    (WidgetTester tester) async {
+      final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+        _job(
+          id: 'missing-saved-result',
+          status: GenerationSubmissionStatus.resultSaved,
+          resultAvailability: GenerationRecordResultAvailability.missing,
+        ),
+      ];
+
+      await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey<String>('generation-gallery-hero-failure')),
+        findsOneWidget,
+      );
+      expect(find.text('处理后的结果图无法加载'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey<String>('generation-submission-original-image'),
+        ),
+        findsNothing,
+      );
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('generation-submission-image-toggle'),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('generation-submission-original-image'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('saved result thumbnail directly shows processed image', (
     WidgetTester tester,
   ) async {
@@ -1617,15 +1659,22 @@ Future<void> _seedJobs(
       taskStatus: job.taskStatus?.wireValue,
       resultImageObjectId: job.resultImageObjectId,
     );
-    if (job.processedResultPath != null) {
-      _FakePhotoLibraryAssetStore.resultPaths['asset-result-${job.id}'] =
-          job.processedResultPath!;
+    if (job.processedResultPath != null ||
+        job.resultAvailability != GenerationRecordResultAvailability.none) {
+      final String resultAssetId = 'asset-result-${job.id}';
+      final String? processedResultPath = job.processedResultPath;
+      if (processedResultPath != null) {
+        _FakePhotoLibraryAssetStore.resultPaths[resultAssetId] =
+            processedResultPath;
+      }
       await repository.updateResultFields(
         recordId: job.id,
         updatedAt: job.updatedAt,
         resultAvailability:
-            GenerationRecordResultAvailability.savedToPhotoLibrary,
-        resultAssetId: 'asset-result-${job.id}',
+            job.resultAvailability == GenerationRecordResultAvailability.none
+            ? GenerationRecordResultAvailability.savedToPhotoLibrary
+            : job.resultAvailability,
+        resultAssetId: resultAssetId,
       );
     }
     final DateTime? negativeFeedbackSubmittedAt =
@@ -1996,6 +2045,8 @@ GenerationSubmissionJob _job({
   String? taskId,
   String? imagePath,
   String? processedResultPath,
+  GenerationRecordResultAvailability resultAvailability =
+      GenerationRecordResultAvailability.none,
   String? resultUrl,
   String? resultSaveErrorMessage,
   DateTime? resultNegativeFeedbackSubmittedAt,
@@ -2019,6 +2070,7 @@ GenerationSubmissionJob _job({
     ),
     resultUrl: resultUrl,
     processedResultPath: processedResultPath,
+    resultAvailability: resultAvailability,
     resultNegativeFeedbackSubmittedAt: resultNegativeFeedbackSubmittedAt,
     resultSaveErrorMessage: resultSaveErrorMessage,
     createdAt: now,

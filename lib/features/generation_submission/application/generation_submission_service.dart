@@ -1666,6 +1666,8 @@ class GenerationSubmissionService extends ChangeNotifier {
     }
     final String? imagePath = await _sourcePathForRecord(record);
     final String? processedResultPath = await _resultPathForRecord(record);
+    final GenerationRecordResultAvailability resultAvailability =
+        _effectiveResultAvailabilityForRecord(record, processedResultPath);
     if (imagePath == null) {
       return GenerationSubmissionJob(
         id: record.recordId,
@@ -1680,6 +1682,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         errorMessage: record.errorMessage,
         promptSelection: _promptSelectionForRecord(record),
         processedResultPath: processedResultPath,
+        resultAvailability: resultAvailability,
         resultAssetId: record.resultAssetId,
         resultNotificationSeenAt: record.resultNotificationSeenAt,
         canSaveOriginalToPhotoLibrary: _canSaveOriginalToPhotoLibrary(record),
@@ -1719,6 +1722,7 @@ class GenerationSubmissionService extends ChangeNotifier {
       uploadImageSizeBytes: record.uploadSizeBytes,
       sourceExif: runtime?.sourceExif,
       processedResultPath: processedResultPath,
+      resultAvailability: resultAvailability,
       resultAssetId: record.resultAssetId,
       resultNotificationSeenAt: record.resultNotificationSeenAt,
       canSaveOriginalToPhotoLibrary: _canSaveOriginalToPhotoLibrary(record),
@@ -1780,18 +1784,30 @@ class GenerationSubmissionService extends ChangeNotifier {
     }
     final String? resultAssetId = record.resultAssetId;
     if (resultAssetId != null &&
-        record.resultAvailability ==
-            GenerationRecordResultAvailability.savedToPhotoLibrary.name) {
+        (record.resultAvailability ==
+                GenerationRecordResultAvailability.savedToPhotoLibrary.name ||
+            record.resultAvailability ==
+                GenerationRecordResultAvailability.missing.name)) {
       try {
         final String? resolvedPath = await _photoLibraryAssetStore
             .resolveImagePath(resultAssetId);
         if (resolvedPath != null && resolvedPath.isNotEmpty) {
           _runtimeFor(record.recordId).processedResultPath = resolvedPath;
+          if (record.resultAvailability ==
+              GenerationRecordResultAvailability.missing.name) {
+            await _generationRecordRepository.updateResultFields(
+              recordId: record.recordId,
+              updatedAt: DateTime.now(),
+              resultAvailability:
+                  GenerationRecordResultAvailability.savedToPhotoLibrary,
+            );
+          }
           return resolvedPath;
         }
         _debugLog(
           'result asset unresolved record=${record.recordId} asset=$resultAssetId',
         );
+        await _markPhotoLibraryResultMissing(record);
       } on Object catch (error) {
         _debugLog(
           'result asset resolve failure record=${record.recordId} asset=$resultAssetId error=$error',
@@ -1809,6 +1825,44 @@ class GenerationSubmissionService extends ChangeNotifier {
       return null;
     }
     return resultLocalCachePath;
+  }
+
+  GenerationRecordResultAvailability _effectiveResultAvailabilityForRecord(
+    GenerationRecord record,
+    String? processedResultPath,
+  ) {
+    final GenerationRecordResultAvailability storedAvailability =
+        generationRecordResultAvailabilityFromName(record.resultAvailability);
+    final String? resultAssetId = record.resultAssetId;
+    final bool hasResultAsset =
+        resultAssetId != null && resultAssetId.isNotEmpty;
+    if (!hasResultAsset) {
+      return storedAvailability;
+    }
+    if (storedAvailability == GenerationRecordResultAvailability.missing &&
+        processedResultPath != null &&
+        processedResultPath.isNotEmpty) {
+      return GenerationRecordResultAvailability.savedToPhotoLibrary;
+    }
+    if ((storedAvailability ==
+                GenerationRecordResultAvailability.savedToPhotoLibrary ||
+            storedAvailability == GenerationRecordResultAvailability.missing) &&
+        (processedResultPath == null || processedResultPath.isEmpty)) {
+      return GenerationRecordResultAvailability.missing;
+    }
+    return storedAvailability;
+  }
+
+  Future<void> _markPhotoLibraryResultMissing(GenerationRecord record) async {
+    if (record.resultAvailability ==
+        GenerationRecordResultAvailability.missing.name) {
+      return;
+    }
+    await _generationRecordRepository.updateResultFields(
+      recordId: record.recordId,
+      updatedAt: DateTime.now(),
+      resultAvailability: GenerationRecordResultAvailability.missing,
+    );
   }
 
   PromptSelectionSnapshot _promptSelectionForRecord(GenerationRecord record) {

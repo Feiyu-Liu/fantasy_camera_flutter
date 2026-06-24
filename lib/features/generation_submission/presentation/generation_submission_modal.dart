@@ -22,6 +22,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_theme.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../data/generation_submission_adapters.dart';
+import '../domain/generation_record.dart';
 import '../domain/generation_submission_job.dart';
 import 'generation_hero_photo_view_page_options.dart';
 import 'generation_submission_providers.dart';
@@ -564,15 +565,15 @@ class _GenerationSubmissionDebugModalState
 
   bool _hasLocalSavedResult(GenerationSubmissionJob job) {
     return job.status == GenerationSubmissionStatus.resultSaved &&
-        job.processedResultPath != null;
+        job.hasProcessedResultPath;
+  }
+
+  bool _hasMissingSavedResult(GenerationSubmissionJob job) {
+    return job.hasMissingSavedResult;
   }
 
   bool _hasDisplayableResult(GenerationSubmissionJob job) {
-    if (_hasLocalSavedResult(job)) {
-      return true;
-    }
-    return job.status == GenerationSubmissionStatus.completed &&
-        job.resultUrl != null;
+    return job.hasResultDisplayTarget;
   }
 
   Future<void> _precacheAndStartResultArrivalAnimation(
@@ -1054,6 +1055,16 @@ class _GenerationSubmissionDebugModalState
         path: processedResultPath,
         key: const ValueKey<String>(
           'generation-submission-processed-result-image',
+        ),
+        failureLogLabel: 'processed result image',
+        failureMessage: l10n.generationSubmissionProcessedResultImageLoadFailed,
+      );
+    }
+
+    if (_hasMissingSavedResult(job)) {
+      return _HeroUnavailableImageSource(
+        key: const ValueKey<String>(
+          'generation-submission-processed-result-image-missing',
         ),
         failureLogLabel: 'processed result image',
         failureMessage: l10n.generationSubmissionProcessedResultImageLoadFailed,
@@ -1745,9 +1756,7 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
         : createdAt.hour;
     final String minute = createdAt.minute.toString().padLeft(2, '0');
     final String period = createdAt.hour >= 12 ? 'PM' : 'AM';
-    final String mode =
-        job.promptSelection?.captureMode.toUpperCase() ?? defaultMode;
-    return '$hour:$minute $period — $mode';
+    return '$hour:$minute $period';
   }
 }
 
@@ -1824,9 +1833,8 @@ class _JobThumbnail extends StatelessWidget {
     final bool reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final String thumbnailImagePath =
-        job.status == GenerationSubmissionStatus.resultSaved &&
-            job.processedResultPath != null
-        ? job.processedResultPath!
+        job.status == GenerationSubmissionStatus.resultSaved
+        ? job.processedResultPath ?? ''
         : job.imagePath;
     return GestureDetector(
       key: ValueKey<String>(
@@ -2325,6 +2333,19 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
         disableGestures: true,
       );
     }
+    if (imageSource is _HeroUnavailableImageSource) {
+      return PhotoViewGalleryPageOptions.customChild(
+        child: Padding(
+          padding: EdgeInsets.only(top: widget.topPadding),
+          child: _HeroImageFailure(message: imageSource.failureMessage),
+        ),
+        controller: controller,
+        initialScale: PhotoViewComputedScale.contained,
+        minScale: PhotoViewComputedScale.contained,
+        maxScale: PhotoViewComputedScale.covered * 3,
+        disableGestures: true,
+      );
+    }
     final _HeroImageSource originalImageSource = _originalImageSourceForJob(
       job,
     );
@@ -2488,6 +2509,9 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       if (imageSource == null) {
         continue;
       }
+      if (imageSource is _HeroUnavailableImageSource) {
+        continue;
+      }
       _resolveImageSize(imageSource);
     }
   }
@@ -2534,6 +2558,17 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       );
     }
 
+    if (job.hasMissingSavedResult) {
+      return _HeroUnavailableImageSource(
+        key: const ValueKey<String>(
+          'generation-submission-processed-result-image-missing',
+        ),
+        failureLogLabel: 'processed result image',
+        failureMessage:
+            context.l10n.generationSubmissionProcessedResultImageLoadFailed,
+      );
+    }
+
     final String? resultUrl = job.resultUrl;
     if (resultUrl == null) {
       return _originalImageSourceForJob(job);
@@ -2565,8 +2600,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
     if (state != null) {
       return state;
     }
-    if (job.status == GenerationSubmissionStatus.resultSaved &&
-        job.processedResultPath != null) {
+    if (job.hasResultDisplayTarget) {
       return const _GalleryHeroDisplayState(
         displayedKind: _GalleryHeroImageKind.result,
         phase: _GalleryHeroArrivalPhase.done,
@@ -2612,13 +2646,15 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
 
     return switch (job.status) {
       GenerationSubmissionStatus.completed => job.resultUrl != null,
-      GenerationSubmissionStatus.resultSaved => job.processedResultPath != null,
+      GenerationSubmissionStatus.resultSaved => job.hasResultDisplayTarget,
       _ => false,
     };
   }
 
   bool _canToggleFavorite(GenerationSubmissionJob job) {
     return job.status == GenerationSubmissionStatus.resultSaved &&
+        job.resultAvailability ==
+            GenerationRecordResultAvailability.savedToPhotoLibrary &&
         job.resultAssetId != null &&
         job.resultAssetId!.isNotEmpty;
   }
@@ -2692,6 +2728,18 @@ class _HeroNetworkImageSource extends _HeroImageSource {
 
   @override
   String get debugPath => path;
+}
+
+class _HeroUnavailableImageSource extends _HeroImageSource {
+  const _HeroUnavailableImageSource({
+    required super.key,
+    required super.failureLogLabel,
+    required super.failureMessage,
+  }) : super(path: '');
+
+  @override
+  ImageProvider get imageProvider =>
+      throw StateError('Unavailable image source does not resolve images.');
 }
 
 class _HeroImageFailure extends StatelessWidget {
