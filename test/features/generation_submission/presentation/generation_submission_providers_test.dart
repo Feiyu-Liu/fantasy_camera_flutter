@@ -506,7 +506,7 @@ void main() {
     expect(taskRepository.createdInputs, isEmpty);
   });
 
-  test('create upload network timeout stays recoverable and resumes', () async {
+  test('create upload network timeout marks failed and can retry', () async {
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository()
       ..createUploadFailures.add(
         const BackendApiFailure(
@@ -535,12 +535,12 @@ void main() {
         .read(generationSubmissionControllerProvider)
         .jobs
         .single;
-    expect(job.status, GenerationSubmissionStatus.creatingUpload);
+    expect(job.status, GenerationSubmissionStatus.failed);
     expect(job.errorCode, 'network_timeout');
     expect(uploadRepository.events, <String>['create:image/jpeg:4']);
     expect(taskRepository.fetchTaskByUploadSessionIds, isEmpty);
 
-    await controller.resumeActiveRecords();
+    await controller.retryJob(jobId);
 
     job = container.read(generationSubmissionControllerProvider).jobs.single;
     expect(job.status, GenerationSubmissionStatus.pollingTask);
@@ -681,6 +681,52 @@ void main() {
     expect(record?.resultLocalCachePath, isNull);
     expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
     expect(taskRepository.fetchTaskIds, isEmpty);
+  });
+
+  test('missing saved photo asset marks result unavailable', () async {
+    final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
+        _FakePhotoLibraryAssetStore()
+          ..missingAssetIds.add('asset-missing-result');
+    final ProviderContainer container = _container(
+      photoLibraryAssetStore: photoLibraryAssetStore,
+    );
+    addTearDown(container.dispose);
+    final GenerationRecordRepository repository = container.read(
+      generationRecordRepositoryProvider,
+    );
+    await repository.createCameraRecord(
+      recordId: 'missing-result',
+      originalLocalPath: 'originals/2026/06/04/missing-result.heic',
+      createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
+    );
+    await repository.markResultSaved(
+      recordId: 'missing-result',
+      updatedAt: DateTime.parse('2026-05-29T00:01:00Z'),
+      resultAssetId: 'asset-missing-result',
+    );
+
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .refreshFromRepositoryForNotifications();
+
+    final GenerationSubmissionJob job = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(job.status, GenerationSubmissionStatus.resultSaved);
+    expect(job.processedResultPath, isNull);
+    expect(job.resultAvailability, GenerationRecordResultAvailability.missing);
+    final GenerationRecord? record = await repository.findById(
+      'missing-result',
+    );
+    expect(
+      record?.resultAvailability,
+      GenerationRecordResultAvailability.missing.name,
+    );
+    expect(
+      photoLibraryAssetStore.resolvedAssetIds,
+      contains('asset-missing-result'),
+    );
   });
 
   test('result not ready retries result url without marking failure', () async {
@@ -2073,6 +2119,7 @@ class _FakeGenerationImageProcessor implements GenerationImageProcessor {
 class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   final List<String> events = <String>[];
   final List<String> resolvedAssetIds = <String>[];
+  final Set<String> missingAssetIds = <String>{};
   Object? failure;
   String assetId = 'asset-result-1';
 
@@ -2106,6 +2153,9 @@ class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
   @override
   Future<String?> resolveImagePath(String assetId) async {
     resolvedAssetIds.add(assetId);
+    if (missingAssetIds.contains(assetId)) {
+      return null;
+    }
     return '/photos/$assetId.heic';
   }
 

@@ -450,4 +450,52 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get billingLegalNote => '购买由 App Store 处理。继续购买即表示你同意使用条款与隐私政策。';
+
+  @override
+  String get toastGenerationNetworkFailed => '网络连接不稳定，图片未上传。请稍后重试。';
+
+  @override
+  String get toastOriginalUnavailable => '原图无法读取，请重新拍摄或选择照片。';
+
+  @override
+  String get toastInsufficientCredits => '创作积分不足，请先获取积分。';
+
+  @override
+  String get toastGenerationSubmitFailed => '图片生成请求失败，请重试。';
+
+  @override
+  String get toastResultSaveFailed => '结果图保存失败，请重试。';
+
+  @override
+  String get toastGalleryICloudImportFailed => '照片暂时无法从 iCloud 下载，请稍后重试。';
+
+  @override
+  String get toastGalleryImportFailed => '无法导入这张照片，请换一张试试。';
+
+  @override
+  String get toastFavoriteFailed => '无法更新系统收藏，请稍后重试。';
+
+  @override
+  String get toastOriginalSaved => '原图已保存到相册。';
+
+  @override
+  String get toastOriginalSaveFailed => '原图保存失败，请检查相册权限后重试。';
+
+  @override
+  String get toastFeedbackSubmitted => '反馈已提交。';
+
+  @override
+  String get toastFeedbackFailed => '反馈提交失败，请稍后重试。';
+
+  @override
+  String get toastOpenPhotoLibraryFailed => '无法打开系统相册。';
+
+  @override
+  String get settingsClearOriginalCachePartialTitle => '部分清理失败';
+
+  @override
+  String get toastPurchaseFailed => '购买未完成，请稍后重试。';
+
+  @override
+  String get toastRestorePurchaseFailed => '恢复购买失败，请稍后重试。';
 }

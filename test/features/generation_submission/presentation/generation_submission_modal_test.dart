@@ -26,6 +26,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/presentati
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
+import 'package:fantasy_camera_flutter/shared/toast/app_toast.dart';
 import 'package:fantasy_camera_flutter/theme/app_theme.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -476,6 +477,48 @@ void main() {
     );
   });
 
+  testWidgets(
+    'missing saved result shows result load failure instead of original',
+    (WidgetTester tester) async {
+      final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+        _job(
+          id: 'missing-saved-result',
+          status: GenerationSubmissionStatus.resultSaved,
+          resultAvailability: GenerationRecordResultAvailability.missing,
+        ),
+      ];
+
+      await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey<String>('generation-gallery-hero-failure')),
+        findsOneWidget,
+      );
+      expect(find.text('处理后的结果图无法加载'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey<String>('generation-submission-original-image'),
+        ),
+        findsNothing,
+      );
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('generation-submission-image-toggle'),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('generation-submission-original-image'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('saved result thumbnail directly shows processed image', (
     WidgetTester tester,
   ) async {
@@ -829,6 +872,46 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('hero more actions stay expanded across parent rebuilds', (
+    WidgetTester tester,
+  ) async {
+    final File processedFile = _writeImageFile('processed-more-rebuild');
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'more-rebuild',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ];
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+
+    await _pumpModalHost(tester, _ModalHost(key: hostKey, jobs: jobs));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-submission-more-actions')),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    expect(find.text('在相册中查看'), findsOneWidget);
+
+    await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+      _job(
+        id: 'more-rebuild',
+        status: GenerationSubmissionStatus.resultSaved,
+        processedResultPath: processedFile.path,
+      ),
+    ]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
+
+    expect(find.text('在相册中查看'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-more-dismiss-layer'),
+      ),
       findsOneWidget,
     );
   });
@@ -1298,68 +1381,78 @@ class _ModalHostState extends State<_ModalHost> {
     );
     final bool useExplicitTheme =
         widget.themePreference != AppThemePreference.light;
-    return ProviderScope(
-      overrides: <Override>[
-        generationRecordDatabaseProvider.overrideWithValue(_database),
-        generationRecordRepositoryProvider.overrideWithValue(_recordRepository),
-        galleryResumeActiveRecordsOnOpenProvider.overrideWithValue(false),
-        generationRecordsProvider.overrideWith((Ref ref) {
-          return (() async* {
-            yield await _seedFuture;
-            yield* _recordsController.stream;
-          })();
-        }),
-        generationImageProcessorProvider.overrideWithValue(
-          const _FakeGenerationImageProcessor(),
-        ),
-        generationOriginalFileStoreProvider.overrideWithValue(
-          const _FakeGenerationOriginalFileStore(),
-        ),
-        galleryImagePickerProvider.overrideWithValue(
-          widget.imagePicker ?? _FakeGalleryImagePicker(null),
-        ),
-        heroImagePrecacheProvider.overrideWithValue(
-          widget.heroImagePrecache ??
-              (ImageProvider imageProvider) async {
-                return true;
-              },
-        ),
-        uploadRepositoryProvider.overrideWithValue(
-          widget.uploadRepository ?? _FakeUploadRepository(),
-        ),
-        generationTaskRepositoryProvider.overrideWithValue(
-          widget.taskRepository ?? _FakeGenerationTaskRepository(),
-        ),
-        generationSubmissionServiceProvider.overrideWith((Ref ref) {
-          final GenerationSubmissionService service =
-              GenerationSubmissionService(
-                uploadRepository: ref.watch(uploadRepositoryProvider),
-                generationTaskRepository: ref.watch(
-                  generationTaskRepositoryProvider,
+    return AppToastHost(
+      child: ProviderScope(
+        overrides: <Override>[
+          generationRecordDatabaseProvider.overrideWithValue(_database),
+          generationRecordRepositoryProvider.overrideWithValue(
+            _recordRepository,
+          ),
+          appToastPresenterProvider.overrideWithValue(_NoopAppToastPresenter()),
+          galleryResumeActiveRecordsOnOpenProvider.overrideWithValue(false),
+          generationRecordsProvider.overrideWith((Ref ref) {
+            return (() async* {
+              yield await _seedFuture;
+              yield* _recordsController.stream;
+            })();
+          }),
+          generationImageProcessorProvider.overrideWithValue(
+            const _FakeGenerationImageProcessor(),
+          ),
+          generationOriginalFileStoreProvider.overrideWithValue(
+            const _FakeGenerationOriginalFileStore(),
+          ),
+          galleryImagePickerProvider.overrideWithValue(
+            widget.imagePicker ?? _FakeGalleryImagePicker(null),
+          ),
+          heroImagePrecacheProvider.overrideWithValue(
+            widget.heroImagePrecache ??
+                (ImageProvider imageProvider) async {
+                  return true;
+                },
+          ),
+          uploadRepositoryProvider.overrideWithValue(
+            widget.uploadRepository ?? _FakeUploadRepository(),
+          ),
+          generationTaskRepositoryProvider.overrideWithValue(
+            widget.taskRepository ?? _FakeGenerationTaskRepository(),
+          ),
+          generationSubmissionServiceProvider.overrideWith((Ref ref) {
+            final GenerationSubmissionService service =
+                GenerationSubmissionService(
+                  uploadRepository: ref.watch(uploadRepositoryProvider),
+                  generationTaskRepository: ref.watch(
+                    generationTaskRepositoryProvider,
+                  ),
+                  feedbackRepository: const _FakeFeedbackRepository(),
+                  generationRecordRepository: _recordRepository,
+                  originalFileStore: const _FakeGenerationOriginalFileStore(),
+                  photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
+                  imageProcessor: const _FakeGenerationImageProcessor(),
+                  backgroundR2UploadService:
+                      const _FakeBackgroundR2UploadService(),
+                );
+            ref.onDispose(service.dispose);
+            return service;
+          }),
+        ],
+        child: useExplicitTheme
+            ? CupertinoApp(
+                theme: appCupertinoThemeForPreference(widget.themePreference),
+                home: AppThemeColorsScope(
+                  colors: appThemeColorsForPreference(widget.themePreference),
+                  child: page,
                 ),
-                feedbackRepository: const _FakeFeedbackRepository(),
-                generationRecordRepository: _recordRepository,
-                originalFileStore: const _FakeGenerationOriginalFileStore(),
-                photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
-                imageProcessor: const _FakeGenerationImageProcessor(),
-                backgroundR2UploadService:
-                    const _FakeBackgroundR2UploadService(),
-              );
-          ref.onDispose(service.dispose);
-          return service;
-        }),
-      ],
-      child: useExplicitTheme
-          ? CupertinoApp(
-              theme: appCupertinoThemeForPreference(widget.themePreference),
-              home: AppThemeColorsScope(
-                colors: appThemeColorsForPreference(widget.themePreference),
-                child: page,
-              ),
-            )
-          : CupertinoApp(home: page),
+              )
+            : CupertinoApp(home: page),
+      ),
     );
   }
+}
+
+class _NoopAppToastPresenter extends AppToastPresenter {
+  @override
+  void show(AppToastMessage message) {}
 }
 
 class _SeededModal extends StatefulWidget {
@@ -1606,15 +1699,22 @@ Future<void> _seedJobs(
       taskStatus: job.taskStatus?.wireValue,
       resultImageObjectId: job.resultImageObjectId,
     );
-    if (job.processedResultPath != null) {
-      _FakePhotoLibraryAssetStore.resultPaths['asset-result-${job.id}'] =
-          job.processedResultPath!;
+    if (job.processedResultPath != null ||
+        job.resultAvailability != GenerationRecordResultAvailability.none) {
+      final String resultAssetId = 'asset-result-${job.id}';
+      final String? processedResultPath = job.processedResultPath;
+      if (processedResultPath != null) {
+        _FakePhotoLibraryAssetStore.resultPaths[resultAssetId] =
+            processedResultPath;
+      }
       await repository.updateResultFields(
         recordId: job.id,
         updatedAt: job.updatedAt,
         resultAvailability:
-            GenerationRecordResultAvailability.savedToPhotoLibrary,
-        resultAssetId: 'asset-result-${job.id}',
+            job.resultAvailability == GenerationRecordResultAvailability.none
+            ? GenerationRecordResultAvailability.savedToPhotoLibrary
+            : job.resultAvailability,
+        resultAssetId: resultAssetId,
       );
     }
     final DateTime? negativeFeedbackSubmittedAt =
@@ -1985,6 +2085,8 @@ GenerationSubmissionJob _job({
   String? taskId,
   String? imagePath,
   String? processedResultPath,
+  GenerationRecordResultAvailability resultAvailability =
+      GenerationRecordResultAvailability.none,
   String? resultUrl,
   String? resultSaveErrorMessage,
   DateTime? resultNegativeFeedbackSubmittedAt,
@@ -2008,6 +2110,7 @@ GenerationSubmissionJob _job({
     ),
     resultUrl: resultUrl,
     processedResultPath: processedResultPath,
+    resultAvailability: resultAvailability,
     resultNegativeFeedbackSubmittedAt: resultNegativeFeedbackSubmittedAt,
     resultSaveErrorMessage: resultSaveErrorMessage,
     createdAt: now,

@@ -38,12 +38,15 @@ final billingControllerProvider =
       ],
     );
 
+enum BillingErrorKind { loadProducts, purchase, restore }
+
 class BillingControllerState {
   const BillingControllerState({
     this.products = const <BillingProduct>[],
     this.isLoading = false,
     this.isPurchasing = false,
     this.errorMessage,
+    this.errorKind,
     this.lastGrantedCredits,
     this.purchaseSuccessCredits,
   });
@@ -52,6 +55,7 @@ class BillingControllerState {
   final bool isLoading;
   final bool isPurchasing;
   final String? errorMessage;
+  final BillingErrorKind? errorKind;
   final int? lastGrantedCredits;
   final int? purchaseSuccessCredits;
 
@@ -60,6 +64,7 @@ class BillingControllerState {
     bool? isLoading,
     bool? isPurchasing,
     String? errorMessage,
+    BillingErrorKind? errorKind,
     bool clearErrorMessage = false,
     int? lastGrantedCredits,
     bool clearLastGrantedCredits = false,
@@ -73,6 +78,7 @@ class BillingControllerState {
       errorMessage: clearErrorMessage
           ? null
           : errorMessage ?? this.errorMessage,
+      errorKind: clearErrorMessage ? null : errorKind ?? this.errorKind,
       lastGrantedCredits: clearLastGrantedCredits
           ? null
           : lastGrantedCredits ?? this.lastGrantedCredits,
@@ -122,6 +128,7 @@ class BillingController extends Notifier<BillingControllerState> {
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Unable to load credit packs.',
+        errorKind: BillingErrorKind.loadProducts,
       );
     }
   }
@@ -146,6 +153,7 @@ class BillingController extends Notifier<BillingControllerState> {
         state = state.copyWith(
           isPurchasing: false,
           errorMessage: 'Purchase failed. Please try again.',
+          errorKind: BillingErrorKind.purchase,
         );
         return;
       case BillingPurchaseCompleted():
@@ -172,6 +180,7 @@ class BillingController extends Notifier<BillingControllerState> {
       state = state.copyWith(
         isPurchasing: false,
         errorMessage: 'Purchase completed, but credits could not be synced.',
+        errorKind: BillingErrorKind.purchase,
       );
     }
   }
@@ -204,6 +213,7 @@ class BillingController extends Notifier<BillingControllerState> {
       state = state.copyWith(
         isPurchasing: false,
         errorMessage: 'Restore failed. Please try again.',
+        errorKind: BillingErrorKind.restore,
       );
     }
   }

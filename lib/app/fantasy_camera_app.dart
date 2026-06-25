@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../auth/presentation/auth_providers.dart';
 import '../features/notifications/presentation/notification_providers.dart';
 import '../l10n/l10n.dart';
+import '../shared/toast/app_toast.dart';
 import '../settings/application/app_settings.dart';
 import '../theme/app_theme.dart';
 import 'app_router.dart';
@@ -28,7 +29,7 @@ class FantasyCameraApp extends StatelessWidget {
         ),
         ...overrides,
       ],
-      child: const _FantasyCameraAppView(),
+      child: const AppToastHost(child: _FantasyCameraAppView()),
     );
   }
 }

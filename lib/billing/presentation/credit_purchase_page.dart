@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../l10n/l10n.dart';
+import '../../shared/toast/app_toast.dart';
 import '../../theme/app_corners.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_theme.dart';
@@ -34,6 +35,27 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<BillingControllerState>(billingControllerProvider, (
+      BillingControllerState? previous,
+      BillingControllerState next,
+    ) {
+      final String? errorMessage = next.errorMessage;
+      if (errorMessage == null ||
+          (previous?.errorMessage == errorMessage &&
+              previous?.errorKind == next.errorKind)) {
+        return;
+      }
+      final AppToastService toastService = ref.read(appToastServiceProvider);
+      switch (next.errorKind) {
+        case BillingErrorKind.purchase:
+          toastService.showPurchaseFailure();
+        case BillingErrorKind.restore:
+          toastService.showRestorePurchaseFailure();
+        case BillingErrorKind.loadProducts:
+        case null:
+          break;
+      }
+    });
     final BillingControllerState state = ref.watch(billingControllerProvider);
     final double topInset = MediaQuery.paddingOf(context).top;
     final BillingProduct? selectedProduct = state.products.isEmpty
@@ -102,8 +124,6 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
                         },
                 ),
               ],
-              if (state.errorMessage case final String message)
-                _MessageBanner(message: message, danger: true),
               const SizedBox(height: 10),
               _PurchaseFooterLinks(
                 isBusy: state.isPurchasing,
@@ -519,31 +539,6 @@ class _EmptyPurchaseState extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MessageBanner extends StatelessWidget {
-  const _MessageBanner({required this.message, required this.danger});
-
-  final String message;
-  final bool danger;
-
-  @override
-  Widget build(BuildContext context) {
-    final AppThemeColors colors = AppThemeColors.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Text(
-        message,
-        textAlign: TextAlign.center,
-        textScaler: TextScaler.noScaling,
-        style: TextStyle(
-          color: danger ? AppColors.danger : colors.textPrimary,
-          fontSize: 12.5,
-          fontWeight: FontWeight.w600,
         ),
       ),
     );

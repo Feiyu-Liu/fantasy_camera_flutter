@@ -16,11 +16,13 @@ import 'package:smooth_corner/smooth_corner.dart';
 import '../../../app/app_router.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/presentation/widgets/app_blur_navigation_bar.dart';
+import '../../../shared/toast/app_toast.dart';
 import '../../../theme/app_corners.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_theme.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../data/generation_submission_adapters.dart';
+import '../domain/generation_record.dart';
 import '../domain/generation_submission_job.dart';
 import 'generation_hero_photo_view_page_options.dart';
 import 'generation_submission_providers.dart';
@@ -563,15 +565,15 @@ class _GenerationSubmissionDebugModalState
 
   bool _hasLocalSavedResult(GenerationSubmissionJob job) {
     return job.status == GenerationSubmissionStatus.resultSaved &&
-        job.processedResultPath != null;
+        job.hasProcessedResultPath;
+  }
+
+  bool _hasMissingSavedResult(GenerationSubmissionJob job) {
+    return job.hasMissingSavedResult;
   }
 
   bool _hasDisplayableResult(GenerationSubmissionJob job) {
-    if (_hasLocalSavedResult(job)) {
-      return true;
-    }
-    return job.status == GenerationSubmissionStatus.completed &&
-        job.resultUrl != null;
+    return job.hasResultDisplayTarget;
   }
 
   Future<void> _precacheAndStartResultArrivalAnimation(
@@ -726,9 +728,15 @@ class _GenerationSubmissionDebugModalState
         phase: _GalleryHeroArrivalPhase.idle,
       );
     });
-    await ref
-        .read(generationSubmissionControllerProvider.notifier)
-        .confirmJob(job.id);
+    try {
+      await ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .confirmJob(job.id);
+      _showToastForFailedUserSubmission(job.id);
+    } on Object catch (error) {
+      _debugLog('confirm job failure job=${job.id} error=$error');
+      ref.read(appToastServiceProvider).showGenerationSubmitFailure(null);
+    }
   }
 
   Future<void> _cancelJob(GenerationSubmissionJob job) async {
@@ -757,9 +765,15 @@ class _GenerationSubmissionDebugModalState
         phase: _GalleryHeroArrivalPhase.idle,
       );
     });
-    await ref
-        .read(generationSubmissionControllerProvider.notifier)
-        .retryJob(job.id);
+    try {
+      await ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .retryJob(job.id);
+      _showToastForFailedUserSubmission(job.id);
+    } on Object catch (error) {
+      _debugLog('retry job failure job=${job.id} error=$error');
+      _showToastForFailedUserSubmission(job.id, fallbackErrorCode: null);
+    }
   }
 
   Future<void> _removeJob(GenerationSubmissionJob job) async {
@@ -781,9 +795,14 @@ class _GenerationSubmissionDebugModalState
 
   Future<void> _toggleFavorite(GenerationSubmissionJob job) async {
     _debugLog('toggle favorite job=${job.id}');
-    await ref
-        .read(generationSubmissionControllerProvider.notifier)
-        .toggleResultFavorite(job.id);
+    try {
+      await ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .toggleResultFavorite(job.id);
+    } on Object catch (error) {
+      _debugLog('toggle favorite failure job=${job.id} error=$error');
+      ref.read(appToastServiceProvider).showFavoriteFailure();
+    }
   }
 
   Future<void> _performMoreAction(
@@ -793,28 +812,33 @@ class _GenerationSubmissionDebugModalState
     final GenerationSubmissionController controller = ref.read(
       generationSubmissionControllerProvider.notifier,
     );
-    try {
-      switch (action) {
-        case _HeroMoreAction.viewInAlbum:
-          _debugLog('more action view in album job=${job.id}');
+    switch (action) {
+      case _HeroMoreAction.viewInAlbum:
+        _debugLog('more action view in album job=${job.id}');
+        try {
           await controller.openPhotoLibrary(job.id);
-        case _HeroMoreAction.saveOriginal:
-          _debugLog('more action save original job=${job.id}');
+        } on Object catch (error) {
+          _debugLog('open photo library failure job=${job.id} error=$error');
+          ref.read(appToastServiceProvider).showOpenPhotoLibraryFailure();
+        }
+      case _HeroMoreAction.saveOriginal:
+        _debugLog('more action save original job=${job.id}');
+        try {
           await controller.saveOriginalToPhotoLibrary(job.id);
-        case _HeroMoreAction.retry:
-          _debugLog('more action retry job=${job.id}');
-          await _retryJob(job);
-        case _HeroMoreAction.dislike:
-          _debugLog('more action dislike job=${job.id}');
-          await _submitNegativeFeedbackWithReason(job);
-        case _HeroMoreAction.remove:
-          _debugLog('more action remove job=${job.id}');
-          await _removeJob(job);
-      }
-    } on Object catch (error) {
-      _debugLog(
-        'more action failure job=${job.id} action=${action.name} error=$error',
-      );
+          ref.read(appToastServiceProvider).showSaveOriginalSuccess();
+        } on Object catch (error) {
+          _debugLog('save original failure job=${job.id} error=$error');
+          ref.read(appToastServiceProvider).showSaveOriginalFailure();
+        }
+      case _HeroMoreAction.retry:
+        _debugLog('more action retry job=${job.id}');
+        await _retryJob(job);
+      case _HeroMoreAction.dislike:
+        _debugLog('more action dislike job=${job.id}');
+        await _submitNegativeFeedbackWithReason(job);
+      case _HeroMoreAction.remove:
+        _debugLog('more action remove job=${job.id}');
+        await _removeJob(job);
     }
   }
 
@@ -830,9 +854,15 @@ class _GenerationSubmissionDebugModalState
     if (!mounted || note == null) {
       return;
     }
-    await ref
-        .read(generationSubmissionControllerProvider.notifier)
-        .submitNegativeFeedback(job.id, note: note);
+    try {
+      await ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .submitNegativeFeedback(job.id, note: note);
+      ref.read(appToastServiceProvider).showFeedbackSuccess();
+    } on Object catch (error) {
+      _debugLog('submit negative feedback failure job=${job.id} error=$error');
+      ref.read(appToastServiceProvider).showFeedbackFailure();
+    }
   }
 
   Future<void> _loadResult(String jobId) async {
@@ -907,6 +937,7 @@ class _GenerationSubmissionDebugModalState
           );
     } on Object catch (error) {
       _debugLog('pick gallery failure error=$error');
+      ref.read(appToastServiceProvider).showGalleryImportFailure(error);
     } finally {
       _cancelGalleryExportProgressSubscription();
       if (mounted) {
@@ -918,6 +949,46 @@ class _GenerationSubmissionDebugModalState
         });
         _galleryExportProgress.value = 0;
       }
+    }
+  }
+
+  void _showToastForFailedUserSubmission(
+    String jobId, {
+    String? fallbackErrorCode,
+  }) {
+    final GenerationSubmissionJob? updatedJob = _findJobById(
+      ref.read(generationSubmissionControllerProvider).jobs,
+      jobId,
+    );
+    if (updatedJob == null) {
+      ref
+          .read(appToastServiceProvider)
+          .showGenerationSubmitFailure(fallbackErrorCode);
+      return;
+    }
+    switch (updatedJob.status) {
+      case GenerationSubmissionStatus.failed:
+        ref
+            .read(appToastServiceProvider)
+            .showGenerationSubmitFailure(
+              updatedJob.errorCode ?? fallbackErrorCode,
+            );
+      case GenerationSubmissionStatus.resultProcessingFailed:
+        ref.read(appToastServiceProvider).showResultSaveFailure();
+      case GenerationSubmissionStatus.awaitingConfirmation:
+      case GenerationSubmissionStatus.queued:
+      case GenerationSubmissionStatus.preparingUploadImage:
+      case GenerationSubmissionStatus.readingFile:
+      case GenerationSubmissionStatus.creatingUpload:
+      case GenerationSubmissionStatus.uploading:
+      case GenerationSubmissionStatus.uploadedWaitingTask:
+      case GenerationSubmissionStatus.creatingTask:
+      case GenerationSubmissionStatus.submitted:
+      case GenerationSubmissionStatus.pollingTask:
+      case GenerationSubmissionStatus.completed:
+      case GenerationSubmissionStatus.processingResultImage:
+      case GenerationSubmissionStatus.resultSaved:
+        break;
     }
   }
 
@@ -984,6 +1055,16 @@ class _GenerationSubmissionDebugModalState
         path: processedResultPath,
         key: const ValueKey<String>(
           'generation-submission-processed-result-image',
+        ),
+        failureLogLabel: 'processed result image',
+        failureMessage: l10n.generationSubmissionProcessedResultImageLoadFailed,
+      );
+    }
+
+    if (_hasMissingSavedResult(job)) {
+      return _HeroUnavailableImageSource(
+        key: const ValueKey<String>(
+          'generation-submission-processed-result-image-missing',
         ),
         failureLogLabel: 'processed result image',
         failureMessage: l10n.generationSubmissionProcessedResultImageLoadFailed,
@@ -1641,11 +1722,7 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
                     width: tileWidth,
                     height: itemHeight,
                     imageHeight: tileHeight,
-                    caption: _captionForJob(
-                      job,
-                      defaultMode:
-                          context.l10n.generationSubmissionDefaultMomentMode,
-                    ),
+                    caption: _captionForJob(job),
                     child: _JobThumbnail(
                       thumbnailKey: removing
                           ? 'generation-submission-removing-photo-${job.id}'
@@ -1670,10 +1747,7 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
     );
   }
 
-  String _captionForJob(
-    GenerationSubmissionJob job, {
-    required String defaultMode,
-  }) {
+  String _captionForJob(GenerationSubmissionJob job) {
     final DateTime createdAt = job.createdAt;
     final int hour = createdAt.hour == 0
         ? 12
@@ -1682,9 +1756,7 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
         : createdAt.hour;
     final String minute = createdAt.minute.toString().padLeft(2, '0');
     final String period = createdAt.hour >= 12 ? 'PM' : 'AM';
-    final String mode =
-        job.promptSelection?.captureMode.toUpperCase() ?? defaultMode;
-    return '$hour:$minute $period — $mode';
+    return '$hour:$minute $period';
   }
 }
 
@@ -1761,9 +1833,8 @@ class _JobThumbnail extends StatelessWidget {
     final bool reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final String thumbnailImagePath =
-        job.status == GenerationSubmissionStatus.resultSaved &&
-            job.processedResultPath != null
-        ? job.processedResultPath!
+        job.status == GenerationSubmissionStatus.resultSaved
+        ? job.processedResultPath ?? ''
         : job.imagePath;
     return GestureDetector(
       key: ValueKey<String>(
@@ -2262,6 +2333,19 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
         disableGestures: true,
       );
     }
+    if (imageSource is _HeroUnavailableImageSource) {
+      return PhotoViewGalleryPageOptions.customChild(
+        child: Padding(
+          padding: EdgeInsets.only(top: widget.topPadding),
+          child: _HeroImageFailure(message: imageSource.failureMessage),
+        ),
+        controller: controller,
+        initialScale: PhotoViewComputedScale.contained,
+        minScale: PhotoViewComputedScale.contained,
+        maxScale: PhotoViewComputedScale.covered * 3,
+        disableGestures: true,
+      );
+    }
     final _HeroImageSource originalImageSource = _originalImageSourceForJob(
       job,
     );
@@ -2425,6 +2509,9 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       if (imageSource == null) {
         continue;
       }
+      if (imageSource is _HeroUnavailableImageSource) {
+        continue;
+      }
       _resolveImageSize(imageSource);
     }
   }
@@ -2471,6 +2558,17 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       );
     }
 
+    if (job.hasMissingSavedResult) {
+      return _HeroUnavailableImageSource(
+        key: const ValueKey<String>(
+          'generation-submission-processed-result-image-missing',
+        ),
+        failureLogLabel: 'processed result image',
+        failureMessage:
+            context.l10n.generationSubmissionProcessedResultImageLoadFailed,
+      );
+    }
+
     final String? resultUrl = job.resultUrl;
     if (resultUrl == null) {
       return _originalImageSourceForJob(job);
@@ -2502,8 +2600,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
     if (state != null) {
       return state;
     }
-    if (job.status == GenerationSubmissionStatus.resultSaved &&
-        job.processedResultPath != null) {
+    if (job.hasResultDisplayTarget) {
       return const _GalleryHeroDisplayState(
         displayedKind: _GalleryHeroImageKind.result,
         phase: _GalleryHeroArrivalPhase.done,
@@ -2549,13 +2646,15 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
 
     return switch (job.status) {
       GenerationSubmissionStatus.completed => job.resultUrl != null,
-      GenerationSubmissionStatus.resultSaved => job.processedResultPath != null,
+      GenerationSubmissionStatus.resultSaved => job.hasResultDisplayTarget,
       _ => false,
     };
   }
 
   bool _canToggleFavorite(GenerationSubmissionJob job) {
     return job.status == GenerationSubmissionStatus.resultSaved &&
+        job.resultAvailability ==
+            GenerationRecordResultAvailability.savedToPhotoLibrary &&
         job.resultAssetId != null &&
         job.resultAssetId!.isNotEmpty;
   }
@@ -2629,6 +2728,18 @@ class _HeroNetworkImageSource extends _HeroImageSource {
 
   @override
   String get debugPath => path;
+}
+
+class _HeroUnavailableImageSource extends _HeroImageSource {
+  const _HeroUnavailableImageSource({
+    required super.key,
+    required super.failureLogLabel,
+    required super.failureMessage,
+  }) : super(path: '');
+
+  @override
+  ImageProvider get imageProvider =>
+      throw StateError('Unavailable image source does not resolve images.');
 }
 
 class _HeroImageFailure extends StatelessWidget {
@@ -2735,7 +2846,11 @@ class _HeroToolbarState extends State<_HeroToolbar>
   @override
   void didUpdateWidget(covariant _HeroToolbar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.onMoreActions != widget.onMoreActions && _expanded) {
+    final bool selectedJobChanged =
+        oldWidget.selectedJob.id != widget.selectedJob.id;
+    final bool menuBecameUnavailable =
+        oldWidget.onMoreActions != null && widget.onMoreActions == null;
+    if ((selectedJobChanged || menuBecameUnavailable) && _expanded) {
       _setExpanded(false);
     }
   }

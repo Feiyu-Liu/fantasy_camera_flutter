@@ -15,6 +15,7 @@ import '../../features/generation_submission/presentation/generation_submission_
 import '../../features/notifications/presentation/notification_providers.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/presentation/widgets/app_blur_navigation_bar.dart';
+import '../../shared/toast/app_toast.dart';
 import '../../theme/app_corners.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_theme.dart';
@@ -346,31 +347,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       return;
     }
 
-    final AppLocalizations l10n = context.l10n;
-    await showCupertinoDialog<void>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        final String title = failure == null
-            ? l10n.settingsClearOriginalCacheDoneTitle
-            : l10n.settingsClearOriginalCacheFailedTitle;
-        final String message = failure == null && result != null
-            ? _clearOriginalCacheMessage(result, l10n)
-            : l10n.settingsClearOriginalCacheFailedMessage;
-        return CupertinoAlertDialog(
-          title: Text(title),
-          content: Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(message),
-          ),
-          actions: <Widget>[
-            CupertinoDialogAction(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(l10n.commonOK),
-            ),
-          ],
-        );
-      },
-    );
+    final AppToastService toastService = ref.read(appToastServiceProvider);
+    if (failure != null || result == null) {
+      toastService.showClearOriginalCacheFailure();
+      return;
+    }
+    final String message = _clearOriginalCacheMessage(result, context.l10n);
+    if (result.hasFailures) {
+      toastService.showClearOriginalCachePartial(message: message);
+      return;
+    }
+    toastService.showClearOriginalCacheSuccess(message: message);
   }
 
   Future<void> _confirmClearOriginalCache() async {

@@ -347,7 +347,7 @@ class GenerationSubmissionService extends ChangeNotifier {
     _debugLog('retry start record=$recordId status=${record.pipelineStatus}');
     _stopTaskPolling(recordId);
     _cancelResultRetry(recordId);
-    _runtimeState.remove(recordId);
+    _runtimeState[recordId]?.clearSubmissionAttempt();
 
     if (status == GenerationRecordPipelineStatus.resultSaveFailed &&
         record.taskId != null) {
@@ -799,15 +799,6 @@ class GenerationSubmissionService extends ChangeNotifier {
       _debugLog(
         'submit backend failure record=$recordId stage=$stage code=${error.code} status=${error.statusCode} requestId=${error.requestId ?? 'none'} message=${error.message} details=${error.details ?? 'none'}',
       );
-      if (_isRecoverablePreUploadFailure(stage: stage, errorCode: error.code)) {
-        await _markRecoverablePreUploadFailure(
-          recordId: recordId,
-          stage: stage,
-          errorCode: error.code,
-          errorMessage: error.message,
-        );
-        return;
-      }
       await _failRecord(
         recordId: recordId,
         errorCode: error.code,
@@ -1587,41 +1578,6 @@ class GenerationSubmissionService extends ChangeNotifier {
     );
   }
 
-  bool _isRecoverablePreUploadFailure({
-    required String stage,
-    required String errorCode,
-  }) {
-    return (stage == 'preparingUploadImage' ||
-            stage == 'readingFile' ||
-            stage == 'creatingUpload') &&
-        (errorCode == 'network_timeout' || errorCode == 'network_error');
-  }
-
-  Future<void> _markRecoverablePreUploadFailure({
-    required String recordId,
-    required String stage,
-    required String errorCode,
-    required String errorMessage,
-  }) {
-    final GenerationRecordPipelineStatus status = switch (stage) {
-      'preparingUploadImage' ||
-      'readingFile' => GenerationRecordPipelineStatus.preparingUploadImage,
-      'creatingUpload' => GenerationRecordPipelineStatus.creatingUpload,
-      _ => GenerationRecordPipelineStatus.preparingUploadImage,
-    };
-    _debugLog(
-      'mark recoverable pre-upload failure record=$recordId status=${status.name} code=$errorCode message=$errorMessage',
-    );
-    _ensureBatchPollingStarted();
-    return _generationRecordRepository.updatePipelineStatus(
-      recordId: recordId,
-      status: status,
-      updatedAt: DateTime.now(),
-      errorCode: errorCode,
-      errorMessage: errorMessage,
-    );
-  }
-
   void _stopTaskPolling(String jobId) {
     _debugLog('batch polling forget job=$jobId');
   }
@@ -1710,6 +1666,8 @@ class GenerationSubmissionService extends ChangeNotifier {
     }
     final String? imagePath = await _sourcePathForRecord(record);
     final String? processedResultPath = await _resultPathForRecord(record);
+    final GenerationRecordResultAvailability resultAvailability =
+        _effectiveResultAvailabilityForRecord(record, processedResultPath);
     if (imagePath == null) {
       return GenerationSubmissionJob(
         id: record.recordId,
@@ -1724,6 +1682,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         errorMessage: record.errorMessage,
         promptSelection: _promptSelectionForRecord(record),
         processedResultPath: processedResultPath,
+        resultAvailability: resultAvailability,
         resultAssetId: record.resultAssetId,
         resultNotificationSeenAt: record.resultNotificationSeenAt,
         canSaveOriginalToPhotoLibrary: _canSaveOriginalToPhotoLibrary(record),
@@ -1763,6 +1722,7 @@ class GenerationSubmissionService extends ChangeNotifier {
       uploadImageSizeBytes: record.uploadSizeBytes,
       sourceExif: runtime?.sourceExif,
       processedResultPath: processedResultPath,
+      resultAvailability: resultAvailability,
       resultAssetId: record.resultAssetId,
       resultNotificationSeenAt: record.resultNotificationSeenAt,
       canSaveOriginalToPhotoLibrary: _canSaveOriginalToPhotoLibrary(record),
@@ -1824,18 +1784,30 @@ class GenerationSubmissionService extends ChangeNotifier {
     }
     final String? resultAssetId = record.resultAssetId;
     if (resultAssetId != null &&
-        record.resultAvailability ==
-            GenerationRecordResultAvailability.savedToPhotoLibrary.name) {
+        (record.resultAvailability ==
+                GenerationRecordResultAvailability.savedToPhotoLibrary.name ||
+            record.resultAvailability ==
+                GenerationRecordResultAvailability.missing.name)) {
       try {
         final String? resolvedPath = await _photoLibraryAssetStore
             .resolveImagePath(resultAssetId);
         if (resolvedPath != null && resolvedPath.isNotEmpty) {
           _runtimeFor(record.recordId).processedResultPath = resolvedPath;
+          if (record.resultAvailability ==
+              GenerationRecordResultAvailability.missing.name) {
+            await _generationRecordRepository.updateResultFields(
+              recordId: record.recordId,
+              updatedAt: DateTime.now(),
+              resultAvailability:
+                  GenerationRecordResultAvailability.savedToPhotoLibrary,
+            );
+          }
           return resolvedPath;
         }
         _debugLog(
           'result asset unresolved record=${record.recordId} asset=$resultAssetId',
         );
+        await _markPhotoLibraryResultMissing(record);
       } on Object catch (error) {
         _debugLog(
           'result asset resolve failure record=${record.recordId} asset=$resultAssetId error=$error',
@@ -1853,6 +1825,44 @@ class GenerationSubmissionService extends ChangeNotifier {
       return null;
     }
     return resultLocalCachePath;
+  }
+
+  GenerationRecordResultAvailability _effectiveResultAvailabilityForRecord(
+    GenerationRecord record,
+    String? processedResultPath,
+  ) {
+    final GenerationRecordResultAvailability storedAvailability =
+        generationRecordResultAvailabilityFromName(record.resultAvailability);
+    final String? resultAssetId = record.resultAssetId;
+    final bool hasResultAsset =
+        resultAssetId != null && resultAssetId.isNotEmpty;
+    if (!hasResultAsset) {
+      return storedAvailability;
+    }
+    if (storedAvailability == GenerationRecordResultAvailability.missing &&
+        processedResultPath != null &&
+        processedResultPath.isNotEmpty) {
+      return GenerationRecordResultAvailability.savedToPhotoLibrary;
+    }
+    if ((storedAvailability ==
+                GenerationRecordResultAvailability.savedToPhotoLibrary ||
+            storedAvailability == GenerationRecordResultAvailability.missing) &&
+        (processedResultPath == null || processedResultPath.isEmpty)) {
+      return GenerationRecordResultAvailability.missing;
+    }
+    return storedAvailability;
+  }
+
+  Future<void> _markPhotoLibraryResultMissing(GenerationRecord record) async {
+    if (record.resultAvailability ==
+        GenerationRecordResultAvailability.missing.name) {
+      return;
+    }
+    await _generationRecordRepository.updateResultFields(
+      recordId: record.recordId,
+      updatedAt: DateTime.now(),
+      resultAvailability: GenerationRecordResultAvailability.missing,
+    );
   }
 
   PromptSelectionSnapshot _promptSelectionForRecord(GenerationRecord record) {
@@ -1987,6 +1997,14 @@ class _RuntimeGenerationRecordState {
   String? uploadImagePath;
   Map<String, Object>? sourceExif;
   String? processedResultPath;
+
+  void clearSubmissionAttempt() {
+    resultUrl = null;
+    resultUrlExpiresAt = null;
+    uploadImagePath = null;
+    sourceExif = null;
+    processedResultPath = null;
+  }
 
   bool get hasFreshResultUrl {
     final String? url = resultUrl;
