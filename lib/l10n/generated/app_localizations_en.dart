@@ -360,6 +360,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Original cache could not be cleared. Try again later.';
 
   @override
+  String get settingsRedeemCodeTitle => 'Use redemption code';
+
+  @override
+  String get settingsRedeemCodeSubtitle => 'Use a code to get credits';
+
+  @override
   String get settingsManageSubscriptionTitle => 'Buy credits';
 
   @override

@@ -14,6 +14,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/presentati
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
 import 'package:fantasy_camera_flutter/settings/presentation/settings_page.dart';
+import 'package:fantasy_camera_flutter/shared/toast/app_toast.dart';
 import 'package:fantasy_camera_flutter/theme/app_colors.dart';
 import 'package:fantasy_camera_flutter/theme/app_theme.dart';
 import 'package:flutter/cupertino.dart';
@@ -27,6 +28,8 @@ void main() {
     _FakeAppSettingsRepository? appSettingsRepository,
     _FakeGenerationOriginalCacheCleaner? originalCacheCleaner,
     _FakeGenerationOriginalCacheStatsRepository? originalCacheStatsRepository,
+    _FakeCreditsRepository? creditsRepository,
+    _RecordingAppToastPresenter? toastPresenter,
     _FakeSettingsSignOutAction? signOutAction,
   }) async {
     final _FakeAppSettingsRepository settingsRepository =
@@ -36,57 +39,64 @@ void main() {
     final _FakeGenerationOriginalCacheStatsRepository statsRepository =
         originalCacheStatsRepository ??
         _FakeGenerationOriginalCacheStatsRepository();
+    final _FakeCreditsRepository fakeCreditsRepository =
+        creditsRepository ?? _FakeCreditsRepository();
     await tester.binding.setSurfaceSize(const Size(393, 852));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: <Override>[
-          authSessionProvider.overrideWith(
-            (_) => Stream<AuthSessionState>.value(
-              const AuthSessionState.signedIn(
-                AuthUser(id: 'user-1', email: 'alex@example.com'),
+      AppToastHost(
+        child: ProviderScope(
+          overrides: <Override>[
+            authSessionProvider.overrideWith(
+              (_) => Stream<AuthSessionState>.value(
+                const AuthSessionState.signedIn(
+                  AuthUser(id: 'user-1', email: 'alex@example.com'),
+                ),
               ),
             ),
-          ),
-          creditsRepositoryProvider.overrideWithValue(
-            const _FakeCreditsRepository(),
-          ),
-          creditBalanceCacheRepositoryProvider.overrideWithValue(
-            _FakeCreditBalanceCacheRepository(),
-          ),
-          appSettingsRepositoryProvider.overrideWithValue(settingsRepository),
-          generationOriginalCacheCleanerProvider.overrideWithValue(
-            cacheCleaner,
-          ),
-          generationOriginalCacheStatsRepositoryProvider.overrideWithValue(
-            statsRepository,
-          ),
-          if (signOutAction != null)
-            settingsSignOutActionProvider.overrideWithValue(signOutAction.call),
-        ],
-        child: Consumer(
-          builder: (BuildContext context, WidgetRef ref, _) {
-            final AppSettingsState appSettings = ref.watch(
-              appSettingsControllerProvider,
-            );
-            return CupertinoApp(
-              locale: localeForPreference(appSettings.localePreference),
-              theme: appCupertinoThemeForPreference(
-                appSettings.themePreference,
+            creditsRepositoryProvider.overrideWithValue(fakeCreditsRepository),
+            creditBalanceCacheRepositoryProvider.overrideWithValue(
+              _FakeCreditBalanceCacheRepository(),
+            ),
+            appToastPresenterProvider.overrideWithValue(
+              toastPresenter ?? _RecordingAppToastPresenter(),
+            ),
+            appSettingsRepositoryProvider.overrideWithValue(settingsRepository),
+            generationOriginalCacheCleanerProvider.overrideWithValue(
+              cacheCleaner,
+            ),
+            generationOriginalCacheStatsRepositoryProvider.overrideWithValue(
+              statsRepository,
+            ),
+            if (signOutAction != null)
+              settingsSignOutActionProvider.overrideWithValue(
+                signOutAction.call,
               ),
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              builder: (BuildContext context, Widget? child) {
-                return ProviderScope(
-                  overrides: <Override>[
-                    appLocalizationsProvider.overrideWithValue(context.l10n),
-                  ],
-                  child: child ?? const SizedBox.shrink(),
-                );
-              },
-              home: const SettingsPage(),
-            );
-          },
+          ],
+          child: Consumer(
+            builder: (BuildContext context, WidgetRef ref, _) {
+              final AppSettingsState appSettings = ref.watch(
+                appSettingsControllerProvider,
+              );
+              return CupertinoApp(
+                locale: localeForPreference(appSettings.localePreference),
+                theme: appCupertinoThemeForPreference(
+                  appSettings.themePreference,
+                ),
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                builder: (BuildContext context, Widget? child) {
+                  return ProviderScope(
+                    overrides: <Override>[
+                      appLocalizationsProvider.overrideWithValue(context.l10n),
+                    ],
+                    child: child ?? const SizedBox.shrink(),
+                  );
+                },
+                home: const SettingsPage(),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -163,6 +173,10 @@ void main() {
     expect(find.text('通用'), findsOneWidget);
     expect(find.text('语言切换'), findsOneWidget);
     expect(find.text('清除原图缓存'), findsOneWidget);
+    expect(find.text('使用兑换码'), findsOneWidget);
+
+    await scrollDownUntilTextVisible(tester, '购买积分');
+
     expect(find.text('购买积分'), findsOneWidget);
 
     await scrollDownUntilTextVisible(tester, '信息');
@@ -170,6 +184,9 @@ void main() {
     expect(find.text('信息'), findsOneWidget);
     expect(find.text('隐私政策'), findsOneWidget);
     expect(find.text('使用条款'), findsOneWidget);
+
+    await scrollDownUntilTextVisible(tester, '关于');
+
     expect(find.text('关于'), findsOneWidget);
     await scrollDownUntilTextVisible(tester, '联系开发者');
     expect(find.text('联系开发者'), findsOneWidget);
@@ -178,6 +195,7 @@ void main() {
 
     expect(find.text('账号'), findsOneWidget);
     expect(find.text('注销账号'), findsOneWidget);
+    await scrollDownUntilTextVisible(tester, '退出登录');
     expect(find.text('退出登录'), findsOneWidget);
     expect(find.text('Grid Lines'), findsNothing);
     expect(find.text('Cloud Storage'), findsNothing);
@@ -326,7 +344,13 @@ void main() {
   ) async {
     final _FakeGenerationOriginalCacheCleaner cacheCleaner =
         _FakeGenerationOriginalCacheCleaner(clearedCount: 3);
-    await pumpSettingsPage(tester, originalCacheCleaner: cacheCleaner);
+    final _RecordingAppToastPresenter toastPresenter =
+        _RecordingAppToastPresenter();
+    await pumpSettingsPage(
+      tester,
+      originalCacheCleaner: cacheCleaner,
+      toastPresenter: toastPresenter,
+    );
 
     await scrollDownUntilTextVisible(tester, '清除原图缓存');
 
@@ -346,7 +370,13 @@ void main() {
   ) async {
     final _FakeGenerationOriginalCacheCleaner cacheCleaner =
         _FakeGenerationOriginalCacheCleaner(clearedCount: 3);
-    await pumpSettingsPage(tester, originalCacheCleaner: cacheCleaner);
+    final _RecordingAppToastPresenter toastPresenter =
+        _RecordingAppToastPresenter();
+    await pumpSettingsPage(
+      tester,
+      originalCacheCleaner: cacheCleaner,
+      toastPresenter: toastPresenter,
+    );
 
     await scrollDownUntilTextVisible(tester, '清除原图缓存');
 
@@ -364,7 +394,13 @@ void main() {
   ) async {
     final _FakeGenerationOriginalCacheCleaner cacheCleaner =
         _FakeGenerationOriginalCacheCleaner(clearedCount: 3);
-    await pumpSettingsPage(tester, originalCacheCleaner: cacheCleaner);
+    final _RecordingAppToastPresenter toastPresenter =
+        _RecordingAppToastPresenter();
+    await pumpSettingsPage(
+      tester,
+      originalCacheCleaner: cacheCleaner,
+      toastPresenter: toastPresenter,
+    );
 
     await scrollDownUntilTextVisible(tester, '清除原图缓存');
 
@@ -375,8 +411,8 @@ void main() {
 
     expect(cacheCleaner.clearCallCount, 1);
     expect(cacheCleaner.statsCallCount, 2);
-    expect(find.text('清理完成'), findsOneWidget);
-    expect(find.text('已清除 3 张相机原图。'), findsOneWidget);
+    expect(toastPresenter.messages.single.title, '清理完成');
+    expect(toastPresenter.messages.single.message, '已清除 3 张相机原图。');
   });
 
   testWidgets('clear original cache row shows cached then latest size', (
@@ -476,6 +512,50 @@ void main() {
     expect(find.textContaining('2.00 MB', skipOffstage: false), findsOneWidget);
   });
 
+  testWidgets('redeem code row opens dialog and submits code', (
+    WidgetTester tester,
+  ) async {
+    final _RecordingAppToastPresenter toastPresenter =
+        _RecordingAppToastPresenter();
+    final _FakeCreditsRepository creditsRepository = _FakeCreditsRepository(
+      balance: 178,
+      redemptionResult: const CreditRedemptionResult(
+        grantedCredits: 50,
+        balance: 178,
+        reservedBalance: 0,
+        campaignId: 'campaign-1',
+        codeId: 'code-1',
+      ),
+    );
+    await pumpSettingsPage(
+      tester,
+      creditsRepository: creditsRepository,
+      toastPresenter: toastPresenter,
+    );
+
+    await scrollDownUntilTextVisible(tester, '使用兑换码');
+
+    expect(find.text('使用兑换码获取积分'), findsOneWidget);
+
+    await tester.tap(find.text('使用兑换码'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('兑换码'), findsOneWidget);
+    expect(find.text('输入兑换码'), findsOneWidget);
+
+    await tester.enterText(find.byType(CupertinoTextField), 'abcd-efgh-2345');
+    await tester.pump();
+    await tester.tap(find.text('兑换'));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(creditsRepository.redeemCalls, 1);
+    expect(creditsRepository.redeemedCode, 'ABCD-EFGH-2345');
+    expect(find.text('兑换码'), findsNothing);
+    expect(find.text('178 积分'), findsOneWidget);
+    expect(toastPresenter.messages.single.title, '已兑换 50 积分。');
+  });
+
   testWidgets('sign out row shows confirmation before signing out', (
     WidgetTester tester,
   ) async {
@@ -538,9 +618,7 @@ void main() {
               ),
             ),
           ),
-          creditsRepositoryProvider.overrideWithValue(
-            const _FakeCreditsRepository(),
-          ),
+          creditsRepositoryProvider.overrideWithValue(_FakeCreditsRepository()),
           appSettingsRepositoryProvider.overrideWithValue(
             _FakeAppSettingsRepository(),
           ),
@@ -582,6 +660,15 @@ class _FakeSettingsSignOutAction {
   }
 }
 
+class _RecordingAppToastPresenter extends AppToastPresenter {
+  final List<AppToastMessage> messages = <AppToastMessage>[];
+
+  @override
+  void show(AppToastMessage message) {
+    messages.add(message);
+  }
+}
+
 class _FakeAppSettingsRepository implements AppSettingsRepository {
   _FakeAppSettingsRepository({
     this.localePreference = AppLocalePreference.zh,
@@ -618,14 +705,28 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
 }
 
 class _FakeCreditsRepository implements CreditsRepository {
-  const _FakeCreditsRepository();
+  _FakeCreditsRepository({
+    this.balance = 128,
+    this.redemptionResult = const CreditRedemptionResult(
+      grantedCredits: 0,
+      balance: 128,
+      reservedBalance: 0,
+      campaignId: 'campaign-1',
+      codeId: 'code-1',
+    ),
+  });
+
+  final int balance;
+  final CreditRedemptionResult redemptionResult;
+  int redeemCalls = 0;
+  String? redeemedCode;
 
   @override
   Future<CreditBalance> fetchBalance() async {
     return CreditBalance(
-      balance: 128,
+      balance: balance,
       reservedBalance: 0,
-      lifetimeEarned: 128,
+      lifetimeEarned: balance,
       lifetimeSpent: 0,
       updatedAt: DateTime.utc(2026, 6, 12),
     );
@@ -633,13 +734,9 @@ class _FakeCreditsRepository implements CreditsRepository {
 
   @override
   Future<CreditRedemptionResult> redeemCode(String code) async {
-    return const CreditRedemptionResult(
-      grantedCredits: 0,
-      balance: 128,
-      reservedBalance: 0,
-      campaignId: 'campaign-1',
-      codeId: 'code-1',
-    );
+    redeemCalls += 1;
+    redeemedCode = code;
+    return redemptionResult;
   }
 }
 

@@ -104,6 +104,10 @@ class CreditRedemptionController extends Notifier<CreditRedemptionState> {
     );
   }
 
+  void reset() {
+    state = const CreditRedemptionState();
+  }
+
   Future<void> redeem() async {
     final String code = state.code.trim();
     if (code.isEmpty || state.isSubmitting) {

@@ -725,6 +725,18 @@ abstract class AppLocalizations {
   /// **'Original cache could not be cleared. Try again later.'**
   String get settingsClearOriginalCacheFailedMessage;
 
+  /// No description provided for @settingsRedeemCodeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use redemption code'**
+  String get settingsRedeemCodeTitle;
+
+  /// No description provided for @settingsRedeemCodeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a code to get credits'**
+  String get settingsRedeemCodeSubtitle;
+
   /// No description provided for @settingsManageSubscriptionTitle.
   ///
   /// In en, this message translates to:

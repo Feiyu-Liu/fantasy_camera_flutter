@@ -148,6 +148,8 @@
   },
   "settingsClearOriginalCacheFailedTitle": "Clear failed",
   "settingsClearOriginalCacheFailedMessage": "Original cache could not be cleared. Try again later.",
+  "settingsRedeemCodeTitle": "Use redemption code",
+  "settingsRedeemCodeSubtitle": "Use a code to get credits",
   "settingsManageSubscriptionTitle": "Buy credits",
   "settingsManageSubscriptionSubtitle": "Credit packs and restore",
   "settingsSectionInformation": "INFORMATION",

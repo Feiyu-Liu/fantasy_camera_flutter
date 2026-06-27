@@ -21,21 +21,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('redeem code panel submits code and clears input on success', (
+  testWidgets('does not render redemption code panel', (
     WidgetTester tester,
   ) async {
     final _FakeCreditsRepository creditsRepository = _FakeCreditsRepository();
     await tester.pumpCreditPurchasePage(creditsRepository: creditsRepository);
 
-    expect(find.text('兑换码'), findsOneWidget);
-    await tester.enterText(find.byType(CupertinoTextField), 'abcd-efgh-2345');
-    await tester.pump();
-    await tester.tap(find.text('兑换'));
-    await tester.pump();
-    await tester.pump();
-
-    expect(creditsRepository.redeemedCode, 'ABCD-EFGH-2345');
-    expect(find.text('ABCD-EFGH-2345'), findsNothing);
+    expect(find.text('兑换码'), findsNothing);
+    expect(find.text('输入兑换码'), findsNothing);
+    expect(creditsRepository.redeemedCode, isNull);
   });
 }
 

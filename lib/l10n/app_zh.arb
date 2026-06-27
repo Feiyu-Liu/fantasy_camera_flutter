@@ -148,6 +148,8 @@
   },
   "settingsClearOriginalCacheFailedTitle": "清理失败",
   "settingsClearOriginalCacheFailedMessage": "无法清除原图缓存，请稍后重试。",
+  "settingsRedeemCodeTitle": "使用兑换码",
+  "settingsRedeemCodeSubtitle": "使用兑换码获取积分",
   "settingsManageSubscriptionTitle": "购买积分",
   "settingsManageSubscriptionSubtitle": "积分包与恢复购买",
   "settingsSectionInformation": "信息",

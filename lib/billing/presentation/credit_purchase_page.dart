@@ -23,8 +23,6 @@ class CreditPurchasePage extends ConsumerStatefulWidget {
 }
 
 class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
-  final TextEditingController _redemptionCodeController =
-      TextEditingController();
   String? _selectedProductId;
 
   @override
@@ -33,12 +31,6 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
     scheduleMicrotask(() {
       ref.read(billingControllerProvider.notifier).loadProducts();
     });
-  }
-
-  @override
-  void dispose() {
-    _redemptionCodeController.dispose();
-    super.dispose();
   }
 
   @override
@@ -70,35 +62,7 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
           break;
       }
     });
-    ref.listen<CreditRedemptionState>(creditRedemptionControllerProvider, (
-      CreditRedemptionState? previous,
-      CreditRedemptionState next,
-    ) {
-      if (_redemptionCodeController.text != next.code) {
-        _redemptionCodeController.value = TextEditingValue(
-          text: next.code,
-          selection: TextSelection.collapsed(offset: next.code.length),
-        );
-      }
-
-      final AppToastService toastService = ref.read(appToastServiceProvider);
-      final int? grantedCredits = next.grantedCredits;
-      if (grantedCredits != null &&
-          grantedCredits != previous?.grantedCredits) {
-        toastService.showCreditRedemptionSuccess(grantedCredits);
-      }
-
-      final String? errorCode = next.errorCode;
-      if (errorCode != null &&
-          (previous?.errorCode != errorCode ||
-              previous?.errorMessage != next.errorMessage)) {
-        toastService.showCreditRedemptionFailure(errorCode);
-      }
-    });
     final BillingControllerState state = ref.watch(billingControllerProvider);
-    final CreditRedemptionState redemptionState = ref.watch(
-      creditRedemptionControllerProvider,
-    );
     final double topInset = MediaQuery.paddingOf(context).top;
     final BillingProduct? selectedProduct = state.products.isEmpty
         ? null
@@ -118,24 +82,6 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
             children: <Widget>[
               const _PurchaseHero(),
               const SizedBox(height: 24),
-              _RedemptionCodePanel(
-                controller: _redemptionCodeController,
-                state: redemptionState,
-                onChanged: (String value) {
-                  ref
-                      .read(creditRedemptionControllerProvider.notifier)
-                      .setCode(value);
-                },
-                onSubmitted: () {
-                  HapticFeedback.selectionClick();
-                  unawaited(
-                    ref
-                        .read(creditRedemptionControllerProvider.notifier)
-                        .redeem(),
-                  );
-                },
-              ),
-              const SizedBox(height: 18),
               if (state.isLoading)
                 Padding(
                   padding: const EdgeInsets.only(top: 40),
@@ -322,144 +268,6 @@ class _PurchaseHero extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RedemptionCodePanel extends StatelessWidget {
-  const _RedemptionCodePanel({
-    required this.controller,
-    required this.state,
-    required this.onChanged,
-    required this.onSubmitted,
-  });
-
-  final TextEditingController controller;
-  final CreditRedemptionState state;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onSubmitted;
-
-  @override
-  Widget build(BuildContext context) {
-    final AppThemeColors colors = AppThemeColors.of(context);
-    return DecoratedBox(
-      decoration: AppCorners.controlDecoration(
-        color: colors.surface,
-        side: BorderSide(color: colors.border, width: 0.5),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              context.l10n.billingRedeemCodeTitle,
-              textScaler: TextScaler.noScaling,
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                height: 1,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: CupertinoTextField(
-                    controller: controller,
-                    enabled: !state.isSubmitting,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    placeholder: context.l10n.billingRedeemCodePlaceholder,
-                    placeholderStyle: TextStyle(
-                      color: colors.textMuted,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.4,
-                    ),
-                    textCapitalization: TextCapitalization.characters,
-                    textInputAction: TextInputAction.done,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    clearButtonMode: OverlayVisibilityMode.editing,
-                    cursorColor: colors.textPrimary,
-                    decoration: BoxDecoration(
-                      color: colors.background,
-                      border: Border.all(color: colors.border, width: 0.5),
-                      borderRadius: AppCorners.controlBorderRadius,
-                    ),
-                    onChanged: onChanged,
-                    onSubmitted: (_) {
-                      if (state.canSubmit) {
-                        onSubmitted();
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                _RedeemButton(
-                  isSubmitting: state.isSubmitting,
-                  isEnabled: state.canSubmit,
-                  onPressed: onSubmitted,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RedeemButton extends StatelessWidget {
-  const _RedeemButton({
-    required this.isSubmitting,
-    required this.isEnabled,
-    required this.onPressed,
-  });
-
-  final bool isSubmitting;
-  final bool isEnabled;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final AppThemeColors colors = AppThemeColors.of(context);
-    return CupertinoButton(
-      padding: EdgeInsets.zero,
-      minimumSize: Size.zero,
-      onPressed: isEnabled ? onPressed : null,
-      child: DecoratedBox(
-        decoration: AppCorners.controlDecoration(
-          color: isEnabled ? colors.textPrimary : colors.controlFillDisabled,
-          side: BorderSide(color: colors.border, width: 0.5),
-        ),
-        child: SizedBox(
-          width: 76,
-          height: 44,
-          child: Center(
-            child: isSubmitting
-                ? CupertinoActivityIndicator(color: colors.inverseText)
-                : Text(
-                    context.l10n.billingRedeemCodeButton,
-                    textScaler: TextScaler.noScaling,
-                    style: TextStyle(
-                      color: colors.inverseText,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-          ),
         ),
       ),
     );

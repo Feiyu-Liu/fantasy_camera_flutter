@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +10,7 @@ import 'package:smooth_corner/smooth_corner.dart';
 import '../../auth/domain/auth_user.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../app/app_router.dart';
+import '../../billing/presentation/billing_providers.dart';
 import '../../features/backend_api/domain/credit_balance.dart';
 import '../../features/backend_api/presentation/backend_api_providers.dart';
 import '../../features/generation_submission/application/generation_original_cache_cleaner.dart';
@@ -142,6 +145,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 onPressed: _confirmClearOriginalCache,
               ),
               _SettingsActionRow(
+                title: l10n.settingsRedeemCodeTitle,
+                subtitle: l10n.settingsRedeemCodeSubtitle,
+                onPressed: _showRedeemCodeDialog,
+              ),
+              _SettingsActionRow(
                 title: l10n.settingsManageSubscriptionTitle,
                 subtitle: l10n.settingsManageSubscriptionSubtitle,
                 onPressed: _openCreditPurchase,
@@ -229,6 +237,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   void _handlePlaceholderAction() {
     HapticFeedback.selectionClick();
+  }
+
+  Future<void> _showRedeemCodeDialog() async {
+    HapticFeedback.selectionClick();
+    ref.read(creditRedemptionControllerProvider.notifier).reset();
+    await showCupertinoDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return const _RedeemCodeDialog();
+      },
+    );
+    if (!mounted) {
+      return;
+    }
+    ref.read(creditRedemptionControllerProvider.notifier).reset();
   }
 
   Future<void> _confirmSignOut() async {
@@ -932,6 +955,137 @@ class _SettingsActionRow extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _RedeemCodeDialog extends ConsumerStatefulWidget {
+  const _RedeemCodeDialog();
+
+  @override
+  ConsumerState<_RedeemCodeDialog> createState() => _RedeemCodeDialogState();
+}
+
+class _RedeemCodeDialogState extends ConsumerState<_RedeemCodeDialog> {
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.delayed(const Duration(milliseconds: 280), () {
+      if (!mounted) {
+        return;
+      }
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<CreditRedemptionState>(creditRedemptionControllerProvider, (
+      CreditRedemptionState? previous,
+      CreditRedemptionState next,
+    ) {
+      if (_controller.text != next.code) {
+        _controller.value = TextEditingValue(
+          text: next.code,
+          selection: TextSelection.collapsed(offset: next.code.length),
+        );
+      }
+
+      final AppToastService toastService = ref.read(appToastServiceProvider);
+      final int? grantedCredits = next.grantedCredits;
+      if (grantedCredits != null &&
+          grantedCredits != previous?.grantedCredits) {
+        toastService.showCreditRedemptionSuccess(grantedCredits);
+        Navigator.of(context).pop();
+        return;
+      }
+
+      final String? errorCode = next.errorCode;
+      if (errorCode != null &&
+          (previous?.errorCode != errorCode ||
+              previous?.errorMessage != next.errorMessage)) {
+        toastService.showCreditRedemptionFailure(errorCode);
+      }
+    });
+
+    final CreditRedemptionState state = ref.watch(
+      creditRedemptionControllerProvider,
+    );
+    final AppThemeColors colors = AppThemeColors.of(context);
+    final AppLocalizations l10n = context.l10n;
+    return CupertinoAlertDialog(
+      title: Text(l10n.billingRedeemCodeTitle),
+      content: Padding(
+        padding: const EdgeInsets.only(top: 14),
+        child: CupertinoTextField(
+          controller: _controller,
+          focusNode: _focusNode,
+          enabled: !state.isSubmitting,
+          autofocus: false,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          placeholder: l10n.billingRedeemCodePlaceholder,
+          placeholderStyle: TextStyle(
+            color: colors.textMuted,
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+          ),
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.4,
+          ),
+          textCapitalization: TextCapitalization.characters,
+          textInputAction: TextInputAction.done,
+          autocorrect: false,
+          enableSuggestions: false,
+          clearButtonMode: OverlayVisibilityMode.editing,
+          cursorColor: colors.textPrimary,
+          decoration: BoxDecoration(
+            color: colors.background,
+            border: Border.all(color: colors.border, width: 0.5),
+            borderRadius: AppCorners.controlBorderRadius,
+          ),
+          onChanged: (String value) {
+            ref
+                .read(creditRedemptionControllerProvider.notifier)
+                .setCode(value);
+          },
+          onSubmitted: (_) => _submitIfPossible(state),
+        ),
+      ),
+      actions: <Widget>[
+        CupertinoDialogAction(
+          onPressed: state.isSubmitting
+              ? null
+              : () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        CupertinoDialogAction(
+          onPressed: state.canSubmit ? () => _submitIfPossible(state) : null,
+          child: state.isSubmitting
+              ? const CupertinoActivityIndicator(radius: 9)
+              : Text(l10n.billingRedeemCodeButton),
+        ),
+      ],
+    );
+  }
+
+  void _submitIfPossible(CreditRedemptionState state) {
+    if (!state.canSubmit) {
+      return;
+    }
+    HapticFeedback.selectionClick();
+    unawaited(ref.read(creditRedemptionControllerProvider.notifier).redeem());
   }
 }
 

@@ -341,6 +341,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsClearOriginalCacheFailedMessage => '无法清除原图缓存，请稍后重试。';
 
   @override
+  String get settingsRedeemCodeTitle => '使用兑换码';
+
+  @override
+  String get settingsRedeemCodeSubtitle => '使用兑换码获取积分';
+
+  @override
   String get settingsManageSubscriptionTitle => '购买积分';
 
   @override
