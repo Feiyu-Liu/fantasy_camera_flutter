@@ -94,6 +94,37 @@ void main() {
     );
   });
 
+  test('creates gallery record with app-private original copy', () async {
+    final DateTime createdAt = DateTime.utc(2026, 6, 4, 2);
+
+    await repository.createGalleryRecord(
+      recordId: 'record-gallery-local',
+      createdAt: createdAt,
+      originalLocalPath: 'originals/2026/06/04/record-gallery-local.heic',
+      originalAssetId: 'asset-1',
+      originalFormat: 'heic',
+    );
+
+    final GenerationRecord? record = await repository.findById(
+      'record-gallery-local',
+    );
+
+    expect(record, isNotNull);
+    expect(
+      record!.originalSourceType,
+      GenerationRecordOriginalSourceType.gallery.name,
+    );
+    expect(
+      record.originalAvailability,
+      GenerationRecordOriginalAvailability.available.name,
+    );
+    expect(
+      record.originalLocalPath,
+      'originals/2026/06/04/record-gallery-local.heic',
+    );
+    expect(record.originalAssetId, 'asset-1');
+  });
+
   test('marks original cleared without deleting record', () async {
     final DateTime createdAt = DateTime.utc(2026, 6, 4, 3);
     final DateTime clearedAt = DateTime.utc(2026, 6, 5, 3);

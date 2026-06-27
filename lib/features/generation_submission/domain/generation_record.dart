@@ -99,8 +99,8 @@ const Set<GenerationRecordPipelineStatus> activeGenerationRecordStatuses =
       GenerationRecordPipelineStatus.processingResultImage,
     };
 
-const Set<GenerationRecordPipelineStatus>
-clearableCameraOriginalPipelineStatuses = <GenerationRecordPipelineStatus>{
-  GenerationRecordPipelineStatus.resultSaved,
-  GenerationRecordPipelineStatus.canceled,
-};
+const Set<GenerationRecordPipelineStatus> clearableOriginalPipelineStatuses =
+    <GenerationRecordPipelineStatus>{
+      GenerationRecordPipelineStatus.resultSaved,
+      GenerationRecordPipelineStatus.canceled,
+    };

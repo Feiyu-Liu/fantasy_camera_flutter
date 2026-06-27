@@ -118,6 +118,7 @@ class GenerationRecordRepository {
   Future<void> createGalleryRecord({
     required String recordId,
     required DateTime createdAt,
+    String? originalLocalPath,
     String? originalAssetId,
     DateTime? originalCapturedAt,
     String? originalFormat,
@@ -140,8 +141,11 @@ class GenerationRecordRepository {
                 GenerationRecordPipelineStatus.awaitingConfirmation.name,
             originalSourceType: GenerationRecordOriginalSourceType.gallery.name,
             originalAvailability:
-                GenerationRecordOriginalAvailability.external.name,
+                originalLocalPath == null || originalLocalPath.isEmpty
+                ? GenerationRecordOriginalAvailability.external.name
+                : GenerationRecordOriginalAvailability.available.name,
             resultAvailability: GenerationRecordResultAvailability.none.name,
+            originalLocalPath: Value<String?>(originalLocalPath),
             originalAssetId: Value<String?>(originalAssetId),
             originalCapturedAt: Value<DateTime?>(originalCapturedAt),
             originalFormat: Value<String?>(originalFormat),
@@ -450,12 +454,13 @@ class GenerationRecordRepository {
   }
 
   Future<List<GenerationRecord>> listClearableCameraOriginals() async {
+    return listClearableLocalOriginals();
+  }
+
+  Future<List<GenerationRecord>> listClearableLocalOriginals() async {
     final List<GenerationRecord> candidates =
         await (_database.select(_database.generationRecords)..where(
               ($GenerationRecordsTable table) =>
-                  table.originalSourceType.equals(
-                    GenerationRecordOriginalSourceType.camera.name,
-                  ) &
                   table.originalAvailability.equals(
                     GenerationRecordOriginalAvailability.available.name,
                   ) &
@@ -467,7 +472,7 @@ class GenerationRecordRepository {
         .where((GenerationRecord record) {
           final GenerationRecordPipelineStatus status =
               generationRecordPipelineStatusFromName(record.pipelineStatus);
-          return clearableCameraOriginalPipelineStatuses.contains(status);
+          return clearableOriginalPipelineStatuses.contains(status);
         })
         .toList(growable: false);
   }

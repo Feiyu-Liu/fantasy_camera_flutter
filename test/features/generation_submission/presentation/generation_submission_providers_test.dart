@@ -142,8 +142,13 @@ void main() {
     expect(job.uploadSessionId, 'upload-1');
     expect(job.taskId, 'task-1');
     expect(job.taskStatus, GenerationTaskStatus.pending);
-    expect(imageProcessor.preparedSourcePaths, <String>['/tmp/photo.jpg']);
-    expect(job.uploadImagePath, '/tmp/photo.jpg.cleaned.jpg');
+    expect(imageProcessor.preparedSourcePaths, <String>[
+      '/resolved/originals/2026/06/04/$jobId.heic',
+    ]);
+    expect(
+      job.uploadImagePath,
+      '/resolved/originals/2026/06/04/$jobId.heic.cleaned.jpg',
+    );
     expect(job.uploadImageSizeBytes, 4);
     expect(job.sourceExif, <String, Object>{
       'DateTimeOriginal': '2026:05:29 00:00:00',
@@ -285,7 +290,9 @@ void main() {
       notifier.confirmJob(jobId),
     ]);
 
-    expect(imageProcessor.preparedSourcePaths, <String>['/tmp/photo.jpg']);
+    expect(imageProcessor.preparedSourcePaths, <String>[
+      '/resolved/originals/2026/06/04/$jobId.heic',
+    ]);
     expect(uploadRepository.events, <String>['create:image/jpeg:4']);
     expect(backgroundR2UploadService.events, hasLength(1));
     expect(taskRepository.createdInputs, isEmpty);
@@ -383,7 +390,7 @@ void main() {
   );
 
   test(
-    'resolves gallery original from asset id after service restart',
+    'restores gallery original from app-private copy after service restart',
     () async {
       final GenerationRecordDatabase database =
           GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
@@ -415,7 +422,7 @@ void main() {
       );
       final GenerationRecord? record = await repository.findById(recordId);
       expect(record?.originalAssetId, 'asset-gallery-1');
-      expect(record?.originalLocalPath, isNull);
+      expect(record?.originalLocalPath, 'originals/2026/06/04/$recordId.heic');
 
       final GenerationSubmissionService restartedService =
           GenerationSubmissionService(
@@ -433,10 +440,11 @@ void main() {
       final GenerationSubmissionState state = await restartedService
           .stateForRecords(await repository.listRecords());
 
-      expect(state.jobs.single.imagePath, '/photos/asset-gallery-1.heic');
-      expect(photoLibraryAssetStore.resolvedAssetIds, <String>[
-        'asset-gallery-1',
-      ]);
+      expect(
+        state.jobs.single.imagePath,
+        '/resolved/originals/2026/06/04/$recordId.heic',
+      );
+      expect(photoLibraryAssetStore.resolvedAssetIds, isEmpty);
     },
   );
 
@@ -2112,6 +2120,19 @@ class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
     storedPaths.add('$sourcePath->$storedPath');
     storedRelativePaths.add(storedPath);
     return StoredOriginalFile(path: storedPath, format: 'heic');
+  }
+
+  @override
+  Future<StoredOriginalFile> storeGalleryOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime importedAt,
+  }) async {
+    return storeCameraOriginal(
+      recordId: recordId,
+      sourcePath: sourcePath,
+      capturedAt: importedAt,
+    );
   }
 
   @override

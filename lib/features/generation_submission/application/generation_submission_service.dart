@@ -165,20 +165,49 @@ class GenerationSubmissionService extends ChangeNotifier {
     _debugLog(
       'queue gallery record=$recordId path=${file.path} asset=${originalAssetId ?? 'none'}',
     );
-    await _generationRecordRepository.createGalleryRecord(
-      recordId: recordId,
-      createdAt: now,
-      originalAssetId: originalAssetId,
-      promptStyle: snapshot.promptStyle,
-      captureMode: snapshot.captureMode,
-      appInputContractId: snapshot.appInputContractId,
-      userInputJson: jsonEncode(snapshot.userInput),
-    );
-    _runtimeState[recordId] = _RuntimeGenerationRecordState(
-      originalPath: file.path,
-      promptSelection: snapshot,
-    );
-    notifyListeners();
+    try {
+      final StoredOriginalFile stored = await _originalFileStore
+          .storeGalleryOriginal(
+            recordId: recordId,
+            sourcePath: file.path,
+            importedAt: now,
+          );
+      await _generationRecordRepository.createGalleryRecord(
+        recordId: recordId,
+        createdAt: now,
+        originalLocalPath: stored.path,
+        originalAssetId: originalAssetId,
+        originalFormat: stored.format,
+        promptStyle: snapshot.promptStyle,
+        captureMode: snapshot.captureMode,
+        appInputContractId: snapshot.appInputContractId,
+        userInputJson: jsonEncode(snapshot.userInput),
+      );
+      _runtimeState[recordId] = _RuntimeGenerationRecordState(
+        originalPath: await _originalFileStore.resolveOriginalPath(stored.path),
+        promptSelection: snapshot,
+      );
+      _debugLog(
+        'queue gallery success record=$recordId storedPath=${stored.path}',
+      );
+      notifyListeners();
+    } on Object catch (error) {
+      _debugLog('queue gallery failure record=$recordId error=$error');
+      await _generationRecordRepository.createLocalOriginalSaveFailedRecord(
+        recordId: recordId,
+        createdAt: now,
+        errorCode: 'local_original_save_failed',
+        errorMessage: error.toString(),
+        promptStyle: snapshot.promptStyle,
+        captureMode: snapshot.captureMode,
+        appInputContractId: snapshot.appInputContractId,
+        userInputJson: jsonEncode(snapshot.userInput),
+      );
+      _runtimeState[recordId] = _RuntimeGenerationRecordState(
+        promptSelection: snapshot,
+      );
+      notifyListeners();
+    }
     return recordId;
   }
 

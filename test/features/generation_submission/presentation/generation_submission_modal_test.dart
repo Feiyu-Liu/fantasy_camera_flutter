@@ -1544,6 +1544,7 @@ class _NotifyingGenerationRecordRepository extends GenerationRecordRepository {
   Future<void> createGalleryRecord({
     required String recordId,
     required DateTime createdAt,
+    String? originalLocalPath,
     String? originalAssetId,
     DateTime? originalCapturedAt,
     String? originalFormat,
@@ -1558,6 +1559,7 @@ class _NotifyingGenerationRecordRepository extends GenerationRecordRepository {
     await super.createGalleryRecord(
       recordId: recordId,
       createdAt: createdAt,
+      originalLocalPath: originalLocalPath,
       originalAssetId: originalAssetId,
       originalCapturedAt: originalCapturedAt,
       originalFormat: originalFormat,
@@ -1979,6 +1981,19 @@ class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
     required DateTime capturedAt,
   }) async {
     return StoredOriginalFile(path: sourcePath, format: 'jpg');
+  }
+
+  @override
+  Future<StoredOriginalFile> storeGalleryOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime importedAt,
+  }) async {
+    return storeCameraOriginal(
+      recordId: recordId,
+      sourcePath: sourcePath,
+      capturedAt: importedAt,
+    );
   }
 }
 

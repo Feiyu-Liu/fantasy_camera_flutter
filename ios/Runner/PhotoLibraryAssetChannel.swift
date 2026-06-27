@@ -2,6 +2,7 @@ import Flutter
 import Photos
 import PhotosUI
 import UIKit
+import UniformTypeIdentifiers
 
 final class PhotoLibraryAssetChannel: NSObject {
   private let channel: FlutterMethodChannel
@@ -77,41 +78,35 @@ final class PhotoLibraryAssetChannel: NSObject {
   }
 
   private func pickImage(result: @escaping FlutterResult) {
-    requestReadWriteAccess { granted in
-      DispatchQueue.main.async {
-        guard granted else {
-          result(FlutterError(code: "access_denied", message: "Photo library access denied.", details: nil))
-          return
-        }
-        self.clearStaleGalleryPickerIfNeeded()
-        guard self.galleryPickerDelegate == nil else {
-          result(FlutterError(code: "picker_active", message: "Photo picker is already active.", details: nil))
-          return
-        }
-        guard let rootViewController = self.rootViewController() else {
-          result(FlutterError(code: "missing_root_view_controller", message: "Unable to present photo picker.", details: nil))
-          return
-        }
-
-        var configuration = PHPickerConfiguration(photoLibrary: .shared())
-        configuration.filter = .images
-        configuration.selectionLimit = 1
-        configuration.preferredAssetRepresentationMode = .current
-        let picker = PHPickerViewController(configuration: configuration)
-        let delegate = GalleryImagePickerDelegate(
-          picker: picker,
-          exportAssetForDisplay: self.exportAssetForDisplay(assetId:progress:completion:),
-          makeFlutterError: self.flutterError(code:error:),
-          finish: { [weak self] response in
-            self?.galleryPickerDelegate = nil
-            result(response)
-          }
-        )
-        picker.delegate = delegate
-        picker.presentationController?.delegate = delegate
-        self.galleryPickerDelegate = delegate
-        rootViewController.present(picker, animated: true)
+    DispatchQueue.main.async {
+      self.clearStaleGalleryPickerIfNeeded()
+      guard self.galleryPickerDelegate == nil else {
+        result(FlutterError(code: "picker_active", message: "Photo picker is already active.", details: nil))
+        return
       }
+      guard let rootViewController = self.rootViewController() else {
+        result(FlutterError(code: "missing_root_view_controller", message: "Unable to present photo picker.", details: nil))
+        return
+      }
+
+      var configuration = PHPickerConfiguration(photoLibrary: .shared())
+      configuration.filter = .images
+      configuration.selectionLimit = 1
+      configuration.preferredAssetRepresentationMode = .current
+      let picker = PHPickerViewController(configuration: configuration)
+      let delegate = GalleryImagePickerDelegate(
+        picker: picker,
+        sendProgress: self.sendGalleryExportProgress(assetId:progress:),
+        makeFlutterError: self.flutterError(code:error:),
+        finish: { [weak self] response in
+          self?.galleryPickerDelegate = nil
+          result(response)
+        }
+      )
+      picker.delegate = delegate
+      picker.presentationController?.delegate = delegate
+      self.galleryPickerDelegate = delegate
+      rootViewController.present(picker, animated: true)
     }
   }
 
@@ -443,11 +438,12 @@ extension PhotoLibraryAssetChannel: FlutterStreamHandler {
 
 private final class GalleryImagePickerDelegate: NSObject, PHPickerViewControllerDelegate, UIAdaptivePresentationControllerDelegate {
   private weak var picker: PHPickerViewController?
-  private let exportAssetForDisplay: (String, ((Double) -> Void)?, @escaping (String?, Error?) -> Void) -> Void
+  private let sendProgress: (String, Double) -> Void
   private let makeFlutterError: (String, Error) -> FlutterError
   private let finish: (Any?) -> Void
   private var didReceivePickerResult = false
   private var didFinish = false
+  private var progressObservation: NSKeyValueObservation?
 
   var isPickerPresented: Bool {
     guard let picker = picker else {
@@ -458,12 +454,12 @@ private final class GalleryImagePickerDelegate: NSObject, PHPickerViewController
 
   init(
     picker: PHPickerViewController,
-    exportAssetForDisplay: @escaping (String, ((Double) -> Void)?, @escaping (String?, Error?) -> Void) -> Void,
+    sendProgress: @escaping (String, Double) -> Void,
     makeFlutterError: @escaping (String, Error) -> FlutterError,
     finish: @escaping (Any?) -> Void
   ) {
     self.picker = picker
-    self.exportAssetForDisplay = exportAssetForDisplay
+    self.sendProgress = sendProgress
     self.makeFlutterError = makeFlutterError
     self.finish = finish
     super.init()
@@ -477,31 +473,92 @@ private final class GalleryImagePickerDelegate: NSObject, PHPickerViewController
       finishOnce(nil)
       return
     }
-    guard let assetId = picked.assetIdentifier else {
+
+    let assetId = picked.assetIdentifier
+    let progressId = assetId ?? UUID().uuidString
+    guard let typeIdentifier = picked.itemProvider.registeredTypeIdentifiers.first(where: { identifier in
+      UTType(identifier)?.conforms(to: .image) ?? false
+    }) else {
       finishOnce(FlutterError(
-        code: "missing_asset_id",
-        message: "Picked image did not return an asset id.",
+        code: "missing_type_identifier",
+        message: "Picked image did not provide an image representation.",
         details: nil
       ))
       return
     }
 
-    exportAssetForDisplay(assetId, nil) { [weak self] path, error in
-      DispatchQueue.main.async {
-        guard let self = self else {
-          return
-        }
-        if let error = error {
+    sendProgress(progressId, 0)
+    let progress = picked.itemProvider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { [weak self] url, error in
+      guard let self = self else {
+        return
+      }
+      if let error = error {
+        DispatchQueue.main.async {
           self.finishOnce(self.makeFlutterError("export_failed", error))
-          return
         }
-        guard let path = path else {
-          self.finishOnce(nil)
-          return
+        return
+      }
+      guard let url = url else {
+        DispatchQueue.main.async {
+          self.finishOnce(FlutterError(
+            code: "export_failed",
+            message: "Picked image file was unavailable.",
+            details: nil
+          ))
         }
-        self.finishOnce(["path": path, "assetId": assetId])
+        return
+      }
+      do {
+        let path = try self.copyPickedImageToTemporaryImportDirectory(
+          sourceURL: url,
+          typeIdentifier: typeIdentifier,
+          progressId: progressId
+        )
+        DispatchQueue.main.async {
+          var response: [String: Any] = ["path": path]
+          if let assetId = assetId, !assetId.isEmpty {
+            response["assetId"] = assetId
+          }
+          self.finishOnce(response)
+        }
+      } catch {
+        DispatchQueue.main.async {
+          self.finishOnce(self.makeFlutterError("export_failed", error))
+        }
       }
     }
+    progressObservation = progress.observe(\.fractionCompleted, options: [.new]) { [weak self] progress, _ in
+      self?.sendProgress(progressId, progress.fractionCompleted)
+    }
+  }
+
+  private func copyPickedImageToTemporaryImportDirectory(
+    sourceURL: URL,
+    typeIdentifier: String,
+    progressId: String
+  ) throws -> String {
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("TesserCamPhotoImports", isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: directory,
+      withIntermediateDirectories: true
+    )
+
+    let sourceExtension = sourceURL.pathExtension
+    let preferredExtension = UTType(typeIdentifier)?.preferredFilenameExtension
+    let fileExtension = sourceExtension.isEmpty
+      ? (preferredExtension ?? "heic")
+      : sourceExtension
+    let destinationURL = directory
+      .appendingPathComponent(UUID().uuidString)
+      .appendingPathExtension(fileExtension)
+
+    if FileManager.default.fileExists(atPath: destinationURL.path) {
+      try FileManager.default.removeItem(at: destinationURL)
+    }
+    try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+    sendProgress(progressId, 1)
+    return destinationURL.path
   }
 
   func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
@@ -515,6 +572,8 @@ private final class GalleryImagePickerDelegate: NSObject, PHPickerViewController
     if let picker = picker, isPickerPresented {
       picker.dismiss(animated: false)
     }
+    progressObservation?.invalidate()
+    progressObservation = nil
     finishOnce(nil)
   }
 
@@ -523,6 +582,8 @@ private final class GalleryImagePickerDelegate: NSObject, PHPickerViewController
       return
     }
     didFinish = true
+    progressObservation?.invalidate()
+    progressObservation = nil
     finish(response)
   }
 }

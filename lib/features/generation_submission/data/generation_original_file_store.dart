@@ -19,6 +19,12 @@ abstract interface class GenerationOriginalFileStore {
     required DateTime capturedAt,
   });
 
+  Future<StoredOriginalFile> storeGalleryOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime importedAt,
+  });
+
   Future<String> resolveOriginalPath(String path);
 
   Future<bool> originalExists(String path);
@@ -36,13 +42,38 @@ class ApplicationSupportGenerationOriginalFileStore
     required String sourcePath,
     required DateTime capturedAt,
   }) async {
+    return _storeOriginal(
+      recordId: recordId,
+      sourcePath: sourcePath,
+      createdAt: capturedAt,
+    );
+  }
+
+  @override
+  Future<StoredOriginalFile> storeGalleryOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime importedAt,
+  }) async {
+    return _storeOriginal(
+      recordId: recordId,
+      sourcePath: sourcePath,
+      createdAt: importedAt,
+    );
+  }
+
+  Future<StoredOriginalFile> _storeOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime createdAt,
+  }) async {
     final File sourceFile = File(sourcePath);
     if (!await sourceFile.exists()) {
-      throw FileSystemException('Camera original does not exist.', sourcePath);
+      throw FileSystemException('Original file does not exist.', sourcePath);
     }
 
     final String extension = _extensionForPath(sourcePath);
-    final String relativeDirectory = _relativeOriginalsDirectory(capturedAt);
+    final String relativeDirectory = _relativeOriginalsDirectory(createdAt);
     final Directory directory = await _directoryForRelativePath(
       relativeDirectory,
     );

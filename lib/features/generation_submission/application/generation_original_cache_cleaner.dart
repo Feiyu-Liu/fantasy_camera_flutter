@@ -123,7 +123,7 @@ class GenerationOriginalCacheCleaner {
     bool Function()? shouldCancel,
   }) async {
     final List<GenerationRecord> records = await _generationRecordRepository
-        .listClearableCameraOriginals();
+        .listClearableLocalOriginals();
     int fileCount = 0;
     int totalBytes = 0;
     int missingFileCount = 0;
@@ -184,7 +184,7 @@ class GenerationOriginalCacheCleaner {
 
   Future<GenerationOriginalCacheClearResult> clearCameraOriginalCache() async {
     final List<GenerationRecord> records = await _generationRecordRepository
-        .listClearableCameraOriginals();
+        .listClearableLocalOriginals();
     int clearedCount = 0;
     int failedCount = 0;
 

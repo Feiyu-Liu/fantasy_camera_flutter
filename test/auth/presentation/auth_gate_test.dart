@@ -818,6 +818,19 @@ class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
   }) async {
     return StoredOriginalFile(path: sourcePath, format: 'heic');
   }
+
+  @override
+  Future<StoredOriginalFile> storeGalleryOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime importedAt,
+  }) async {
+    return storeCameraOriginal(
+      recordId: recordId,
+      sourcePath: sourcePath,
+      capturedAt: importedAt,
+    );
+  }
 }
 
 class _FakeUploadRepository implements UploadRepository {

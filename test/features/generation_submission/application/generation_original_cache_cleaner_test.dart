@@ -24,7 +24,7 @@ void main() {
   });
 
   test(
-    'clears non-active camera originals and leaves gallery originals',
+    'clears non-active local originals and leaves external gallery originals',
     () async {
       final DateTime createdAt = DateTime.utc(2026, 6, 14, 10);
       final DateTime clearedAt = DateTime.utc(2026, 6, 14, 11);
@@ -85,9 +85,20 @@ void main() {
         updatedAt: createdAt,
       );
       await repository.createGalleryRecord(
-        recordId: 'gallery',
+        recordId: 'gallery-external',
         createdAt: createdAt,
         originalAssetId: 'asset-1',
+      );
+      await repository.createGalleryRecord(
+        recordId: 'gallery-local',
+        createdAt: createdAt,
+        originalLocalPath: 'originals/gallery-local.heic',
+        originalAssetId: 'asset-2',
+      );
+      await repository.updatePipelineStatus(
+        recordId: 'gallery-local',
+        status: GenerationRecordPipelineStatus.resultSaved,
+        updatedAt: createdAt,
       );
 
       final GenerationOriginalCacheCleaner cleaner =
@@ -100,10 +111,11 @@ void main() {
       final GenerationOriginalCacheClearResult result = await cleaner
           .clearCameraOriginalCache();
 
-      expect(result.clearedCount, 1);
+      expect(result.clearedCount, 2);
       expect(result.failedCount, 0);
       expect(originalFileStore.deletedPaths, <String>[
         'originals/camera-saved.heic',
+        'originals/gallery-local.heic',
       ]);
 
       final GenerationRecord? cleared = await repository.findById(
@@ -164,11 +176,22 @@ void main() {
         'originals/camera-result-save-failed.heic',
       );
 
-      final GenerationRecord? gallery = await repository.findById('gallery');
-      expect(gallery!.originalAssetId, 'asset-1');
+      final GenerationRecord? galleryExternal = await repository.findById(
+        'gallery-external',
+      );
+      expect(galleryExternal!.originalAssetId, 'asset-1');
       expect(
-        gallery.originalAvailability,
+        galleryExternal.originalAvailability,
         GenerationRecordOriginalAvailability.external.name,
+      );
+
+      final GenerationRecord? galleryLocal = await repository.findById(
+        'gallery-local',
+      );
+      expect(galleryLocal!.originalLocalPath, isNull);
+      expect(
+        galleryLocal.originalAvailability,
+        GenerationRecordOriginalAvailability.cleared.name,
       );
     },
   );
@@ -349,5 +372,18 @@ class _FakeOriginalFileStore implements GenerationOriginalFileStore {
     required DateTime capturedAt,
   }) async {
     return StoredOriginalFile(path: sourcePath, format: 'heic');
+  }
+
+  @override
+  Future<StoredOriginalFile> storeGalleryOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime importedAt,
+  }) async {
+    return storeCameraOriginal(
+      recordId: recordId,
+      sourcePath: sourcePath,
+      capturedAt: importedAt,
+    );
   }
 }
