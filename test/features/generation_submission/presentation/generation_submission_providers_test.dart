@@ -2305,6 +2305,7 @@ class _FakeUploadRepository implements UploadRepository {
 
   @override
   Future<UploadSession> createUpload({
+    required String clientRequestId,
     required String contentType,
     required Uint8List bytes,
     CreateGenerationTaskInput? generationRequest,

@@ -756,6 +756,7 @@ class GenerationSubmissionService extends ChangeNotifier {
           .ensureRegisteredForGeneration();
       _debugLog('create upload start record=$recordId bytes=${bytes.length}');
       final UploadSession uploadSession = await _uploadRepository.createUpload(
+        clientRequestId: recordId,
         contentType: 'image/jpeg',
         bytes: bytes,
         generationRequest: CreateGenerationTaskInput(

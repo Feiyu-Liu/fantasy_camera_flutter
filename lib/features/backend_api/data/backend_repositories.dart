@@ -87,6 +87,7 @@ String _readStringOrDefault(Object? value, String fallback) {
 
 abstract interface class UploadRepository {
   Future<UploadSession> createUpload({
+    required String clientRequestId,
     required String contentType,
     required Uint8List bytes,
     CreateGenerationTaskInput? generationRequest,
@@ -107,6 +108,7 @@ class WorkerUploadRepository implements UploadRepository {
 
   @override
   Future<UploadSession> createUpload({
+    required String clientRequestId,
     required String contentType,
     required Uint8List bytes,
     CreateGenerationTaskInput? generationRequest,
@@ -114,6 +116,7 @@ class WorkerUploadRepository implements UploadRepository {
     return _client.post<UploadSession>(
       '/v1/uploads',
       data: <String, Object?>{
+        'clientRequestId': clientRequestId,
         'contentType': contentType,
         'byteSize': bytes.length,
         'checksumSha256': sha256Base64(bytes),

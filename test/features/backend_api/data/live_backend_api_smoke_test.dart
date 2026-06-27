@@ -69,6 +69,7 @@ void main() {
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
       );
       final upload = await uploadRepository.createUpload(
+        clientRequestId: 'live-smoke-${DateTime.now().microsecondsSinceEpoch}',
         contentType: 'image/png',
         bytes: pngBytes,
       );

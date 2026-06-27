@@ -357,6 +357,7 @@ void main() {
       );
       final Uint8List bytes = Uint8List.fromList(<int>[1, 2, 3]);
       final upload = await repository.createUpload(
+        clientRequestId: 'local-test-record',
         contentType: 'image/png',
         bytes: bytes,
         generationRequest: const CreateGenerationTaskInput(
@@ -372,6 +373,10 @@ void main() {
 
       expect(upload.uploadSessionId, 'upload-1');
       expect(completion['status'], 'uploaded');
+      expect(
+        adapter.requests.first.bodyAsJson['clientRequestId'],
+        'local-test-record',
+      );
       expect(
         adapter.requests.first.bodyAsJson['checksumSha256'],
         sha256Base64(bytes),
