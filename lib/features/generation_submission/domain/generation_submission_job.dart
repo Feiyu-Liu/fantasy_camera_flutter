@@ -49,6 +49,8 @@ class GenerationSubmissionJob {
     this.resultSaveErrorMessage,
     this.errorCode,
     this.errorMessage,
+    this.failureStage,
+    this.failureRetryable = false,
   });
 
   final String id;
@@ -78,6 +80,8 @@ class GenerationSubmissionJob {
   final String? resultSaveErrorMessage;
   final String? errorCode;
   final String? errorMessage;
+  final GenerationRecordFailureStage? failureStage;
+  final bool failureRetryable;
 
   bool get isTerminal =>
       status == GenerationSubmissionStatus.completed ||
@@ -95,6 +99,12 @@ class GenerationSubmissionJob {
 
   bool get hasSubmittedNegativeFeedback =>
       resultNegativeFeedbackSubmittedAt != null;
+
+  bool get isRetryableFailure {
+    return failureRetryable &&
+        (status == GenerationSubmissionStatus.failed ||
+            status == GenerationSubmissionStatus.resultProcessingFailed);
+  }
 
   bool get hasProcessedResultPath =>
       processedResultPath != null && processedResultPath!.isNotEmpty;
@@ -137,6 +147,8 @@ class GenerationSubmissionJob {
     String? resultSaveErrorMessage,
     String? errorCode,
     String? errorMessage,
+    GenerationRecordFailureStage? failureStage,
+    bool? failureRetryable,
     bool clearError = false,
     bool clearResultSaveError = false,
   }) {
@@ -178,6 +190,10 @@ class GenerationSubmissionJob {
           : resultSaveErrorMessage ?? this.resultSaveErrorMessage,
       errorCode: clearError ? null : errorCode ?? this.errorCode,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+      failureStage: clearError ? null : failureStage ?? this.failureStage,
+      failureRetryable: clearError
+          ? false
+          : failureRetryable ?? this.failureRetryable,
     );
   }
 }

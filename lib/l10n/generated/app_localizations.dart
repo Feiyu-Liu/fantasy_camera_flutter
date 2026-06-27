@@ -959,6 +959,24 @@ abstract class AppLocalizations {
   /// **'The generation request failed. Please try again.'**
   String get toastGenerationSubmitFailed;
 
+  /// No description provided for @toastGenerationUploadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo upload failed. Check your network and try again.'**
+  String get toastGenerationUploadFailed;
+
+  /// No description provided for @toastGenerationTaskCreateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The photo was uploaded, but the generation request could not be created. Please try again.'**
+  String get toastGenerationTaskCreateFailed;
+
+  /// No description provided for @toastGenerationBackendFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo generation failed. Please try again.'**
+  String get toastGenerationBackendFailed;
+
   /// No description provided for @toastResultSaveFailed.
   ///
   /// In en, this message translates to:

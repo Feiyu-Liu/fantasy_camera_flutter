@@ -1580,6 +1580,7 @@ class _NotifyingGenerationRecordRepository extends GenerationRecordRepository {
     String? errorCode,
     String? errorMessage,
     bool clearError = false,
+    bool clearFailure = false,
   }) async {
     await super.updatePipelineStatus(
       recordId: recordId,
@@ -1588,6 +1589,29 @@ class _NotifyingGenerationRecordRepository extends GenerationRecordRepository {
       errorCode: errorCode,
       errorMessage: errorMessage,
       clearError: clearError,
+      clearFailure: clearFailure,
+    );
+    await _emitRecords();
+  }
+
+  @override
+  Future<void> markFailure({
+    required String recordId,
+    required GenerationRecordPipelineStatus status,
+    required GenerationRecordFailureStage failureStage,
+    required bool failureRetryable,
+    required DateTime updatedAt,
+    required String errorCode,
+    required String errorMessage,
+  }) async {
+    await super.markFailure(
+      recordId: recordId,
+      status: status,
+      failureStage: failureStage,
+      failureRetryable: failureRetryable,
+      updatedAt: updatedAt,
+      errorCode: errorCode,
+      errorMessage: errorMessage,
     );
     await _emitRecords();
   }
@@ -1685,13 +1709,34 @@ Future<void> _seedJobs(
           job.promptSelection?.captureMode ??
           PromptSelectionSnapshot.fallback.captureMode,
     );
-    await repository.updatePipelineStatus(
-      recordId: job.id,
-      status: _recordStatusForJob(job.status),
-      updatedAt: job.updatedAt,
-      errorCode: job.errorCode,
-      errorMessage: job.errorMessage ?? job.resultSaveErrorMessage,
+    final GenerationRecordPipelineStatus pipelineStatus = _recordStatusForJob(
+      job.status,
     );
+    if (job.status == GenerationSubmissionStatus.failed ||
+        job.status == GenerationSubmissionStatus.resultProcessingFailed) {
+      await repository.markFailure(
+        recordId: job.id,
+        status: pipelineStatus,
+        failureStage:
+            job.failureStage ??
+            (job.status == GenerationSubmissionStatus.resultProcessingFailed
+                ? GenerationRecordFailureStage.processingResult
+                : GenerationRecordFailureStage.backendGeneration),
+        failureRetryable: job.failureRetryable,
+        updatedAt: job.updatedAt,
+        errorCode: job.errorCode ?? 'test_failure',
+        errorMessage:
+            job.errorMessage ?? job.resultSaveErrorMessage ?? 'Test failure.',
+      );
+    } else {
+      await repository.updatePipelineStatus(
+        recordId: job.id,
+        status: pipelineStatus,
+        updatedAt: job.updatedAt,
+        errorCode: job.errorCode,
+        errorMessage: job.errorMessage ?? job.resultSaveErrorMessage,
+      );
+    }
     await repository.updateTaskFields(
       recordId: job.id,
       updatedAt: job.updatedAt,
@@ -2093,6 +2138,9 @@ GenerationSubmissionJob _job({
 }) {
   final DateTime now = DateTime.parse('2026-05-29T00:00:00Z');
   final String resolvedImagePath = imagePath ?? _writeImageFile(id).path;
+  final bool retryableFailure =
+      status == GenerationSubmissionStatus.failed ||
+      status == GenerationSubmissionStatus.resultProcessingFailed;
   return GenerationSubmissionJob(
     id: id,
     imagePath: resolvedImagePath,
@@ -2113,6 +2161,10 @@ GenerationSubmissionJob _job({
     resultAvailability: resultAvailability,
     resultNegativeFeedbackSubmittedAt: resultNegativeFeedbackSubmittedAt,
     resultSaveErrorMessage: resultSaveErrorMessage,
+    failureStage: retryableFailure
+        ? GenerationRecordFailureStage.backendGeneration
+        : null,
+    failureRetryable: retryableFailure,
     createdAt: now,
     updatedAt: now,
   );

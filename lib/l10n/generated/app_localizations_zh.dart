@@ -464,6 +464,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get toastGenerationSubmitFailed => '图片生成请求失败，请重试。';
 
   @override
+  String get toastGenerationUploadFailed => '图片上传失败，请检查网络后重试。';
+
+  @override
+  String get toastGenerationTaskCreateFailed => '图片已上传，但生成请求创建失败，请重试。';
+
+  @override
+  String get toastGenerationBackendFailed => '图片生成失败，请重试。';
+
+  @override
   String get toastResultSaveFailed => '结果图保存失败，请重试。';
 
   @override
