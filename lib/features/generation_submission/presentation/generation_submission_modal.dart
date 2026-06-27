@@ -735,7 +735,7 @@ class _GenerationSubmissionDebugModalState
       _showToastForFailedUserSubmission(job.id);
     } on Object catch (error) {
       _debugLog('confirm job failure job=${job.id} error=$error');
-      ref.read(appToastServiceProvider).showGenerationSubmitFailure(null);
+      ref.read(appToastServiceProvider).showGenerationSubmitFailure();
     }
   }
 
@@ -963,7 +963,7 @@ class _GenerationSubmissionDebugModalState
     if (updatedJob == null) {
       ref
           .read(appToastServiceProvider)
-          .showGenerationSubmitFailure(fallbackErrorCode);
+          .showGenerationSubmitFailure(errorCode: fallbackErrorCode);
       return;
     }
     switch (updatedJob.status) {
@@ -971,7 +971,8 @@ class _GenerationSubmissionDebugModalState
         ref
             .read(appToastServiceProvider)
             .showGenerationSubmitFailure(
-              updatedJob.errorCode ?? fallbackErrorCode,
+              errorCode: updatedJob.errorCode ?? fallbackErrorCode,
+              failureStage: updatedJob.failureStage,
             );
       case GenerationSubmissionStatus.resultProcessingFailed:
         ref.read(appToastServiceProvider).showResultSaveFailure();
@@ -1575,7 +1576,7 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
                               onRetry: _canRetryJob(job)
                                   ? () => widget.onRetryJob(job)
                                   : null,
-                              onRemove: _canRetryJob(job)
+                              onRemove: _canRemoveFailedJob(job)
                                   ? () => widget.onRemoveJob(job)
                                   : null,
                             );
@@ -1592,6 +1593,10 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
   }
 
   bool _canRetryJob(GenerationSubmissionJob job) {
+    return job.isRetryableFailure;
+  }
+
+  bool _canRemoveFailedJob(GenerationSubmissionJob job) {
     return job.status == GenerationSubmissionStatus.failed ||
         job.status == GenerationSubmissionStatus.resultProcessingFailed;
   }

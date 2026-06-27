@@ -2,6 +2,7 @@ enum GenerationRecordPipelineStatus {
   awaitingConfirmation,
   awaitingRetry,
   localOriginalSaveFailed,
+  submissionFailed,
   preparingUploadImage,
   creatingUpload,
   uploading,
@@ -15,6 +16,19 @@ enum GenerationRecordPipelineStatus {
   resultSaveFailed,
   generationFailed,
   canceled,
+}
+
+enum GenerationRecordFailureStage {
+  originalUnavailable,
+  preparingUploadImage,
+  creatingUpload,
+  uploading,
+  creatingTask,
+  pollingTask,
+  backendGeneration,
+  processingResult,
+  resultSaving,
+  local,
 }
 
 enum GenerationRecordOriginalSourceType { camera, gallery }
@@ -39,6 +53,16 @@ GenerationRecordPipelineStatus generationRecordPipelineStatusFromName(
   String name,
 ) {
   return GenerationRecordPipelineStatus.values.byName(name);
+}
+
+GenerationRecordFailureStage generationRecordFailureStageFromName(String name) {
+  return GenerationRecordFailureStage.values.byName(name);
+}
+
+GenerationRecordFailureStage? generationRecordFailureStageFromNullableName(
+  String? name,
+) {
+  return name == null ? null : generationRecordFailureStageFromName(name);
 }
 
 GenerationRecordOriginalSourceType generationRecordOriginalSourceTypeFromName(
@@ -73,7 +97,6 @@ const Set<GenerationRecordPipelineStatus> activeGenerationRecordStatuses =
       GenerationRecordPipelineStatus.pollingTask,
       GenerationRecordPipelineStatus.completed,
       GenerationRecordPipelineStatus.processingResultImage,
-      GenerationRecordPipelineStatus.resultSaveFailed,
     };
 
 const Set<GenerationRecordPipelineStatus>

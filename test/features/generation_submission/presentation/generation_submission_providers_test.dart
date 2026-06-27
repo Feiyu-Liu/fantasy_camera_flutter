@@ -465,6 +465,9 @@ void main() {
         .single;
     expect(job.status, GenerationSubmissionStatus.failed);
     expect(job.errorCode, 'conflict');
+    expect(job.failureStage, GenerationRecordFailureStage.creatingUpload);
+    expect(job.failureRetryable, isTrue);
+    expect(job.isRetryableFailure, isTrue);
     expect(uploadRepository.events, <String>['create:image/jpeg:4']);
     expect(taskRepository.createdInputs, isEmpty);
   });
@@ -496,6 +499,9 @@ void main() {
     expect(job.status, GenerationSubmissionStatus.failed);
     expect(job.uploadSessionId, 'upload-1');
     expect(job.errorCode, 'upload_failed');
+    expect(job.failureStage, GenerationRecordFailureStage.uploading);
+    expect(job.failureRetryable, isTrue);
+    expect(job.isRetryableFailure, isTrue);
     expect(uploadRepository.events, <String>['create:image/jpeg:4']);
     expect(backgroundR2UploadService.events, hasLength(1));
     expect(
@@ -537,6 +543,9 @@ void main() {
         .single;
     expect(job.status, GenerationSubmissionStatus.failed);
     expect(job.errorCode, 'network_timeout');
+    expect(job.failureStage, GenerationRecordFailureStage.creatingUpload);
+    expect(job.failureRetryable, isTrue);
+    expect(job.isRetryableFailure, isTrue);
     expect(uploadRepository.events, <String>['create:image/jpeg:4']);
     expect(taskRepository.fetchTaskByUploadSessionIds, isEmpty);
 
@@ -549,6 +558,42 @@ void main() {
       'create:image/jpeg:4',
     ]);
     expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
+  });
+
+  test('missing original marks non-retryable submission failure', () async {
+    final _FakeGenerationOriginalFileStore originalFileStore =
+        _FakeGenerationOriginalFileStore()..existing = false;
+    final ProviderContainer container = _container(
+      originalFileStore: originalFileStore,
+    );
+    addTearDown(container.dispose);
+    final GenerationSubmissionController controller = container.read(
+      generationSubmissionControllerProvider.notifier,
+    );
+
+    final String jobId = (await controller.queueCapturedFile(
+      XFile('/tmp/photo.jpg'),
+    ))!;
+    await controller.confirmJob(jobId);
+
+    final GenerationSubmissionJob job = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(job.status, GenerationSubmissionStatus.failed);
+    expect(job.errorCode, 'original_unavailable');
+    expect(job.failureStage, GenerationRecordFailureStage.originalUnavailable);
+    expect(job.failureRetryable, isFalse);
+    expect(job.isRetryableFailure, isFalse);
+
+    await controller.retryJob(jobId);
+
+    final GenerationSubmissionJob retrySkippedJob = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(retrySkippedJob.status, GenerationSubmissionStatus.failed);
+    expect(retrySkippedJob.failureRetryable, isFalse);
   });
 
   test('marks job failed when uploaded task recovery fails', () async {
@@ -577,6 +622,9 @@ void main() {
     expect(job.status, GenerationSubmissionStatus.failed);
     expect(job.uploadSessionId, 'upload-1');
     expect(job.errorCode, 'task_create_failed');
+    expect(job.failureStage, GenerationRecordFailureStage.creatingTask);
+    expect(job.failureRetryable, isTrue);
+    expect(job.isRetryableFailure, isTrue);
     expect(uploadRepository.events, <String>['create:image/jpeg:4']);
     expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
   });
@@ -1137,8 +1185,13 @@ void main() {
     expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
     expect(
       record?.pipelineStatus,
-      GenerationRecordPipelineStatus.generationFailed.name,
+      GenerationRecordPipelineStatus.submissionFailed.name,
     );
+    expect(
+      record?.failureStage,
+      GenerationRecordFailureStage.creatingTask.name,
+    );
+    expect(record?.failureRetryable, isTrue);
     expect(record?.errorCode, 'upload_event_failed');
     expect(record?.errorMessage, 'No active prompt for requested route');
   });
@@ -1231,9 +1284,11 @@ void main() {
         .id;
     await container
         .read(generationRecordRepositoryProvider)
-        .updatePipelineStatus(
+        .markFailure(
           recordId: jobId,
           status: GenerationRecordPipelineStatus.generationFailed,
+          failureStage: GenerationRecordFailureStage.backendGeneration,
+          failureRetryable: true,
           updatedAt: DateTime.now(),
           errorCode: 'network_error',
           errorMessage: 'Network failed',
@@ -1249,6 +1304,8 @@ void main() {
         .single;
     expect(job.status, GenerationSubmissionStatus.pollingTask);
     expect(job.errorCode, isNull);
+    expect(job.failureStage, isNull);
+    expect(job.failureRetryable, isFalse);
     expect(uploadRepository.events, <String>[
       'create:image/jpeg:4',
       'create:image/jpeg:4',
@@ -1279,9 +1336,11 @@ void main() {
       final String jobId = await _createSavedResultJob(container);
       await container
           .read(generationRecordRepositoryProvider)
-          .updatePipelineStatus(
+          .markFailure(
             recordId: jobId,
             status: GenerationRecordPipelineStatus.resultSaveFailed,
+            failureStage: GenerationRecordFailureStage.processingResult,
+            failureRetryable: true,
             updatedAt: DateTime.now(),
             errorCode: 'result_processing_failed',
             errorMessage: 'HEIF failed',
@@ -1472,6 +1531,9 @@ void main() {
     expect(job.taskStatus, GenerationTaskStatus.completed);
     expect(job.resultSaveErrorCode, 'result_processing_failed');
     expect(job.resultSaveErrorMessage, contains('heif unsupported'));
+    expect(job.failureStage, GenerationRecordFailureStage.processingResult);
+    expect(job.failureRetryable, isTrue);
+    expect(job.isRetryableFailure, isTrue);
   });
 
   test('polling failed task marks job failed', () async {
@@ -1501,6 +1563,9 @@ void main() {
     expect(job.taskStatus, GenerationTaskStatus.failed);
     expect(job.errorCode, 'provider_error');
     expect(job.errorMessage, 'Provider failed');
+    expect(job.failureStage, GenerationRecordFailureStage.backendGeneration);
+    expect(job.failureRetryable, isTrue);
+    expect(job.isRetryableFailure, isTrue);
   });
 
   test('completed job keeps cached result url after auto processing', () async {
@@ -2031,6 +2096,7 @@ class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
   final List<String> storedRelativePaths = <String>[];
   final List<String> deletedPaths = <String>[];
   Object? storeFailure;
+  bool existing = true;
 
   @override
   Future<StoredOriginalFile> storeCameraOriginal({
@@ -2058,7 +2124,7 @@ class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
 
   @override
   Future<bool> originalExists(String path) async {
-    return true;
+    return existing;
   }
 
   @override

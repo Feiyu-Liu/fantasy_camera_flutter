@@ -187,6 +187,10 @@ class GenerationRecordRepository {
             displaySnapshotJson: Value<String?>(displaySnapshotJson),
             errorCode: Value<String?>(errorCode),
             errorMessage: Value<String?>(errorMessage),
+            failureStage: Value<String?>(
+              GenerationRecordFailureStage.local.name,
+            ),
+            failureRetryable: const Value<bool?>(false),
           ),
         );
   }
@@ -198,6 +202,7 @@ class GenerationRecordRepository {
     String? errorCode,
     String? errorMessage,
     bool clearError = false,
+    bool clearFailure = false,
   }) {
     return _updateById(
       recordId,
@@ -210,6 +215,34 @@ class GenerationRecordRepository {
         errorMessage: clearError
             ? const Value<String?>(null)
             : Value<String?>.absentIfNull(errorMessage),
+        failureStage: clearFailure
+            ? const Value<String?>(null)
+            : const Value<String?>.absent(),
+        failureRetryable: clearFailure
+            ? const Value<bool?>(null)
+            : const Value<bool?>.absent(),
+      ),
+    );
+  }
+
+  Future<void> markFailure({
+    required String recordId,
+    required GenerationRecordPipelineStatus status,
+    required GenerationRecordFailureStage failureStage,
+    required bool failureRetryable,
+    required DateTime updatedAt,
+    required String errorCode,
+    required String errorMessage,
+  }) {
+    return _updateById(
+      recordId,
+      GenerationRecordsCompanion(
+        updatedAt: Value<DateTime>(updatedAt),
+        pipelineStatus: Value<String>(status.name),
+        errorCode: Value<String?>(errorCode),
+        errorMessage: Value<String?>(errorMessage),
+        failureStage: Value<String?>(failureStage.name),
+        failureRetryable: Value<bool?>(failureRetryable),
       ),
     );
   }
@@ -322,6 +355,8 @@ class GenerationRecordRepository {
           resultHashError: Value<String?>.absentIfNull(resultHashError),
           errorCode: const Value<String?>(null),
           errorMessage: const Value<String?>(null),
+          failureStage: const Value<String?>(null),
+          failureRetryable: const Value<bool?>(null),
         ),
       );
     });
@@ -391,6 +426,8 @@ class GenerationRecordRepository {
         resultNotificationSeenAt: const Value<DateTime?>(null),
         errorCode: const Value<String?>(null),
         errorMessage: const Value<String?>(null),
+        failureStage: const Value<String?>(null),
+        failureRetryable: const Value<bool?>(null),
       ),
     );
   }
@@ -441,6 +478,7 @@ class GenerationRecordRepository {
               table.resultNotificationSeenAt.isNull() &
               table.pipelineStatus.isIn(<String>[
                 GenerationRecordPipelineStatus.resultSaved.name,
+                GenerationRecordPipelineStatus.submissionFailed.name,
                 GenerationRecordPipelineStatus.generationFailed.name,
                 GenerationRecordPipelineStatus.resultSaveFailed.name,
               ]),

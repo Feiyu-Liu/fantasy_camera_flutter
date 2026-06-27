@@ -336,10 +336,9 @@ class GenerationSubmissionService extends ChangeNotifier {
 
     final GenerationRecordPipelineStatus status =
         generationRecordPipelineStatusFromName(record.pipelineStatus);
-    if (status != GenerationRecordPipelineStatus.generationFailed &&
-        status != GenerationRecordPipelineStatus.resultSaveFailed) {
+    if (!_isRetryableFailureRecord(record, status)) {
       _debugLog(
-        'retry skipped record=$recordId reason=status-${record.pipelineStatus}',
+        'retry skipped record=$recordId reason=status-${record.pipelineStatus} retryable=${record.failureRetryable ?? false}',
       );
       return;
     }
@@ -356,6 +355,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         status: GenerationRecordPipelineStatus.completed,
         updatedAt: DateTime.now(),
         clearError: true,
+        clearFailure: true,
       );
       await _processCompletedResult(recordId: recordId, taskId: record.taskId!);
       notifyListeners();
@@ -672,6 +672,9 @@ class GenerationSubmissionService extends ChangeNotifier {
       _debugLog('submit skipped record=$recordId reason=missing-source-path');
       await _failRecord(
         recordId: recordId,
+        status: GenerationRecordPipelineStatus.submissionFailed,
+        failureStage: GenerationRecordFailureStage.originalUnavailable,
+        retryable: false,
         errorCode: 'original_unavailable',
         errorMessage: 'Original image is not available.',
       );
@@ -683,6 +686,7 @@ class GenerationSubmissionService extends ChangeNotifier {
       recordId,
       GenerationRecordPipelineStatus.awaitingRetry,
       clearError: true,
+      clearFailure: true,
     );
 
     try {
@@ -691,6 +695,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         recordId,
         GenerationRecordPipelineStatus.preparingUploadImage,
         clearError: true,
+        clearFailure: true,
       );
       _debugLog('prepare upload image start record=$recordId');
       final PreparedUploadImage uploadImage = await _imageProcessor
@@ -801,6 +806,9 @@ class GenerationSubmissionService extends ChangeNotifier {
       );
       await _failRecord(
         recordId: recordId,
+        status: GenerationRecordPipelineStatus.submissionFailed,
+        failureStage: _submissionFailureStageForSubmitStage(stage),
+        retryable: true,
         errorCode: error.code,
         errorMessage: error.message,
       );
@@ -808,6 +816,9 @@ class GenerationSubmissionService extends ChangeNotifier {
       _debugLog('submit local failure record=$recordId error=$error');
       await _failRecord(
         recordId: recordId,
+        status: GenerationRecordPipelineStatus.submissionFailed,
+        failureStage: _submissionFailureStageForSubmitStage(stage),
+        retryable: true,
         errorCode: 'local_error',
         errorMessage: error.toString(),
       );
@@ -877,6 +888,9 @@ class GenerationSubmissionService extends ChangeNotifier {
           );
           await _failRecord(
             recordId: recordId,
+            status: GenerationRecordPipelineStatus.submissionFailed,
+            failureStage: GenerationRecordFailureStage.creatingTask,
+            retryable: true,
             errorCode: error.code,
             errorMessage: error.message,
           );
@@ -886,6 +900,9 @@ class GenerationSubmissionService extends ChangeNotifier {
           );
           await _failRecord(
             recordId: recordId,
+            status: GenerationRecordPipelineStatus.submissionFailed,
+            failureStage: GenerationRecordFailureStage.creatingTask,
+            retryable: true,
             errorCode: 'task_recovery_failed',
             errorMessage: error.toString(),
           );
@@ -937,6 +954,7 @@ class GenerationSubmissionService extends ChangeNotifier {
       case GenerationRecordPipelineStatus.awaitingConfirmation:
       case GenerationRecordPipelineStatus.awaitingRetry:
       case GenerationRecordPipelineStatus.localOriginalSaveFailed:
+      case GenerationRecordPipelineStatus.submissionFailed:
       case GenerationRecordPipelineStatus.resultSaved:
       case GenerationRecordPipelineStatus.generationFailed:
       case GenerationRecordPipelineStatus.canceled:
@@ -999,6 +1017,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         status: generationRecordPipelineStatusFromName(record.pipelineStatus),
         updatedAt: DateTime.now(),
         clearError: true,
+        clearFailure: true,
       );
       notifyListeners();
       _debugLog(
@@ -1068,6 +1087,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         status: GenerationRecordPipelineStatus.uploadedWaitingTask,
         updatedAt: DateTime.now(),
         clearError: true,
+        clearFailure: true,
       );
       return;
     }
@@ -1148,6 +1168,9 @@ class GenerationSubmissionService extends ChangeNotifier {
             );
             await _failRecord(
               recordId: record.recordId,
+              status: GenerationRecordPipelineStatus.submissionFailed,
+              failureStage: GenerationRecordFailureStage.creatingTask,
+              retryable: true,
               errorCode: error.code,
               errorMessage: error.message,
             );
@@ -1158,6 +1181,9 @@ class GenerationSubmissionService extends ChangeNotifier {
             );
             await _failRecord(
               recordId: record.recordId,
+              status: GenerationRecordPipelineStatus.submissionFailed,
+              failureStage: GenerationRecordFailureStage.creatingTask,
+              retryable: true,
               errorCode: 'task_recovery_failed',
               errorMessage: error.toString(),
             );
@@ -1233,6 +1259,9 @@ class GenerationSubmissionService extends ChangeNotifier {
           );
           await _failRecord(
             recordId: record.recordId,
+            status: GenerationRecordPipelineStatus.generationFailed,
+            failureStage: GenerationRecordFailureStage.pollingTask,
+            retryable: true,
             errorCode: 'task_not_found',
             errorMessage: 'Generation task was not found.',
           );
@@ -1297,8 +1326,10 @@ class GenerationSubmissionService extends ChangeNotifier {
       _debugLog(
         'poll backend failure record=$recordId task=$taskId code=${error.code} status=${error.statusCode} message=${error.message}',
       );
-      await _failRecord(
+      await _generationRecordRepository.updatePipelineStatus(
         recordId: recordId,
+        status: GenerationRecordPipelineStatus.pollingTask,
+        updatedAt: DateTime.now(),
         errorCode: error.code,
         errorMessage: error.message,
       );
@@ -1308,6 +1339,9 @@ class GenerationSubmissionService extends ChangeNotifier {
       );
       await _failRecord(
         recordId: recordId,
+        status: GenerationRecordPipelineStatus.generationFailed,
+        failureStage: GenerationRecordFailureStage.pollingTask,
+        retryable: true,
         errorCode: 'task_poll_error',
         errorMessage: error.toString(),
       );
@@ -1331,6 +1365,7 @@ class GenerationSubmissionService extends ChangeNotifier {
           status: GenerationRecordPipelineStatus.pollingTask,
           updatedAt: DateTime.now(),
           clearError: true,
+          clearFailure: true,
         );
         await _generationRecordRepository.updateTaskFields(
           recordId: recordId,
@@ -1345,6 +1380,7 @@ class GenerationSubmissionService extends ChangeNotifier {
           status: GenerationRecordPipelineStatus.completed,
           updatedAt: DateTime.now(),
           clearError: true,
+          clearFailure: true,
         );
         await _generationRecordRepository.updateTaskFields(
           recordId: recordId,
@@ -1364,9 +1400,11 @@ class GenerationSubmissionService extends ChangeNotifier {
           taskStatus: task.status.wireValue,
           resultImageObjectId: task.resultImageObjectId,
         );
-        await _generationRecordRepository.updatePipelineStatus(
+        await _generationRecordRepository.markFailure(
           recordId: recordId,
           status: GenerationRecordPipelineStatus.generationFailed,
+          failureStage: GenerationRecordFailureStage.backendGeneration,
+          failureRetryable: true,
           updatedAt: DateTime.now(),
           errorCode: task.lastErrorCode ?? task.status.wireValue,
           errorMessage:
@@ -1377,6 +1415,9 @@ class GenerationSubmissionService extends ChangeNotifier {
         _debugLog('poll unknown status record=$recordId task=$taskId');
         await _failRecord(
           recordId: recordId,
+          status: GenerationRecordPipelineStatus.generationFailed,
+          failureStage: GenerationRecordFailureStage.pollingTask,
+          retryable: true,
           errorCode: 'unknown_task_status',
           errorMessage: 'Generation task returned an unknown status.',
         );
@@ -1387,12 +1428,14 @@ class GenerationSubmissionService extends ChangeNotifier {
     String recordId,
     GenerationRecordPipelineStatus status, {
     bool clearError = false,
+    bool clearFailure = false,
   }) {
     return _generationRecordRepository.updatePipelineStatus(
       recordId: recordId,
       status: status,
       updatedAt: DateTime.now(),
       clearError: clearError,
+      clearFailure: clearFailure,
     );
   }
 
@@ -1455,6 +1498,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         recordId,
         GenerationRecordPipelineStatus.processingResultImage,
         clearError: true,
+        clearFailure: true,
       );
       final String? resultUrl = await _loadResultUrlForRecord(record);
       if (resultUrl == null) {
@@ -1512,6 +1556,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         status: GenerationRecordPipelineStatus.completed,
         updatedAt: DateTime.now(),
         clearError: true,
+        clearFailure: true,
       );
       _scheduleResultProcessingRetry(recordId: recordId, taskId: taskId);
     } on Object catch (error) {
@@ -1520,9 +1565,11 @@ class GenerationSubmissionService extends ChangeNotifier {
       );
       final GenerationRecord? failedRecord = await _generationRecordRepository
           .findById(recordId);
-      await _generationRecordRepository.updatePipelineStatus(
+      await _generationRecordRepository.markFailure(
         recordId: recordId,
         status: GenerationRecordPipelineStatus.resultSaveFailed,
+        failureStage: GenerationRecordFailureStage.processingResult,
+        failureRetryable: true,
         updatedAt: DateTime.now(),
         errorCode: 'result_processing_failed',
         errorMessage: error.toString(),
@@ -1563,15 +1610,20 @@ class GenerationSubmissionService extends ChangeNotifier {
 
   Future<void> _failRecord({
     required String recordId,
+    required GenerationRecordPipelineStatus status,
+    required GenerationRecordFailureStage failureStage,
+    required bool retryable,
     required String errorCode,
     required String errorMessage,
   }) {
     _debugLog(
-      'mark failed record=$recordId code=$errorCode message=$errorMessage',
+      'mark failed record=$recordId status=${status.name} stage=${failureStage.name} retryable=$retryable code=$errorCode message=$errorMessage',
     );
-    return _generationRecordRepository.updatePipelineStatus(
+    return _generationRecordRepository.markFailure(
       recordId: recordId,
-      status: GenerationRecordPipelineStatus.generationFailed,
+      status: status,
+      failureStage: failureStage,
+      failureRetryable: retryable,
       updatedAt: DateTime.now(),
       errorCode: errorCode,
       errorMessage: errorMessage,
@@ -1701,6 +1753,10 @@ class GenerationSubmissionService extends ChangeNotifier {
                 GenerationRecordPipelineStatus.resultSaveFailed.name
             ? record.errorMessage
             : null,
+        failureStage: generationRecordFailureStageFromNullableName(
+          record.failureStage,
+        ),
+        failureRetryable: record.failureRetryable ?? false,
       );
     }
     final _RuntimeGenerationRecordState? runtime =
@@ -1741,6 +1797,10 @@ class GenerationSubmissionService extends ChangeNotifier {
           : null,
       errorCode: record.errorCode,
       errorMessage: record.errorMessage,
+      failureStage: generationRecordFailureStageFromNullableName(
+        record.failureStage,
+      ),
+      failureRetryable: record.failureRetryable ?? false,
     );
   }
 
@@ -1913,6 +1973,8 @@ class GenerationSubmissionService extends ChangeNotifier {
         GenerationSubmissionStatus.queued,
       GenerationRecordPipelineStatus.localOriginalSaveFailed =>
         GenerationSubmissionStatus.failed,
+      GenerationRecordPipelineStatus.submissionFailed =>
+        GenerationSubmissionStatus.failed,
       GenerationRecordPipelineStatus.preparingUploadImage =>
         GenerationSubmissionStatus.preparingUploadImage,
       GenerationRecordPipelineStatus.creatingUpload =>
@@ -1954,6 +2016,29 @@ class GenerationSubmissionService extends ChangeNotifier {
 
   bool _isResultNotReadyFailure(BackendApiFailure error) {
     return error.code == 'result_not_ready';
+  }
+
+  bool _isRetryableFailureRecord(
+    GenerationRecord record,
+    GenerationRecordPipelineStatus status,
+  ) {
+    return (record.failureRetryable ?? false) &&
+        (status == GenerationRecordPipelineStatus.submissionFailed ||
+            status == GenerationRecordPipelineStatus.generationFailed ||
+            status == GenerationRecordPipelineStatus.resultSaveFailed);
+  }
+
+  GenerationRecordFailureStage _submissionFailureStageForSubmitStage(
+    String stage,
+  ) {
+    return switch (stage) {
+      'preparingUploadImage' ||
+      'readingFile' => GenerationRecordFailureStage.preparingUploadImage,
+      'creatingUpload' => GenerationRecordFailureStage.creatingUpload,
+      'uploading' => GenerationRecordFailureStage.uploading,
+      'uploadedWaitingTask' => GenerationRecordFailureStage.creatingTask,
+      _ => GenerationRecordFailureStage.local,
+    };
   }
 
   _RuntimeGenerationRecordState _runtimeFor(String recordId) {

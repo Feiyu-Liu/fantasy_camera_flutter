@@ -7,6 +7,7 @@ import 'package:smooth_corner/smooth_corner.dart';
 import 'package:toastification/toastification.dart';
 
 import '../../auth/presentation/auth_providers.dart';
+import '../../features/generation_submission/domain/generation_record.dart';
 import '../../l10n/l10n.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_corners.dart';
@@ -122,12 +123,16 @@ class AppToastService {
     _presenter.show(message);
   }
 
-  void showGenerationSubmitFailure(String? errorCode) {
+  void showGenerationSubmitFailure({
+    String? errorCode,
+    GenerationRecordFailureStage? failureStage,
+  }) {
     show(
       AppToastMessage(
         type: AppToastType.error,
-        title: _generationSubmitFailureMessage(errorCode),
-        dedupeKey: 'generation.submit.${errorCode ?? 'unknown'}',
+        title: _generationSubmitFailureMessage(errorCode, failureStage),
+        dedupeKey:
+            'generation.submit.${failureStage?.name ?? errorCode ?? 'unknown'}',
       ),
     );
   }
@@ -273,7 +278,31 @@ class AppToastService {
     );
   }
 
-  String _generationSubmitFailureMessage(String? errorCode) {
+  String _generationSubmitFailureMessage(
+    String? errorCode,
+    GenerationRecordFailureStage? failureStage,
+  ) {
+    final String? stageMessage = switch (failureStage) {
+      GenerationRecordFailureStage.creatingUpload ||
+      GenerationRecordFailureStage.uploading =>
+        _localizations.toastGenerationUploadFailed,
+      GenerationRecordFailureStage.creatingTask =>
+        _localizations.toastGenerationTaskCreateFailed,
+      GenerationRecordFailureStage.backendGeneration =>
+        _localizations.toastGenerationBackendFailed,
+      GenerationRecordFailureStage.processingResult ||
+      GenerationRecordFailureStage.resultSaving =>
+        _localizations.toastResultSaveFailed,
+      GenerationRecordFailureStage.originalUnavailable =>
+        _localizations.toastOriginalUnavailable,
+      GenerationRecordFailureStage.preparingUploadImage ||
+      GenerationRecordFailureStage.pollingTask ||
+      GenerationRecordFailureStage.local ||
+      null => null,
+    };
+    if (stageMessage != null) {
+      return stageMessage;
+    }
     return switch (errorCode) {
       'network_timeout' ||
       'network_error' => _localizations.toastGenerationNetworkFailed,

@@ -501,6 +501,31 @@ class $GenerationRecordsTable extends GenerationRecords
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _failureStageMeta = const VerificationMeta(
+    'failureStage',
+  );
+  @override
+  late final GeneratedColumn<String> failureStage = GeneratedColumn<String>(
+    'failure_stage',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _failureRetryableMeta = const VerificationMeta(
+    'failureRetryable',
+  );
+  @override
+  late final GeneratedColumn<bool> failureRetryable = GeneratedColumn<bool>(
+    'failure_retryable',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("failure_retryable" IN (0, 1))',
+    ),
+  );
   static const VerificationMeta _resultNotificationSeenAtMeta =
       const VerificationMeta('resultNotificationSeenAt');
   @override
@@ -558,6 +583,8 @@ class $GenerationRecordsTable extends GenerationRecords
     displaySnapshotJson,
     errorCode,
     errorMessage,
+    failureStage,
+    failureRetryable,
     resultNotificationSeenAt,
   ];
   @override
@@ -964,6 +991,24 @@ class $GenerationRecordsTable extends GenerationRecords
         ),
       );
     }
+    if (data.containsKey('failure_stage')) {
+      context.handle(
+        _failureStageMeta,
+        failureStage.isAcceptableOrUnknown(
+          data['failure_stage']!,
+          _failureStageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('failure_retryable')) {
+      context.handle(
+        _failureRetryableMeta,
+        failureRetryable.isAcceptableOrUnknown(
+          data['failure_retryable']!,
+          _failureRetryableMeta,
+        ),
+      );
+    }
     if (data.containsKey('result_notification_seen_at')) {
       context.handle(
         _resultNotificationSeenAtMeta,
@@ -1158,6 +1203,14 @@ class $GenerationRecordsTable extends GenerationRecords
         DriftSqlType.string,
         data['${effectivePrefix}error_message'],
       ),
+      failureStage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}failure_stage'],
+      ),
+      failureRetryable: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}failure_retryable'],
+      ),
       resultNotificationSeenAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}result_notification_seen_at'],
@@ -1217,6 +1270,8 @@ class GenerationRecord extends DataClass
   final String? displaySnapshotJson;
   final String? errorCode;
   final String? errorMessage;
+  final String? failureStage;
+  final bool? failureRetryable;
   final DateTime? resultNotificationSeenAt;
   const GenerationRecord({
     required this.recordId,
@@ -1263,6 +1318,8 @@ class GenerationRecord extends DataClass
     this.displaySnapshotJson,
     this.errorCode,
     this.errorMessage,
+    this.failureStage,
+    this.failureRetryable,
     this.resultNotificationSeenAt,
   });
   @override
@@ -1387,6 +1444,12 @@ class GenerationRecord extends DataClass
     }
     if (!nullToAbsent || errorMessage != null) {
       map['error_message'] = Variable<String>(errorMessage);
+    }
+    if (!nullToAbsent || failureStage != null) {
+      map['failure_stage'] = Variable<String>(failureStage);
+    }
+    if (!nullToAbsent || failureRetryable != null) {
+      map['failure_retryable'] = Variable<bool>(failureRetryable);
     }
     if (!nullToAbsent || resultNotificationSeenAt != null) {
       map['result_notification_seen_at'] = Variable<DateTime>(
@@ -1516,6 +1579,12 @@ class GenerationRecord extends DataClass
       errorMessage: errorMessage == null && nullToAbsent
           ? const Value.absent()
           : Value(errorMessage),
+      failureStage: failureStage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(failureStage),
+      failureRetryable: failureRetryable == null && nullToAbsent
+          ? const Value.absent()
+          : Value(failureRetryable),
       resultNotificationSeenAt: resultNotificationSeenAt == null && nullToAbsent
           ? const Value.absent()
           : Value(resultNotificationSeenAt),
@@ -1606,6 +1675,8 @@ class GenerationRecord extends DataClass
       ),
       errorCode: serializer.fromJson<String?>(json['errorCode']),
       errorMessage: serializer.fromJson<String?>(json['errorMessage']),
+      failureStage: serializer.fromJson<String?>(json['failureStage']),
+      failureRetryable: serializer.fromJson<bool?>(json['failureRetryable']),
       resultNotificationSeenAt: serializer.fromJson<DateTime?>(
         json['resultNotificationSeenAt'],
       ),
@@ -1663,6 +1734,8 @@ class GenerationRecord extends DataClass
       'displaySnapshotJson': serializer.toJson<String?>(displaySnapshotJson),
       'errorCode': serializer.toJson<String?>(errorCode),
       'errorMessage': serializer.toJson<String?>(errorMessage),
+      'failureStage': serializer.toJson<String?>(failureStage),
+      'failureRetryable': serializer.toJson<bool?>(failureRetryable),
       'resultNotificationSeenAt': serializer.toJson<DateTime?>(
         resultNotificationSeenAt,
       ),
@@ -1714,6 +1787,8 @@ class GenerationRecord extends DataClass
     Value<String?> displaySnapshotJson = const Value.absent(),
     Value<String?> errorCode = const Value.absent(),
     Value<String?> errorMessage = const Value.absent(),
+    Value<String?> failureStage = const Value.absent(),
+    Value<bool?> failureRetryable = const Value.absent(),
     Value<DateTime?> resultNotificationSeenAt = const Value.absent(),
   }) => GenerationRecord(
     recordId: recordId ?? this.recordId,
@@ -1816,6 +1891,10 @@ class GenerationRecord extends DataClass
         : this.displaySnapshotJson,
     errorCode: errorCode.present ? errorCode.value : this.errorCode,
     errorMessage: errorMessage.present ? errorMessage.value : this.errorMessage,
+    failureStage: failureStage.present ? failureStage.value : this.failureStage,
+    failureRetryable: failureRetryable.present
+        ? failureRetryable.value
+        : this.failureRetryable,
     resultNotificationSeenAt: resultNotificationSeenAt.present
         ? resultNotificationSeenAt.value
         : this.resultNotificationSeenAt,
@@ -1946,6 +2025,12 @@ class GenerationRecord extends DataClass
       errorMessage: data.errorMessage.present
           ? data.errorMessage.value
           : this.errorMessage,
+      failureStage: data.failureStage.present
+          ? data.failureStage.value
+          : this.failureStage,
+      failureRetryable: data.failureRetryable.present
+          ? data.failureRetryable.value
+          : this.failureRetryable,
       resultNotificationSeenAt: data.resultNotificationSeenAt.present
           ? data.resultNotificationSeenAt.value
           : this.resultNotificationSeenAt,
@@ -2003,6 +2088,8 @@ class GenerationRecord extends DataClass
           ..write('displaySnapshotJson: $displaySnapshotJson, ')
           ..write('errorCode: $errorCode, ')
           ..write('errorMessage: $errorMessage, ')
+          ..write('failureStage: $failureStage, ')
+          ..write('failureRetryable: $failureRetryable, ')
           ..write('resultNotificationSeenAt: $resultNotificationSeenAt')
           ..write(')'))
         .toString();
@@ -2054,6 +2141,8 @@ class GenerationRecord extends DataClass
     displaySnapshotJson,
     errorCode,
     errorMessage,
+    failureStage,
+    failureRetryable,
     resultNotificationSeenAt,
   ]);
   @override
@@ -2106,6 +2195,8 @@ class GenerationRecord extends DataClass
           other.displaySnapshotJson == this.displaySnapshotJson &&
           other.errorCode == this.errorCode &&
           other.errorMessage == this.errorMessage &&
+          other.failureStage == this.failureStage &&
+          other.failureRetryable == this.failureRetryable &&
           other.resultNotificationSeenAt == this.resultNotificationSeenAt);
 }
 
@@ -2154,6 +2245,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
   final Value<String?> displaySnapshotJson;
   final Value<String?> errorCode;
   final Value<String?> errorMessage;
+  final Value<String?> failureStage;
+  final Value<bool?> failureRetryable;
   final Value<DateTime?> resultNotificationSeenAt;
   final Value<int> rowid;
   const GenerationRecordsCompanion({
@@ -2201,6 +2294,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     this.displaySnapshotJson = const Value.absent(),
     this.errorCode = const Value.absent(),
     this.errorMessage = const Value.absent(),
+    this.failureStage = const Value.absent(),
+    this.failureRetryable = const Value.absent(),
     this.resultNotificationSeenAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -2249,6 +2344,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     this.displaySnapshotJson = const Value.absent(),
     this.errorCode = const Value.absent(),
     this.errorMessage = const Value.absent(),
+    this.failureStage = const Value.absent(),
+    this.failureRetryable = const Value.absent(),
     this.resultNotificationSeenAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : recordId = Value(recordId),
@@ -2303,6 +2400,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     Expression<String>? displaySnapshotJson,
     Expression<String>? errorCode,
     Expression<String>? errorMessage,
+    Expression<String>? failureStage,
+    Expression<bool>? failureRetryable,
     Expression<DateTime>? resultNotificationSeenAt,
     Expression<int>? rowid,
   }) {
@@ -2364,6 +2463,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
         'display_snapshot_json': displaySnapshotJson,
       if (errorCode != null) 'error_code': errorCode,
       if (errorMessage != null) 'error_message': errorMessage,
+      if (failureStage != null) 'failure_stage': failureStage,
+      if (failureRetryable != null) 'failure_retryable': failureRetryable,
       if (resultNotificationSeenAt != null)
         'result_notification_seen_at': resultNotificationSeenAt,
       if (rowid != null) 'rowid': rowid,
@@ -2415,6 +2516,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     Value<String?>? displaySnapshotJson,
     Value<String?>? errorCode,
     Value<String?>? errorMessage,
+    Value<String?>? failureStage,
+    Value<bool?>? failureRetryable,
     Value<DateTime?>? resultNotificationSeenAt,
     Value<int>? rowid,
   }) {
@@ -2467,6 +2570,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
       displaySnapshotJson: displaySnapshotJson ?? this.displaySnapshotJson,
       errorCode: errorCode ?? this.errorCode,
       errorMessage: errorMessage ?? this.errorMessage,
+      failureStage: failureStage ?? this.failureStage,
+      failureRetryable: failureRetryable ?? this.failureRetryable,
       resultNotificationSeenAt:
           resultNotificationSeenAt ?? this.resultNotificationSeenAt,
       rowid: rowid ?? this.rowid,
@@ -2624,6 +2729,12 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     if (errorMessage.present) {
       map['error_message'] = Variable<String>(errorMessage.value);
     }
+    if (failureStage.present) {
+      map['failure_stage'] = Variable<String>(failureStage.value);
+    }
+    if (failureRetryable.present) {
+      map['failure_retryable'] = Variable<bool>(failureRetryable.value);
+    }
     if (resultNotificationSeenAt.present) {
       map['result_notification_seen_at'] = Variable<DateTime>(
         resultNotificationSeenAt.value,
@@ -2686,6 +2797,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
           ..write('displaySnapshotJson: $displaySnapshotJson, ')
           ..write('errorCode: $errorCode, ')
           ..write('errorMessage: $errorMessage, ')
+          ..write('failureStage: $failureStage, ')
+          ..write('failureRetryable: $failureRetryable, ')
           ..write('resultNotificationSeenAt: $resultNotificationSeenAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -2752,6 +2865,8 @@ typedef $$GenerationRecordsTableCreateCompanionBuilder =
       Value<String?> displaySnapshotJson,
       Value<String?> errorCode,
       Value<String?> errorMessage,
+      Value<String?> failureStage,
+      Value<bool?> failureRetryable,
       Value<DateTime?> resultNotificationSeenAt,
       Value<int> rowid,
     });
@@ -2801,6 +2916,8 @@ typedef $$GenerationRecordsTableUpdateCompanionBuilder =
       Value<String?> displaySnapshotJson,
       Value<String?> errorCode,
       Value<String?> errorMessage,
+      Value<String?> failureStage,
+      Value<bool?> failureRetryable,
       Value<DateTime?> resultNotificationSeenAt,
       Value<int> rowid,
     });
@@ -3033,6 +3150,16 @@ class $$GenerationRecordsTableFilterComposer
 
   ColumnFilters<String> get errorMessage => $composableBuilder(
     column: $table.errorMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get failureStage => $composableBuilder(
+    column: $table.failureStage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get failureRetryable => $composableBuilder(
+    column: $table.failureRetryable,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3273,6 +3400,16 @@ class $$GenerationRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get failureStage => $composableBuilder(
+    column: $table.failureStage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get failureRetryable => $composableBuilder(
+    column: $table.failureRetryable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get resultNotificationSeenAt => $composableBuilder(
     column: $table.resultNotificationSeenAt,
     builder: (column) => ColumnOrderings(column),
@@ -3500,6 +3637,16 @@ class $$GenerationRecordsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get failureStage => $composableBuilder(
+    column: $table.failureStage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get failureRetryable => $composableBuilder(
+    column: $table.failureRetryable,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get resultNotificationSeenAt => $composableBuilder(
     column: $table.resultNotificationSeenAt,
     builder: (column) => column,
@@ -3592,6 +3739,8 @@ class $$GenerationRecordsTableTableManager
                 Value<String?> displaySnapshotJson = const Value.absent(),
                 Value<String?> errorCode = const Value.absent(),
                 Value<String?> errorMessage = const Value.absent(),
+                Value<String?> failureStage = const Value.absent(),
+                Value<bool?> failureRetryable = const Value.absent(),
                 Value<DateTime?> resultNotificationSeenAt =
                     const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3642,6 +3791,8 @@ class $$GenerationRecordsTableTableManager
                 displaySnapshotJson: displaySnapshotJson,
                 errorCode: errorCode,
                 errorMessage: errorMessage,
+                failureStage: failureStage,
+                failureRetryable: failureRetryable,
                 resultNotificationSeenAt: resultNotificationSeenAt,
                 rowid: rowid,
               ),
@@ -3693,6 +3844,8 @@ class $$GenerationRecordsTableTableManager
                 Value<String?> displaySnapshotJson = const Value.absent(),
                 Value<String?> errorCode = const Value.absent(),
                 Value<String?> errorMessage = const Value.absent(),
+                Value<String?> failureStage = const Value.absent(),
+                Value<bool?> failureRetryable = const Value.absent(),
                 Value<DateTime?> resultNotificationSeenAt =
                     const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3743,6 +3896,8 @@ class $$GenerationRecordsTableTableManager
                 displaySnapshotJson: displaySnapshotJson,
                 errorCode: errorCode,
                 errorMessage: errorMessage,
+                failureStage: failureStage,
+                failureRetryable: failureRetryable,
                 resultNotificationSeenAt: resultNotificationSeenAt,
                 rowid: rowid,
               ),

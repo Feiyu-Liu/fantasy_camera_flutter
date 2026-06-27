@@ -493,6 +493,18 @@ class AppLocalizationsEn extends AppLocalizations {
       'The generation request failed. Please try again.';
 
   @override
+  String get toastGenerationUploadFailed =>
+      'Photo upload failed. Check your network and try again.';
+
+  @override
+  String get toastGenerationTaskCreateFailed =>
+      'The photo was uploaded, but the generation request could not be created. Please try again.';
+
+  @override
+  String get toastGenerationBackendFailed =>
+      'Photo generation failed. Please try again.';
+
+  @override
   String get toastResultSaveFailed =>
       'The result image could not be saved. Please try again.';
 

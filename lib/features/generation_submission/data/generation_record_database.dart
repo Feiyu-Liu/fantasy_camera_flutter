@@ -63,6 +63,8 @@ class GenerationRecords extends Table {
 
   TextColumn get errorCode => text().nullable()();
   TextColumn get errorMessage => text().nullable()();
+  TextColumn get failureStage => text().nullable()();
+  BoolColumn get failureRetryable => boolean().nullable()();
   DateTimeColumn get resultNotificationSeenAt => dateTime().nullable()();
 
   @override
