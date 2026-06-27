@@ -713,8 +713,7 @@ class _GenerationSubmissionDebugModalState
         _syncHeroPageToSelection(index, animate: true);
       }
     }
-    if (job.status == GenerationSubmissionStatus.completed ||
-        job.status == GenerationSubmissionStatus.resultProcessingFailed) {
+    if (job.status == GenerationSubmissionStatus.resultProcessingFailed) {
       unawaited(_loadResult(job.id));
     }
   }
@@ -1040,8 +1039,7 @@ class _GenerationSubmissionDebugModalState
         displayState.phase == _GalleryHeroArrivalPhase.precaching ||
         displayState.phase == _GalleryHeroArrivalPhase.animating ||
         job.status == GenerationSubmissionStatus.resultProcessingFailed ||
-        (job.status != GenerationSubmissionStatus.completed &&
-            job.status != GenerationSubmissionStatus.resultSaved)) {
+        job.status != GenerationSubmissionStatus.resultSaved) {
       return _HeroFileImageSource(
         path: job.imagePath,
         key: const ValueKey<String>('generation-submission-original-image'),
@@ -1072,21 +1070,11 @@ class _GenerationSubmissionDebugModalState
       );
     }
 
-    final String? resultUrl = job.resultUrl;
-    if (resultUrl == null) {
-      return _HeroFileImageSource(
-        path: job.imagePath,
-        key: const ValueKey<String>('generation-submission-original-image'),
-        failureLogLabel: 'original image',
-        failureMessage: l10n.generationSubmissionOriginalImageLoadFailed,
-      );
-    }
-
-    return _HeroNetworkImageSource(
-      url: resultUrl,
-      key: const ValueKey<String>('generation-submission-result-image'),
-      failureLogLabel: 'result image',
-      failureMessage: l10n.generationSubmissionResultImageLoadFailed,
+    return _HeroFileImageSource(
+      path: job.imagePath,
+      key: const ValueKey<String>('generation-submission-original-image'),
+      failureLogLabel: 'original image',
+      failureMessage: l10n.generationSubmissionOriginalImageLoadFailed,
     );
   }
 }
@@ -2545,8 +2533,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       return _originalImageSourceForJob(job);
     }
 
-    if (job.status != GenerationSubmissionStatus.completed &&
-        job.status != GenerationSubmissionStatus.resultSaved) {
+    if (job.status != GenerationSubmissionStatus.resultSaved) {
       return null;
     }
 
@@ -2574,17 +2561,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       );
     }
 
-    final String? resultUrl = job.resultUrl;
-    if (resultUrl == null) {
-      return _originalImageSourceForJob(job);
-    }
-
-    return _HeroNetworkImageSource(
-      url: resultUrl,
-      key: const ValueKey<String>('generation-submission-result-image'),
-      failureLogLabel: 'result image',
-      failureMessage: context.l10n.generationSubmissionResultImageLoadFailed,
-    );
+    return _originalImageSourceForJob(job);
   }
 
   _HeroImageSource _originalImageSourceForJob(GenerationSubmissionJob job) {
@@ -2619,8 +2596,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
 
   Widget _placeholderForJob(GenerationSubmissionJob job) {
     final String text;
-    if (job.status == GenerationSubmissionStatus.completed ||
-        job.status == GenerationSubmissionStatus.resultSaved) {
+    if (job.status == GenerationSubmissionStatus.resultSaved) {
       text = context.l10n.generationSubmissionTapToLoadResult;
     } else {
       text = _statusText(context.l10n, job.status).toUpperCase();
@@ -2640,8 +2616,7 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
   }
 
   bool _shouldUseOriginalAsHero(GenerationSubmissionJob job) {
-    return job.status != GenerationSubmissionStatus.completed &&
-        job.status != GenerationSubmissionStatus.resultSaved;
+    return job.status != GenerationSubmissionStatus.resultSaved;
   }
 
   bool _canToggleHeroImage(GenerationSubmissionJob job) {
@@ -2650,7 +2625,6 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
     }
 
     return switch (job.status) {
-      GenerationSubmissionStatus.completed => job.resultUrl != null,
       GenerationSubmissionStatus.resultSaved => job.hasResultDisplayTarget,
       _ => false,
     };
@@ -2718,21 +2692,6 @@ class _HeroFileImageSource extends _HeroImageSource {
 
   @override
   ImageProvider get imageProvider => FileImage(File(path));
-}
-
-class _HeroNetworkImageSource extends _HeroImageSource {
-  const _HeroNetworkImageSource({
-    required String url,
-    required super.key,
-    required super.failureLogLabel,
-    required super.failureMessage,
-  }) : super(path: url);
-
-  @override
-  ImageProvider get imageProvider => NetworkImage(path);
-
-  @override
-  String get debugPath => path;
 }
 
 class _HeroUnavailableImageSource extends _HeroImageSource {

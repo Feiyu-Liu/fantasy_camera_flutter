@@ -115,7 +115,6 @@ class GenerationSubmissionJob {
 
   bool get hasResultDisplayTarget {
     return switch (status) {
-      GenerationSubmissionStatus.completed => resultUrl != null,
       GenerationSubmissionStatus.resultSaved =>
         hasProcessedResultPath || hasMissingSavedResult,
       _ => false,

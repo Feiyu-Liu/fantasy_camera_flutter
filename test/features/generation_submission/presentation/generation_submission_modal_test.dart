@@ -393,11 +393,13 @@ void main() {
     );
   });
 
-  testWidgets('tapping completed photo loads result image', (
+  testWidgets('completed result url keeps hero on original before local save', (
     WidgetTester tester,
   ) async {
     final _FakeGenerationTaskRepository taskRepository =
         _FakeGenerationTaskRepository();
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+    final File processedFile = _writeImageFile('processed-done-result');
     final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
       _job(id: 'pending', status: GenerationSubmissionStatus.pollingTask),
       _job(
@@ -409,7 +411,7 @@ void main() {
 
     await _pumpModalHost(
       tester,
-      _ModalHost(jobs: jobs, taskRepository: taskRepository),
+      _ModalHost(key: hostKey, jobs: jobs, taskRepository: taskRepository),
     );
 
     await tester.tap(
@@ -418,21 +420,46 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(taskRepository.resultUrlTaskIds, <String>['task-done']);
+    expect(taskRepository.resultUrlTaskIds, isEmpty);
     expect(
-      find.byKey(const ValueKey<String>('generation-submission-result-image')),
+      find.byKey(
+        const ValueKey<String>('generation-submission-original-image'),
+      ),
       findsOneWidget,
     );
     expect(
       find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
       findsOneWidget,
     );
-
     await tester.tap(
       find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
+      warnIfMissed: false,
     );
     await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-result-image')),
+      findsNothing,
+    );
+    expect(find.byType(BlurredImageSwapTransition), findsNothing);
 
+    await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+      _job(id: 'pending', status: GenerationSubmissionStatus.pollingTask),
+      _job(
+        id: 'done',
+        status: GenerationSubmissionStatus.resultSaved,
+        imagePath: jobs[1].imagePath,
+        taskId: 'task-done',
+        processedResultPath: processedFile.path,
+      ),
+    ]);
+    for (int i = 0; i < 10; i += 1) {
+      await tester.pump(const Duration(milliseconds: 20));
+      if (find.byType(BlurredImageSwapTransition).evaluate().isNotEmpty) {
+        break;
+      }
+    }
+
+    expect(find.byType(BlurredImageSwapTransition), findsOneWidget);
     expect(
       find.byKey(
         const ValueKey<String>('generation-submission-original-image'),
@@ -442,16 +469,6 @@ void main() {
     expect(
       find.byKey(const ValueKey<String>('generation-submission-result-image')),
       findsNothing,
-    );
-
-    await tester.tap(
-      find.byKey(const ValueKey<String>('generation-submission-image-toggle')),
-    );
-    await tester.pump();
-
-    expect(
-      find.byKey(const ValueKey<String>('generation-submission-result-image')),
-      findsOneWidget,
     );
   });
 
