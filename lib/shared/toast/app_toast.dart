@@ -268,6 +268,16 @@ class AppToastService {
     );
   }
 
+  void showPurchaseSuccess(int credits) {
+    show(
+      AppToastMessage(
+        type: AppToastType.success,
+        title: _localizations.toastPurchaseSuccess(credits),
+        dedupeKey: 'billing.purchase.success',
+      ),
+    );
+  }
+
   void showRestorePurchaseFailure() {
     show(
       AppToastMessage(
@@ -343,6 +353,8 @@ class AppToastService {
       'redemption_code_revoked' ||
       'redemption_code_redeemed' =>
         _localizations.toastCreditRedemptionUnavailable,
+      'redemption_campaign_user_limit_reached' =>
+        _localizations.toastCreditRedemptionCampaignLimitReached,
       'redemption_rate_limited' =>
         _localizations.toastCreditRedemptionRateLimited,
       _ => _localizations.toastCreditRedemptionFailed,

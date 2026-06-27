@@ -1055,6 +1055,12 @@ abstract class AppLocalizations {
   /// **'Partially cleared'**
   String get settingsClearOriginalCachePartialTitle;
 
+  /// No description provided for @toastPurchaseSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase complete. {credits} credits added.'**
+  String toastPurchaseSuccess(int credits);
+
   /// No description provided for @toastPurchaseFailed.
   ///
   /// In en, this message translates to:
@@ -1084,6 +1090,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This code is invalid or has already been used.'**
   String get toastCreditRedemptionUnavailable;
+
+  /// No description provided for @toastCreditRedemptionCampaignLimitReached.
+  ///
+  /// In en, this message translates to:
+  /// **'This campaign can only be redeemed once per user.'**
+  String get toastCreditRedemptionCampaignLimitReached;
 
   /// No description provided for @toastCreditRedemptionRateLimited.
   ///

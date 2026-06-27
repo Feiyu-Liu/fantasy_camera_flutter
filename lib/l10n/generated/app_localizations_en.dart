@@ -550,6 +550,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsClearOriginalCachePartialTitle => 'Partially cleared';
 
   @override
+  String toastPurchaseSuccess(int credits) {
+    return 'Purchase complete. $credits credits added.';
+  }
+
+  @override
   String get toastPurchaseFailed =>
       'Purchase was not completed. Try again later.';
 
@@ -568,6 +573,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get toastCreditRedemptionUnavailable =>
       'This code is invalid or has already been used.';
+
+  @override
+  String get toastCreditRedemptionCampaignLimitReached =>
+      'This campaign can only be redeemed once per user.';
 
   @override
   String get toastCreditRedemptionRateLimited =>

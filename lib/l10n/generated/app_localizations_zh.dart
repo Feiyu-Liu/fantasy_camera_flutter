@@ -512,6 +512,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsClearOriginalCachePartialTitle => '部分清理失败';
 
   @override
+  String toastPurchaseSuccess(int credits) {
+    return '购买成功，已获得 $credits 积分。';
+  }
+
+  @override
   String get toastPurchaseFailed => '购买未完成，请稍后重试。';
 
   @override
@@ -527,6 +532,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get toastCreditRedemptionUnavailable => '兑换码无效或已被使用。';
+
+  @override
+  String get toastCreditRedemptionCampaignLimitReached => '该活动每个用户只能兑换一次。';
 
   @override
   String get toastCreditRedemptionRateLimited => '尝试次数过多，请稍后再试。';

@@ -224,6 +224,14 @@
   "toastFeedbackFailed": "反馈提交失败，请稍后重试。",
   "toastOpenPhotoLibraryFailed": "无法打开系统相册。",
   "settingsClearOriginalCachePartialTitle": "部分清理失败",
+  "toastPurchaseSuccess": "购买成功，已获得 {credits} 积分。",
+  "@toastPurchaseSuccess": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
   "toastPurchaseFailed": "购买未完成，请稍后重试。",
   "toastRestorePurchaseFailed": "恢复购买失败，请稍后重试。",
   "toastCreditRedemptionSuccess": "已兑换 {credits} 积分。",
@@ -236,6 +244,7 @@
   },
   "toastCreditRedemptionInvalid": "兑换码格式不正确。",
   "toastCreditRedemptionUnavailable": "兑换码无效或已被使用。",
+  "toastCreditRedemptionCampaignLimitReached": "该活动每个用户只能兑换一次。",
   "toastCreditRedemptionRateLimited": "尝试次数过多，请稍后再试。",
   "toastCreditRedemptionFailed": "兑换失败，请稍后重试。"
 }
