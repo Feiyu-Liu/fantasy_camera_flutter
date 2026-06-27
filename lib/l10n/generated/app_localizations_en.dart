@@ -455,6 +455,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get billingRestorePurchases => 'Restore purchases';
 
   @override
+  String get billingRedeemCodeTitle => 'Redeem code';
+
+  @override
+  String get billingRedeemCodePlaceholder => 'Enter code';
+
+  @override
+  String get billingRedeemCodeButton => 'Redeem';
+
+  @override
   String get commonCancel => 'Cancel';
 
   @override
@@ -547,4 +556,24 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get toastRestorePurchaseFailed =>
       'Purchases could not be restored. Try again later.';
+
+  @override
+  String toastCreditRedemptionSuccess(int credits) {
+    return 'Redeemed $credits credits.';
+  }
+
+  @override
+  String get toastCreditRedemptionInvalid => 'The code format is invalid.';
+
+  @override
+  String get toastCreditRedemptionUnavailable =>
+      'This code is invalid or has already been used.';
+
+  @override
+  String get toastCreditRedemptionRateLimited =>
+      'Too many attempts. Try again later.';
+
+  @override
+  String get toastCreditRedemptionFailed =>
+      'Code redemption failed. Try again later.';
 }

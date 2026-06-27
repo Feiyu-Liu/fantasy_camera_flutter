@@ -278,6 +278,26 @@ class AppToastService {
     );
   }
 
+  void showCreditRedemptionSuccess(int credits) {
+    show(
+      AppToastMessage(
+        type: AppToastType.success,
+        title: _localizations.toastCreditRedemptionSuccess(credits),
+        dedupeKey: 'billing.redemption.success',
+      ),
+    );
+  }
+
+  void showCreditRedemptionFailure(String? errorCode) {
+    show(
+      AppToastMessage(
+        type: AppToastType.error,
+        title: _creditRedemptionFailureMessage(errorCode),
+        dedupeKey: 'billing.redemption.${errorCode ?? 'failed'}',
+      ),
+    );
+  }
+
   String _generationSubmitFailureMessage(
     String? errorCode,
     GenerationRecordFailureStage? failureStage,
@@ -312,6 +332,20 @@ class AppToastService {
       'credits_insufficient' ||
       'not_enough_credits' => _localizations.toastInsufficientCredits,
       _ => _localizations.toastGenerationSubmitFailed,
+    };
+  }
+
+  String _creditRedemptionFailureMessage(String? errorCode) {
+    return switch (errorCode) {
+      'invalid_redemption_code' => _localizations.toastCreditRedemptionInvalid,
+      'redemption_code_unavailable' ||
+      'redemption_code_expired' ||
+      'redemption_code_revoked' ||
+      'redemption_code_redeemed' =>
+        _localizations.toastCreditRedemptionUnavailable,
+      'redemption_rate_limited' =>
+        _localizations.toastCreditRedemptionRateLimited,
+      _ => _localizations.toastCreditRedemptionFailed,
     };
   }
 }

@@ -432,6 +432,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get billingRestorePurchases => '恢复购买';
 
   @override
+  String get billingRedeemCodeTitle => '兑换码';
+
+  @override
+  String get billingRedeemCodePlaceholder => '输入兑换码';
+
+  @override
+  String get billingRedeemCodeButton => '兑换';
+
+  @override
   String get commonCancel => '取消';
 
   @override
@@ -507,4 +516,21 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get toastRestorePurchaseFailed => '恢复购买失败，请稍后重试。';
+
+  @override
+  String toastCreditRedemptionSuccess(int credits) {
+    return '已兑换 $credits 积分。';
+  }
+
+  @override
+  String get toastCreditRedemptionInvalid => '兑换码格式不正确。';
+
+  @override
+  String get toastCreditRedemptionUnavailable => '兑换码无效或已被使用。';
+
+  @override
+  String get toastCreditRedemptionRateLimited => '尝试次数过多，请稍后再试。';
+
+  @override
+  String get toastCreditRedemptionFailed => '兑换失败，请稍后重试。';
 }

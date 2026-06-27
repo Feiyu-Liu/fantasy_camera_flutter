@@ -191,6 +191,9 @@
     }
   },
   "billingRestorePurchases": "Restore purchases",
+  "billingRedeemCodeTitle": "Redeem code",
+  "billingRedeemCodePlaceholder": "Enter code",
+  "billingRedeemCodeButton": "Redeem",
   "commonCancel": "Cancel",
   "commonOK": "OK",
   "billingProductsUnavailable": "No credit packs are available right now.",
@@ -222,5 +225,17 @@
   "toastOpenPhotoLibraryFailed": "Could not open Photos.",
   "settingsClearOriginalCachePartialTitle": "Partially cleared",
   "toastPurchaseFailed": "Purchase was not completed. Try again later.",
-  "toastRestorePurchaseFailed": "Purchases could not be restored. Try again later."
+  "toastRestorePurchaseFailed": "Purchases could not be restored. Try again later.",
+  "toastCreditRedemptionSuccess": "Redeemed {credits} credits.",
+  "@toastCreditRedemptionSuccess": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "toastCreditRedemptionInvalid": "The code format is invalid.",
+  "toastCreditRedemptionUnavailable": "This code is invalid or has already been used.",
+  "toastCreditRedemptionRateLimited": "Too many attempts. Try again later.",
+  "toastCreditRedemptionFailed": "Code redemption failed. Try again later."
 }

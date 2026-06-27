@@ -191,6 +191,9 @@
     }
   },
   "billingRestorePurchases": "恢复购买",
+  "billingRedeemCodeTitle": "兑换码",
+  "billingRedeemCodePlaceholder": "输入兑换码",
+  "billingRedeemCodeButton": "兑换",
   "commonCancel": "取消",
   "commonOK": "好",
   "billingProductsUnavailable": "当前没有可购买的积分包。",
@@ -222,5 +225,17 @@
   "toastOpenPhotoLibraryFailed": "无法打开系统相册。",
   "settingsClearOriginalCachePartialTitle": "部分清理失败",
   "toastPurchaseFailed": "购买未完成，请稍后重试。",
-  "toastRestorePurchaseFailed": "恢复购买失败，请稍后重试。"
+  "toastRestorePurchaseFailed": "恢复购买失败，请稍后重试。",
+  "toastCreditRedemptionSuccess": "已兑换 {credits} 积分。",
+  "@toastCreditRedemptionSuccess": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "toastCreditRedemptionInvalid": "兑换码格式不正确。",
+  "toastCreditRedemptionUnavailable": "兑换码无效或已被使用。",
+  "toastCreditRedemptionRateLimited": "尝试次数过多，请稍后再试。",
+  "toastCreditRedemptionFailed": "兑换失败，请稍后重试。"
 }

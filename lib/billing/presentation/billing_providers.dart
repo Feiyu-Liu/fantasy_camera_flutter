@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/presentation/auth_providers.dart';
+import '../../features/backend_api/domain/api_failure.dart';
+import '../../features/backend_api/domain/credit_redemption.dart';
 import '../../features/backend_api/presentation/backend_api_providers.dart';
 import '../data/billing_repositories.dart';
 import '../data/revenuecat_billing_gateway.dart';
@@ -38,7 +40,121 @@ final billingControllerProvider =
       ],
     );
 
+final creditRedemptionControllerProvider =
+    NotifierProvider<CreditRedemptionController, CreditRedemptionState>(
+      CreditRedemptionController.new,
+      dependencies: <ProviderOrFamily>[
+        authSessionProvider,
+        creditsRepositoryProvider,
+        creditBalanceProvider,
+      ],
+    );
+
 enum BillingErrorKind { loadProducts, purchase, restore }
+
+class CreditRedemptionState {
+  const CreditRedemptionState({
+    this.code = '',
+    this.isSubmitting = false,
+    this.grantedCredits,
+    this.errorCode,
+    this.errorMessage,
+  });
+
+  final String code;
+  final bool isSubmitting;
+  final int? grantedCredits;
+  final String? errorCode;
+  final String? errorMessage;
+
+  bool get canSubmit => code.trim().isNotEmpty && !isSubmitting;
+
+  CreditRedemptionState copyWith({
+    String? code,
+    bool? isSubmitting,
+    int? grantedCredits,
+    bool clearGrantedCredits = false,
+    String? errorCode,
+    String? errorMessage,
+    bool clearError = false,
+  }) {
+    return CreditRedemptionState(
+      code: code ?? this.code,
+      isSubmitting: isSubmitting ?? this.isSubmitting,
+      grantedCredits: clearGrantedCredits
+          ? null
+          : grantedCredits ?? this.grantedCredits,
+      errorCode: clearError ? null : errorCode ?? this.errorCode,
+      errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+    );
+  }
+}
+
+class CreditRedemptionController extends Notifier<CreditRedemptionState> {
+  @override
+  CreditRedemptionState build() {
+    return const CreditRedemptionState();
+  }
+
+  void setCode(String code) {
+    state = state.copyWith(
+      code: code.toUpperCase(),
+      clearError: true,
+      clearGrantedCredits: true,
+    );
+  }
+
+  Future<void> redeem() async {
+    final String code = state.code.trim();
+    if (code.isEmpty || state.isSubmitting) {
+      return;
+    }
+    state = state.copyWith(
+      isSubmitting: true,
+      clearError: true,
+      clearGrantedCredits: true,
+    );
+    try {
+      final CreditRedemptionResult result = await ref
+          .read(creditsRepositoryProvider)
+          .redeemCode(code);
+      await ref
+          .read(creditBalanceProvider.notifier)
+          .refreshFromServer(userId: await _currentUserId());
+      state = state.copyWith(
+        code: '',
+        isSubmitting: false,
+        grantedCredits: result.grantedCredits > 0
+            ? result.grantedCredits
+            : null,
+      );
+    } on BackendApiFailure catch (error) {
+      state = state.copyWith(
+        isSubmitting: false,
+        errorCode: error.code,
+        errorMessage: error.message,
+      );
+    } on Object catch (error) {
+      state = state.copyWith(
+        isSubmitting: false,
+        errorCode: 'redemption_failed',
+        errorMessage: error.toString(),
+      );
+    }
+  }
+
+  void clearSuccess() {
+    if (state.grantedCredits == null) {
+      return;
+    }
+    state = state.copyWith(clearGrantedCredits: true);
+  }
+
+  Future<String?> _currentUserId() async {
+    return ref.read(authSessionProvider).valueOrNull?.user?.id ??
+        (await ref.read(authSessionProvider.future)).user?.id;
+  }
+}
 
 class BillingControllerState {
   const BillingControllerState({

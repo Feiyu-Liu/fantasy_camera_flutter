@@ -2,8 +2,10 @@ import 'dart:typed_data';
 
 import 'checksum.dart';
 import 'fantasy_api_client.dart';
+import '../domain/api_failure.dart';
 import '../domain/app_input_contract.dart';
 import '../domain/credit_balance.dart';
+import '../domain/credit_redemption.dart';
 import '../domain/feedback.dart';
 import '../domain/generation_task.dart';
 import '../domain/json_value.dart';
@@ -35,6 +37,8 @@ class WorkerAppConfigRepository implements AppConfigRepository {
 
 abstract interface class CreditsRepository {
   Future<CreditBalance> fetchBalance();
+
+  Future<CreditRedemptionResult> redeemCode(String code);
 }
 
 class WorkerCreditsRepository implements CreditsRepository {
@@ -49,6 +53,36 @@ class WorkerCreditsRepository implements CreditsRepository {
       decode: (Object? data) => decodeJsonObject(data, CreditBalance.fromJson),
     );
   }
+
+  @override
+  Future<CreditRedemptionResult> redeemCode(String code) {
+    return _client.post<CreditRedemptionResult>(
+      '/v1/credits/redeem',
+      data: <String, Object?>{'code': code},
+      decode: (Object? data) {
+        final JsonObject json = data is Map<String, Object?>
+            ? data
+            : Map<String, Object?>.from(data as Map);
+        if (json['ok'] == false) {
+          throw BackendApiFailure(
+            code: _readStringOrDefault(
+              json['errorCode'],
+              'redemption_code_unavailable',
+            ),
+            message: _readStringOrDefault(
+              json['message'],
+              'Redemption code is unavailable.',
+            ),
+          );
+        }
+        return CreditRedemptionResult.fromJson(json);
+      },
+    );
+  }
+}
+
+String _readStringOrDefault(Object? value, String fallback) {
+  return value is String && value.isNotEmpty ? value : fallback;
 }
 
 abstract interface class UploadRepository {

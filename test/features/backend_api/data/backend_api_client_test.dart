@@ -203,6 +203,59 @@ void main() {
       );
     });
 
+    test('redeems credit code through worker credits endpoint', () async {
+      final _FakeHttpClientAdapter adapter = _FakeHttpClientAdapter();
+      adapter.enqueueJson(<String, Object?>{
+        'data': <String, Object?>{
+          'ok': true,
+          'grantedCredits': 50,
+          'balance': 80,
+          'reservedBalance': 0,
+          'campaignId': 'campaign-1',
+          'codeId': 'code-1',
+        },
+        'requestId': 'req-redeem',
+      });
+      final CreditsRepository repository = WorkerCreditsRepository(
+        _client(adapter, tokenProvider: _FakeAccessTokenProvider()),
+      );
+
+      final result = await repository.redeemCode('ABCD-EFGH-2345');
+
+      expect(result.grantedCredits, 50);
+      expect(result.balance, 80);
+      expect(adapter.requests.single.method, 'POST');
+      expect(adapter.requests.single.uri.path, '/v1/credits/redeem');
+      expect(adapter.requests.single.bodyAsJson, <String, Object?>{
+        'code': 'ABCD-EFGH-2345',
+      });
+    });
+
+    test('maps redemption ok false response to backend failure', () async {
+      final _FakeHttpClientAdapter adapter = _FakeHttpClientAdapter();
+      adapter.enqueueJson(<String, Object?>{
+        'data': <String, Object?>{
+          'ok': false,
+          'errorCode': 'redemption_code_unavailable',
+        },
+        'requestId': 'req-redeem-failed',
+      });
+      final CreditsRepository repository = WorkerCreditsRepository(
+        _client(adapter, tokenProvider: _FakeAccessTokenProvider()),
+      );
+
+      await expectLater(
+        repository.redeemCode('ABCD-EFGH-2345'),
+        throwsA(
+          isA<BackendApiFailure>().having(
+            (BackendApiFailure error) => error.code,
+            'code',
+            'redemption_code_unavailable',
+          ),
+        ),
+      );
+    });
+
     test(
       'generation task request includes origin device id when available',
       () {

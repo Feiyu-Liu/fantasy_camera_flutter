@@ -899,6 +899,24 @@ abstract class AppLocalizations {
   /// **'Restore purchases'**
   String get billingRestorePurchases;
 
+  /// No description provided for @billingRedeemCodeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Redeem code'**
+  String get billingRedeemCodeTitle;
+
+  /// No description provided for @billingRedeemCodePlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter code'**
+  String get billingRedeemCodePlaceholder;
+
+  /// No description provided for @billingRedeemCodeButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Redeem'**
+  String get billingRedeemCodeButton;
+
   /// No description provided for @commonCancel.
   ///
   /// In en, this message translates to:
@@ -1048,6 +1066,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Purchases could not be restored. Try again later.'**
   String get toastRestorePurchaseFailed;
+
+  /// No description provided for @toastCreditRedemptionSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Redeemed {credits} credits.'**
+  String toastCreditRedemptionSuccess(int credits);
+
+  /// No description provided for @toastCreditRedemptionInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'The code format is invalid.'**
+  String get toastCreditRedemptionInvalid;
+
+  /// No description provided for @toastCreditRedemptionUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This code is invalid or has already been used.'**
+  String get toastCreditRedemptionUnavailable;
+
+  /// No description provided for @toastCreditRedemptionRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Try again later.'**
+  String get toastCreditRedemptionRateLimited;
+
+  /// No description provided for @toastCreditRedemptionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Code redemption failed. Try again later.'**
+  String get toastCreditRedemptionFailed;
 }
 
 class _AppLocalizationsDelegate

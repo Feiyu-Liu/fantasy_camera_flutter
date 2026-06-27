@@ -8,7 +8,9 @@ import 'package:fantasy_camera_flutter/billing/domain/credit_product.dart';
 import 'package:fantasy_camera_flutter/billing/presentation/billing_providers.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/credit_balance_cache_repository.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/api_failure.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_redemption.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -248,6 +250,72 @@ void main() {
     expect(state.lastGrantedCredits, 30);
     expect(state.purchaseSuccessCredits, isNull);
   });
+
+  test(
+    'redeem code refreshes credit balance after successful redemption',
+    () async {
+      final _FakeCreditsRepository creditsRepository = _FakeCreditsRepository(
+        balance: 178,
+        redemptionResult: const CreditRedemptionResult(
+          grantedCredits: 50,
+          balance: 178,
+          reservedBalance: 0,
+          campaignId: 'campaign-1',
+          codeId: 'code-1',
+        ),
+      );
+      final ProviderContainer container = _container(
+        gateway: _FakeBillingGateway(),
+        billingRepository: _FakeBillingRepository(),
+        creditsRepository: creditsRepository,
+      );
+      addTearDown(container.dispose);
+
+      container
+          .read(creditRedemptionControllerProvider.notifier)
+          .setCode('abcd-efgh-2345');
+      await container
+          .read(creditRedemptionControllerProvider.notifier)
+          .redeem();
+
+      final CreditRedemptionState state = container.read(
+        creditRedemptionControllerProvider,
+      );
+      expect(creditsRepository.redeemCalls, 1);
+      expect(creditsRepository.redeemedCode, 'ABCD-EFGH-2345');
+      expect(state.code, isEmpty);
+      expect(state.grantedCredits, 50);
+      expect(container.read(creditBalanceProvider).valueOrNull?.balance, 178);
+    },
+  );
+
+  test('redeem code stores backend failure code', () async {
+    final _FakeCreditsRepository creditsRepository = _FakeCreditsRepository(
+      redeemError: const BackendApiFailure(
+        code: 'redemption_code_unavailable',
+        message: 'Code unavailable',
+        statusCode: 409,
+      ),
+    );
+    final ProviderContainer container = _container(
+      gateway: _FakeBillingGateway(),
+      billingRepository: _FakeBillingRepository(),
+      creditsRepository: creditsRepository,
+    );
+    addTearDown(container.dispose);
+
+    container
+        .read(creditRedemptionControllerProvider.notifier)
+        .setCode('ABCD-EFGH-2345');
+    await container.read(creditRedemptionControllerProvider.notifier).redeem();
+
+    final CreditRedemptionState state = container.read(
+      creditRedemptionControllerProvider,
+    );
+    expect(state.isSubmitting, isFalse);
+    expect(state.errorCode, 'redemption_code_unavailable');
+    expect(state.grantedCredits, isNull);
+  });
 }
 
 ProviderContainer _container({
@@ -346,10 +414,24 @@ class _FakeBillingRepository implements BillingRepository {
 }
 
 class _FakeCreditsRepository implements CreditsRepository {
-  _FakeCreditsRepository({this.balance = 128});
+  _FakeCreditsRepository({
+    this.balance = 128,
+    this.redemptionResult = const CreditRedemptionResult(
+      grantedCredits: 0,
+      balance: 128,
+      reservedBalance: 0,
+      campaignId: 'campaign-1',
+      codeId: 'code-1',
+    ),
+    this.redeemError,
+  });
 
   final int balance;
+  final CreditRedemptionResult redemptionResult;
+  final Object? redeemError;
   int fetchCalls = 0;
+  int redeemCalls = 0;
+  String? redeemedCode;
 
   @override
   Future<CreditBalance> fetchBalance() async {
@@ -361,6 +443,16 @@ class _FakeCreditsRepository implements CreditsRepository {
       lifetimeSpent: 0,
       updatedAt: DateTime.utc(2026, 6, 12),
     );
+  }
+
+  @override
+  Future<CreditRedemptionResult> redeemCode(String code) async {
+    redeemCalls += 1;
+    redeemedCode = code;
+    if (redeemError case final Object error) {
+      throw error;
+    }
+    return redemptionResult;
   }
 }
 

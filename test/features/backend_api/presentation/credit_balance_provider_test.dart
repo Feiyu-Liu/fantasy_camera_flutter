@@ -4,6 +4,7 @@ import 'package:fantasy_camera_flutter/auth/presentation/auth_providers.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/credit_balance_cache_repository.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_redemption.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -188,6 +189,17 @@ class _FakeCreditsRepository implements CreditsRepository {
       return _balance(0);
     }
     return balances[(fetchCalls - 1).clamp(0, balances.length - 1)];
+  }
+
+  @override
+  Future<CreditRedemptionResult> redeemCode(String code) async {
+    return const CreditRedemptionResult(
+      grantedCredits: 0,
+      balance: 0,
+      reservedBalance: 0,
+      campaignId: 'campaign-1',
+      codeId: 'code-1',
+    );
   }
 }
 
