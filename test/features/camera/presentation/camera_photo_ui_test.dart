@@ -83,6 +83,7 @@ void main() {
     WidgetTester tester,
   ) async {
     String selectedMode = 'general';
+    int extensionTapCount = 0;
 
     Future<void> pump() {
       return tester.pumpWidget(
@@ -98,8 +99,16 @@ void main() {
                     CameraUiMode(id: 'portrait', label: 'MANUAL'),
                   ],
                   selectedModeId: selectedMode,
-                  modeExtensions: const <String, List<Widget>>{
-                    'portrait': <Widget>[Text('Portrait Enhance')],
+                  modeExtensions: <String, List<Widget>>{
+                    'portrait': <Widget>[
+                      CupertinoButton(
+                        key: const ValueKey<String>('manual-extension-button'),
+                        onPressed: () {
+                          extensionTapCount += 1;
+                        },
+                        child: const Text('Portrait Enhance'),
+                      ),
+                    ],
                   },
                   onModeSelected: (String mode) {
                     setState(() {
@@ -137,6 +146,12 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Portrait Enhance'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('manual-extension-button')),
+    );
+
+    expect(extensionTapCount, 1);
   });
 }
 

@@ -927,63 +927,63 @@ class CameraPhotoPromptOptions extends StatelessWidget {
     if (children.isEmpty && expansionAnimation.value == 0) {
       return const SizedBox.shrink();
     }
-    return IgnorePointer(
-      ignoring: expansionAnimation.value == 0,
-      child: AnimatedBuilder(
-        animation: expansionAnimation,
-        builder: (BuildContext context, Widget? child) {
-          return ClipRect(
+    return AnimatedBuilder(
+      animation: expansionAnimation,
+      builder: (BuildContext context, Widget? child) {
+        return IgnorePointer(
+          ignoring: expansionAnimation.value <= 0.01,
+          child: ClipRect(
             child: SizedBox(
               height:
                   tokens.modeExtensionExpandedHeight * expansionAnimation.value,
               child: child,
             ),
-          );
-        },
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: tokens.backgroundColor,
-            border: Border(
-              bottom: BorderSide(
-                color: tokens.dividerColor,
-                width: tokens.dividerWidth,
-              ),
+          ),
+        );
+      },
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: tokens.backgroundColor,
+          border: Border(
+            bottom: BorderSide(
+              color: tokens.dividerColor,
+              width: tokens.dividerWidth,
             ),
           ),
-          child: LayoutBuilder(
-            builder: (BuildContext context, BoxConstraints constraints) {
-              const double horizontalPadding = 12;
-              final double minContentWidth =
-                  constraints.maxWidth > horizontalPadding * 2
-                  ? constraints.maxWidth - horizontalPadding * 2
-                  : 0;
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: horizontalPadding,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: minContentWidth),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        for (int index = 0; index < children.length; index++)
-                          _CameraPhotoModeExtensionChild(
-                            tokens: tokens,
-                            animation: expansionAnimation,
-                            index: index,
-                            child: children[index],
-                          ),
-                      ],
-                    ),
+        ),
+        child: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            const double horizontalPadding = 12;
+            final double minContentWidth =
+                constraints.maxWidth > horizontalPadding * 2
+                ? constraints.maxWidth - horizontalPadding * 2
+                : 0;
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: minContentWidth),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      for (int index = 0; index < children.length; index++)
+                        _CameraPhotoModeExtensionChild(
+                          tokens: tokens,
+                          animation: expansionAnimation,
+                          index: index,
+                          child: children[index],
+                        ),
+                    ],
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
