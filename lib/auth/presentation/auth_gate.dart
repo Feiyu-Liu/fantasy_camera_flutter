@@ -159,11 +159,134 @@ class _LoadingCameraBody extends StatelessWidget {
               height: viewfinderHeight,
               child: ColoredBox(color: tokens.viewfinderColor),
             ),
+            _LoadingModeSelector(tokens: tokens),
             const Spacer(),
-            _LoadingBottomControls(tokens: tokens),
+            Transform.translate(
+              offset: Offset(0, -tokens.collapsedBottomControlsVisualLift),
+              child: _LoadingBottomControls(tokens: tokens),
+            ),
           ],
         );
       },
+    );
+  }
+}
+
+class _LoadingModeSelector extends StatelessWidget {
+  const _LoadingModeSelector({required this.tokens});
+
+  final CameraUiTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: tokens.backgroundColor,
+          border: Border(
+            top: BorderSide(
+              color: tokens.dividerColor,
+              width: tokens.dividerWidth,
+            ),
+          ),
+        ),
+        child: SizedBox(
+          height: tokens.modeRowHeight,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: tokens.dividerColor,
+                  width: tokens.dividerWidth,
+                ),
+              ),
+            ),
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                final double contentWidth = constraints.maxWidth;
+                final double autoLeft =
+                    (contentWidth - tokens.modeItemWidth * 2) / 2;
+                return Stack(
+                  children: <Widget>[
+                    Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          _LoadingModeLabel(
+                            tokens: tokens,
+                            label: context.l10n.promptCaptureModeGeneralTitle,
+                            selected: true,
+                          ),
+                          _LoadingModeLabel(
+                            tokens: tokens,
+                            label: context.l10n.promptCaptureModePortraitTitle,
+                            selected: false,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      left:
+                          autoLeft +
+                          (tokens.modeItemWidth - tokens.modeIndicatorWidth) /
+                              2,
+                      bottom: tokens.modeIndicatorBottomOffset,
+                      width: tokens.modeIndicatorWidth,
+                      height: tokens.modeIndicatorHeight,
+                      child: ColoredBox(color: tokens.primaryTextColor),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadingModeLabel extends StatelessWidget {
+  const _LoadingModeLabel({
+    required this.tokens,
+    required this.label,
+    required this.selected,
+  });
+
+  final CameraUiTokens tokens;
+  final String label;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: tokens.modeItemWidth,
+      height: double.infinity,
+      child: Padding(
+        padding: tokens.modeItemPadding,
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.visible,
+              textAlign: TextAlign.center,
+              textScaler: TextScaler.noScaling,
+              style:
+                  (selected
+                          ? tokens.modeSelectedTextStyle
+                          : tokens.modeUnselectedTextStyle)
+                      .copyWith(
+                        color: selected
+                            ? tokens.primaryTextColor
+                            : tokens.inactiveColor,
+                      ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

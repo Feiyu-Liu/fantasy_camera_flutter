@@ -135,7 +135,7 @@ void main() {
     expect(find.text('AUTO'), findsOneWidget);
     expect(find.text('MANUAL'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey<String>('camera-photo-mode-indicator-general')),
+      find.byKey(const ValueKey<String>('camera-photo-mode-indicator')),
       findsOneWidget,
     );
     expect(

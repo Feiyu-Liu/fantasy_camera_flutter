@@ -130,7 +130,7 @@ void main() {
     expect(find.text('AUTO'), findsOneWidget);
     expect(find.text('MANUAL'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey<String>('camera-photo-mode-indicator-general')),
+      find.byKey(const ValueKey<String>('camera-photo-mode-indicator')),
       findsOneWidget,
     );
     expect(find.text('Portrait Enhance'), findsNothing);
@@ -140,9 +140,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(
-      find.byKey(
-        const ValueKey<String>('camera-photo-mode-indicator-portrait'),
-      ),
+      find.byKey(const ValueKey<String>('camera-photo-mode-indicator')),
       findsOneWidget,
     );
     expect(find.text('Portrait Enhance'), findsOneWidget);

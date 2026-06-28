@@ -88,6 +88,9 @@ class CameraUiTokens {
     this.modeIndicatorTopMargin = 4,
     this.modeIndicatorWidth = 32,
     this.modeIndicatorHeight = 1.5,
+    this.modeIndicatorBottomOffset = 7,
+    this.modeSwitchMotionDuration = const Duration(milliseconds: 220),
+    this.modeSwitchMotionCurve = Curves.easeOutCubic,
     this.modeExtensionExpandedHeight = 48,
     this.modeExtensionMotionDuration = const Duration(milliseconds: 260),
     this.modeExtensionInitialDelay = 0.08,
@@ -199,6 +202,9 @@ class CameraUiTokens {
   final double modeIndicatorTopMargin;
   final double modeIndicatorWidth;
   final double modeIndicatorHeight;
+  final double modeIndicatorBottomOffset;
+  final Duration modeSwitchMotionDuration;
+  final Curve modeSwitchMotionCurve;
 
   final double modeExtensionExpandedHeight;
   final Duration modeExtensionMotionDuration;

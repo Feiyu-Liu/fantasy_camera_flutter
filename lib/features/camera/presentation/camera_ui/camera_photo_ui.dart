@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -1010,6 +1012,9 @@ class CameraPhotoModeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final int selectedIndex = modes.indexWhere(
+      (CameraUiMode mode) => mode.id == selectedModeId,
+    );
     return SizedBox(
       width: double.infinity,
       child: DecoratedBox(
@@ -1038,6 +1043,18 @@ class CameraPhotoModeSelector extends StatelessWidget {
                 ),
                 child: LayoutBuilder(
                   builder: (BuildContext context, BoxConstraints constraints) {
+                    final double contentWidth = math.max(
+                      constraints.maxWidth,
+                      modes.length * tokens.modeItemWidth,
+                    );
+                    final double leadingOffset =
+                        (contentWidth - modes.length * tokens.modeItemWidth) /
+                        2;
+                    final double indicatorLeft =
+                        leadingOffset +
+                        selectedIndex.clamp(0, modes.length - 1) *
+                            tokens.modeItemWidth +
+                        (tokens.modeItemWidth - tokens.modeIndicatorWidth) / 2;
                     return SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       physics: const BouncingScrollPhysics(),
@@ -1045,20 +1062,41 @@ class CameraPhotoModeSelector extends StatelessWidget {
                         constraints: BoxConstraints(
                           minWidth: constraints.maxWidth,
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: <Widget>[
-                            for (final CameraUiMode mode in modes)
-                              CameraPhotoModeItem(
-                                tokens: tokens,
-                                mode: mode,
-                                selected: mode.id == selectedModeId,
-                                onPressed: onModeSelected == null
-                                    ? null
-                                    : () => onModeSelected!(mode.id),
+                        child: SizedBox(
+                          width: contentWidth,
+                          child: Stack(
+                            children: <Widget>[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: <Widget>[
+                                  for (final CameraUiMode mode in modes)
+                                    CameraPhotoModeItem(
+                                      tokens: tokens,
+                                      mode: mode,
+                                      selected: mode.id == selectedModeId,
+                                      onPressed: onModeSelected == null
+                                          ? null
+                                          : () => onModeSelected!(mode.id),
+                                    ),
+                                ],
                               ),
-                          ],
+                              AnimatedPositioned(
+                                key: const ValueKey<String>(
+                                  'camera-photo-mode-indicator',
+                                ),
+                                duration: tokens.modeSwitchMotionDuration,
+                                curve: tokens.modeSwitchMotionCurve,
+                                left: indicatorLeft,
+                                bottom: tokens.modeIndicatorBottomOffset,
+                                width: tokens.modeIndicatorWidth,
+                                height: tokens.modeIndicatorHeight,
+                                child: ColoredBox(
+                                  color: tokens.primaryTextColor,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -1094,57 +1132,57 @@ class CameraPhotoModeItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color color = selected
-        ? tokens.primaryTextColor
-        : tokens.inactiveColor;
-    return GestureDetector(
-      onTap: onPressed == null
-          ? null
-          : () {
-              HapticFeedback.selectionClick();
-              onPressed!();
-            },
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: tokens.modeItemWidth,
-        height: double.infinity,
-        child: Padding(
-          padding: tokens.modeItemPadding,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              SizedBox(
-                width: double.infinity,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    mode.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.visible,
-                    textAlign: TextAlign.center,
-                    textScaler: TextScaler.noScaling,
-                    style:
-                        (selected
-                                ? tokens.modeSelectedTextStyle
-                                : tokens.modeUnselectedTextStyle)
-                            .copyWith(color: color),
+    return TweenAnimationBuilder<double>(
+      duration: tokens.modeSwitchMotionDuration,
+      curve: tokens.modeSwitchMotionCurve,
+      tween: Tween<double>(end: selected ? 1 : 0),
+      builder: (BuildContext context, double value, Widget? child) {
+        final Color color = Color.lerp(
+          tokens.inactiveColor,
+          tokens.primaryTextColor,
+          value,
+        )!;
+        final FontWeight fontWeight = FontWeight.lerp(
+          tokens.modeUnselectedTextStyle.fontWeight ?? FontWeight.w700,
+          tokens.modeSelectedTextStyle.fontWeight ?? FontWeight.w900,
+          value,
+        )!;
+        return GestureDetector(
+          onTap: onPressed == null
+              ? null
+              : () {
+                  HapticFeedback.selectionClick();
+                  onPressed!();
+                },
+          behavior: HitTestBehavior.opaque,
+          child: SizedBox(
+            width: tokens.modeItemWidth,
+            height: double.infinity,
+            child: Padding(
+              padding: tokens.modeItemPadding,
+              child: Center(
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      mode.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.visible,
+                      textAlign: TextAlign.center,
+                      textScaler: TextScaler.noScaling,
+                      style: tokens.modeUnselectedTextStyle.copyWith(
+                        color: color,
+                        fontWeight: fontWeight,
+                      ),
+                    ),
                   ),
                 ),
               ),
-              if (selected)
-                Container(
-                  key: ValueKey<String>(
-                    'camera-photo-mode-indicator-${mode.id}',
-                  ),
-                  margin: EdgeInsets.only(top: tokens.modeIndicatorTopMargin),
-                  width: tokens.modeIndicatorWidth,
-                  height: tokens.modeIndicatorHeight,
-                  color: tokens.primaryTextColor,
-                ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
