@@ -17,7 +17,9 @@ class CameraPhotoUi extends StatelessWidget {
     this.viewfinder,
     this.galleryPreview,
     this.message,
-    this.promptOptions = const <Widget>[],
+    this.modes = const <CameraUiMode>[],
+    this.selectedModeId,
+    this.modeExtensions = const <String, List<Widget>>{},
     this.zoomStops = const <CameraZoomStop>[],
     this.currentDisplayZoom = 1.0,
     this.controlsRotationTurns = 0,
@@ -43,6 +45,7 @@ class CameraPhotoUi extends StatelessWidget {
     this.onFlipCameraPressed,
     this.onGalleryPressed,
     this.onTrailingPressed,
+    this.onModeSelected,
     this.onZoomStopSelected,
     this.onZoomDragStart,
     this.onZoomDragUpdate,
@@ -53,7 +56,9 @@ class CameraPhotoUi extends StatelessWidget {
   final Widget? viewfinder;
   final Widget? galleryPreview;
   final String? message;
-  final List<Widget> promptOptions;
+  final List<CameraUiMode> modes;
+  final String? selectedModeId;
+  final Map<String, List<Widget>> modeExtensions;
   final List<CameraZoomStop> zoomStops;
   final double currentDisplayZoom;
   final double controlsRotationTurns;
@@ -79,6 +84,7 @@ class CameraPhotoUi extends StatelessWidget {
   final VoidCallback? onFlipCameraPressed;
   final VoidCallback? onGalleryPressed;
   final VoidCallback? onTrailingPressed;
+  final ValueChanged<String>? onModeSelected;
   final ValueChanged<double>? onZoomStopSelected;
   final VoidCallback? onZoomDragStart;
   final ValueChanged<double>? onZoomDragUpdate;
@@ -86,7 +92,7 @@ class CameraPhotoUi extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool hasPromptOptions = promptOptions.isNotEmpty;
+    final String? selectedMode = selectedModeId;
     final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
     return ColoredBox(
       color: tokens.backgroundColor,
@@ -131,35 +137,30 @@ class CameraPhotoUi extends StatelessWidget {
                         onZoomDragEnd: onZoomDragEnd,
                       ),
                     ),
-                    CameraPhotoPromptOptions(
-                      tokens: tokens,
-                      visible: hasPromptOptions,
-                      reduceMotion: reduceMotion,
-                      children: promptOptions,
-                    ),
-                    const Spacer(),
-                    CameraPhotoBottomControls(
-                      tokens: tokens,
-                      galleryPreview: galleryPreview,
-                      controlsRotationTurns: controlsRotationTurns,
-                      galleryEnabled: galleryEnabled,
-                      galleryBadgeStatus: galleryBadgeStatus,
-                      shutterEnabled: shutterEnabled,
-                      shutterBusy: shutterBusy,
-                      cameraFacing: cameraFacing,
-                      flipEnabled: flipEnabled,
-                      flipBusy: flipBusy,
-                      onGalleryPressed: onGalleryPressed,
-                      onShutterPressed: onShutterPressed,
-                      onFlipCameraPressed: onFlipCameraPressed,
-                    ),
-                    AnimatedContainer(
-                      duration: reduceMotion
-                          ? Duration.zero
-                          : tokens.bottomControlMotionDuration,
-                      curve: tokens.standardEaseOutCurve,
-                      height: tokens.collapsedBottomControlLift,
-                      color: tokens.backgroundColor,
+                    Expanded(
+                      child: CameraPhotoModeExpansionMotion(
+                        tokens: tokens,
+                        modes: modes,
+                        selectedModeId: selectedMode,
+                        modeExtensions: modeExtensions,
+                        reduceMotion: reduceMotion,
+                        onModeSelected: onModeSelected,
+                        bottomControls: CameraPhotoBottomControls(
+                          tokens: tokens,
+                          galleryPreview: galleryPreview,
+                          controlsRotationTurns: controlsRotationTurns,
+                          galleryEnabled: galleryEnabled,
+                          galleryBadgeStatus: galleryBadgeStatus,
+                          shutterEnabled: shutterEnabled,
+                          shutterBusy: shutterBusy,
+                          cameraFacing: cameraFacing,
+                          flipEnabled: flipEnabled,
+                          flipBusy: flipBusy,
+                          onGalleryPressed: onGalleryPressed,
+                          onShutterPressed: onShutterPressed,
+                          onFlipCameraPressed: onFlipCameraPressed,
+                        ),
+                      ),
                     ),
                   ],
                 );
@@ -776,54 +777,64 @@ class _CameraPhotoZoomPillTrack extends StatelessWidget {
   }
 }
 
-class CameraPhotoPromptOptions extends StatefulWidget {
-  const CameraPhotoPromptOptions({
-    required this.visible,
-    required this.children,
+class CameraPhotoModeExpansionMotion extends StatefulWidget {
+  const CameraPhotoModeExpansionMotion({
     required this.tokens,
+    required this.modes,
+    required this.selectedModeId,
+    required this.modeExtensions,
+    required this.reduceMotion,
+    required this.bottomControls,
     super.key,
-    this.reduceMotion = false,
+    this.onModeSelected,
   });
 
-  final bool visible;
-  final bool reduceMotion;
   final CameraUiTokens tokens;
-  final List<Widget> children;
+  final List<CameraUiMode> modes;
+  final String? selectedModeId;
+  final Map<String, List<Widget>> modeExtensions;
+  final bool reduceMotion;
+  final Widget bottomControls;
+  final ValueChanged<String>? onModeSelected;
 
   @override
-  State<CameraPhotoPromptOptions> createState() =>
-      _CameraPhotoPromptOptionsState();
+  State<CameraPhotoModeExpansionMotion> createState() =>
+      _CameraPhotoModeExpansionMotionState();
 }
 
-class _CameraPhotoPromptOptionsState extends State<CameraPhotoPromptOptions>
+class _CameraPhotoModeExpansionMotionState
+    extends State<CameraPhotoModeExpansionMotion>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late Animation<double> _heightAnimation;
-  late List<Widget> _displayChildren;
+  late Animation<double> _expansionAnimation;
+  late List<Widget> _displayExtensionChildren;
 
   @override
   void initState() {
     super.initState();
-    _displayChildren = widget.children;
+    _displayExtensionChildren = _selectedExtensionChildren;
     _controller = AnimationController(
       duration: _duration,
-      value: widget.visible ? 1 : 0,
+      value: _selectedExtensionVisible ? 1 : 0,
       vsync: this,
     )..addStatusListener(_handleAnimationStatus);
-    _heightAnimation = _buildHeightAnimation();
+    _expansionAnimation = _buildExpansionAnimation();
   }
 
   @override
-  void didUpdateWidget(covariant CameraPhotoPromptOptions oldWidget) {
+  void didUpdateWidget(covariant CameraPhotoModeExpansionMotion oldWidget) {
     super.didUpdateWidget(oldWidget);
     _controller.duration = _duration;
     if (oldWidget.reduceMotion != widget.reduceMotion) {
-      _heightAnimation = _buildHeightAnimation();
+      _expansionAnimation = _buildExpansionAnimation();
     }
-    if (widget.children.isNotEmpty) {
-      _displayChildren = widget.children;
+
+    final List<Widget> selectedChildren = _selectedExtensionChildren;
+    if (selectedChildren.isNotEmpty) {
+      _displayExtensionChildren = selectedChildren;
     }
-    if (widget.visible) {
+
+    if (_selectedExtensionVisible) {
       _controller.forward();
     } else {
       _controller.reverse();
@@ -840,51 +851,102 @@ class _CameraPhotoPromptOptionsState extends State<CameraPhotoPromptOptions>
       ? Duration.zero
       : widget.tokens.modeExtensionMotionDuration;
 
-  Animation<double> _buildHeightAnimation() {
-    final Animation<double> curved = CurvedAnimation(
+  List<Widget> get _selectedExtensionChildren {
+    final String? selectedModeId = widget.selectedModeId;
+    if (selectedModeId == null) {
+      return const <Widget>[];
+    }
+    return widget.modeExtensions[selectedModeId] ?? const <Widget>[];
+  }
+
+  bool get _selectedExtensionVisible => _selectedExtensionChildren.isNotEmpty;
+
+  Animation<double> _buildExpansionAnimation() {
+    return CurvedAnimation(
       parent: _controller,
       curve: widget.tokens.standardEaseOutCurve,
       reverseCurve: widget.tokens.standardEaseInCurve,
     );
-    return Tween<double>(
-      begin: 0,
-      end: widget.tokens.modeExtensionExpandedHeight,
-    ).animate(curved);
   }
 
   void _handleAnimationStatus(AnimationStatus status) {
-    if (status != AnimationStatus.dismissed || widget.children.isNotEmpty) {
+    if (status != AnimationStatus.dismissed || _selectedExtensionVisible) {
       return;
     }
-    if (_displayChildren.isEmpty) {
+    if (_displayExtensionChildren.isEmpty) {
       return;
     }
     setState(() {
-      _displayChildren = const <Widget>[];
+      _displayExtensionChildren = const <Widget>[];
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_displayChildren.isEmpty) {
+    return Column(
+      children: <Widget>[
+        if (widget.modes.isNotEmpty && widget.selectedModeId != null)
+          CameraPhotoModeSelector(
+            tokens: widget.tokens,
+            modes: widget.modes,
+            selectedModeId: widget.selectedModeId!,
+            extensionChildren: _displayExtensionChildren,
+            expansionAnimation: _expansionAnimation,
+            onModeSelected: widget.onModeSelected,
+          ),
+        const Spacer(),
+        AnimatedBuilder(
+          animation: _expansionAnimation,
+          builder: (BuildContext context, Widget? child) {
+            final double offset =
+                -widget.tokens.collapsedBottomControlsVisualLift *
+                (1 - _expansionAnimation.value);
+            return Transform.translate(offset: Offset(0, offset), child: child);
+          },
+          child: widget.bottomControls,
+        ),
+      ],
+    );
+  }
+}
+
+class CameraPhotoPromptOptions extends StatelessWidget {
+  const CameraPhotoPromptOptions({
+    required this.children,
+    required this.tokens,
+    required this.expansionAnimation,
+    super.key,
+  });
+
+  final CameraUiTokens tokens;
+  final List<Widget> children;
+  final Animation<double> expansionAnimation;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty && expansionAnimation.value == 0) {
       return const SizedBox.shrink();
     }
     return IgnorePointer(
-      ignoring: !widget.visible,
+      ignoring: expansionAnimation.value == 0,
       child: AnimatedBuilder(
-        animation: _controller,
+        animation: expansionAnimation,
         builder: (BuildContext context, Widget? child) {
           return ClipRect(
-            child: SizedBox(height: _heightAnimation.value, child: child),
+            child: SizedBox(
+              height:
+                  tokens.modeExtensionExpandedHeight * expansionAnimation.value,
+              child: child,
+            ),
           );
         },
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: widget.tokens.backgroundColor,
+            color: tokens.backgroundColor,
             border: Border(
               bottom: BorderSide(
-                color: widget.tokens.dividerColor,
-                width: widget.tokens.dividerWidth,
+                color: tokens.dividerColor,
+                width: tokens.dividerWidth,
               ),
             ),
           ),
@@ -908,16 +970,12 @@ class _CameraPhotoPromptOptionsState extends State<CameraPhotoPromptOptions>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: <Widget>[
-                        for (
-                          int index = 0;
-                          index < _displayChildren.length;
-                          index++
-                        )
+                        for (int index = 0; index < children.length; index++)
                           _CameraPhotoModeExtensionChild(
-                            tokens: widget.tokens,
-                            animation: _controller,
+                            tokens: tokens,
+                            animation: expansionAnimation,
                             index: index,
-                            child: _displayChildren[index],
+                            child: children[index],
                           ),
                       ],
                     ),
@@ -925,6 +983,165 @@ class _CameraPhotoPromptOptionsState extends State<CameraPhotoPromptOptions>
                 ),
               );
             },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class CameraPhotoModeSelector extends StatelessWidget {
+  const CameraPhotoModeSelector({
+    required this.tokens,
+    required this.modes,
+    required this.selectedModeId,
+    required this.extensionChildren,
+    required this.expansionAnimation,
+    super.key,
+    this.onModeSelected,
+  });
+
+  final CameraUiTokens tokens;
+  final List<CameraUiMode> modes;
+  final String selectedModeId;
+  final List<Widget> extensionChildren;
+  final Animation<double> expansionAnimation;
+  final ValueChanged<String>? onModeSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: tokens.backgroundColor,
+          border: Border(
+            top: BorderSide(
+              color: tokens.dividerColor,
+              width: tokens.dividerWidth,
+            ),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            SizedBox(
+              height: tokens.modeRowHeight,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: tokens.dividerColor,
+                      width: tokens.dividerWidth,
+                    ),
+                  ),
+                ),
+                child: LayoutBuilder(
+                  builder: (BuildContext context, BoxConstraints constraints) {
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: constraints.maxWidth,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: <Widget>[
+                            for (final CameraUiMode mode in modes)
+                              CameraPhotoModeItem(
+                                tokens: tokens,
+                                mode: mode,
+                                selected: mode.id == selectedModeId,
+                                onPressed: onModeSelected == null
+                                    ? null
+                                    : () => onModeSelected!(mode.id),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            CameraPhotoPromptOptions(
+              tokens: tokens,
+              expansionAnimation: expansionAnimation,
+              children: extensionChildren,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CameraPhotoModeItem extends StatelessWidget {
+  const CameraPhotoModeItem({
+    required this.tokens,
+    required this.mode,
+    required this.selected,
+    super.key,
+    this.onPressed,
+  });
+
+  final CameraUiTokens tokens;
+  final CameraUiMode mode;
+  final bool selected;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = selected
+        ? tokens.primaryTextColor
+        : tokens.inactiveColor;
+    return GestureDetector(
+      onTap: onPressed == null
+          ? null
+          : () {
+              HapticFeedback.selectionClick();
+              onPressed!();
+            },
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: tokens.modeItemWidth,
+        height: double.infinity,
+        child: Padding(
+          padding: tokens.modeItemPadding,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              SizedBox(
+                width: double.infinity,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    mode.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.visible,
+                    textAlign: TextAlign.center,
+                    textScaler: TextScaler.noScaling,
+                    style:
+                        (selected
+                                ? tokens.modeSelectedTextStyle
+                                : tokens.modeUnselectedTextStyle)
+                            .copyWith(color: color),
+                  ),
+                ),
+              ),
+              if (selected)
+                Container(
+                  key: ValueKey<String>(
+                    'camera-photo-mode-indicator-${mode.id}',
+                  ),
+                  margin: EdgeInsets.only(top: tokens.modeIndicatorTopMargin),
+                  width: tokens.modeIndicatorWidth,
+                  height: tokens.modeIndicatorHeight,
+                  color: tokens.primaryTextColor,
+                ),
+            ],
           ),
         ),
       ),

@@ -1,7 +1,8 @@
 import 'json_value.dart';
 
 const String defaultPromptStyle = 'realistic';
-const String defaultCaptureMode = 'portrait';
+const String defaultCaptureMode = 'general';
+const String manualCaptureMode = 'portrait';
 
 const List<PromptSwitchDefinition>
 fallbackPromptSwitches = <PromptSwitchDefinition>[
@@ -23,7 +24,12 @@ const List<PromptStyleDefinition> fallbackPromptStyles =
         captureModes: <PromptCaptureModeDefinition>[
           PromptCaptureModeDefinition(
             id: defaultCaptureMode,
-            title: 'Portrait',
+            title: 'Auto',
+            switches: <PromptSwitchDefinition>[],
+          ),
+          PromptCaptureModeDefinition(
+            id: manualCaptureMode,
+            title: 'Manual',
             switches: fallbackPromptSwitches,
           ),
         ],
@@ -130,12 +136,7 @@ class PromptSelectionSnapshot {
   static const PromptSelectionSnapshot fallback = PromptSelectionSnapshot(
     promptStyle: defaultPromptStyle,
     captureMode: defaultCaptureMode,
-    switches: <String, bool>{
-      'recompose': true,
-      'beautifyFace': true,
-      'cleanFrame': true,
-      'backgroundBlur': true,
-    },
+    switches: <String, bool>{},
   );
 
   JsonObject get userInput {

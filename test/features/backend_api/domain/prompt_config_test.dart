@@ -14,13 +14,22 @@ void main() {
       styles.first.captureModes.map(
         (PromptCaptureModeDefinition captureMode) => captureMode.id,
       ),
-      <String>['portrait'],
+      <String>['general', 'portrait'],
     );
   });
 
-  test('parses prompt switches for the realistic portrait route', () {
+  test('parses prompt switches for the realistic auto route', () {
     final List<PromptSwitchDefinition> switches = promptSwitchesForRoute(
       _config,
+    );
+
+    expect(switches, isEmpty);
+  });
+
+  test('parses prompt switches for the realistic manual route', () {
+    final List<PromptSwitchDefinition> switches = promptSwitchesForRoute(
+      _config,
+      captureMode: manualCaptureMode,
     );
 
     expect(
@@ -64,24 +73,9 @@ void main() {
       const <String, Object?>{'modes': <Object?>[]},
     );
 
-    expect(
-      switches.map((PromptSwitchDefinition switchDefinition) {
-        return switchDefinition.id;
-      }),
-      <String>['recompose', 'beautifyFace', 'cleanFrame', 'backgroundBlur'],
-    );
-    expect(defaultSwitchValuesFor(switches), <String, bool>{
-      'recompose': true,
-      'beautifyFace': true,
-      'cleanFrame': true,
-      'backgroundBlur': true,
-    });
-    expect(PromptSelectionSnapshot.fallback.switches, <String, bool>{
-      'recompose': true,
-      'beautifyFace': true,
-      'cleanFrame': true,
-      'backgroundBlur': true,
-    });
+    expect(switches, isEmpty);
+    expect(defaultSwitchValuesFor(switches), <String, bool>{});
+    expect(PromptSelectionSnapshot.fallback.switches, <String, bool>{});
   });
 }
 
@@ -92,8 +86,13 @@ const JsonObject _config = <String, Object?>{
       'title': 'Realistic',
       'captureModes': <Object?>[
         <String, Object?>{
+          'id': 'general',
+          'title': 'Auto',
+          'switches': <Object?>[],
+        },
+        <String, Object?>{
           'id': 'portrait',
-          'title': 'Portrait',
+          'title': 'Manual',
           'switches': <Object?>[
             <String, Object?>{
               'id': 'recompose',

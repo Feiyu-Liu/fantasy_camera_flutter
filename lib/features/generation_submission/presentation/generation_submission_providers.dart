@@ -236,12 +236,17 @@ class PromptSelectionState {
   });
 
   factory PromptSelectionState.fallback() {
+    final PromptStyleDefinition style = defaultPromptStyleDefinition(
+      fallbackPromptStyles,
+    );
+    final PromptCaptureModeDefinition captureMode =
+        defaultPromptCaptureModeDefinition(style);
     return PromptSelectionState(
       styles: fallbackPromptStyles,
-      selectedPromptStyleId: defaultPromptStyle,
-      selectedCaptureModeId: defaultCaptureMode,
-      switches: fallbackPromptSwitches,
-      values: defaultSwitchValuesFor(fallbackPromptSwitches),
+      selectedPromptStyleId: style.id,
+      selectedCaptureModeId: captureMode.id,
+      switches: captureMode.switches,
+      values: defaultSwitchValuesFor(captureMode.switches),
       isFallback: true,
     );
   }

@@ -50,7 +50,13 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
   }
 
+  Future<void> useWidePortraitSurface(WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+  }
+
   testWidgets('shows auth page when signed out', (WidgetTester tester) async {
+    await useWidePortraitSurface(tester);
     await tester.pumpWidget(
       FantasyCameraApp(
         overrides: <Override>[
@@ -126,9 +132,15 @@ void main() {
     await tester.pump();
 
     expect(find.byType(CameraPhotoUi), findsOneWidget);
+    expect(find.text('AUTO'), findsOneWidget);
+    expect(find.text('MANUAL'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('camera-photo-mode-indicator-general')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey<String>('camera-prompt-option-recompose')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey<String>('camera-prompt-switch-list')),
@@ -424,6 +436,7 @@ void main() {
   testWidgets('waits for camera choices before mounting camera screen', (
     WidgetTester tester,
   ) async {
+    await usePortraitSurface(tester);
     final Completer<List<CameraChoice>> cameraChoicesCompleter =
         Completer<List<CameraChoice>>();
 

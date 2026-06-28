@@ -1964,14 +1964,20 @@ class GenerationSubmissionService extends ChangeNotifier {
     return PromptSelectionSnapshot(
       promptStyle: record.promptStyle ?? defaultPromptStyle,
       captureMode: record.captureMode ?? defaultCaptureMode,
-      switches: _switchesFromUserInputJson(record.userInputJson),
+      switches: _switchesFromUserInputJson(
+        record.userInputJson,
+        captureMode: record.captureMode ?? defaultCaptureMode,
+      ),
       appInputContractId: record.appInputContractId,
     );
   }
 
-  Map<String, bool> _switchesFromUserInputJson(String? userInputJson) {
+  Map<String, bool> _switchesFromUserInputJson(
+    String? userInputJson, {
+    required String captureMode,
+  }) {
     if (userInputJson == null) {
-      return PromptSelectionSnapshot.fallback.switches;
+      return _fallbackSwitchesForCaptureMode(captureMode);
     }
     try {
       final Object? decoded = jsonDecode(userInputJson);
@@ -1986,9 +1992,16 @@ class GenerationSubmissionService extends ChangeNotifier {
         }
       }
     } on Object {
+      return _fallbackSwitchesForCaptureMode(captureMode);
+    }
+    return _fallbackSwitchesForCaptureMode(captureMode);
+  }
+
+  Map<String, bool> _fallbackSwitchesForCaptureMode(String captureMode) {
+    if (captureMode != manualCaptureMode) {
       return PromptSelectionSnapshot.fallback.switches;
     }
-    return PromptSelectionSnapshot.fallback.switches;
+    return defaultSwitchValuesFor(fallbackPromptSwitches);
   }
 
   GenerationSubmissionStatus? _submissionStatusForRecord(

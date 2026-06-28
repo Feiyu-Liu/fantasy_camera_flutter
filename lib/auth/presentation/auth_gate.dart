@@ -151,15 +151,7 @@ class _LoadingCameraBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final double targetViewfinderHeight = constraints.maxWidth * 4 / 3;
-        final double reservedControlsHeight =
-            tokens.bottomControlsHeight + tokens.collapsedBottomControlLift;
-        final double availableViewfinderHeight =
-            constraints.maxHeight - reservedControlsHeight;
-        final double viewfinderHeight = targetViewfinderHeight.clamp(
-          0,
-          availableViewfinderHeight.clamp(0, double.infinity),
-        );
+        final double viewfinderHeight = constraints.maxWidth * 4 / 3;
         return Column(
           children: <Widget>[
             SizedBox(
@@ -169,7 +161,6 @@ class _LoadingCameraBody extends StatelessWidget {
             ),
             const Spacer(),
             _LoadingBottomControls(tokens: tokens),
-            SizedBox(height: tokens.collapsedBottomControlLift),
           ],
         );
       },

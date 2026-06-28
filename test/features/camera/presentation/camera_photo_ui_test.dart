@@ -1,4 +1,5 @@
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_ui/camera_photo_ui.dart';
+import 'package:fantasy_camera_flutter/features/camera/presentation/camera_ui/camera_ui_models.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_ui/camera_ui_tokens.dart';
 import 'package:fantasy_camera_flutter/theme/app_colors.dart';
 import 'package:flutter/cupertino.dart';
@@ -76,6 +77,66 @@ void main() {
       find.byKey(const ValueKey<String>('camera-gallery-result-badge')),
       findsNothing,
     );
+  });
+
+  testWidgets('mode selector shows manual extension only when selected', (
+    WidgetTester tester,
+  ) async {
+    String selectedMode = 'general';
+
+    Future<void> pump() {
+      return tester.pumpWidget(
+        CupertinoApp(
+          home: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return SizedBox(
+                height: 180,
+                child: CameraPhotoModeExpansionMotion(
+                  tokens: const CameraUiTokens(),
+                  modes: const <CameraUiMode>[
+                    CameraUiMode(id: 'general', label: 'AUTO'),
+                    CameraUiMode(id: 'portrait', label: 'MANUAL'),
+                  ],
+                  selectedModeId: selectedMode,
+                  modeExtensions: const <String, List<Widget>>{
+                    'portrait': <Widget>[Text('Portrait Enhance')],
+                  },
+                  onModeSelected: (String mode) {
+                    setState(() {
+                      selectedMode = mode;
+                    });
+                  },
+                  bottomControls: const SizedBox.shrink(),
+                  reduceMotion: false,
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    await pump();
+
+    expect(find.text('AUTO'), findsOneWidget);
+    expect(find.text('MANUAL'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('camera-photo-mode-indicator-general')),
+      findsOneWidget,
+    );
+    expect(find.text('Portrait Enhance'), findsNothing);
+
+    await tester.tap(find.text('MANUAL'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('camera-photo-mode-indicator-portrait'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Portrait Enhance'), findsOneWidget);
   });
 }
 

@@ -34,56 +34,62 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test(
-    'loads built-in prompt styles and ignores unavailable capture modes',
-    () {
-      final ProviderContainer container = _container();
-      addTearDown(container.dispose);
+  test('loads built-in prompt modes and switches between auto and manual', () {
+    final ProviderContainer container = _container();
+    addTearDown(container.dispose);
 
-      final PromptSelectionController notifier = container.read(
-        promptSelectionControllerProvider.notifier,
-      );
-      PromptSelectionState state = container.read(
-        promptSelectionControllerProvider,
-      );
-      expect(
-        state.styles.map((PromptStyleDefinition style) => style.id),
-        <String>['realistic'],
-      );
-      expect(state.selectedPromptStyleId, 'realistic');
-      expect(state.selectedCaptureModeId, 'portrait');
-      expect(
-        state.switches.map((PromptSwitchDefinition switchDefinition) {
-          return switchDefinition.id;
-        }),
-        <String>['recompose', 'beautifyFace', 'cleanFrame', 'backgroundBlur'],
-      );
-      expect(state.values, <String, bool>{
-        'recompose': true,
-        'beautifyFace': true,
-        'cleanFrame': true,
-        'backgroundBlur': true,
-      });
-      expect(state.appInputContractId, isNull);
+    final PromptSelectionController notifier = container.read(
+      promptSelectionControllerProvider.notifier,
+    );
+    PromptSelectionState state = container.read(
+      promptSelectionControllerProvider,
+    );
+    expect(
+      state.styles.map((PromptStyleDefinition style) => style.id),
+      <String>['realistic'],
+    );
+    expect(state.selectedPromptStyleId, 'realistic');
+    expect(state.selectedCaptureModeId, 'general');
+    expect(
+      state.captureModes.map(
+        (PromptCaptureModeDefinition captureMode) => captureMode.id,
+      ),
+      <String>['general', 'portrait'],
+    );
+    expect(state.switches, isEmpty);
+    expect(state.values, <String, bool>{});
+    expect(state.appInputContractId, isNull);
 
-      notifier.selectCaptureMode('general');
-      state = container.read(promptSelectionControllerProvider);
-      expect(state.selectedCaptureModeId, 'portrait');
-      expect(
-        state.switches.map((PromptSwitchDefinition switchDefinition) {
-          return switchDefinition.id;
-        }),
-        <String>['recompose', 'beautifyFace', 'cleanFrame', 'backgroundBlur'],
-      );
-      expect(state.snapshot.captureMode, 'portrait');
+    notifier.selectCaptureMode('portrait');
+    state = container.read(promptSelectionControllerProvider);
+    expect(state.selectedCaptureModeId, 'portrait');
+    expect(
+      state.switches.map((PromptSwitchDefinition switchDefinition) {
+        return switchDefinition.id;
+      }),
+      <String>['recompose', 'beautifyFace', 'cleanFrame', 'backgroundBlur'],
+    );
+    expect(state.values, <String, bool>{
+      'recompose': true,
+      'beautifyFace': true,
+      'cleanFrame': true,
+      'backgroundBlur': true,
+    });
+    expect(state.snapshot.captureMode, 'portrait');
 
-      notifier.selectPromptStyle('abstract');
-      state = container.read(promptSelectionControllerProvider);
-      expect(state.selectedPromptStyleId, 'realistic');
-      expect(state.selectedCaptureModeId, 'portrait');
-      expect(state.snapshot.promptStyle, 'realistic');
-    },
-  );
+    notifier.selectCaptureMode('general');
+    state = container.read(promptSelectionControllerProvider);
+    expect(state.selectedCaptureModeId, 'general');
+    expect(state.switches, isEmpty);
+    expect(state.values, <String, bool>{});
+    expect(state.snapshot.captureMode, 'general');
+
+    notifier.selectPromptStyle('abstract');
+    state = container.read(promptSelectionControllerProvider);
+    expect(state.selectedPromptStyleId, 'realistic');
+    expect(state.selectedCaptureModeId, 'general');
+    expect(state.snapshot.promptStyle, 'realistic');
+  });
 
   test('keeps switch values per prompt route', () {
     final ProviderContainer container = _container();
@@ -92,6 +98,7 @@ void main() {
     final PromptSelectionController notifier = container.read(
       promptSelectionControllerProvider.notifier,
     );
+    notifier.selectCaptureMode('portrait');
     notifier.toggleSwitch('recompose');
     notifier.selectCaptureMode('general');
     notifier.selectCaptureMode('portrait');
@@ -168,15 +175,10 @@ void main() {
       uploadRepository.generationRequests.single?.promptStyle,
       'realistic',
     );
-    expect(uploadRepository.generationRequests.single?.captureMode, 'portrait');
+    expect(uploadRepository.generationRequests.single?.captureMode, 'general');
     expect(
       uploadRepository.generationRequests.single?.userInput['switches'],
-      <String, Object?>{
-        'recompose': true,
-        'beautifyFace': true,
-        'cleanFrame': true,
-        'backgroundBlur': true,
-      },
+      <String, Object?>{},
     );
   });
 

@@ -72,16 +72,31 @@ class CameraUiTokens {
       fontSize: 11,
       fontWeight: FontWeight.w500,
     ),
+    this.modeRowHeight = 42,
+    this.modeItemWidth = 80,
+    this.modeItemPadding = const EdgeInsets.symmetric(horizontal: 8),
+    this.modeSelectedTextStyle = const TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 0,
+    ),
+    this.modeUnselectedTextStyle = const TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0,
+    ),
+    this.modeIndicatorTopMargin = 4,
+    this.modeIndicatorWidth = 32,
+    this.modeIndicatorHeight = 1.5,
     this.modeExtensionExpandedHeight = 56,
     this.modeExtensionMotionDuration = const Duration(milliseconds: 260),
     this.modeExtensionInitialDelay = 0.08,
     this.modeExtensionStaggerDelay = 0.08,
     this.modeExtensionItemDuration = 0.34,
     this.modeExtensionSlideOffset = const Offset(0, -0.14),
-    this.bottomControlsHeight = 100,
+    this.bottomControlsHeight = 92,
     this.bottomControlsPadding = const EdgeInsets.symmetric(horizontal: 24),
-    this.collapsedBottomControlLift = 18,
-    this.bottomControlMotionDuration = const Duration(milliseconds: 260),
+    this.collapsedBottomControlsVisualLift = 18,
     this.galleryButtonSize = 54,
     this.shutterSize = 72,
     this.shutterOuterBorderWidth = 1.5,
@@ -176,6 +191,15 @@ class CameraUiTokens {
   final TextStyle zoomSelectedLabelTextStyle;
   final TextStyle zoomUnselectedLabelTextStyle;
 
+  final double modeRowHeight;
+  final double modeItemWidth;
+  final EdgeInsetsGeometry modeItemPadding;
+  final TextStyle modeSelectedTextStyle;
+  final TextStyle modeUnselectedTextStyle;
+  final double modeIndicatorTopMargin;
+  final double modeIndicatorWidth;
+  final double modeIndicatorHeight;
+
   final double modeExtensionExpandedHeight;
   final Duration modeExtensionMotionDuration;
   final double modeExtensionInitialDelay;
@@ -185,8 +209,7 @@ class CameraUiTokens {
 
   final double bottomControlsHeight;
   final EdgeInsetsGeometry bottomControlsPadding;
-  final double collapsedBottomControlLift;
-  final Duration bottomControlMotionDuration;
+  final double collapsedBottomControlsVisualLift;
 
   final double galleryButtonSize;
   final double shutterSize;

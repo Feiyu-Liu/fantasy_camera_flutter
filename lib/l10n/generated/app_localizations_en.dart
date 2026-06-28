@@ -239,10 +239,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get promptStyleRealisticTitle => 'Realistic';
 
   @override
-  String get promptCaptureModePortraitTitle => 'Portrait';
+  String get promptCaptureModePortraitTitle => 'MANUAL';
 
   @override
-  String get promptCaptureModeGeneralTitle => 'General';
+  String get promptCaptureModeGeneralTitle => 'AUTO';
 
   @override
   String get settingsTitle => 'SETTINGS';

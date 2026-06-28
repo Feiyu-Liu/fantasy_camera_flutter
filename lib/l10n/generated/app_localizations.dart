@@ -521,13 +521,13 @@ abstract class AppLocalizations {
   /// No description provided for @promptCaptureModePortraitTitle.
   ///
   /// In en, this message translates to:
-  /// **'Portrait'**
+  /// **'MANUAL'**
   String get promptCaptureModePortraitTitle;
 
   /// No description provided for @promptCaptureModeGeneralTitle.
   ///
   /// In en, this message translates to:
-  /// **'General'**
+  /// **'AUTO'**
   String get promptCaptureModeGeneralTitle;
 
   /// No description provided for @settingsTitle.
