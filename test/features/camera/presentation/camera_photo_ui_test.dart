@@ -151,6 +151,51 @@ void main() {
 
     expect(extensionTapCount, 1);
   });
+
+  testWidgets('body layout overlays controls when bottom space is too small', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(375, 623));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    CameraPhotoControlsPlacement? placement;
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: CameraPhotoBodyLayout(
+          tokens: const CameraUiTokens(),
+          minimumBottomHeight: 134,
+          viewfinder: const ColoredBox(
+            key: ValueKey<String>('camera-test-viewfinder'),
+            color: AppColors.black,
+          ),
+          controlsBuilder:
+              (
+                BuildContext context,
+                CameraPhotoControlsPlacement resolvedPlacement,
+              ) {
+                placement = resolvedPlacement;
+                return const SizedBox(
+                  key: ValueKey<String>('camera-test-controls'),
+                  height: 134,
+                );
+              },
+        ),
+      ),
+    );
+
+    expect(placement, CameraPhotoControlsPlacement.heroOverlay);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('camera-test-viewfinder')),
+      ),
+      const Size(375, 500),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('camera-test-controls')),
+      findsOneWidget,
+    );
+  });
 }
 
 void _expectBadgeOutsideTopRight(WidgetTester tester) {

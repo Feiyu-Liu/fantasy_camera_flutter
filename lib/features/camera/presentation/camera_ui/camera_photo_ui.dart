@@ -12,6 +12,8 @@ import '../../../../theme/app_colors.dart';
 
 enum CameraGalleryBadgeStatus { none, success, failure }
 
+enum CameraPhotoControlsPlacement { belowHero, heroOverlay }
+
 class CameraPhotoUi extends StatelessWidget {
   const CameraPhotoUi({
     super.key,
@@ -96,6 +98,15 @@ class CameraPhotoUi extends StatelessWidget {
   Widget build(BuildContext context) {
     final String? selectedMode = selectedModeId;
     final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final List<Widget> selectedModeExtensions = selectedMode == null
+        ? const <Widget>[]
+        : modeExtensions[selectedMode] ?? const <Widget>[];
+    final double minimumBottomHeight =
+        (modes.isNotEmpty && selectedMode != null ? tokens.modeRowHeight : 0) +
+        (selectedModeExtensions.isNotEmpty
+            ? tokens.modeExtensionExpandedHeight
+            : 0) +
+        tokens.bottomControlsHeight;
     return ColoredBox(
       color: tokens.backgroundColor,
       child: Column(
@@ -116,61 +127,149 @@ class CameraPhotoUi extends StatelessWidget {
             onTrailingPressed: onTrailingPressed,
           ),
           Expanded(
-            child: LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-                final double viewfinderHeight = constraints.maxWidth * 4 / 3;
-
-                return Column(
-                  children: <Widget>[
-                    SizedBox(
-                      width: double.infinity,
-                      height: viewfinderHeight,
-                      child: CameraPhotoViewfinder(
+            child: CameraPhotoBodyLayout(
+              tokens: tokens,
+              minimumBottomHeight: minimumBottomHeight,
+              viewfinder: CameraPhotoViewfinder(
+                tokens: tokens,
+                viewfinder: viewfinder,
+                message: message,
+                zoomStops: zoomStops,
+                currentDisplayZoom: currentDisplayZoom,
+                controlsRotationTurns: controlsRotationTurns,
+                zoomEnabled: zoomEnabled,
+                onZoomStopSelected: onZoomStopSelected,
+                onZoomDragStart: onZoomDragStart,
+                onZoomDragUpdate: onZoomDragUpdate,
+                onZoomDragEnd: onZoomDragEnd,
+              ),
+              controlsBuilder:
+                  (
+                    BuildContext context,
+                    CameraPhotoControlsPlacement placement,
+                  ) {
+                    return CameraPhotoModeExpansionMotion(
+                      tokens: tokens,
+                      modes: modes,
+                      selectedModeId: selectedMode,
+                      modeExtensions: modeExtensions,
+                      reduceMotion: reduceMotion,
+                      placement: placement,
+                      onModeSelected: onModeSelected,
+                      bottomControls: CameraPhotoBottomControls(
                         tokens: tokens,
-                        viewfinder: viewfinder,
-                        message: message,
-                        zoomStops: zoomStops,
-                        currentDisplayZoom: currentDisplayZoom,
-                        controlsRotationTurns: controlsRotationTurns,
-                        zoomEnabled: zoomEnabled,
-                        onZoomStopSelected: onZoomStopSelected,
-                        onZoomDragStart: onZoomDragStart,
-                        onZoomDragUpdate: onZoomDragUpdate,
-                        onZoomDragEnd: onZoomDragEnd,
-                      ),
-                    ),
-                    Expanded(
-                      child: CameraPhotoModeExpansionMotion(
-                        tokens: tokens,
-                        modes: modes,
-                        selectedModeId: selectedMode,
-                        modeExtensions: modeExtensions,
-                        reduceMotion: reduceMotion,
-                        onModeSelected: onModeSelected,
-                        bottomControls: CameraPhotoBottomControls(
-                          tokens: tokens,
-                          galleryPreview: galleryPreview,
-                          controlsRotationTurns: controlsRotationTurns,
-                          galleryEnabled: galleryEnabled,
-                          galleryBadgeStatus: galleryBadgeStatus,
-                          shutterEnabled: shutterEnabled,
-                          shutterBusy: shutterBusy,
-                          cameraFacing: cameraFacing,
-                          flipEnabled: flipEnabled,
-                          flipBusy: flipBusy,
-                          onGalleryPressed: onGalleryPressed,
-                          onShutterPressed: onShutterPressed,
-                          onFlipCameraPressed: onFlipCameraPressed,
+                        backgroundColor: _cameraPhotoPanelBackground(
+                          tokens,
+                          placement,
                         ),
+                        galleryPreview: galleryPreview,
+                        controlsRotationTurns: controlsRotationTurns,
+                        galleryEnabled: galleryEnabled,
+                        galleryBadgeStatus: galleryBadgeStatus,
+                        shutterEnabled: shutterEnabled,
+                        shutterBusy: shutterBusy,
+                        cameraFacing: cameraFacing,
+                        flipEnabled: flipEnabled,
+                        flipBusy: flipBusy,
+                        onGalleryPressed: onGalleryPressed,
+                        onShutterPressed: onShutterPressed,
+                        onFlipCameraPressed: onFlipCameraPressed,
                       ),
-                    ),
-                  ],
-                );
-              },
+                    );
+                  },
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+typedef CameraPhotoControlsBuilder =
+    Widget Function(
+      BuildContext context,
+      CameraPhotoControlsPlacement placement,
+    );
+
+Color _cameraPhotoPanelBackground(
+  CameraUiTokens tokens,
+  CameraPhotoControlsPlacement placement,
+) {
+  return switch (placement) {
+    CameraPhotoControlsPlacement.belowHero => tokens.backgroundColor,
+    CameraPhotoControlsPlacement.heroOverlay =>
+      tokens.backgroundColor.withValues(alpha: 0.86),
+  };
+}
+
+class CameraPhotoBodyLayout extends StatelessWidget {
+  const CameraPhotoBodyLayout({
+    required this.tokens,
+    required this.viewfinder,
+    required this.controlsBuilder,
+    super.key,
+    this.minimumBottomHeight = 0,
+  });
+
+  final CameraUiTokens tokens;
+  final Widget viewfinder;
+  final CameraPhotoControlsBuilder controlsBuilder;
+  final double minimumBottomHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double viewfinderHeight = constraints.maxWidth * 4 / 3;
+        final double availableBottomHeight = math.max(
+          0,
+          constraints.maxHeight - viewfinderHeight,
+        );
+        final double requiredBottomHeight =
+            minimumBottomHeight + MediaQuery.paddingOf(context).bottom;
+        final bool useHeroOverlay =
+            availableBottomHeight < requiredBottomHeight;
+
+        if (useHeroOverlay) {
+          return Stack(
+            clipBehavior: Clip.none,
+            children: <Widget>[
+              Positioned(
+                left: 0,
+                top: 0,
+                right: 0,
+                height: viewfinderHeight,
+                child: viewfinder,
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: controlsBuilder(
+                  context,
+                  CameraPhotoControlsPlacement.heroOverlay,
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Column(
+          children: <Widget>[
+            SizedBox(
+              width: double.infinity,
+              height: viewfinderHeight,
+              child: viewfinder,
+            ),
+            Expanded(
+              child: controlsBuilder(
+                context,
+                CameraPhotoControlsPlacement.belowHero,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -788,6 +887,7 @@ class CameraPhotoModeExpansionMotion extends StatefulWidget {
     required this.reduceMotion,
     required this.bottomControls,
     super.key,
+    this.placement = CameraPhotoControlsPlacement.belowHero,
     this.onModeSelected,
   });
 
@@ -797,6 +897,7 @@ class CameraPhotoModeExpansionMotion extends StatefulWidget {
   final Map<String, List<Widget>> modeExtensions;
   final bool reduceMotion;
   final Widget bottomControls;
+  final CameraPhotoControlsPlacement placement;
   final ValueChanged<String>? onModeSelected;
 
   @override
@@ -885,30 +986,68 @@ class _CameraPhotoModeExpansionMotionState
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        if (widget.modes.isNotEmpty && widget.selectedModeId != null)
-          CameraPhotoModeSelector(
+    final Widget? modeSelector =
+        widget.modes.isNotEmpty && widget.selectedModeId != null
+        ? CameraPhotoModeSelector(
             tokens: widget.tokens,
             modes: widget.modes,
             selectedModeId: widget.selectedModeId!,
             extensionChildren: _displayExtensionChildren,
             expansionAnimation: _expansionAnimation,
+            backgroundColor: _cameraPhotoPanelBackground(
+              widget.tokens,
+              widget.placement,
+            ),
             onModeSelected: widget.onModeSelected,
+          )
+        : null;
+
+    if (widget.placement == CameraPhotoControlsPlacement.heroOverlay) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          ?modeSelector,
+          AnimatedBuilder(
+            animation: _expansionAnimation,
+            builder: (BuildContext context, Widget? child) {
+              final double offset =
+                  -widget.tokens.collapsedBottomControlsVisualLift *
+                  (1 - _expansionAnimation.value);
+              return Transform.translate(
+                offset: Offset(0, offset),
+                child: child,
+              );
+            },
+            child: widget.bottomControls,
           ),
-        const Spacer(),
-        AnimatedBuilder(
-          animation: _expansionAnimation,
-          builder: (BuildContext context, Widget? child) {
-            final double offset =
-                -widget.tokens.collapsedBottomControlsVisualLift *
-                (1 - _expansionAnimation.value);
-            return Transform.translate(offset: Offset(0, offset), child: child);
-          },
-          child: widget.bottomControls,
+        ],
+      );
+    }
+
+    return Column(
+      children: <Widget>[
+        ?modeSelector,
+        Expanded(
+          child: AnimatedBuilder(
+            animation: _expansionAnimation,
+            builder: (BuildContext context, Widget? child) {
+              final double alignmentY = _bottomControlsAlignmentY(
+                _expansionAnimation.value,
+              );
+              return Align(alignment: Alignment(0, alignmentY), child: child);
+            },
+            child: widget.bottomControls,
+          ),
         ),
       ],
     );
+  }
+
+  double _bottomControlsAlignmentY(double expansionValue) {
+    if (_selectedExtensionVisible) {
+      return 0;
+    }
+    return -0.42 * (1 - expansionValue);
   }
 }
 
@@ -918,11 +1057,13 @@ class CameraPhotoPromptOptions extends StatelessWidget {
     required this.tokens,
     required this.expansionAnimation,
     super.key,
+    this.backgroundColor,
   });
 
   final CameraUiTokens tokens;
   final List<Widget> children;
   final Animation<double> expansionAnimation;
+  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -945,7 +1086,7 @@ class CameraPhotoPromptOptions extends StatelessWidget {
       },
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: tokens.backgroundColor,
+          color: backgroundColor ?? tokens.backgroundColor,
           border: Border(
             bottom: BorderSide(
               color: tokens.dividerColor,
@@ -1000,6 +1141,7 @@ class CameraPhotoModeSelector extends StatelessWidget {
     required this.extensionChildren,
     required this.expansionAnimation,
     super.key,
+    this.backgroundColor,
     this.onModeSelected,
   });
 
@@ -1008,6 +1150,7 @@ class CameraPhotoModeSelector extends StatelessWidget {
   final String selectedModeId;
   final List<Widget> extensionChildren;
   final Animation<double> expansionAnimation;
+  final Color? backgroundColor;
   final ValueChanged<String>? onModeSelected;
 
   @override
@@ -1019,7 +1162,7 @@ class CameraPhotoModeSelector extends StatelessWidget {
       width: double.infinity,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: tokens.backgroundColor,
+          color: backgroundColor ?? tokens.backgroundColor,
           border: Border(
             top: BorderSide(
               color: tokens.dividerColor,
@@ -1107,6 +1250,7 @@ class CameraPhotoModeSelector extends StatelessWidget {
             CameraPhotoPromptOptions(
               tokens: tokens,
               expansionAnimation: expansionAnimation,
+              backgroundColor: backgroundColor,
               children: extensionChildren,
             ),
           ],
@@ -1232,6 +1376,7 @@ class CameraPhotoBottomControls extends StatelessWidget {
   const CameraPhotoBottomControls({
     required this.tokens,
     super.key,
+    this.backgroundColor,
     this.galleryPreview,
     this.controlsRotationTurns = 0,
     this.galleryEnabled = true,
@@ -1247,6 +1392,7 @@ class CameraPhotoBottomControls extends StatelessWidget {
   });
 
   final CameraUiTokens tokens;
+  final Color? backgroundColor;
   final Widget? galleryPreview;
   final double controlsRotationTurns;
   final bool galleryEnabled;
@@ -1263,7 +1409,7 @@ class CameraPhotoBottomControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: tokens.backgroundColor,
+      color: backgroundColor ?? tokens.backgroundColor,
       child: SafeArea(
         top: false,
         child: SizedBox(

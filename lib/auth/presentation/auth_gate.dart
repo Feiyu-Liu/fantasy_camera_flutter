@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/app_config.dart';
 import '../../features/camera/presentation/camera_providers.dart';
 import '../../features/camera/presentation/camera_screen.dart';
+import '../../features/camera/presentation/camera_ui/camera_photo_ui.dart';
 import '../../features/camera/presentation/camera_ui/camera_ui_tokens.dart';
 import '../../l10n/l10n.dart';
 import '../../theme/app_colors.dart';
@@ -142,6 +143,17 @@ class _LoadingTopBar extends StatelessWidget {
   }
 }
 
+Color _loadingPanelBackground(
+  CameraUiTokens tokens,
+  CameraPhotoControlsPlacement placement,
+) {
+  return switch (placement) {
+    CameraPhotoControlsPlacement.belowHero => tokens.backgroundColor,
+    CameraPhotoControlsPlacement.heroOverlay =>
+      tokens.backgroundColor.withValues(alpha: 0.86),
+  };
+}
+
 class _LoadingCameraBody extends StatelessWidget {
   const _LoadingCameraBody({required this.tokens});
 
@@ -149,33 +161,61 @@ class _LoadingCameraBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final double viewfinderHeight = constraints.maxWidth * 4 / 3;
-        return Column(
-          children: <Widget>[
-            SizedBox(
-              width: double.infinity,
-              height: viewfinderHeight,
-              child: ColoredBox(color: tokens.viewfinderColor),
-            ),
-            _LoadingModeSelector(tokens: tokens),
-            const Spacer(),
-            Transform.translate(
-              offset: Offset(0, -tokens.collapsedBottomControlsVisualLift),
-              child: _LoadingBottomControls(tokens: tokens),
-            ),
-          ],
-        );
-      },
+    return CameraPhotoBodyLayout(
+      tokens: tokens,
+      minimumBottomHeight: tokens.modeRowHeight + tokens.bottomControlsHeight,
+      viewfinder: ColoredBox(color: tokens.viewfinderColor),
+      controlsBuilder:
+          (BuildContext context, CameraPhotoControlsPlacement placement) {
+            final Color panelColor = _loadingPanelBackground(tokens, placement);
+            if (placement == CameraPhotoControlsPlacement.heroOverlay) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  _LoadingModeSelector(
+                    tokens: tokens,
+                    backgroundColor: panelColor,
+                  ),
+                  Transform.translate(
+                    offset: Offset(
+                      0,
+                      -tokens.collapsedBottomControlsVisualLift,
+                    ),
+                    child: _LoadingBottomControls(
+                      tokens: tokens,
+                      backgroundColor: panelColor,
+                    ),
+                  ),
+                ],
+              );
+            }
+            return Column(
+              children: <Widget>[
+                _LoadingModeSelector(
+                  tokens: tokens,
+                  backgroundColor: panelColor,
+                ),
+                Expanded(
+                  child: Align(
+                    alignment: const Alignment(0, -0.42),
+                    child: _LoadingBottomControls(
+                      tokens: tokens,
+                      backgroundColor: panelColor,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
     );
   }
 }
 
 class _LoadingModeSelector extends StatelessWidget {
-  const _LoadingModeSelector({required this.tokens});
+  const _LoadingModeSelector({required this.tokens, this.backgroundColor});
 
   final CameraUiTokens tokens;
+  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -183,7 +223,7 @@ class _LoadingModeSelector extends StatelessWidget {
       width: double.infinity,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: tokens.backgroundColor,
+          color: backgroundColor ?? tokens.backgroundColor,
           border: Border(
             top: BorderSide(
               color: tokens.dividerColor,
@@ -292,14 +332,15 @@ class _LoadingModeLabel extends StatelessWidget {
 }
 
 class _LoadingBottomControls extends StatelessWidget {
-  const _LoadingBottomControls({required this.tokens});
+  const _LoadingBottomControls({required this.tokens, this.backgroundColor});
 
   final CameraUiTokens tokens;
+  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: tokens.backgroundColor,
+      color: backgroundColor ?? tokens.backgroundColor,
       child: SafeArea(
         top: false,
         child: SizedBox(
