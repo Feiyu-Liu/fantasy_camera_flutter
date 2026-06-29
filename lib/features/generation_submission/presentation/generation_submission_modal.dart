@@ -114,6 +114,9 @@ class _GenerationSubmissionDebugModalState
   void initState() {
     super.initState();
     _galleryImagePicker = ref.read(galleryImagePickerProvider);
+    if (widget.focusedTaskId != null && widget.focusedTaskId!.isNotEmpty) {
+      unawaited(_refreshFocusedTaskFromNotification(widget.focusedTaskId!));
+    }
     if (ref.read(galleryResumeActiveRecordsOnOpenProvider)) {
       unawaited(_resumeActiveRecordsForGallery());
     }
@@ -157,6 +160,25 @@ class _GenerationSubmissionDebugModalState
         _scheduleMarkResultNotificationsSeen();
       },
     );
+  }
+
+  Future<void> _refreshFocusedTaskFromNotification(String taskId) async {
+    try {
+      await ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .refreshTaskFromNotification(taskId);
+    } on Object catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'generation submission gallery',
+          context: ErrorDescription(
+            'while refreshing focused notification task',
+          ),
+        ),
+      );
+    }
   }
 
   void _scheduleMarkResultNotificationsSeen() {

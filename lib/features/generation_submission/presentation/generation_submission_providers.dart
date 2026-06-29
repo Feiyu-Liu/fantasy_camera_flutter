@@ -555,6 +555,11 @@ class GenerationSubmissionController
     await _refreshFromRepository();
   }
 
+  Future<void> refreshTaskFromNotification(String taskId) async {
+    await _service.refreshTaskFromNotification(taskId);
+    await _refreshFromRepository();
+  }
+
   Future<void> resumeActiveRecords() async {
     await _service.resumeActiveRecords();
     await _refreshFromRepository();

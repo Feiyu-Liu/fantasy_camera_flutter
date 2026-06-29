@@ -742,6 +742,128 @@ void main() {
     expect(taskRepository.fetchTaskIds, isEmpty);
   });
 
+  test(
+    'notification refresh resolves failed task when backend already completed',
+    () async {
+      final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
+          _FakePhotoLibraryAssetStore();
+      final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+      final _FakeGenerationTaskRepository taskRepository =
+          _FakeGenerationTaskRepository()
+            ..fetchTaskResponses.add(
+              _task(
+                status: GenerationTaskStatus.completed,
+                resultImageObjectId: 'result-1',
+              ),
+            );
+      final ProviderContainer container = _container(
+        photoLibraryAssetStore: photoLibraryAssetStore,
+        uploadRepository: uploadRepository,
+        taskRepository: taskRepository,
+      );
+      addTearDown(container.dispose);
+
+      final GenerationRecordRepository repository = container.read(
+        generationRecordRepositoryProvider,
+      );
+      await repository.createCameraRecord(
+        recordId: 'record-failed',
+        originalLocalPath: 'originals/record-failed.heic',
+        createdAt: DateTime.utc(2026, 5, 29),
+      );
+      await repository.updateTaskFields(
+        recordId: 'record-failed',
+        updatedAt: DateTime.utc(2026, 5, 29, 0, 1),
+        taskId: 'task-1',
+        taskStatus: GenerationTaskStatus.processing.wireValue,
+      );
+      await repository.markFailure(
+        recordId: 'record-failed',
+        status: GenerationRecordPipelineStatus.generationFailed,
+        failureStage: GenerationRecordFailureStage.pollingTask,
+        failureRetryable: true,
+        updatedAt: DateTime.utc(2026, 5, 29, 0, 2),
+        errorCode: 'task_poll_error',
+        errorMessage: 'poll failed',
+      );
+
+      await container
+          .read(generationSubmissionControllerProvider.notifier)
+          .refreshTaskFromNotification('task-1');
+
+      final GenerationSubmissionJob job = container
+          .read(generationSubmissionControllerProvider)
+          .jobs
+          .single;
+      expect(job.status, GenerationSubmissionStatus.resultSaved);
+      expect(job.taskStatus, GenerationTaskStatus.completed);
+      expect(job.resultImageObjectId, 'result-1');
+      expect(job.resultAssetId, 'asset-result-1');
+      expect(job.failureStage, isNull);
+      expect(job.failureRetryable, isFalse);
+      expect(taskRepository.fetchTaskIds, <String>['task-1']);
+      expect(taskRepository.resultUrlTaskIds, <String>['task-1']);
+      expect(uploadRepository.events, isEmpty);
+      expect(taskRepository.createdInputs, isEmpty);
+      expect(photoLibraryAssetStore.events, hasLength(1));
+    },
+  );
+
+  test('retry checks existing backend task before reuploading', () async {
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..fetchTaskResponses.add(
+            _task(
+              status: GenerationTaskStatus.completed,
+              resultImageObjectId: 'result-1',
+            ),
+          );
+    final ProviderContainer container = _container(
+      uploadRepository: uploadRepository,
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    final GenerationRecordRepository repository = container.read(
+      generationRecordRepositoryProvider,
+    );
+    await repository.createCameraRecord(
+      recordId: 'record-retry',
+      originalLocalPath: 'originals/record-retry.heic',
+      createdAt: DateTime.utc(2026, 5, 29),
+    );
+    await repository.updateTaskFields(
+      recordId: 'record-retry',
+      updatedAt: DateTime.utc(2026, 5, 29, 0, 1),
+      taskId: 'task-1',
+      taskStatus: GenerationTaskStatus.processing.wireValue,
+    );
+    await repository.markFailure(
+      recordId: 'record-retry',
+      status: GenerationRecordPipelineStatus.submissionFailed,
+      failureStage: GenerationRecordFailureStage.creatingTask,
+      failureRetryable: true,
+      updatedAt: DateTime.utc(2026, 5, 29, 0, 2),
+      errorCode: 'network_timeout',
+      errorMessage: 'timeout',
+    );
+
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .retryJob('record-retry');
+
+    final GenerationSubmissionJob job = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(job.status, GenerationSubmissionStatus.resultSaved);
+    expect(job.resultAssetId, 'asset-result-1');
+    expect(taskRepository.fetchTaskIds, <String>['task-1']);
+    expect(uploadRepository.events, isEmpty);
+    expect(taskRepository.createdInputs, isEmpty);
+  });
+
   test('missing saved photo asset marks result unavailable', () async {
     final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
         _FakePhotoLibraryAssetStore()
@@ -1304,6 +1426,13 @@ void main() {
           errorCode: 'network_error',
           errorMessage: 'Network failed',
         );
+    taskRepository.fetchTaskResponses.add(
+      _task(
+        status: GenerationTaskStatus.failed,
+        lastErrorCode: 'provider_error',
+        lastErrorMessage: 'Provider failed',
+      ),
+    );
 
     await container
         .read(generationSubmissionControllerProvider.notifier)

@@ -71,6 +71,13 @@ class GenerationRecordRepository {
         .getSingleOrNull();
   }
 
+  Future<GenerationRecord?> findByTaskId(String taskId) {
+    return (_database.select(_database.generationRecords)..where(
+          ($GenerationRecordsTable table) => table.taskId.equals(taskId),
+        ))
+        .getSingleOrNull();
+  }
+
   Future<void> createCameraRecord({
     required String recordId,
     required String originalLocalPath,

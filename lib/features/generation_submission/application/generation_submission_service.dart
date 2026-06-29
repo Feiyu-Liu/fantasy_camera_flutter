@@ -312,6 +312,21 @@ class GenerationSubmissionService extends ChangeNotifier {
     await _pollTask(recordId: recordId, taskId: taskId);
   }
 
+  Future<void> refreshTaskFromNotification(String taskId) async {
+    if (taskId.isEmpty) {
+      return;
+    }
+    final GenerationRecord? record = await _generationRecordRepository
+        .findByTaskId(taskId);
+    if (record == null) {
+      _debugLog('notification refresh skipped task=$taskId reason=missing');
+      notifyListeners();
+      return;
+    }
+    await _refreshRecordTaskFromBackend(record: record, taskId: taskId);
+    notifyListeners();
+  }
+
   Future<void> resumeActiveRecords() async {
     final Future<void>? running = _resumeActiveRecordsOperation;
     if (running != null) {
@@ -391,6 +406,18 @@ class GenerationSubmissionService extends ChangeNotifier {
       return;
     }
 
+    final String? existingTaskId = record.taskId;
+    if (existingTaskId != null && existingTaskId.isNotEmpty) {
+      final bool resolvedByRemoteTask = await _refreshRecordTaskFromBackend(
+        record: record,
+        taskId: existingTaskId,
+      );
+      if (resolvedByRemoteTask) {
+        notifyListeners();
+        return;
+      }
+    }
+
     await _generationRecordRepository.resetForRetry(
       recordId: recordId,
       updatedAt: DateTime.now(),
@@ -404,6 +431,53 @@ class GenerationSubmissionService extends ChangeNotifier {
     }
     await _submitRecord(retryRecord);
     notifyListeners();
+  }
+
+  Future<bool> _refreshRecordTaskFromBackend({
+    required GenerationRecord record,
+    required String taskId,
+  }) async {
+    if (record.pipelineStatus ==
+            GenerationRecordPipelineStatus.resultSaved.name &&
+        record.resultAssetId != null &&
+        record.resultAssetId!.isNotEmpty) {
+      _debugLog(
+        'task refresh skipped record=${record.recordId} task=$taskId reason=result-saved',
+      );
+      return true;
+    }
+
+    try {
+      _debugLog(
+        'task refresh request start record=${record.recordId} task=$taskId',
+      );
+      final GenerationTask task = await _generationTaskRepository.fetchTask(
+        taskId,
+      );
+      await _handlePolledTask(
+        recordId: record.recordId,
+        taskId: taskId,
+        task: task,
+      );
+      if (task.status == GenerationTaskStatus.pending ||
+          task.status == GenerationTaskStatus.processing ||
+          task.status == GenerationTaskStatus.modelRunning) {
+        await _resumeTaskPolling(recordId: record.recordId, taskId: taskId);
+      }
+      return task.status != GenerationTaskStatus.failed &&
+          task.status != GenerationTaskStatus.canceled &&
+          task.status != GenerationTaskStatus.unknown;
+    } on BackendApiFailure catch (error) {
+      _debugLog(
+        'task refresh backend failure record=${record.recordId} task=$taskId code=${error.code} status=${error.statusCode} message=${error.message}',
+      );
+      return false;
+    } on Object catch (error) {
+      _debugLog(
+        'task refresh local failure record=${record.recordId} task=$taskId error=$error',
+      );
+      return false;
+    }
   }
 
   Future<void> toggleResultFavorite(String recordId) async {
