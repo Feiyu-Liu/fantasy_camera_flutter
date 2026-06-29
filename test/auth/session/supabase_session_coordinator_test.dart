@@ -24,23 +24,28 @@ void main() {
     expect(coordinator.currentState.user?.id, 'user-1');
   });
 
-  test('restore maps missing session to signedOut', () async {
+  test('restore maps confirmed missing initial session to signedOut', () async {
+    final _FakeAuthGateway gateway = _FakeAuthGateway();
     final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
-      authGateway: _FakeAuthGateway(),
-      initialAuthEventTimeout: Duration.zero,
+      authGateway: gateway,
     );
     addTearDown(coordinator.dispose);
 
-    await coordinator.restore();
+    final Future<void> restore = coordinator.restore();
+    await Future<void>.delayed(Duration.zero);
+    gateway.emit(
+      const AuthGatewayEvent(type: AuthGatewayEventType.initialSession),
+    );
+    await restore;
 
     expect(coordinator.currentState.status, AuthSessionStatus.signedOut);
   });
 
-  test('restore waits for initial signedIn event before signedOut', () async {
+  test('restore waits for delayed initial session before signedOut', () async {
     final _FakeAuthGateway gateway = _FakeAuthGateway();
     final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
       authGateway: gateway,
-      initialAuthEventTimeout: const Duration(milliseconds: 50),
+      initialSessionFallbackTimeout: const Duration(milliseconds: 100),
     );
     addTearDown(coordinator.dispose);
     final List<AuthSessionStatus> statuses = <AuthSessionStatus>[];
@@ -52,7 +57,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     gateway.emit(
       AuthGatewayEvent(
-        type: AuthGatewayEventType.signedIn,
+        type: AuthGatewayEventType.initialSession,
         session: _session(accessToken: 'token'),
       ),
     );
@@ -60,6 +65,40 @@ void main() {
 
     expect(coordinator.currentState.status, AuthSessionStatus.signedIn);
     expect(statuses, isNot(contains(AuthSessionStatus.signedOut)));
+  });
+
+  test('restore falls back to current session after missing initial event', () async {
+    final _FakeAuthGateway gateway = _FakeAuthGateway();
+    final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
+      authGateway: gateway,
+      initialSessionFallbackTimeout: const Duration(milliseconds: 10),
+    );
+    addTearDown(coordinator.dispose);
+
+    gateway.restoreResponses = <AuthSessionSnapshot?>[
+      null,
+      _session(accessToken: 'fallback-token'),
+    ];
+
+    await coordinator.restore();
+
+    expect(coordinator.currentState.status, AuthSessionStatus.signedIn);
+    expect(coordinator.currentState.user?.id, 'user-1');
+    expect(gateway.restoreCalls, 2);
+  });
+
+  test('restore falls back to signedOut when no initial event or session', () async {
+    final _FakeAuthGateway gateway = _FakeAuthGateway();
+    final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
+      authGateway: gateway,
+      initialSessionFallbackTimeout: Duration.zero,
+    );
+    addTearDown(coordinator.dispose);
+
+    await coordinator.restore();
+
+    expect(coordinator.currentState.status, AuthSessionStatus.signedOut);
+    expect(gateway.restoreCalls, 2);
   });
 
   test('ensureValidAccessToken returns current valid token', () async {
@@ -138,7 +177,9 @@ class _FakeAuthGateway implements AuthGateway {
       StreamController<AuthGatewayEvent>.broadcast();
 
   AuthSessionSnapshot? current;
+  List<AuthSessionSnapshot?> restoreResponses = <AuthSessionSnapshot?>[];
   int refreshCalls = 0;
+  int restoreCalls = 0;
 
   @override
   Stream<AuthGatewayEvent> get authStateChanges => _events.stream;
@@ -147,6 +188,7 @@ class _FakeAuthGateway implements AuthGateway {
   AuthSessionSnapshot? get currentSession => current;
 
   void emit(AuthGatewayEvent event) {
+    current = event.session;
     _events.add(event);
   }
 
@@ -159,7 +201,13 @@ class _FakeAuthGateway implements AuthGateway {
   }
 
   @override
-  Future<AuthSessionSnapshot?> restoreCurrentSession() async => current;
+  Future<AuthSessionSnapshot?> restoreCurrentSession() async {
+    restoreCalls++;
+    if (restoreResponses.isNotEmpty) {
+      current = restoreResponses.removeAt(0);
+    }
+    return current;
+  }
 
   @override
   Future<AuthSessionSnapshot?> signInWithApple() async => current;

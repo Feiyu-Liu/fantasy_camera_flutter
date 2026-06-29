@@ -11,8 +11,8 @@ class SupabaseSessionCoordinator
     implements AccessTokenProvider, AppLocalizationsAware {
   SupabaseSessionCoordinator({
     required AuthGateway authGateway,
-    Duration initialAuthEventTimeout = const Duration(milliseconds: 300),
-  }) : _initialAuthEventTimeout = initialAuthEventTimeout,
+    Duration initialSessionFallbackTimeout = const Duration(seconds: 3),
+  }) : _initialSessionFallbackTimeout = initialSessionFallbackTimeout,
        _authGateway = authGateway {
     _authSubscription = _authGateway.authStateChanges.listen(
       _handleAuthEvent,
@@ -23,12 +23,13 @@ class SupabaseSessionCoordinator
   }
 
   final AuthGateway _authGateway;
-  final Duration _initialAuthEventTimeout;
+  final Duration _initialSessionFallbackTimeout;
   final StreamController<AuthSessionState> _stateController =
       StreamController<AuthSessionState>.broadcast();
 
   StreamSubscription<AuthGatewayEvent>? _authSubscription;
-  Completer<AuthGatewayEvent?>? _initialAuthEventCompleter;
+  Completer<AuthGatewayEvent?>? _initialSessionEventCompleter;
+  AuthGatewayEvent? _lastInitialSessionEvent;
   AuthSessionState _state = const AuthSessionState.restoring();
   AppLocalizations _localizations = appLocalizationsFor(defaultAppLocale);
   Future<AuthSessionSnapshot?>? _refreshFuture;
@@ -52,15 +53,26 @@ class SupabaseSessionCoordinator
       final AuthSessionSnapshot? session = await _authGateway
           .restoreCurrentSession();
       if (session == null) {
-        final AuthGatewayEvent? initialEvent = await _waitForInitialAuthEvent();
+        final AuthGatewayEvent? initialEvent =
+            await _waitForInitialSessionEvent();
+        if (_state.isSignedIn) {
+          return;
+        }
         if (initialEvent?.session case final AuthSessionSnapshot session) {
           _setState(AuthSessionState.signedIn(session.user));
           return;
         }
-        if (initialEvent?.type == AuthGatewayEventType.signedOut ||
-            initialEvent == null) {
+        if (initialEvent?.type == AuthGatewayEventType.initialSession) {
           _setState(const AuthSessionState.signedOut());
+          return;
         }
+        final AuthSessionSnapshot? fallbackSession = await _authGateway
+            .restoreCurrentSession();
+        if (fallbackSession != null) {
+          _setState(AuthSessionState.signedIn(fallbackSession.user));
+          return;
+        }
+        _setState(const AuthSessionState.signedOut());
         return;
       }
       _setState(AuthSessionState.signedIn(session.user));
@@ -161,12 +173,22 @@ class SupabaseSessionCoordinator
   }
 
   void _handleAuthEvent(AuthGatewayEvent event) {
-    if (_initialAuthEventCompleter
-        case final Completer<AuthGatewayEvent?> completer
-        when !completer.isCompleted) {
-      completer.complete(event);
+    if (event.type == AuthGatewayEventType.initialSession) {
+      _lastInitialSessionEvent = event;
+      if (_initialSessionEventCompleter
+          case final Completer<AuthGatewayEvent?> completer
+          when !completer.isCompleted) {
+        completer.complete(event);
+      }
     }
     switch (event.type) {
+      case AuthGatewayEventType.initialSession:
+        final AuthSessionSnapshot? session = event.session;
+        if (session != null) {
+          _setState(AuthSessionState.signedIn(session.user));
+        } else if (_state.status == AuthSessionStatus.restoring) {
+          _setState(const AuthSessionState.signedOut());
+        }
       case AuthGatewayEventType.signedIn:
       case AuthGatewayEventType.tokenRefreshed:
       case AuthGatewayEventType.userUpdated:
@@ -187,14 +209,17 @@ class SupabaseSessionCoordinator
     }
   }
 
-  Future<AuthGatewayEvent?> _waitForInitialAuthEvent() {
-    if (_initialAuthEventTimeout <= Duration.zero) {
+  Future<AuthGatewayEvent?> _waitForInitialSessionEvent() {
+    if (_lastInitialSessionEvent case final AuthGatewayEvent event) {
+      return Future<AuthGatewayEvent?>.value(event);
+    }
+    if (_initialSessionFallbackTimeout <= Duration.zero) {
       return Future<AuthGatewayEvent?>.value();
     }
     final Completer<AuthGatewayEvent?> completer =
-        _initialAuthEventCompleter ??= Completer<AuthGatewayEvent?>();
+        _initialSessionEventCompleter ??= Completer<AuthGatewayEvent?>();
     return completer.future.timeout(
-      _initialAuthEventTimeout,
+      _initialSessionFallbackTimeout,
       onTimeout: () => null,
     );
   }

@@ -1,6 +1,12 @@
 import '../domain/auth_session_snapshot.dart';
 
-enum AuthGatewayEventType { signedIn, signedOut, tokenRefreshed, userUpdated }
+enum AuthGatewayEventType {
+  initialSession,
+  signedIn,
+  signedOut,
+  tokenRefreshed,
+  userUpdated,
+}
 
 class AuthGatewayEvent {
   const AuthGatewayEvent({required this.type, this.session});

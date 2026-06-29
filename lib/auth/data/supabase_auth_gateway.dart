@@ -144,6 +144,7 @@ class SupabaseAuthGateway implements AuthGateway {
 
 AuthGatewayEventType _eventTypeFor(AuthChangeEvent event) {
   return switch (event) {
+    AuthChangeEvent.initialSession => AuthGatewayEventType.initialSession,
     AuthChangeEvent.signedIn => AuthGatewayEventType.signedIn,
     AuthChangeEvent.signedOut => AuthGatewayEventType.signedOut,
     AuthChangeEvent.tokenRefreshed => AuthGatewayEventType.tokenRefreshed,
