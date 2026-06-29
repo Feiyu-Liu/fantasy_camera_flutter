@@ -150,7 +150,9 @@ Color _loadingPanelBackground(
   return switch (placement) {
     CameraPhotoControlsPlacement.belowHero => tokens.backgroundColor,
     CameraPhotoControlsPlacement.heroOverlay =>
-      tokens.backgroundColor.withValues(alpha: 0.86),
+      tokens.backgroundColor.withValues(alpha: 0.68),
+    CameraPhotoControlsPlacement.bottomOverlay =>
+      tokens.backgroundColor.withValues(alpha: 0.68),
   };
 }
 
@@ -164,29 +166,22 @@ class _LoadingCameraBody extends StatelessWidget {
     return CameraPhotoBodyLayout(
       tokens: tokens,
       minimumBottomHeight: tokens.modeRowHeight + tokens.bottomControlsHeight,
+      compactBottomOverlayHeight: tokens.bottomControlsHeight,
+      compactHeroOverlayInset: tokens.modeRowHeight,
       viewfinder: ColoredBox(color: tokens.viewfinderColor),
       controlsBuilder:
           (BuildContext context, CameraPhotoControlsPlacement placement) {
             final Color panelColor = _loadingPanelBackground(tokens, placement);
             if (placement == CameraPhotoControlsPlacement.heroOverlay) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  _LoadingModeSelector(
-                    tokens: tokens,
-                    backgroundColor: panelColor,
-                  ),
-                  Transform.translate(
-                    offset: Offset(
-                      0,
-                      -tokens.collapsedBottomControlsVisualLift,
-                    ),
-                    child: _LoadingBottomControls(
-                      tokens: tokens,
-                      backgroundColor: panelColor,
-                    ),
-                  ),
-                ],
+              return _LoadingModeSelector(
+                tokens: tokens,
+                backgroundColor: panelColor,
+              );
+            }
+            if (placement == CameraPhotoControlsPlacement.bottomOverlay) {
+              return _LoadingBottomControls(
+                tokens: tokens,
+                backgroundColor: panelColor,
               );
             }
             return Column(

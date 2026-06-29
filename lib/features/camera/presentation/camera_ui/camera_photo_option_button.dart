@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../config/app_config.dart';
 import '../../../../theme/app_corners.dart';
 import '../../../../theme/app_theme.dart';
+import 'camera_photo_overlay_panel.dart';
 import 'camera_ui_tokens.dart';
 
 class CameraPhotoOptionButton extends StatelessWidget {
@@ -30,6 +31,7 @@ class CameraPhotoOptionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppThemeColors colors = AppThemeColors.of(context);
     final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final bool inOverlayPanel = CameraPhotoOverlayPanel.maybeOf(context);
     final Color selectedContentColor = colors.isDark
         ? tokens.accentColor
         : tokens.primaryTextColor;
@@ -39,6 +41,9 @@ class CameraPhotoOptionButton extends StatelessWidget {
     final Color backgroundColor = selected && !colors.isDark
         ? tokens.accentColor
         : colors.surface;
+    final Color resolvedBackgroundColor = inOverlayPanel
+        ? backgroundColor.withValues(alpha: selected ? 0.50 : 0.38)
+        : backgroundColor;
     final Color borderColor = selected
         ? (colors.isDark ? tokens.accentColor : tokens.primaryTextColor)
         : tokens.primaryTextColor.withValues(alpha: 0.72);
@@ -78,7 +83,7 @@ class CameraPhotoOptionButton extends StatelessWidget {
               curve: Curves.easeOutCubic,
               height: 34,
               decoration: AppCorners.controlDecoration(
-                color: backgroundColor,
+                color: resolvedBackgroundColor,
                 side: BorderSide(
                   color: borderColor,
                   width: AppConfig.cameraUiDividerWidth,

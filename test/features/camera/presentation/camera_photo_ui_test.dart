@@ -1,9 +1,12 @@
+import 'package:fantasy_camera_flutter/features/camera/presentation/camera_ui/camera_photo_option_button.dart';
+import 'package:fantasy_camera_flutter/features/camera/presentation/camera_ui/camera_photo_overlay_panel.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_ui/camera_photo_ui.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_ui/camera_ui_models.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_ui/camera_ui_tokens.dart';
 import 'package:fantasy_camera_flutter/theme/app_colors.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 void main() {
   testWidgets('gallery button shows green result badge on success', (
@@ -158,13 +161,15 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(375, 623));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    CameraPhotoControlsPlacement? placement;
+    final List<CameraPhotoControlsPlacement> placements =
+        <CameraPhotoControlsPlacement>[];
 
     await tester.pumpWidget(
       CupertinoApp(
         home: CameraPhotoBodyLayout(
           tokens: const CameraUiTokens(),
           minimumBottomHeight: 134,
+          compactBottomOverlayHeight: 0,
           viewfinder: const ColoredBox(
             key: ValueKey<String>('camera-test-viewfinder'),
             color: AppColors.black,
@@ -174,9 +179,11 @@ void main() {
                 BuildContext context,
                 CameraPhotoControlsPlacement resolvedPlacement,
               ) {
-                placement = resolvedPlacement;
-                return const SizedBox(
-                  key: ValueKey<String>('camera-test-controls'),
+                placements.add(resolvedPlacement);
+                return SizedBox(
+                  key: ValueKey<String>(
+                    'camera-test-controls-${resolvedPlacement.name}',
+                  ),
                   height: 134,
                 );
               },
@@ -184,7 +191,10 @@ void main() {
       ),
     );
 
-    expect(placement, CameraPhotoControlsPlacement.heroOverlay);
+    expect(placements, <CameraPhotoControlsPlacement>[
+      CameraPhotoControlsPlacement.heroOverlay,
+      CameraPhotoControlsPlacement.bottomOverlay,
+    ]);
     expect(
       tester.getSize(
         find.byKey(const ValueKey<String>('camera-test-viewfinder')),
@@ -192,9 +202,248 @@ void main() {
       const Size(375, 500),
     );
     expect(
-      find.byKey(const ValueKey<String>('camera-test-controls')),
+      find.byKey(const ValueKey<String>('camera-test-controls-bottomOverlay')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('body layout keeps hero 3:4 on short compact screens', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(899, 286));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final List<CameraPhotoControlsPlacement> placements =
+        <CameraPhotoControlsPlacement>[];
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: CameraPhotoBodyLayout(
+          tokens: const CameraUiTokens(),
+          minimumBottomHeight: 134,
+          compactBottomOverlayHeight: 92,
+          viewfinder: const ColoredBox(
+            key: ValueKey<String>('camera-test-short-viewfinder'),
+            color: AppColors.black,
+          ),
+          controlsBuilder:
+              (
+                BuildContext context,
+                CameraPhotoControlsPlacement resolvedPlacement,
+              ) {
+                placements.add(resolvedPlacement);
+                return SizedBox(
+                  key: ValueKey<String>(
+                    'camera-test-short-controls-${resolvedPlacement.name}',
+                  ),
+                  height: 134,
+                );
+              },
+        ),
+      ),
+    );
+
+    expect(placements, <CameraPhotoControlsPlacement>[
+      CameraPhotoControlsPlacement.heroOverlay,
+      CameraPhotoControlsPlacement.bottomOverlay,
+    ]);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('camera-test-short-viewfinder')),
+      ),
+      const Size(145.5, 194),
+    );
+  });
+
+  testWidgets('compact overlay pins mode selector to hero bottom', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(899, 286));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const CupertinoApp(
+        home: CameraPhotoUi(
+          tokens: CameraUiTokens(),
+          viewfinder: ColoredBox(color: AppColors.black),
+          modes: <CameraUiMode>[
+            CameraUiMode(id: 'general', label: 'AUTO'),
+            CameraUiMode(id: 'portrait', label: 'MANUAL'),
+          ],
+          selectedModeId: 'general',
+        ),
+      ),
+    );
+
+    final Rect modeSelectorRect = tester.getRect(
+      find.byType(CameraPhotoModeSelector),
+    );
+    final Rect heroRect = tester.getRect(find.byType(CameraPhotoViewfinder));
+    final Rect bottomControlsRect = tester.getRect(
+      find.byType(CameraPhotoBottomControls),
+    );
+
+    expect(modeSelectorRect.bottom, heroRect.bottom);
+    expect(modeSelectorRect.bottom, lessThanOrEqualTo(bottomControlsRect.top));
+  });
+
+  testWidgets('compact overlay centers bottom controls in remaining space', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(899, 286));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const CupertinoApp(
+        home: CameraPhotoUi(
+          tokens: CameraUiTokens(),
+          viewfinder: ColoredBox(color: AppColors.black),
+          modes: <CameraUiMode>[
+            CameraUiMode(id: 'general', label: 'AUTO'),
+            CameraUiMode(id: 'portrait', label: 'MANUAL'),
+          ],
+          selectedModeId: 'general',
+        ),
+      ),
+    );
+
+    final Rect heroRect = tester.getRect(find.byType(CameraPhotoViewfinder));
+    final Rect bottomControlsRect = tester.getRect(
+      find.byType(CameraPhotoBottomControls),
+    );
+    final double remainingSpaceCenter =
+        heroRect.bottom + (286 - heroRect.bottom) / 2;
+
+    expect(bottomControlsRect.center.dy, remainingSpaceCenter);
+  });
+
+  testWidgets('compact overlay keeps zoom slider above mode selector', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(899, 286));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const CupertinoApp(
+        home: CameraPhotoUi(
+          tokens: CameraUiTokens(),
+          viewfinder: ColoredBox(color: AppColors.black),
+          modes: <CameraUiMode>[
+            CameraUiMode(id: 'general', label: 'AUTO'),
+            CameraUiMode(id: 'portrait', label: 'MANUAL'),
+          ],
+          selectedModeId: 'general',
+          zoomStops: <CameraZoomStop>[
+            CameraZoomStop(factor: 1, label: '1x'),
+            CameraZoomStop(factor: 2, label: '2x'),
+          ],
+        ),
+      ),
+    );
+
+    final Rect zoomRect = tester.getRect(find.byType(CameraPhotoZoomSlider));
+    final Rect modeSelectorRect = tester.getRect(
+      find.byType(CameraPhotoModeSelector),
+    );
+
+    expect(zoomRect.bottom, lessThanOrEqualTo(modeSelectorRect.top));
+  });
+
+  testWidgets('compact overlay expands manual options upward', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(393, 560));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    String selectedMode = 'general';
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return CameraPhotoUi(
+              tokens: const CameraUiTokens(),
+              viewfinder: const ColoredBox(color: AppColors.black),
+              modes: const <CameraUiMode>[
+                CameraUiMode(id: 'general', label: 'AUTO'),
+                CameraUiMode(id: 'portrait', label: 'MANUAL'),
+              ],
+              selectedModeId: selectedMode,
+              modeExtensions: const <String, List<Widget>>{
+                'portrait': <Widget>[
+                  SizedBox(
+                    key: ValueKey<String>('manual-extension-content'),
+                    width: 64,
+                    height: 32,
+                  ),
+                ],
+              },
+              onModeSelected: (String mode) {
+                setState(() {
+                  selectedMode = mode;
+                });
+              },
+            );
+          },
+        ),
+      ),
+    );
+
+    final Rect collapsedModeSelectorRect = tester.getRect(
+      find.byType(CameraPhotoModeSelector),
+    );
+    final Rect collapsedBottomControlsRect = tester.getRect(
+      find.byType(CameraPhotoBottomControls),
+    );
+
+    await tester.tap(find.text('MANUAL'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final Rect expandedModeSelectorRect = tester.getRect(
+      find.byType(CameraPhotoModeSelector),
+    );
+    final Rect expandedBottomControlsRect = tester.getRect(
+      find.byType(CameraPhotoBottomControls),
+    );
+
+    expect(expandedModeSelectorRect.bottom, collapsedModeSelectorRect.bottom);
+    expect(
+      expandedModeSelectorRect.top,
+      lessThan(collapsedModeSelectorRect.top),
+    );
+    expect(expandedBottomControlsRect, collapsedBottomControlsRect);
+  });
+
+  testWidgets('prompt option button background follows overlay translucency', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: Center(
+          child: CameraPhotoOverlayPanel(
+            enabled: true,
+            child: CameraPhotoOptionButton(
+              tokens: const CameraUiTokens(),
+              label: 'Clean Frame',
+              icon: LucideIcons.sparkles,
+              selected: false,
+              animationIndex: 0,
+              onPressed: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump(const Duration(milliseconds: 220));
+
+    final AnimatedContainer container = tester.widget<AnimatedContainer>(
+      find.byType(AnimatedContainer),
+    );
+    final ShapeDecoration decoration = container.decoration! as ShapeDecoration;
+
+    expect(decoration.color!.a, lessThan(1));
   });
 }
 
