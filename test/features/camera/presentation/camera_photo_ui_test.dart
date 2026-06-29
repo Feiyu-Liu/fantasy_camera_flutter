@@ -85,7 +85,7 @@ void main() {
   testWidgets('mode selector shows manual extension only when selected', (
     WidgetTester tester,
   ) async {
-    String selectedMode = 'general';
+    String selectedMode = 'auto';
     int extensionTapCount = 0;
 
     Future<void> pump() {
@@ -98,12 +98,12 @@ void main() {
                 child: CameraPhotoModeExpansionMotion(
                   tokens: const CameraUiTokens(),
                   modes: const <CameraUiMode>[
-                    CameraUiMode(id: 'general', label: 'AUTO'),
-                    CameraUiMode(id: 'portrait', label: 'MANUAL'),
+                    CameraUiMode(id: 'auto', label: 'AUTO'),
+                    CameraUiMode(id: 'manual', label: 'MANUAL'),
                   ],
                   selectedModeId: selectedMode,
                   modeExtensions: <String, List<Widget>>{
-                    'portrait': <Widget>[
+                    'manual': <Widget>[
                       CupertinoButton(
                         key: const ValueKey<String>('manual-extension-button'),
                         onPressed: () {
@@ -267,10 +267,10 @@ void main() {
           tokens: CameraUiTokens(),
           viewfinder: ColoredBox(color: AppColors.black),
           modes: <CameraUiMode>[
-            CameraUiMode(id: 'general', label: 'AUTO'),
-            CameraUiMode(id: 'portrait', label: 'MANUAL'),
+            CameraUiMode(id: 'auto', label: 'AUTO'),
+            CameraUiMode(id: 'manual', label: 'MANUAL'),
           ],
-          selectedModeId: 'general',
+          selectedModeId: 'auto',
         ),
       ),
     );
@@ -299,10 +299,10 @@ void main() {
           tokens: CameraUiTokens(),
           viewfinder: ColoredBox(color: AppColors.black),
           modes: <CameraUiMode>[
-            CameraUiMode(id: 'general', label: 'AUTO'),
-            CameraUiMode(id: 'portrait', label: 'MANUAL'),
+            CameraUiMode(id: 'auto', label: 'AUTO'),
+            CameraUiMode(id: 'manual', label: 'MANUAL'),
           ],
-          selectedModeId: 'general',
+          selectedModeId: 'auto',
         ),
       ),
     );
@@ -329,10 +329,10 @@ void main() {
           tokens: CameraUiTokens(),
           viewfinder: ColoredBox(color: AppColors.black),
           modes: <CameraUiMode>[
-            CameraUiMode(id: 'general', label: 'AUTO'),
-            CameraUiMode(id: 'portrait', label: 'MANUAL'),
+            CameraUiMode(id: 'auto', label: 'AUTO'),
+            CameraUiMode(id: 'manual', label: 'MANUAL'),
           ],
-          selectedModeId: 'general',
+          selectedModeId: 'auto',
           zoomStops: <CameraZoomStop>[
             CameraZoomStop(factor: 1, label: '1x'),
             CameraZoomStop(factor: 2, label: '2x'),
@@ -355,7 +355,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(393, 560));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    String selectedMode = 'general';
+    String selectedMode = 'auto';
 
     await tester.pumpWidget(
       CupertinoApp(
@@ -365,12 +365,12 @@ void main() {
               tokens: const CameraUiTokens(),
               viewfinder: const ColoredBox(color: AppColors.black),
               modes: const <CameraUiMode>[
-                CameraUiMode(id: 'general', label: 'AUTO'),
-                CameraUiMode(id: 'portrait', label: 'MANUAL'),
+                CameraUiMode(id: 'auto', label: 'AUTO'),
+                CameraUiMode(id: 'manual', label: 'MANUAL'),
               ],
               selectedModeId: selectedMode,
               modeExtensions: const <String, List<Widget>>{
-                'portrait': <Widget>[
+                'manual': <Widget>[
                   SizedBox(
                     key: ValueKey<String>('manual-extension-content'),
                     width: 64,

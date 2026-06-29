@@ -518,17 +518,17 @@ abstract class AppLocalizations {
   /// **'Realistic'**
   String get promptStyleRealisticTitle;
 
-  /// No description provided for @promptCaptureModePortraitTitle.
+  /// No description provided for @promptCaptureModeManualTitle.
   ///
   /// In en, this message translates to:
   /// **'MANUAL'**
-  String get promptCaptureModePortraitTitle;
+  String get promptCaptureModeManualTitle;
 
-  /// No description provided for @promptCaptureModeGeneralTitle.
+  /// No description provided for @promptCaptureModeAutoTitle.
   ///
   /// In en, this message translates to:
   /// **'AUTO'**
-  String get promptCaptureModeGeneralTitle;
+  String get promptCaptureModeAutoTitle;
 
   /// No description provided for @settingsTitle.
   ///

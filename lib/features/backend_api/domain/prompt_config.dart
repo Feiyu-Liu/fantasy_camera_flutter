@@ -1,8 +1,8 @@
 import 'json_value.dart';
 
 const String defaultPromptStyle = 'realistic';
-const String defaultCaptureMode = 'general';
-const String manualCaptureMode = 'portrait';
+const String defaultCaptureMode = 'auto';
+const String manualCaptureMode = 'manual';
 
 const List<PromptSwitchDefinition>
 fallbackPromptSwitches = <PromptSwitchDefinition>[

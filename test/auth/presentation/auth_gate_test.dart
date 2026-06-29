@@ -746,7 +746,7 @@ class _SeededGenerationService {
       originalLocalPath: originalPath,
       createdAt: now,
       promptStyle: 'realistic',
-      captureMode: 'portrait',
+      captureMode: 'manual',
     );
     _FakePhotoLibraryAssetStore.resultPaths['asset-result-$recordId'] =
         resultPath;
@@ -947,7 +947,7 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
               id: taskId,
               status: GenerationTaskStatus.pending,
               promptStyle: 'realistic',
-              captureMode: 'portrait',
+              captureMode: 'manual',
               sourceImageObjectId: 'source-1',
               costCredits: 2,
               attemptCount: 1,

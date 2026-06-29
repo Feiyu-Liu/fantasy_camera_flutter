@@ -250,12 +250,12 @@ class _LoadingModeSelector extends StatelessWidget {
                         children: <Widget>[
                           _LoadingModeLabel(
                             tokens: tokens,
-                            label: context.l10n.promptCaptureModeGeneralTitle,
+                            label: context.l10n.promptCaptureModeAutoTitle,
                             selected: true,
                           ),
                           _LoadingModeLabel(
                             tokens: tokens,
-                            label: context.l10n.promptCaptureModePortraitTitle,
+                            label: context.l10n.promptCaptureModeManualTitle,
                             selected: false,
                           ),
                         ],

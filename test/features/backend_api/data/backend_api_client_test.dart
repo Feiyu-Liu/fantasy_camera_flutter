@@ -156,7 +156,7 @@ void main() {
         const CreateGenerationTaskInput(
           uploadSessionId: 'upload-1',
           promptStyle: 'realistic',
-          captureMode: 'portrait',
+          captureMode: 'manual',
           userInput: <String, Object?>{
             'switches': <String, Object?>{'cleanFrame': true},
           },
@@ -180,7 +180,7 @@ void main() {
         const CreateGenerationTaskInput(
           uploadSessionId: 'upload-1',
           promptStyle: 'realistic',
-          captureMode: 'portrait',
+          captureMode: 'manual',
         ).toJson()['userInput'],
         <String, Object?>{'promptConfigVersion': AppConfig.promptConfigVersion},
       );
@@ -191,7 +191,7 @@ void main() {
         const CreateGenerationTaskInput(
           uploadSessionId: 'upload-1',
           promptStyle: 'realistic',
-          captureMode: 'portrait',
+          captureMode: 'manual',
           userInput: <String, Object?>{
             'switches': <String, Object?>{'cleanFrame': true},
           },
@@ -263,7 +263,7 @@ void main() {
           const CreateGenerationTaskInput(
             uploadSessionId: 'upload-1',
             promptStyle: 'realistic',
-            captureMode: 'portrait',
+            captureMode: 'manual',
             originDeviceId: 'device-1',
           ).toJson()['originDeviceId'],
           'device-1',
@@ -363,7 +363,7 @@ void main() {
         generationRequest: const CreateGenerationTaskInput(
           uploadSessionId: '',
           promptStyle: 'realistic',
-          captureMode: 'portrait',
+          captureMode: 'manual',
           userInput: <String, Object?>{'switches': <String, Object?>{}},
         ),
       );
@@ -476,7 +476,7 @@ Map<String, Object?> _taskJson({required String id, required String status}) {
     'id': id,
     'status': status,
     'promptStyle': 'realistic',
-    'captureMode': 'portrait',
+    'captureMode': 'manual',
     'sourceImageObjectId': 'source-1',
     'resultImageObjectId': status == 'completed' ? 'result-1' : null,
     'costCredits': 2,

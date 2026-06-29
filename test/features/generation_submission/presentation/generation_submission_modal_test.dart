@@ -2111,7 +2111,7 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
       id: taskId,
       status: GenerationTaskStatus.pending,
       promptStyle: 'realistic',
-      captureMode: 'portrait',
+      captureMode: 'manual',
       sourceImageObjectId: 'source-1',
       costCredits: 2,
       attemptCount: 1,
@@ -2138,7 +2138,7 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
               id: taskId,
               status: GenerationTaskStatus.pending,
               promptStyle: 'realistic',
-              captureMode: 'portrait',
+              captureMode: 'manual',
               sourceImageObjectId: 'source-1',
               costCredits: 2,
               attemptCount: 1,
@@ -2181,7 +2181,7 @@ GenerationSubmissionJob _job({
     taskId: taskId ?? 'task-$id',
     promptSelection: const PromptSelectionSnapshot(
       promptStyle: 'realistic',
-      captureMode: 'portrait',
+      captureMode: 'manual',
       switches: <String, bool>{
         'recompose': true,
         'beautifyFace': false,

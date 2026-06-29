@@ -385,8 +385,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       },
       captureModeTitle: (String id, String fallback) {
         return switch (id) {
-          manualCaptureMode => l10n.promptCaptureModePortraitTitle,
-          defaultCaptureMode => l10n.promptCaptureModeGeneralTitle,
+          manualCaptureMode => l10n.promptCaptureModeManualTitle,
+          defaultCaptureMode => l10n.promptCaptureModeAutoTitle,
           _ => fallback,
         };
       },

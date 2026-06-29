@@ -28,7 +28,7 @@ void main() {
       originalWidth: 4032,
       originalHeight: 3024,
       promptStyle: 'realistic',
-      captureMode: 'portrait',
+      captureMode: 'manual',
       appInputContractId: 'app_bundled_2026_06_01',
       userInputJson: '{"style":"realistic"}',
       displaySnapshotJson: '{"styleLabel":"Realistic"}',
@@ -56,7 +56,7 @@ void main() {
       GenerationRecordResultAvailability.none.name,
     );
     expect(record.promptStyle, 'realistic');
-    expect(record.captureMode, 'portrait');
+    expect(record.captureMode, 'manual');
   });
 
   test('creates gallery record with external original', () async {

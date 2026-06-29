@@ -225,10 +225,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get promptStyleRealisticTitle => '写实';
 
   @override
-  String get promptCaptureModePortraitTitle => '手动';
+  String get promptCaptureModeManualTitle => '手动';
 
   @override
-  String get promptCaptureModeGeneralTitle => '自动';
+  String get promptCaptureModeAutoTitle => '自动';
 
   @override
   String get settingsTitle => '设置';

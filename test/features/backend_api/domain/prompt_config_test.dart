@@ -14,7 +14,7 @@ void main() {
       styles.first.captureModes.map(
         (PromptCaptureModeDefinition captureMode) => captureMode.id,
       ),
-      <String>['general', 'portrait'],
+      <String>['auto', 'manual'],
     );
   });
 
@@ -51,7 +51,7 @@ void main() {
     final List<PromptSwitchDefinition> switches = promptSwitchesForRoute(
       _config,
       promptStyle: 'abstract',
-      captureMode: 'general',
+      captureMode: defaultCaptureMode,
     );
 
     expect(
@@ -86,12 +86,12 @@ const JsonObject _config = <String, Object?>{
       'title': 'Realistic',
       'captureModes': <Object?>[
         <String, Object?>{
-          'id': 'general',
+          'id': 'auto',
           'title': 'Auto',
           'switches': <Object?>[],
         },
         <String, Object?>{
-          'id': 'portrait',
+          'id': 'manual',
           'title': 'Manual',
           'switches': <Object?>[
             <String, Object?>{
@@ -113,7 +113,7 @@ const JsonObject _config = <String, Object?>{
       'title': 'Abstract',
       'captureModes': <Object?>[
         <String, Object?>{
-          'id': 'general',
+          'id': 'auto',
           'title': 'General',
           'switches': <Object?>[],
         },

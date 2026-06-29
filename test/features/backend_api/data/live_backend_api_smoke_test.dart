@@ -83,7 +83,7 @@ void main() {
         CreateGenerationTaskInput(
           uploadSessionId: upload.uploadSessionId,
           promptStyle: 'realistic',
-          captureMode: 'portrait',
+          captureMode: 'manual',
           userInput: const <String, Object?>{
             'switches': <String, Object?>{
               'recompose': false,

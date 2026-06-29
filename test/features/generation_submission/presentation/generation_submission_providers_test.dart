@@ -49,20 +49,20 @@ void main() {
       <String>['realistic'],
     );
     expect(state.selectedPromptStyleId, 'realistic');
-    expect(state.selectedCaptureModeId, 'general');
+    expect(state.selectedCaptureModeId, 'auto');
     expect(
       state.captureModes.map(
         (PromptCaptureModeDefinition captureMode) => captureMode.id,
       ),
-      <String>['general', 'portrait'],
+      <String>['auto', 'manual'],
     );
     expect(state.switches, isEmpty);
     expect(state.values, <String, bool>{});
     expect(state.appInputContractId, isNull);
 
-    notifier.selectCaptureMode('portrait');
+    notifier.selectCaptureMode('manual');
     state = container.read(promptSelectionControllerProvider);
-    expect(state.selectedCaptureModeId, 'portrait');
+    expect(state.selectedCaptureModeId, 'manual');
     expect(
       state.switches.map((PromptSwitchDefinition switchDefinition) {
         return switchDefinition.id;
@@ -75,19 +75,19 @@ void main() {
       'cleanFrame': true,
       'backgroundBlur': true,
     });
-    expect(state.snapshot.captureMode, 'portrait');
+    expect(state.snapshot.captureMode, 'manual');
 
-    notifier.selectCaptureMode('general');
+    notifier.selectCaptureMode('auto');
     state = container.read(promptSelectionControllerProvider);
-    expect(state.selectedCaptureModeId, 'general');
+    expect(state.selectedCaptureModeId, 'auto');
     expect(state.switches, isEmpty);
     expect(state.values, <String, bool>{});
-    expect(state.snapshot.captureMode, 'general');
+    expect(state.snapshot.captureMode, 'auto');
 
     notifier.selectPromptStyle('abstract');
     state = container.read(promptSelectionControllerProvider);
     expect(state.selectedPromptStyleId, 'realistic');
-    expect(state.selectedCaptureModeId, 'general');
+    expect(state.selectedCaptureModeId, 'auto');
     expect(state.snapshot.promptStyle, 'realistic');
   });
 
@@ -98,10 +98,10 @@ void main() {
     final PromptSelectionController notifier = container.read(
       promptSelectionControllerProvider.notifier,
     );
-    notifier.selectCaptureMode('portrait');
+    notifier.selectCaptureMode('manual');
     notifier.toggleSwitch('recompose');
-    notifier.selectCaptureMode('general');
-    notifier.selectCaptureMode('portrait');
+    notifier.selectCaptureMode('auto');
+    notifier.selectCaptureMode('manual');
 
     final PromptSelectionState state = container.read(
       promptSelectionControllerProvider,
@@ -175,7 +175,7 @@ void main() {
       uploadRepository.generationRequests.single?.promptStyle,
       'realistic',
     );
-    expect(uploadRepository.generationRequests.single?.captureMode, 'general');
+    expect(uploadRepository.generationRequests.single?.captureMode, 'auto');
     expect(
       uploadRepository.generationRequests.single?.userInput['switches'],
       <String, Object?>{},
@@ -195,7 +195,7 @@ void main() {
 
     const PromptSelectionSnapshot snapshot = PromptSelectionSnapshot(
       promptStyle: 'realistic',
-      captureMode: 'portrait',
+      captureMode: 'manual',
       appInputContractId: 'contract-1',
       switches: <String, bool>{
         'recompose': true,
@@ -245,7 +245,7 @@ void main() {
           XFile('/tmp/photo.jpg'),
           promptSelection: const PromptSelectionSnapshot(
             promptStyle: 'realistic',
-            captureMode: 'portrait',
+            captureMode: 'manual',
             switches: <String, bool>{},
           ),
         );
@@ -259,7 +259,7 @@ void main() {
       uploadRepository.generationRequests.single?.promptStyle,
       'realistic',
     );
-    expect(uploadRepository.generationRequests.single?.captureMode, 'portrait');
+    expect(uploadRepository.generationRequests.single?.captureMode, 'manual');
     expect(taskRepository.createdInputs, isEmpty);
   });
 
@@ -1029,7 +1029,7 @@ void main() {
       originalLocalPath: 'originals/record-resume.heic',
       createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
       promptStyle: 'realistic',
-      captureMode: 'portrait',
+      captureMode: 'manual',
     );
     await repository.updateTaskFields(
       recordId: 'record-resume',
@@ -1093,7 +1093,7 @@ void main() {
       originalLocalPath: 'originals/record-resume.heic',
       createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
       promptStyle: 'realistic',
-      captureMode: 'portrait',
+      captureMode: 'manual',
     );
     await repository.updateTaskFields(
       recordId: 'record-resume',
@@ -1155,7 +1155,7 @@ void main() {
         originalLocalPath: 'originals/$recordId.heic',
         createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
         promptStyle: 'realistic',
-        captureMode: 'portrait',
+        captureMode: 'manual',
       );
       final String taskId = recordId == 'record-1' ? 'task-1' : 'task-2';
       await repository.updateTaskFields(
@@ -1223,7 +1223,7 @@ void main() {
       originalLocalPath: 'originals/record-resume.heic',
       createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
       promptStyle: 'realistic',
-      captureMode: 'portrait',
+      captureMode: 'manual',
     );
     await repository.updateTaskFields(
       recordId: 'record-resume',
@@ -1282,7 +1282,7 @@ void main() {
       originalLocalPath: 'originals/record-uploaded.heic',
       createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
       promptStyle: 'realistic',
-      captureMode: 'portrait',
+      captureMode: 'manual',
     );
     await repository.updateUploadFields(
       recordId: 'record-uploaded',
@@ -1353,7 +1353,7 @@ void main() {
       originalLocalPath: 'originals/record-uploading.heic',
       createdAt: DateTime.parse('2026-05-29T00:00:00Z'),
       promptStyle: 'realistic',
-      captureMode: 'portrait',
+      captureMode: 'manual',
     );
     await repository.updateUploadFields(
       recordId: 'record-uploading',
@@ -2662,7 +2662,7 @@ GenerationTask _task({
     id: id,
     status: status,
     promptStyle: 'realistic',
-    captureMode: 'portrait',
+    captureMode: 'manual',
     sourceImageObjectId: 'source-1',
     resultImageObjectId: resultImageObjectId,
     costCredits: 2,
