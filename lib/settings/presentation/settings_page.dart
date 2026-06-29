@@ -503,7 +503,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return switch (preference) {
       AppLocalePreference.system => l10n.settingsLanguageSystem,
       AppLocalePreference.zh => l10n.settingsLanguageChinese,
+      AppLocalePreference.zhTW => l10n.settingsLanguageTraditionalChinese,
       AppLocalePreference.en => l10n.settingsLanguageEnglish,
+      AppLocalePreference.ja => l10n.settingsLanguageJapanese,
+      AppLocalePreference.fr => l10n.settingsLanguageFrench,
     };
   }
 
@@ -534,11 +537,36 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
             ),
             _LanguageAction(
+              title: l10n.settingsLanguageTraditionalChinese,
+              selected:
+                  appSettings.localePreference == AppLocalePreference.zhTW,
+              onPressed: () => _selectLanguagePreference(
+                popupContext,
+                AppLocalePreference.zhTW,
+              ),
+            ),
+            _LanguageAction(
               title: l10n.settingsLanguageEnglish,
               selected: appSettings.localePreference == AppLocalePreference.en,
               onPressed: () => _selectLanguagePreference(
                 popupContext,
                 AppLocalePreference.en,
+              ),
+            ),
+            _LanguageAction(
+              title: l10n.settingsLanguageJapanese,
+              selected: appSettings.localePreference == AppLocalePreference.ja,
+              onPressed: () => _selectLanguagePreference(
+                popupContext,
+                AppLocalePreference.ja,
+              ),
+            ),
+            _LanguageAction(
+              title: l10n.settingsLanguageFrench,
+              selected: appSettings.localePreference == AppLocalePreference.fr,
+              onPressed: () => _selectLanguagePreference(
+                popupContext,
+                AppLocalePreference.fr,
               ),
             ),
           ],
