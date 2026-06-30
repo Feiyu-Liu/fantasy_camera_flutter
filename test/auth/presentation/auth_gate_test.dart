@@ -148,6 +148,59 @@ void main() {
     );
   });
 
+  testWidgets('keeps camera screen while refreshing token', (
+    WidgetTester tester,
+  ) async {
+    await usePortraitSurface(tester);
+    await tester.pumpWidget(
+      FantasyCameraApp(
+        overrides: <Override>[
+          hasSupabaseConfigProvider.overrideWithValue(true),
+          notificationLifecycleProvider.overrideWith((Ref ref) {}),
+          authSessionProvider.overrideWith(
+            (_) => Stream<AuthSessionState>.value(
+              const AuthSessionState(
+                status: AuthSessionStatus.refreshingToken,
+                user: AuthUser(id: 'user-1', email: 'user@example.com'),
+              ),
+            ),
+          ),
+          signedInCameraChoicesProvider.overrideWith(
+            (_) async => const <CameraChoice>[],
+          ),
+          creditsRepositoryProvider.overrideWithValue(
+            const _FakeCreditsRepository(),
+          ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
+          ),
+          generationSubmissionServiceProvider.overrideWith((Ref ref) {
+            final GenerationSubmissionService
+            service = GenerationSubmissionService(
+              uploadRepository: const _FakeUploadRepository(),
+              generationTaskRepository: const _FakeGenerationTaskRepository(),
+              feedbackRepository: const _FakeFeedbackRepository(),
+              generationRecordRepository: GenerationRecordRepository(
+                GenerationRecordDatabase.forExecutor(NativeDatabase.memory()),
+              ),
+              originalFileStore: const _FakeGenerationOriginalFileStore(),
+              photoLibraryAssetStore: const _FakePhotoLibraryAssetStore(),
+              imageProcessor: const _FakeGenerationImageProcessor(),
+              backgroundR2UploadService: const _FakeBackgroundR2UploadService(),
+            );
+            ref.onDispose(service.dispose);
+            return service;
+          }),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(CameraPhotoUi), findsOneWidget);
+    expect(find.byType(AuthPage), findsNothing);
+  });
+
   testWidgets('camera gallery thumbnail opens generation gallery page', (
     WidgetTester tester,
   ) async {

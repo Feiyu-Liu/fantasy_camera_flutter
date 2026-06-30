@@ -36,6 +36,7 @@ class AuthSessionState {
   final String? message;
 
   bool get isSignedIn => status == AuthSessionStatus.signedIn && user != null;
+  bool get hasAuthenticatedUser => user != null;
 
   AuthSessionState copyWith({
     AuthSessionStatus? status,
