@@ -10,7 +10,10 @@ const String themePreferenceKey = 'settings.theme_preference';
 enum AppLocalePreference {
   system,
   zh,
-  en;
+  zhTW,
+  en,
+  ja,
+  fr;
 
   static AppLocalePreference fromStorageValue(String? value) {
     return AppLocalePreference.values.firstWhere(
@@ -26,7 +29,10 @@ Locale? localeForPreference(AppLocalePreference preference) {
   return switch (preference) {
     AppLocalePreference.system => null,
     AppLocalePreference.zh => const Locale('zh'),
+    AppLocalePreference.zhTW => const Locale('zh', 'TW'),
     AppLocalePreference.en => const Locale('en'),
+    AppLocalePreference.ja => const Locale('ja'),
+    AppLocalePreference.fr => const Locale('fr'),
   };
 }
 

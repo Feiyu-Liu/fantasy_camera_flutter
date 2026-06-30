@@ -1,0 +1,255 @@
+{
+  "@@locale": "zh_TW",
+  "appTitle": "Fantasy Camera",
+  "appName": "Fantasy Camera",
+  "authAccountCreatedSignIn": "帳號已建立，請登入。",
+  "authAlreadyHaveAccountSignIn": "已有帳號？登入",
+  "authAppleSignInFailed": "Apple 登入失敗。",
+  "authAuthenticationFailed": "驗證失敗，請再試一次。",
+  "authCameraDevicesLoadFailed": "無法載入相機裝置。",
+  "authContinueWithApple": "以 Apple 登入",
+  "authContinueWithGoogle": "以 Google 登入",
+  "authCreateAccountButton": "建立帳號",
+  "authCreateAccountSubtitle": "建立你的帳號",
+  "authEmailInvalid": "請輸入有效的電子郵件。",
+  "authEmailLabel": "電子郵件地址",
+  "authEmailPlaceholder": "電子郵件",
+  "authEditorialAccessBadge": "編輯存取",
+  "authEditorialSubtitle": "請輸入憑證以繼續",
+  "authEditorialTitleLine1": "鏡頭",
+  "authEditorialTitleLine2": "已就緒",
+  "authForgotKeyButton": "忘記密碼？",
+  "authGoogleSignInFailed": "Google 登入失敗。",
+  "authEmailRequired": "請輸入電子郵件。",
+  "authInvalidCredentials": "電子郵件或密碼不正確。若為新帳號，請先建立帳號，並依要求確認電子郵件。",
+  "authMissingSupabaseConfig": "缺少 Supabase 設定。請先透過 dart-defines 設定 SUPABASE_URL 與 SUPABASE_PUBLISHABLE_KEY。",
+  "authNewHereCreateAccount": "新用戶？建立帳號",
+  "authOrDividerLabel": "或",
+  "authPasswordMinLength": "請至少輸入 6 個字元。",
+  "authPasswordLabel": "密碼",
+  "authPasswordPlaceholder": "密碼",
+  "authSecretKeyPlaceholder": "••••••••",
+  "authSessionExpired": "工作階段已過期，請重新登入。",
+  "authSessionRestoreFailed": "無法還原工作階段，請登入。",
+  "authSignInButton": "登入",
+  "authSignInSubtitle": "請登入以繼續",
+  "cameraCreditsBalanceSemanticsLabel": "{value} 點數",
+  "@cameraCreditsBalanceSemanticsLabel": {
+    "placeholders": {
+      "value": {}
+    }
+  },
+  "cameraNoCameraFound": "找不到相機。",
+  "cameraStartingCamera": "正在啟動相機...",
+  "cameraErrorMessage": "相機錯誤：{message}",
+  "@cameraErrorMessage": {
+    "placeholders": {
+      "message": {}
+    }
+  },
+  "generationSubmissionDownloadingFromICloud": "正在從 iCloud 下載",
+  "generationSubmissionPreparingPhoto": "正在準備照片...",
+  "generationSubmissionGalleryTitle": "作品集",
+  "generationSubmissionImportNew": "從照片匯入",
+  "generationSubmissionDefaultMomentMode": "時刻",
+  "generationSubmissionDefaultPromptBadge": "預設",
+  "generationSubmissionSelectMoment": "拍攝或選擇照片",
+  "generationSubmissionProcessedResultImageLoadFailed": "無法載入處理後的結果圖片",
+  "generationSubmissionResultImageLoadFailed": "無法載入結果圖片",
+  "generationSubmissionOriginalImageLoadFailed": "無法載入原始圖片",
+  "generationSubmissionTapToLoadResult": "點一下以載入結果",
+  "generationSubmissionStatusGenerationFailed": "生成失敗",
+  "generationSubmissionStatusWaitingForConfirmation": "等待確認",
+  "generationSubmissionStatusPreparingUploadImage": "正在準備上傳圖片",
+  "generationSubmissionStatusProcessingResultImage": "正在處理結果圖片",
+  "generationSubmissionStatusResultSaved": "結果已儲存",
+  "generationSubmissionStatusResultProcessingFailed": "結果處理失敗",
+  "generationSubmissionStatusWaitingForGenerationResult": "等待生成結果",
+  "generationSubmissionStatusPreparingGenerationTask": "正在準備生成任務",
+  "generationSubmissionActionViewInAlbum": "在相簿中檢視",
+  "generationSubmissionActionSaveOriginal": "儲存原始照片",
+  "generationSubmissionActionRetry": "重試",
+  "generationSubmissionActionDislikeImage": "不喜歡這張圖片",
+  "generationSubmissionActionFeedbackSubmitted": "已送出回饋",
+  "generationSubmissionDislikeFeedbackTitle": "結果不滿意？",
+  "generationSubmissionDislikeFeedbackPlaceholder": "請留下寶貴意見（選填）",
+  "generationSubmissionDislikeFeedbackSubmit": "送出",
+  "generationSubmissionActionRemove": "移除",
+  "promptSwitchRecomposeTitle": "重新構圖",
+  "promptSwitchBeautifyFaceTitle": "人物美化",
+  "promptSwitchCleanFrameTitle": "淨化畫面",
+  "promptSwitchBackgroundBlurTitle": "背景模糊",
+  "promptStyleRealisticTitle": "寫實",
+  "promptCaptureModeManualTitle": "手動",
+  "promptCaptureModeAutoTitle": "自動",
+  "settingsTitle": "設定",
+  "settingsFallbackUserName": "Julian Vane",
+  "settingsCreditsValue": "{value} 點數",
+  "@settingsCreditsValue": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsCreditsLoading": "-- 點數",
+  "settingsCreditsUnavailable": "點數不可用",
+  "settingsSectionAppearance": "外觀",
+  "settingsAppearanceLight": "淺色",
+  "settingsAppearanceDark": "深色",
+  "settingsSectionCapture": "拍攝",
+  "settingsConfirmBeforeGenerationTitle": "生成前確認",
+  "settingsConfirmBeforeGenerationSubtitle": "上傳前先確認照片",
+  "settingsSectionGeneral": "一般",
+  "settingsLanguageTitle": "語言",
+  "settingsLanguageSubtitle": "跟隨系統",
+  "settingsLanguageSystem": "跟隨系統",
+  "settingsLanguageChinese": "简体中文",
+  "settingsLanguageEnglish": "English",
+  "settingsLanguageJapanese": "日本語",
+  "settingsLanguageTraditionalChinese": "繁體中文",
+  "settingsLanguageFrench": "Français",
+  "settingsClearOriginalCacheTitle": "清除原始快取",
+  "settingsClearOriginalCacheSubtitle": "移除本機相機原始照片",
+  "settingsClearOriginalCacheCalculating": "正在重新計算...",
+  "settingsClearOriginalCacheNoClearable": "沒有可清除的原始照片",
+  "settingsClearOriginalCacheConfirmTitle": "清除原始快取？",
+  "settingsClearOriginalCacheConfirmMessage": "這將刪除此裝置上所有曾登入帳號的相機原始照片快取。生成記錄與已生成的圖片不會被刪除。",
+  "settingsClearOriginalCacheConfirmAction": "清除",
+  "settingsClearOriginalCacheSize": "可清除 {size}",
+  "@settingsClearOriginalCacheSize": {
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "settingsClearOriginalCacheLastCalculatedSize": "上次計算：可清除 {size}",
+  "@settingsClearOriginalCacheLastCalculatedSize": {
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "settingsClearOriginalCacheInProgress": "正在清除...",
+  "settingsClearOriginalCacheDoneTitle": "清除完成",
+  "settingsClearOriginalCacheDoneMessage": "已清除 {count} 張相機原始照片。",
+  "@settingsClearOriginalCacheDoneMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsClearOriginalCachePartialMessage": "已清除 {clearedCount} 張相機原始照片，{failedCount} 張清除失敗。",
+  "@settingsClearOriginalCachePartialMessage": {
+    "placeholders": {
+      "clearedCount": {
+        "type": "int"
+      },
+      "failedCount": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsClearOriginalCacheFailedTitle": "清除失敗",
+  "settingsClearOriginalCacheFailedMessage": "無法清除原始快取，請稍後再試。",
+  "settingsRedeemCodeTitle": "使用兌換碼",
+  "settingsRedeemCodeSubtitle": "使用兌換碼取得點數",
+  "settingsManageSubscriptionTitle": "購買點數",
+  "settingsManageSubscriptionSubtitle": "點數包與恢復購買",
+  "settingsSectionInformation": "資訊",
+  "settingsPrivacyPolicyTitle": "隱私權政策",
+  "settingsPrivacyPolicySubtitle": "資料與照片處理說明",
+  "settingsTermsTitle": "使用條款",
+  "settingsTermsSubtitle": "服務規則與權利說明",
+  "settingsAboutTitle": "關於",
+  "settingsAboutSubtitle": "版本資訊與致謝",
+  "settingsContactDeveloperTitle": "聯絡開發者",
+  "settingsContactDeveloperSubtitle": "傳送回饋或支援請求",
+  "settingsSectionAccount": "帳號",
+  "settingsDeleteAccountTitle": "刪除帳號",
+  "settingsDeleteAccountSubtitle": "永久移除你的帳號",
+  "settingsSignOutTitle": "登出",
+  "settingsSignOutSubtitle": "返回登入畫面",
+  "settingsSignOutConfirmTitle": "登出？",
+  "settingsSignOutConfirmMessage": "你的本機作品將保留在此裝置上。你可以隨時重新登入。",
+  "settingsSignOutConfirmAction": "登出",
+  "settingsSignOutFailedTitle": "登出失敗",
+  "settingsSignOutFailedMessage": "無法登出，請稍後再試。",
+  "billingTitle": "點數",
+  "billingHeroTitle": "取得創作點數",
+  "billingHeroSubtitle": "點數用於生成圖片。",
+  "billingCreditPackTitle": "{credits} 點數",
+  "@billingCreditPackTitle": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "billingCreditPackSubtitle": "一次性點數包",
+  "billingPurchaseButton": "購買",
+  "billingPurchaseSuccessButton": "購買完成（+{credits} 點數）",
+  "@billingPurchaseSuccessButton": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "billingRestorePurchases": "恢復購買",
+  "billingRedeemCodeTitle": "兌換碼",
+  "billingRedeemCodePlaceholder": "輸入兌換碼",
+  "billingRedeemCodeButton": "兌換",
+  "commonCancel": "取消",
+  "commonOK": "好",
+  "billingProductsUnavailable": "目前沒有可購買的點數包。",
+  "billingRetry": "重試",
+  "billingGrantedCreditsMessage": "+{credits} 點數",
+  "@billingGrantedCreditsMessage": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "billingLegalNote": "購買由 App Store 處理。繼續即表示你同意使用條款與隱私權政策。",
+  "toastGenerationNetworkFailed": "網路不穩定，照片未上傳。請稍後再試。",
+  "toastOriginalUnavailable": "無法讀取原始照片，請重新拍攝或選擇照片。",
+  "toastInsufficientCredits": "點數不足。",
+  "toastGenerationSubmitFailed": "生成請求失敗，請重試。",
+  "toastGenerationUploadFailed": "照片上傳失敗，請檢查網路後重試。",
+  "toastGenerationTaskCreateFailed": "照片已上傳，但生成請求建立失敗，請重試。",
+  "toastGenerationBackendFailed": "圖片生成失敗，請重試。",
+  "toastResultSaveFailed": "結果圖片無法儲存，請重試。",
+  "toastGalleryICloudImportFailed": "無法從 iCloud 下載此照片，請稍後再試。",
+  "toastGalleryImportFailed": "無法匯入此照片，請試試其他照片。",
+  "toastFavoriteFailed": "無法儲存至「喜愛」，請稍後再試。",
+  "toastOriginalSaved": "原始照片已儲存至「照片」。",
+  "toastOriginalSaveFailed": "原始照片無法儲存，請檢查「照片」權限後重試。",
+  "toastFeedbackSubmitted": "回饋已送出。",
+  "toastFeedbackFailed": "回饋無法送出，請稍後再試。",
+  "toastOpenPhotoLibraryFailed": "無法開啟「照片」。",
+  "settingsClearOriginalCachePartialTitle": "部分清除失敗",
+  "toastPurchaseSuccess": "購買完成，已新增 {credits} 點數。",
+  "@toastPurchaseSuccess": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "toastPurchaseFailed": "購買未完成，請稍後再試。",
+  "toastRestorePurchaseFailed": "無法恢復購買，請稍後再試。",
+  "toastCreditRedemptionSuccess": "已兌換 {credits} 點數。",
+  "@toastCreditRedemptionSuccess": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "toastCreditRedemptionInvalid": "兌換碼格式無效。",
+  "toastCreditRedemptionUnavailable": "此兌換碼無效或已被使用。",
+  "toastCreditRedemptionCampaignLimitReached": "此優惠每個帳號只能兌換一次。",
+  "toastCreditRedemptionRateLimited": "嘗試次數過多，請稍後再試。",
+  "toastCreditRedemptionFailed": "兌換失敗，請稍後再試。"
+}

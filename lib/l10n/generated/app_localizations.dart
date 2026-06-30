@@ -6,6 +6,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart' as intl;
 
 import 'app_localizations_en.dart';
+import 'app_localizations_fr.dart';
+import 'app_localizations_ja.dart';
 import 'app_localizations_zh.dart';
 
 // ignore_for_file: type=lint
@@ -95,7 +97,10 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('zh'),
+    Locale('zh', 'TW'),
     Locale('en'),
+    Locale('ja'),
+    Locale('fr'),
   ];
 
   /// No description provided for @appTitle.
@@ -125,19 +130,19 @@ abstract class AppLocalizations {
   /// No description provided for @authAppleSignInFailed.
   ///
   /// In en, this message translates to:
-  /// **'Apple sign in failed.'**
+  /// **'Apple sign-in failed.'**
   String get authAppleSignInFailed;
 
   /// No description provided for @authAuthenticationFailed.
   ///
   /// In en, this message translates to:
-  /// **'Authentication failed. Please try again.'**
+  /// **'Authentication failed. Try again.'**
   String get authAuthenticationFailed;
 
   /// No description provided for @authCameraDevicesLoadFailed.
   ///
   /// In en, this message translates to:
-  /// **'Camera devices could not be loaded.'**
+  /// **'Camera devices couldn\'t be loaded.'**
   String get authCameraDevicesLoadFailed;
 
   /// No description provided for @authContinueWithApple.
@@ -173,7 +178,7 @@ abstract class AppLocalizations {
   /// No description provided for @authEmailLabel.
   ///
   /// In en, this message translates to:
-  /// **'E-mail address'**
+  /// **'Email address'**
   String get authEmailLabel;
 
   /// No description provided for @authEmailPlaceholder.
@@ -215,7 +220,7 @@ abstract class AppLocalizations {
   /// No description provided for @authGoogleSignInFailed.
   ///
   /// In en, this message translates to:
-  /// **'Google sign in failed.'**
+  /// **'Google sign-in failed.'**
   String get authGoogleSignInFailed;
 
   /// No description provided for @authEmailRequired.
@@ -275,13 +280,13 @@ abstract class AppLocalizations {
   /// No description provided for @authSessionExpired.
   ///
   /// In en, this message translates to:
-  /// **'Session expired. Please sign in again.'**
+  /// **'Session expired. Sign in again.'**
   String get authSessionExpired;
 
   /// No description provided for @authSessionRestoreFailed.
   ///
   /// In en, this message translates to:
-  /// **'Session could not be restored. Please sign in.'**
+  /// **'Session couldn\'t be restored. Sign in again.'**
   String get authSessionRestoreFailed;
 
   /// No description provided for @authSignInButton.
@@ -341,7 +346,7 @@ abstract class AppLocalizations {
   /// No description provided for @generationSubmissionImportNew.
   ///
   /// In en, this message translates to:
-  /// **'IMPORT FROM ALBUM'**
+  /// **'IMPORT FROM PHOTOS'**
   String get generationSubmissionImportNew;
 
   /// No description provided for @generationSubmissionDefaultMomentMode.
@@ -365,19 +370,19 @@ abstract class AppLocalizations {
   /// No description provided for @generationSubmissionProcessedResultImageLoadFailed.
   ///
   /// In en, this message translates to:
-  /// **'Processed result image could not be loaded'**
+  /// **'Processed result image couldn\'t be loaded'**
   String get generationSubmissionProcessedResultImageLoadFailed;
 
   /// No description provided for @generationSubmissionResultImageLoadFailed.
   ///
   /// In en, this message translates to:
-  /// **'Result image could not be loaded'**
+  /// **'Result image couldn\'t be loaded'**
   String get generationSubmissionResultImageLoadFailed;
 
   /// No description provided for @generationSubmissionOriginalImageLoadFailed.
   ///
   /// In en, this message translates to:
-  /// **'Original image could not be loaded'**
+  /// **'Original image couldn\'t be loaded'**
   String get generationSubmissionOriginalImageLoadFailed;
 
   /// No description provided for @generationSubmissionTapToLoadResult.
@@ -497,7 +502,7 @@ abstract class AppLocalizations {
   /// No description provided for @promptSwitchBeautifyFaceTitle.
   ///
   /// In en, this message translates to:
-  /// **'Portrait Enhance'**
+  /// **'Beautify'**
   String get promptSwitchBeautifyFaceTitle;
 
   /// No description provided for @promptSwitchCleanFrameTitle.
@@ -632,6 +637,24 @@ abstract class AppLocalizations {
   /// **'English'**
   String get settingsLanguageEnglish;
 
+  /// No description provided for @settingsLanguageJapanese.
+  ///
+  /// In en, this message translates to:
+  /// **'日本語'**
+  String get settingsLanguageJapanese;
+
+  /// No description provided for @settingsLanguageTraditionalChinese.
+  ///
+  /// In en, this message translates to:
+  /// **'繁體中文'**
+  String get settingsLanguageTraditionalChinese;
+
+  /// No description provided for @settingsLanguageFrench.
+  ///
+  /// In en, this message translates to:
+  /// **'Français'**
+  String get settingsLanguageFrench;
+
   /// No description provided for @settingsClearOriginalCacheTitle.
   ///
   /// In en, this message translates to:
@@ -665,7 +688,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsClearOriginalCacheConfirmMessage.
   ///
   /// In en, this message translates to:
-  /// **'This will delete camera original caches for every account that has signed in on this device. Generation records and generated images will not be deleted.'**
+  /// **'This will delete camera original caches for every account that has signed in on this device. Generation records and generated images won\'t be deleted.'**
   String get settingsClearOriginalCacheConfirmMessage;
 
   /// No description provided for @settingsClearOriginalCacheConfirmAction.
@@ -722,7 +745,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsClearOriginalCacheFailedMessage.
   ///
   /// In en, this message translates to:
-  /// **'Original cache could not be cleared. Try again later.'**
+  /// **'Original cache couldn\'t be cleared. Try again later.'**
   String get settingsClearOriginalCacheFailedMessage;
 
   /// No description provided for @settingsRedeemCodeTitle.
@@ -788,7 +811,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsAboutSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'App version and credits'**
+  /// **'Version info and acknowledgements'**
   String get settingsAboutSubtitle;
 
   /// No description provided for @settingsContactDeveloperTitle.
@@ -860,7 +883,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsSignOutFailedMessage.
   ///
   /// In en, this message translates to:
-  /// **'Could not sign out. Try again later.'**
+  /// **'Couldn\'t sign out. Try again later.'**
   String get settingsSignOutFailedMessage;
 
   /// No description provided for @billingTitle.
@@ -878,7 +901,7 @@ abstract class AppLocalizations {
   /// No description provided for @billingHeroSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Credits are used to generate images. Purchases are verified by the server before they update your balance.'**
+  /// **'Credits are used to generate images.'**
   String get billingHeroSubtitle;
 
   /// No description provided for @billingCreditPackTitle.
@@ -968,25 +991,25 @@ abstract class AppLocalizations {
   /// No description provided for @toastGenerationNetworkFailed.
   ///
   /// In en, this message translates to:
-  /// **'The network is unstable, so the photo was not uploaded. Try again later.'**
+  /// **'The network is unstable. The photo wasn\'t uploaded. Try again later.'**
   String get toastGenerationNetworkFailed;
 
   /// No description provided for @toastOriginalUnavailable.
   ///
   /// In en, this message translates to:
-  /// **'The original photo could not be read. Take or choose another photo.'**
+  /// **'The original photo couldn\'t be read. Take or choose another photo.'**
   String get toastOriginalUnavailable;
 
   /// No description provided for @toastInsufficientCredits.
   ///
   /// In en, this message translates to:
-  /// **'You do not have enough creation credits.'**
+  /// **'You don\'t have enough credits.'**
   String get toastInsufficientCredits;
 
   /// No description provided for @toastGenerationSubmitFailed.
   ///
   /// In en, this message translates to:
-  /// **'The generation request failed. Please try again.'**
+  /// **'The generation request failed. Try again.'**
   String get toastGenerationSubmitFailed;
 
   /// No description provided for @toastGenerationUploadFailed.
@@ -998,37 +1021,37 @@ abstract class AppLocalizations {
   /// No description provided for @toastGenerationTaskCreateFailed.
   ///
   /// In en, this message translates to:
-  /// **'The photo was uploaded, but the generation request could not be created. Please try again.'**
+  /// **'The photo was uploaded, but the generation request couldn\'t be created. Try again.'**
   String get toastGenerationTaskCreateFailed;
 
   /// No description provided for @toastGenerationBackendFailed.
   ///
   /// In en, this message translates to:
-  /// **'Photo generation failed. Please try again.'**
+  /// **'Photo generation failed. Try again.'**
   String get toastGenerationBackendFailed;
 
   /// No description provided for @toastResultSaveFailed.
   ///
   /// In en, this message translates to:
-  /// **'The result image could not be saved. Please try again.'**
+  /// **'The result image couldn\'t be saved. Try again.'**
   String get toastResultSaveFailed;
 
   /// No description provided for @toastGalleryICloudImportFailed.
   ///
   /// In en, this message translates to:
-  /// **'This photo could not be downloaded from iCloud. Try again later.'**
+  /// **'This photo couldn\'t be downloaded from iCloud. Try again later.'**
   String get toastGalleryICloudImportFailed;
 
   /// No description provided for @toastGalleryImportFailed.
   ///
   /// In en, this message translates to:
-  /// **'This photo could not be imported. Try another one.'**
+  /// **'This photo couldn\'t be imported. Try another one.'**
   String get toastGalleryImportFailed;
 
   /// No description provided for @toastFavoriteFailed.
   ///
   /// In en, this message translates to:
-  /// **'Could not update system favorites. Try again later.'**
+  /// **'Couldn\'t save to Favorites. Try again later.'**
   String get toastFavoriteFailed;
 
   /// No description provided for @toastOriginalSaved.
@@ -1040,7 +1063,7 @@ abstract class AppLocalizations {
   /// No description provided for @toastOriginalSaveFailed.
   ///
   /// In en, this message translates to:
-  /// **'Original photo could not be saved. Check Photos permission and try again.'**
+  /// **'Original photo couldn\'t be saved. Check Photos permission and try again.'**
   String get toastOriginalSaveFailed;
 
   /// No description provided for @toastFeedbackSubmitted.
@@ -1052,13 +1075,13 @@ abstract class AppLocalizations {
   /// No description provided for @toastFeedbackFailed.
   ///
   /// In en, this message translates to:
-  /// **'Feedback could not be sent. Try again later.'**
+  /// **'Feedback couldn\'t be sent. Try again later.'**
   String get toastFeedbackFailed;
 
   /// No description provided for @toastOpenPhotoLibraryFailed.
   ///
   /// In en, this message translates to:
-  /// **'Could not open Photos.'**
+  /// **'Couldn\'t open Photos.'**
   String get toastOpenPhotoLibraryFailed;
 
   /// No description provided for @settingsClearOriginalCachePartialTitle.
@@ -1076,13 +1099,13 @@ abstract class AppLocalizations {
   /// No description provided for @toastPurchaseFailed.
   ///
   /// In en, this message translates to:
-  /// **'Purchase was not completed. Try again later.'**
+  /// **'Purchase couldn\'t be completed. Try again later.'**
   String get toastPurchaseFailed;
 
   /// No description provided for @toastRestorePurchaseFailed.
   ///
   /// In en, this message translates to:
-  /// **'Purchases could not be restored. Try again later.'**
+  /// **'Purchases couldn\'t be restored. Try again later.'**
   String get toastRestorePurchaseFailed;
 
   /// No description provided for @toastCreditRedemptionSuccess.
@@ -1106,7 +1129,7 @@ abstract class AppLocalizations {
   /// No description provided for @toastCreditRedemptionCampaignLimitReached.
   ///
   /// In en, this message translates to:
-  /// **'This campaign can only be redeemed once per user.'**
+  /// **'This offer can only be redeemed once per account.'**
   String get toastCreditRedemptionCampaignLimitReached;
 
   /// No description provided for @toastCreditRedemptionRateLimited.
@@ -1133,17 +1156,33 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) =>
-      <String>['en', 'zh'].contains(locale.languageCode);
+      <String>['en', 'fr', 'ja', 'zh'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {
+  // Lookup logic when language+country codes are specified.
+  switch (locale.languageCode) {
+    case 'zh':
+      {
+        switch (locale.countryCode) {
+          case 'TW':
+            return AppLocalizationsZhTw();
+        }
+        break;
+      }
+  }
+
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
     case 'en':
       return AppLocalizationsEn();
+    case 'fr':
+      return AppLocalizationsFr();
+    case 'ja':
+      return AppLocalizationsJa();
     case 'zh':
       return AppLocalizationsZh();
   }

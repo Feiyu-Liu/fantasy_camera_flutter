@@ -284,6 +284,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsLanguageEnglish => 'English';
 
   @override
+  String get settingsLanguageJapanese => '日本語';
+
+  @override
+  String get settingsLanguageTraditionalChinese => '繁體中文';
+
+  @override
+  String get settingsLanguageFrench => 'Français';
+
+  @override
   String get settingsClearOriginalCacheTitle => '清除原图缓存';
 
   @override
@@ -547,4 +556,558 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get toastCreditRedemptionFailed => '兑换失败，请稍后重试。';
+}
+
+/// The translations for Chinese, as used in Taiwan (`zh_TW`).
+class AppLocalizationsZhTw extends AppLocalizationsZh {
+  AppLocalizationsZhTw() : super('zh_TW');
+
+  @override
+  String get appTitle => 'Fantasy Camera';
+
+  @override
+  String get appName => 'Fantasy Camera';
+
+  @override
+  String get authAccountCreatedSignIn => '帳號已建立，請登入。';
+
+  @override
+  String get authAlreadyHaveAccountSignIn => '已有帳號？登入';
+
+  @override
+  String get authAppleSignInFailed => 'Apple 登入失敗。';
+
+  @override
+  String get authAuthenticationFailed => '驗證失敗，請再試一次。';
+
+  @override
+  String get authCameraDevicesLoadFailed => '無法載入相機裝置。';
+
+  @override
+  String get authContinueWithApple => '以 Apple 登入';
+
+  @override
+  String get authContinueWithGoogle => '以 Google 登入';
+
+  @override
+  String get authCreateAccountButton => '建立帳號';
+
+  @override
+  String get authCreateAccountSubtitle => '建立你的帳號';
+
+  @override
+  String get authEmailInvalid => '請輸入有效的電子郵件。';
+
+  @override
+  String get authEmailLabel => '電子郵件地址';
+
+  @override
+  String get authEmailPlaceholder => '電子郵件';
+
+  @override
+  String get authEditorialAccessBadge => '編輯存取';
+
+  @override
+  String get authEditorialSubtitle => '請輸入憑證以繼續';
+
+  @override
+  String get authEditorialTitleLine1 => '鏡頭';
+
+  @override
+  String get authEditorialTitleLine2 => '已就緒';
+
+  @override
+  String get authForgotKeyButton => '忘記密碼？';
+
+  @override
+  String get authGoogleSignInFailed => 'Google 登入失敗。';
+
+  @override
+  String get authEmailRequired => '請輸入電子郵件。';
+
+  @override
+  String get authInvalidCredentials => '電子郵件或密碼不正確。若為新帳號，請先建立帳號，並依要求確認電子郵件。';
+
+  @override
+  String get authMissingSupabaseConfig =>
+      '缺少 Supabase 設定。請先透過 dart-defines 設定 SUPABASE_URL 與 SUPABASE_PUBLISHABLE_KEY。';
+
+  @override
+  String get authNewHereCreateAccount => '新用戶？建立帳號';
+
+  @override
+  String get authOrDividerLabel => '或';
+
+  @override
+  String get authPasswordMinLength => '請至少輸入 6 個字元。';
+
+  @override
+  String get authPasswordLabel => '密碼';
+
+  @override
+  String get authPasswordPlaceholder => '密碼';
+
+  @override
+  String get authSecretKeyPlaceholder => '••••••••';
+
+  @override
+  String get authSessionExpired => '工作階段已過期，請重新登入。';
+
+  @override
+  String get authSessionRestoreFailed => '無法還原工作階段，請登入。';
+
+  @override
+  String get authSignInButton => '登入';
+
+  @override
+  String get authSignInSubtitle => '請登入以繼續';
+
+  @override
+  String cameraCreditsBalanceSemanticsLabel(Object value) {
+    return '$value 點數';
+  }
+
+  @override
+  String get cameraNoCameraFound => '找不到相機。';
+
+  @override
+  String get cameraStartingCamera => '正在啟動相機...';
+
+  @override
+  String cameraErrorMessage(Object message) {
+    return '相機錯誤：$message';
+  }
+
+  @override
+  String get generationSubmissionDownloadingFromICloud => '正在從 iCloud 下載';
+
+  @override
+  String get generationSubmissionPreparingPhoto => '正在準備照片...';
+
+  @override
+  String get generationSubmissionGalleryTitle => '作品集';
+
+  @override
+  String get generationSubmissionImportNew => '從照片匯入';
+
+  @override
+  String get generationSubmissionDefaultMomentMode => '時刻';
+
+  @override
+  String get generationSubmissionDefaultPromptBadge => '預設';
+
+  @override
+  String get generationSubmissionSelectMoment => '拍攝或選擇照片';
+
+  @override
+  String get generationSubmissionProcessedResultImageLoadFailed =>
+      '無法載入處理後的結果圖片';
+
+  @override
+  String get generationSubmissionResultImageLoadFailed => '無法載入結果圖片';
+
+  @override
+  String get generationSubmissionOriginalImageLoadFailed => '無法載入原始圖片';
+
+  @override
+  String get generationSubmissionTapToLoadResult => '點一下以載入結果';
+
+  @override
+  String get generationSubmissionStatusGenerationFailed => '生成失敗';
+
+  @override
+  String get generationSubmissionStatusWaitingForConfirmation => '等待確認';
+
+  @override
+  String get generationSubmissionStatusPreparingUploadImage => '正在準備上傳圖片';
+
+  @override
+  String get generationSubmissionStatusProcessingResultImage => '正在處理結果圖片';
+
+  @override
+  String get generationSubmissionStatusResultSaved => '結果已儲存';
+
+  @override
+  String get generationSubmissionStatusResultProcessingFailed => '結果處理失敗';
+
+  @override
+  String get generationSubmissionStatusWaitingForGenerationResult => '等待生成結果';
+
+  @override
+  String get generationSubmissionStatusPreparingGenerationTask => '正在準備生成任務';
+
+  @override
+  String get generationSubmissionActionViewInAlbum => '在相簿中檢視';
+
+  @override
+  String get generationSubmissionActionSaveOriginal => '儲存原始照片';
+
+  @override
+  String get generationSubmissionActionRetry => '重試';
+
+  @override
+  String get generationSubmissionActionDislikeImage => '不喜歡這張圖片';
+
+  @override
+  String get generationSubmissionActionFeedbackSubmitted => '已送出回饋';
+
+  @override
+  String get generationSubmissionDislikeFeedbackTitle => '結果不滿意？';
+
+  @override
+  String get generationSubmissionDislikeFeedbackPlaceholder => '請留下寶貴意見（選填）';
+
+  @override
+  String get generationSubmissionDislikeFeedbackSubmit => '送出';
+
+  @override
+  String get generationSubmissionActionRemove => '移除';
+
+  @override
+  String get promptSwitchRecomposeTitle => '重新構圖';
+
+  @override
+  String get promptSwitchBeautifyFaceTitle => '人物美化';
+
+  @override
+  String get promptSwitchCleanFrameTitle => '淨化畫面';
+
+  @override
+  String get promptSwitchBackgroundBlurTitle => '背景模糊';
+
+  @override
+  String get promptStyleRealisticTitle => '寫實';
+
+  @override
+  String get promptCaptureModeManualTitle => '手動';
+
+  @override
+  String get promptCaptureModeAutoTitle => '自動';
+
+  @override
+  String get settingsTitle => '設定';
+
+  @override
+  String get settingsFallbackUserName => 'Julian Vane';
+
+  @override
+  String settingsCreditsValue(int value) {
+    return '$value 點數';
+  }
+
+  @override
+  String get settingsCreditsLoading => '-- 點數';
+
+  @override
+  String get settingsCreditsUnavailable => '點數不可用';
+
+  @override
+  String get settingsSectionAppearance => '外觀';
+
+  @override
+  String get settingsAppearanceLight => '淺色';
+
+  @override
+  String get settingsAppearanceDark => '深色';
+
+  @override
+  String get settingsSectionCapture => '拍攝';
+
+  @override
+  String get settingsConfirmBeforeGenerationTitle => '生成前確認';
+
+  @override
+  String get settingsConfirmBeforeGenerationSubtitle => '上傳前先確認照片';
+
+  @override
+  String get settingsSectionGeneral => '一般';
+
+  @override
+  String get settingsLanguageTitle => '語言';
+
+  @override
+  String get settingsLanguageSubtitle => '跟隨系統';
+
+  @override
+  String get settingsLanguageSystem => '跟隨系統';
+
+  @override
+  String get settingsLanguageChinese => '简体中文';
+
+  @override
+  String get settingsLanguageEnglish => 'English';
+
+  @override
+  String get settingsLanguageJapanese => '日本語';
+
+  @override
+  String get settingsLanguageTraditionalChinese => '繁體中文';
+
+  @override
+  String get settingsLanguageFrench => 'Français';
+
+  @override
+  String get settingsClearOriginalCacheTitle => '清除原始快取';
+
+  @override
+  String get settingsClearOriginalCacheSubtitle => '移除本機相機原始照片';
+
+  @override
+  String get settingsClearOriginalCacheCalculating => '正在重新計算...';
+
+  @override
+  String get settingsClearOriginalCacheNoClearable => '沒有可清除的原始照片';
+
+  @override
+  String get settingsClearOriginalCacheConfirmTitle => '清除原始快取？';
+
+  @override
+  String get settingsClearOriginalCacheConfirmMessage =>
+      '這將刪除此裝置上所有曾登入帳號的相機原始照片快取。生成記錄與已生成的圖片不會被刪除。';
+
+  @override
+  String get settingsClearOriginalCacheConfirmAction => '清除';
+
+  @override
+  String settingsClearOriginalCacheSize(Object size) {
+    return '可清除 $size';
+  }
+
+  @override
+  String settingsClearOriginalCacheLastCalculatedSize(Object size) {
+    return '上次計算：可清除 $size';
+  }
+
+  @override
+  String get settingsClearOriginalCacheInProgress => '正在清除...';
+
+  @override
+  String get settingsClearOriginalCacheDoneTitle => '清除完成';
+
+  @override
+  String settingsClearOriginalCacheDoneMessage(int count) {
+    return '已清除 $count 張相機原始照片。';
+  }
+
+  @override
+  String settingsClearOriginalCachePartialMessage(
+    int clearedCount,
+    int failedCount,
+  ) {
+    return '已清除 $clearedCount 張相機原始照片，$failedCount 張清除失敗。';
+  }
+
+  @override
+  String get settingsClearOriginalCacheFailedTitle => '清除失敗';
+
+  @override
+  String get settingsClearOriginalCacheFailedMessage => '無法清除原始快取，請稍後再試。';
+
+  @override
+  String get settingsRedeemCodeTitle => '使用兌換碼';
+
+  @override
+  String get settingsRedeemCodeSubtitle => '使用兌換碼取得點數';
+
+  @override
+  String get settingsManageSubscriptionTitle => '購買點數';
+
+  @override
+  String get settingsManageSubscriptionSubtitle => '點數包與恢復購買';
+
+  @override
+  String get settingsSectionInformation => '資訊';
+
+  @override
+  String get settingsPrivacyPolicyTitle => '隱私權政策';
+
+  @override
+  String get settingsPrivacyPolicySubtitle => '資料與照片處理說明';
+
+  @override
+  String get settingsTermsTitle => '使用條款';
+
+  @override
+  String get settingsTermsSubtitle => '服務規則與權利說明';
+
+  @override
+  String get settingsAboutTitle => '關於';
+
+  @override
+  String get settingsAboutSubtitle => '版本資訊與致謝';
+
+  @override
+  String get settingsContactDeveloperTitle => '聯絡開發者';
+
+  @override
+  String get settingsContactDeveloperSubtitle => '傳送回饋或支援請求';
+
+  @override
+  String get settingsSectionAccount => '帳號';
+
+  @override
+  String get settingsDeleteAccountTitle => '刪除帳號';
+
+  @override
+  String get settingsDeleteAccountSubtitle => '永久移除你的帳號';
+
+  @override
+  String get settingsSignOutTitle => '登出';
+
+  @override
+  String get settingsSignOutSubtitle => '返回登入畫面';
+
+  @override
+  String get settingsSignOutConfirmTitle => '登出？';
+
+  @override
+  String get settingsSignOutConfirmMessage => '你的本機作品將保留在此裝置上。你可以隨時重新登入。';
+
+  @override
+  String get settingsSignOutConfirmAction => '登出';
+
+  @override
+  String get settingsSignOutFailedTitle => '登出失敗';
+
+  @override
+  String get settingsSignOutFailedMessage => '無法登出，請稍後再試。';
+
+  @override
+  String get billingTitle => '點數';
+
+  @override
+  String get billingHeroTitle => '取得創作點數';
+
+  @override
+  String get billingHeroSubtitle => '點數用於生成圖片。';
+
+  @override
+  String billingCreditPackTitle(int credits) {
+    return '$credits 點數';
+  }
+
+  @override
+  String get billingCreditPackSubtitle => '一次性點數包';
+
+  @override
+  String get billingPurchaseButton => '購買';
+
+  @override
+  String billingPurchaseSuccessButton(int credits) {
+    return '購買完成（+$credits 點數）';
+  }
+
+  @override
+  String get billingRestorePurchases => '恢復購買';
+
+  @override
+  String get billingRedeemCodeTitle => '兌換碼';
+
+  @override
+  String get billingRedeemCodePlaceholder => '輸入兌換碼';
+
+  @override
+  String get billingRedeemCodeButton => '兌換';
+
+  @override
+  String get commonCancel => '取消';
+
+  @override
+  String get commonOK => '好';
+
+  @override
+  String get billingProductsUnavailable => '目前沒有可購買的點數包。';
+
+  @override
+  String get billingRetry => '重試';
+
+  @override
+  String billingGrantedCreditsMessage(int credits) {
+    return '+$credits 點數';
+  }
+
+  @override
+  String get billingLegalNote => '購買由 App Store 處理。繼續即表示你同意使用條款與隱私權政策。';
+
+  @override
+  String get toastGenerationNetworkFailed => '網路不穩定，照片未上傳。請稍後再試。';
+
+  @override
+  String get toastOriginalUnavailable => '無法讀取原始照片，請重新拍攝或選擇照片。';
+
+  @override
+  String get toastInsufficientCredits => '點數不足。';
+
+  @override
+  String get toastGenerationSubmitFailed => '生成請求失敗，請重試。';
+
+  @override
+  String get toastGenerationUploadFailed => '照片上傳失敗，請檢查網路後重試。';
+
+  @override
+  String get toastGenerationTaskCreateFailed => '照片已上傳，但生成請求建立失敗，請重試。';
+
+  @override
+  String get toastGenerationBackendFailed => '圖片生成失敗，請重試。';
+
+  @override
+  String get toastResultSaveFailed => '結果圖片無法儲存，請重試。';
+
+  @override
+  String get toastGalleryICloudImportFailed => '無法從 iCloud 下載此照片，請稍後再試。';
+
+  @override
+  String get toastGalleryImportFailed => '無法匯入此照片，請試試其他照片。';
+
+  @override
+  String get toastFavoriteFailed => '無法儲存至「喜愛」，請稍後再試。';
+
+  @override
+  String get toastOriginalSaved => '原始照片已儲存至「照片」。';
+
+  @override
+  String get toastOriginalSaveFailed => '原始照片無法儲存，請檢查「照片」權限後重試。';
+
+  @override
+  String get toastFeedbackSubmitted => '回饋已送出。';
+
+  @override
+  String get toastFeedbackFailed => '回饋無法送出，請稍後再試。';
+
+  @override
+  String get toastOpenPhotoLibraryFailed => '無法開啟「照片」。';
+
+  @override
+  String get settingsClearOriginalCachePartialTitle => '部分清除失敗';
+
+  @override
+  String toastPurchaseSuccess(int credits) {
+    return '購買完成，已新增 $credits 點數。';
+  }
+
+  @override
+  String get toastPurchaseFailed => '購買未完成，請稍後再試。';
+
+  @override
+  String get toastRestorePurchaseFailed => '無法恢復購買，請稍後再試。';
+
+  @override
+  String toastCreditRedemptionSuccess(int credits) {
+    return '已兌換 $credits 點數。';
+  }
+
+  @override
+  String get toastCreditRedemptionInvalid => '兌換碼格式無效。';
+
+  @override
+  String get toastCreditRedemptionUnavailable => '此兌換碼無效或已被使用。';
+
+  @override
+  String get toastCreditRedemptionCampaignLimitReached => '此優惠每個帳號只能兌換一次。';
+
+  @override
+  String get toastCreditRedemptionRateLimited => '嘗試次數過多，請稍後再試。';
+
+  @override
+  String get toastCreditRedemptionFailed => '兌換失敗，請稍後再試。';
 }

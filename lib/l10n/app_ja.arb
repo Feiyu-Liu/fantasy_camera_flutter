@@ -1,0 +1,255 @@
+{
+  "@@locale": "ja",
+  "appTitle": "Fantasy Camera",
+  "appName": "Fantasy Camera",
+  "authAccountCreatedSignIn": "アカウントを作成しました。サインインしてください。",
+  "authAlreadyHaveAccountSignIn": "すでにアカウントをお持ちですか？サインイン",
+  "authAppleSignInFailed": "Appleサインインに失敗しました。",
+  "authAuthenticationFailed": "認証に失敗しました。もう一度お試しください。",
+  "authCameraDevicesLoadFailed": "カメラデバイスを読み込めませんでした。",
+  "authContinueWithApple": "Appleでサインイン",
+  "authContinueWithGoogle": "Googleでサインイン",
+  "authCreateAccountButton": "アカウントを作成",
+  "authCreateAccountSubtitle": "アカウントを作成してください",
+  "authEmailInvalid": "有効なメールアドレスを入力してください。",
+  "authEmailLabel": "メールアドレス",
+  "authEmailPlaceholder": "メール",
+  "authEditorialAccessBadge": "編集アクセス",
+  "authEditorialSubtitle": "認証情報を入力して続行してください",
+  "authEditorialTitleLine1": "レンズが",
+  "authEditorialTitleLine2": "待っている",
+  "authForgotKeyButton": "キーを忘れた場合",
+  "authGoogleSignInFailed": "Googleサインインに失敗しました。",
+  "authEmailRequired": "メールアドレスは必須です。",
+  "authInvalidCredentials": "メールアドレスまたはパスワードが正しくありません。新規アカウントの場合は、先にアカウントを作成し、必要に応じてメールを確認してください。",
+  "authMissingSupabaseConfig": "Supabase設定が見つかりません。SUPABASE_URLとSUPABASE_PUBLISHABLE_KEYのdart-definesを設定してください。",
+  "authNewHereCreateAccount": "初めてですか？アカウントを作成",
+  "authOrDividerLabel": "または",
+  "authPasswordMinLength": "6文字以上で入力してください。",
+  "authPasswordLabel": "シークレットキー",
+  "authPasswordPlaceholder": "パスワード",
+  "authSecretKeyPlaceholder": "••••••••",
+  "authSessionExpired": "セッションの有効期限が切れました。再度サインインしてください。",
+  "authSessionRestoreFailed": "セッションを復元できませんでした。再度サインインしてください。",
+  "authSignInButton": "サインイン",
+  "authSignInSubtitle": "続行するにはサインインしてください",
+  "cameraCreditsBalanceSemanticsLabel": "{value}クレジット",
+  "@cameraCreditsBalanceSemanticsLabel": {
+    "placeholders": {
+      "value": {}
+    }
+  },
+  "cameraNoCameraFound": "カメラが見つかりません。",
+  "cameraStartingCamera": "カメラを起動中...",
+  "cameraErrorMessage": "カメラエラー：{message}",
+  "@cameraErrorMessage": {
+    "placeholders": {
+      "message": {}
+    }
+  },
+  "generationSubmissionDownloadingFromICloud": "iCloudからダウンロード中",
+  "generationSubmissionPreparingPhoto": "写真を準備中...",
+  "generationSubmissionGalleryTitle": "ギャラリー",
+  "generationSubmissionImportNew": "写真から読み込む",
+  "generationSubmissionDefaultMomentMode": "モーメント",
+  "generationSubmissionDefaultPromptBadge": "デフォルト",
+  "generationSubmissionSelectMoment": "写真を撮影または選択",
+  "generationSubmissionProcessedResultImageLoadFailed": "処理済み結果画像を読み込めませんでした",
+  "generationSubmissionResultImageLoadFailed": "結果画像を読み込めませんでした",
+  "generationSubmissionOriginalImageLoadFailed": "元の画像を読み込めませんでした",
+  "generationSubmissionTapToLoadResult": "タップして結果を読み込む",
+  "generationSubmissionStatusGenerationFailed": "生成に失敗しました",
+  "generationSubmissionStatusWaitingForConfirmation": "確認待ち",
+  "generationSubmissionStatusPreparingUploadImage": "アップロード画像を準備中",
+  "generationSubmissionStatusProcessingResultImage": "結果画像を処理中",
+  "generationSubmissionStatusResultSaved": "結果を保存しました",
+  "generationSubmissionStatusResultProcessingFailed": "結果の処理に失敗しました",
+  "generationSubmissionStatusWaitingForGenerationResult": "生成結果を待機中",
+  "generationSubmissionStatusPreparingGenerationTask": "生成タスクを準備中",
+  "generationSubmissionActionViewInAlbum": "アルバムで表示",
+  "generationSubmissionActionSaveOriginal": "元の写真を保存",
+  "generationSubmissionActionRetry": "再試行",
+  "generationSubmissionActionDislikeImage": "この画像は気に入らない",
+  "generationSubmissionActionFeedbackSubmitted": "フィードバックを送信しました",
+  "generationSubmissionDislikeFeedbackTitle": "気に入りませんでしたか？",
+  "generationSubmissionDislikeFeedbackPlaceholder": "フィードバックをお聞かせください（任意）",
+  "generationSubmissionDislikeFeedbackSubmit": "送信",
+  "generationSubmissionActionRemove": "削除",
+  "promptSwitchRecomposeTitle": "再構成",
+  "promptSwitchBeautifyFaceTitle": "ビューティー",
+  "promptSwitchCleanFrameTitle": "すっきり",
+  "promptSwitchBackgroundBlurTitle": "背景ぼかし",
+  "promptStyleRealisticTitle": "リアル",
+  "promptCaptureModeManualTitle": "マニュアル",
+  "promptCaptureModeAutoTitle": "オート",
+  "settingsTitle": "設定",
+  "settingsFallbackUserName": "Julian Vane",
+  "settingsCreditsValue": "{value}クレジット",
+  "@settingsCreditsValue": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsCreditsLoading": "--クレジット",
+  "settingsCreditsUnavailable": "クレジット情報を取得できません",
+  "settingsSectionAppearance": "外観",
+  "settingsAppearanceLight": "ライト",
+  "settingsAppearanceDark": "ダーク",
+  "settingsSectionCapture": "撮影",
+  "settingsConfirmBeforeGenerationTitle": "生成前に確認",
+  "settingsConfirmBeforeGenerationSubtitle": "アップロード前に写真を確認する",
+  "settingsSectionGeneral": "一般",
+  "settingsLanguageTitle": "言語",
+  "settingsLanguageSubtitle": "システムのデフォルト",
+  "settingsLanguageSystem": "システムのデフォルト",
+  "settingsLanguageChinese": "简体中文",
+  "settingsLanguageEnglish": "English",
+  "settingsLanguageJapanese": "日本語",
+  "settingsLanguageTraditionalChinese": "繁體中文",
+  "settingsLanguageFrench": "Français",
+  "settingsClearOriginalCacheTitle": "元画像キャッシュを削除",
+  "settingsClearOriginalCacheSubtitle": "ローカルのカメラ元画像を削除",
+  "settingsClearOriginalCacheCalculating": "再計算中...",
+  "settingsClearOriginalCacheNoClearable": "削除できる元画像はありません",
+  "settingsClearOriginalCacheConfirmTitle": "元画像キャッシュを削除しますか？",
+  "settingsClearOriginalCacheConfirmMessage": "このデバイスでサインインしたすべてのアカウントのカメラ元画像キャッシュが削除されます。生成記録と生成済み画像は削除されません。",
+  "settingsClearOriginalCacheConfirmAction": "削除",
+  "settingsClearOriginalCacheSize": "{size}削除可能",
+  "@settingsClearOriginalCacheSize": {
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "settingsClearOriginalCacheLastCalculatedSize": "前回の計算：{size}削除可能",
+  "@settingsClearOriginalCacheLastCalculatedSize": {
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "settingsClearOriginalCacheInProgress": "削除中...",
+  "settingsClearOriginalCacheDoneTitle": "削除完了",
+  "settingsClearOriginalCacheDoneMessage": "カメラ元画像を{count}枚削除しました。",
+  "@settingsClearOriginalCacheDoneMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsClearOriginalCachePartialMessage": "カメラ元画像を{clearedCount}枚削除しました。{failedCount}枚は失敗しました。",
+  "@settingsClearOriginalCachePartialMessage": {
+    "placeholders": {
+      "clearedCount": {
+        "type": "int"
+      },
+      "failedCount": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsClearOriginalCacheFailedTitle": "削除失敗",
+  "settingsClearOriginalCacheFailedMessage": "元画像キャッシュを削除できませんでした。後でもう一度お試しください。",
+  "settingsRedeemCodeTitle": "引き換えコードを使用",
+  "settingsRedeemCodeSubtitle": "コードを使ってクレジットを取得",
+  "settingsManageSubscriptionTitle": "クレジットを購入",
+  "settingsManageSubscriptionSubtitle": "クレジットパックと購入の復元",
+  "settingsSectionInformation": "情報",
+  "settingsPrivacyPolicyTitle": "プライバシーポリシー",
+  "settingsPrivacyPolicySubtitle": "データと写真の取り扱い",
+  "settingsTermsTitle": "利用規約",
+  "settingsTermsSubtitle": "サービス規則と権利",
+  "settingsAboutTitle": "このアプリについて",
+  "settingsAboutSubtitle": "バージョン情報とクレジット",
+  "settingsContactDeveloperTitle": "開発者に連絡",
+  "settingsContactDeveloperSubtitle": "フィードバックまたはサポートリクエストを送信",
+  "settingsSectionAccount": "アカウント",
+  "settingsDeleteAccountTitle": "アカウントを削除",
+  "settingsDeleteAccountSubtitle": "アカウントを完全に削除します",
+  "settingsSignOutTitle": "サインアウト",
+  "settingsSignOutSubtitle": "サインイン画面に戻る",
+  "settingsSignOutConfirmTitle": "サインアウトしますか？",
+  "settingsSignOutConfirmMessage": "ローカルの作品はこのデバイスに残ります。いつでも再度サインインできます。",
+  "settingsSignOutConfirmAction": "サインアウト",
+  "settingsSignOutFailedTitle": "サインアウト失敗",
+  "settingsSignOutFailedMessage": "サインアウトできませんでした。後でもう一度お試しください。",
+  "billingTitle": "クレジット",
+  "billingHeroTitle": "クレジットを取得",
+  "billingHeroSubtitle": "クレジットは画像生成に使用されます。",
+  "billingCreditPackTitle": "{credits}クレジット",
+  "@billingCreditPackTitle": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "billingCreditPackSubtitle": "買い切りクレジットパック",
+  "billingPurchaseButton": "購入",
+  "billingPurchaseSuccessButton": "購入完了（+{credits}クレジット）",
+  "@billingPurchaseSuccessButton": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "billingRestorePurchases": "購入を復元",
+  "billingRedeemCodeTitle": "コードを引き換える",
+  "billingRedeemCodePlaceholder": "コードを入力",
+  "billingRedeemCodeButton": "引き換える",
+  "commonCancel": "キャンセル",
+  "commonOK": "OK",
+  "billingProductsUnavailable": "現在利用できるクレジットパックはありません。",
+  "billingRetry": "再試行",
+  "billingGrantedCreditsMessage": "+{credits}クレジット",
+  "@billingGrantedCreditsMessage": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "billingLegalNote": "購入はApp Storeで処理されます。続行することで、利用規約とプライバシーポリシーに同意したことになります。",
+  "toastGenerationNetworkFailed": "ネットワークが不安定なため、写真をアップロードできませんでした。後でもう一度お試しください。",
+  "toastOriginalUnavailable": "元の写真を読み込めませんでした。別の写真を撮影または選択してください。",
+  "toastInsufficientCredits": "クレジットが不足しています。",
+  "toastGenerationSubmitFailed": "生成リクエストに失敗しました。再試行してください。",
+  "toastGenerationUploadFailed": "写真のアップロードに失敗しました。ネットワークを確認してから再試行してください。",
+  "toastGenerationTaskCreateFailed": "写真はアップロードされましたが、生成リクエストを作成できませんでした。再試行してください。",
+  "toastGenerationBackendFailed": "画像生成に失敗しました。再試行してください。",
+  "toastResultSaveFailed": "結果画像を保存できませんでした。再試行してください。",
+  "toastGalleryICloudImportFailed": "iCloudからこの写真をダウンロードできませんでした。後でもう一度お試しください。",
+  "toastGalleryImportFailed": "この写真を読み込めませんでした。別の写真をお試しください。",
+  "toastFavoriteFailed": "お気に入りに保存できませんでした。後でもう一度お試しください。",
+  "toastOriginalSaved": "元の写真を写真アプリに保存しました。",
+  "toastOriginalSaveFailed": "元の写真を保存できませんでした。写真アプリのアクセス権限を確認してから再試行してください。",
+  "toastFeedbackSubmitted": "フィードバックを送信しました。",
+  "toastFeedbackFailed": "フィードバックを送信できませんでした。後でもう一度お試しください。",
+  "toastOpenPhotoLibraryFailed": "写真アプリを開けませんでした。",
+  "settingsClearOriginalCachePartialTitle": "一部削除完了",
+  "toastPurchaseSuccess": "購入完了。{credits}クレジットが追加されました。",
+  "@toastPurchaseSuccess": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "toastPurchaseFailed": "購入を完了できませんでした。後でもう一度お試しください。",
+  "toastRestorePurchaseFailed": "購入を復元できませんでした。後でもう一度お試しください。",
+  "toastCreditRedemptionSuccess": "{credits}クレジットを引き換えました。",
+  "@toastCreditRedemptionSuccess": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "toastCreditRedemptionInvalid": "コードの形式が無効です。",
+  "toastCreditRedemptionUnavailable": "このコードは無効か、すでに使用されています。",
+  "toastCreditRedemptionCampaignLimitReached": "このオファーは1アカウントにつき1回のみ利用できます。",
+  "toastCreditRedemptionRateLimited": "試行回数が多すぎます。後でもう一度お試しください。",
+  "toastCreditRedemptionFailed": "コードの引き換えに失敗しました。後でもう一度お試しください。"
+}

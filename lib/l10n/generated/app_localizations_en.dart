@@ -21,15 +21,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authAlreadyHaveAccountSignIn => 'Already have an account? Sign in';
 
   @override
-  String get authAppleSignInFailed => 'Apple sign in failed.';
+  String get authAppleSignInFailed => 'Apple sign-in failed.';
 
   @override
-  String get authAuthenticationFailed =>
-      'Authentication failed. Please try again.';
+  String get authAuthenticationFailed => 'Authentication failed. Try again.';
 
   @override
   String get authCameraDevicesLoadFailed =>
-      'Camera devices could not be loaded.';
+      'Camera devices couldn\'t be loaded.';
 
   @override
   String get authContinueWithApple => 'Sign in with Apple';
@@ -47,7 +46,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authEmailInvalid => 'Enter a valid email.';
 
   @override
-  String get authEmailLabel => 'E-mail address';
+  String get authEmailLabel => 'Email address';
 
   @override
   String get authEmailPlaceholder => 'Email';
@@ -68,7 +67,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authForgotKeyButton => 'Forgot key?';
 
   @override
-  String get authGoogleSignInFailed => 'Google sign in failed.';
+  String get authGoogleSignInFailed => 'Google sign-in failed.';
 
   @override
   String get authEmailRequired => 'Email is required.';
@@ -100,11 +99,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authSecretKeyPlaceholder => '••••••••';
 
   @override
-  String get authSessionExpired => 'Session expired. Please sign in again.';
+  String get authSessionExpired => 'Session expired. Sign in again.';
 
   @override
   String get authSessionRestoreFailed =>
-      'Session could not be restored. Please sign in.';
+      'Session couldn\'t be restored. Sign in again.';
 
   @override
   String get authSignInButton => 'Sign in';
@@ -139,7 +138,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get generationSubmissionGalleryTitle => 'GALLERY';
 
   @override
-  String get generationSubmissionImportNew => 'IMPORT FROM ALBUM';
+  String get generationSubmissionImportNew => 'IMPORT FROM PHOTOS';
 
   @override
   String get generationSubmissionDefaultMomentMode => 'MOMENT';
@@ -152,15 +151,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get generationSubmissionProcessedResultImageLoadFailed =>
-      'Processed result image could not be loaded';
+      'Processed result image couldn\'t be loaded';
 
   @override
   String get generationSubmissionResultImageLoadFailed =>
-      'Result image could not be loaded';
+      'Result image couldn\'t be loaded';
 
   @override
   String get generationSubmissionOriginalImageLoadFailed =>
-      'Original image could not be loaded';
+      'Original image couldn\'t be loaded';
 
   @override
   String get generationSubmissionTapToLoadResult => 'TAP TO LOAD RESULT';
@@ -227,7 +226,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get promptSwitchRecomposeTitle => 'Recompose';
 
   @override
-  String get promptSwitchBeautifyFaceTitle => 'Portrait Enhance';
+  String get promptSwitchBeautifyFaceTitle => 'Beautify';
 
   @override
   String get promptSwitchCleanFrameTitle => 'Declutter';
@@ -300,6 +299,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsLanguageEnglish => 'English';
 
   @override
+  String get settingsLanguageJapanese => '日本語';
+
+  @override
+  String get settingsLanguageTraditionalChinese => '繁體中文';
+
+  @override
+  String get settingsLanguageFrench => 'Français';
+
+  @override
   String get settingsClearOriginalCacheTitle => 'Clear cached originals';
 
   @override
@@ -318,7 +326,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsClearOriginalCacheConfirmMessage =>
-      'This will delete camera original caches for every account that has signed in on this device. Generation records and generated images will not be deleted.';
+      'This will delete camera original caches for every account that has signed in on this device. Generation records and generated images won\'t be deleted.';
 
   @override
   String get settingsClearOriginalCacheConfirmAction => 'Clear';
@@ -357,7 +365,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsClearOriginalCacheFailedMessage =>
-      'Original cache could not be cleared. Try again later.';
+      'Original cache couldn\'t be cleared. Try again later.';
 
   @override
   String get settingsRedeemCodeTitle => 'Use redemption code';
@@ -390,7 +398,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAboutTitle => 'About';
 
   @override
-  String get settingsAboutSubtitle => 'App version and credits';
+  String get settingsAboutSubtitle => 'Version info and acknowledgements';
 
   @override
   String get settingsContactDeveloperTitle => 'Contact developer';
@@ -429,7 +437,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsSignOutFailedMessage =>
-      'Could not sign out. Try again later.';
+      'Couldn\'t sign out. Try again later.';
 
   @override
   String get billingTitle => 'CREDITS';
@@ -438,8 +446,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get billingHeroTitle => 'Get Creation Credits';
 
   @override
-  String get billingHeroSubtitle =>
-      'Credits are used to generate images. Purchases are verified by the server before they update your balance.';
+  String get billingHeroSubtitle => 'Credits are used to generate images.';
 
   @override
   String billingCreditPackTitle(int credits) {
@@ -493,19 +500,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get toastGenerationNetworkFailed =>
-      'The network is unstable, so the photo was not uploaded. Try again later.';
+      'The network is unstable. The photo wasn\'t uploaded. Try again later.';
 
   @override
   String get toastOriginalUnavailable =>
-      'The original photo could not be read. Take or choose another photo.';
+      'The original photo couldn\'t be read. Take or choose another photo.';
 
   @override
-  String get toastInsufficientCredits =>
-      'You do not have enough creation credits.';
+  String get toastInsufficientCredits => 'You don\'t have enough credits.';
 
   @override
   String get toastGenerationSubmitFailed =>
-      'The generation request failed. Please try again.';
+      'The generation request failed. Try again.';
 
   @override
   String get toastGenerationUploadFailed =>
@@ -513,44 +519,44 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get toastGenerationTaskCreateFailed =>
-      'The photo was uploaded, but the generation request could not be created. Please try again.';
+      'The photo was uploaded, but the generation request couldn\'t be created. Try again.';
 
   @override
   String get toastGenerationBackendFailed =>
-      'Photo generation failed. Please try again.';
+      'Photo generation failed. Try again.';
 
   @override
   String get toastResultSaveFailed =>
-      'The result image could not be saved. Please try again.';
+      'The result image couldn\'t be saved. Try again.';
 
   @override
   String get toastGalleryICloudImportFailed =>
-      'This photo could not be downloaded from iCloud. Try again later.';
+      'This photo couldn\'t be downloaded from iCloud. Try again later.';
 
   @override
   String get toastGalleryImportFailed =>
-      'This photo could not be imported. Try another one.';
+      'This photo couldn\'t be imported. Try another one.';
 
   @override
   String get toastFavoriteFailed =>
-      'Could not update system favorites. Try again later.';
+      'Couldn\'t save to Favorites. Try again later.';
 
   @override
   String get toastOriginalSaved => 'Original photo saved to Photos.';
 
   @override
   String get toastOriginalSaveFailed =>
-      'Original photo could not be saved. Check Photos permission and try again.';
+      'Original photo couldn\'t be saved. Check Photos permission and try again.';
 
   @override
   String get toastFeedbackSubmitted => 'Feedback sent.';
 
   @override
   String get toastFeedbackFailed =>
-      'Feedback could not be sent. Try again later.';
+      'Feedback couldn\'t be sent. Try again later.';
 
   @override
-  String get toastOpenPhotoLibraryFailed => 'Could not open Photos.';
+  String get toastOpenPhotoLibraryFailed => 'Couldn\'t open Photos.';
 
   @override
   String get settingsClearOriginalCachePartialTitle => 'Partially cleared';
@@ -562,11 +568,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get toastPurchaseFailed =>
-      'Purchase was not completed. Try again later.';
+      'Purchase couldn\'t be completed. Try again later.';
 
   @override
   String get toastRestorePurchaseFailed =>
-      'Purchases could not be restored. Try again later.';
+      'Purchases couldn\'t be restored. Try again later.';
 
   @override
   String toastCreditRedemptionSuccess(int credits) {
@@ -582,7 +588,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get toastCreditRedemptionCampaignLimitReached =>
-      'This campaign can only be redeemed once per user.';
+      'This offer can only be redeemed once per account.';
 
   @override
   String get toastCreditRedemptionRateLimited =>

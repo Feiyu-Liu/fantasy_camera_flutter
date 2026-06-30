@@ -1,0 +1,255 @@
+{
+  "@@locale": "fr",
+  "appTitle": "Fantasy Camera",
+  "appName": "Fantasy Camera",
+  "authAccountCreatedSignIn": "Compte créé. Connecte-toi pour continuer.",
+  "authAlreadyHaveAccountSignIn": "Déjà un compte ? Connexion",
+  "authAppleSignInFailed": "La connexion avec Apple a échoué.",
+  "authAuthenticationFailed": "Authentification échouée. Réessaie.",
+  "authCameraDevicesLoadFailed": "Impossible de charger les appareils photo.",
+  "authContinueWithApple": "Continuer avec Apple",
+  "authContinueWithGoogle": "Continuer avec Google",
+  "authCreateAccountButton": "Créer un compte",
+  "authCreateAccountSubtitle": "Crée ton compte",
+  "authEmailInvalid": "Saisis une adresse courriel valide.",
+  "authEmailLabel": "Adresse courriel",
+  "authEmailPlaceholder": "Courriel",
+  "authEditorialAccessBadge": "Accès éditorial",
+  "authEditorialSubtitle": "Saisis tes informations pour continuer",
+  "authEditorialTitleLine1": "L'objectif",
+  "authEditorialTitleLine2": "T'attend",
+  "authForgotKeyButton": "Clé oubliée ?",
+  "authGoogleSignInFailed": "La connexion avec Google a échoué.",
+  "authEmailRequired": "Le courriel est requis.",
+  "authInvalidCredentials": "Courriel ou mot de passe incorrect. S'il s'agit d'un nouveau compte, crée-le d'abord et confirme le courriel si nécessaire.",
+  "authMissingSupabaseConfig": "Configuration Supabase manquante. Configure SUPABASE_URL et SUPABASE_PUBLISHABLE_KEY via les dart-defines.",
+  "authNewHereCreateAccount": "Nouveau ici ? Créer un compte",
+  "authOrDividerLabel": "ou",
+  "authPasswordMinLength": "Utilise au moins 6 caractères.",
+  "authPasswordLabel": "Clé secrète",
+  "authPasswordPlaceholder": "Mot de passe",
+  "authSecretKeyPlaceholder": "••••••••",
+  "authSessionExpired": "Session expirée. Reconnecte-toi.",
+  "authSessionRestoreFailed": "Impossible de restaurer la session. Reconnecte-toi.",
+  "authSignInButton": "Se connecter",
+  "authSignInSubtitle": "Connecte-toi pour continuer",
+  "cameraCreditsBalanceSemanticsLabel": "{value} crédits",
+  "@cameraCreditsBalanceSemanticsLabel": {
+    "placeholders": {
+      "value": {}
+    }
+  },
+  "cameraNoCameraFound": "Aucun appareil photo trouvé.",
+  "cameraStartingCamera": "Démarrage de l'appareil photo...",
+  "cameraErrorMessage": "Erreur caméra : {message}",
+  "@cameraErrorMessage": {
+    "placeholders": {
+      "message": {}
+    }
+  },
+  "generationSubmissionDownloadingFromICloud": "Téléchargement depuis iCloud",
+  "generationSubmissionPreparingPhoto": "Préparation de la photo...",
+  "generationSubmissionGalleryTitle": "GALERIE",
+  "generationSubmissionImportNew": "IMPORTER DEPUIS PHOTOS",
+  "generationSubmissionDefaultMomentMode": "MOMENT",
+  "generationSubmissionDefaultPromptBadge": "DÉFAUT",
+  "generationSubmissionSelectMoment": "PRENDRE OU CHOISIR UNE PHOTO",
+  "generationSubmissionProcessedResultImageLoadFailed": "Impossible de charger l'image résultat traitée",
+  "generationSubmissionResultImageLoadFailed": "Impossible de charger l'image résultat",
+  "generationSubmissionOriginalImageLoadFailed": "Impossible de charger l'image originale",
+  "generationSubmissionTapToLoadResult": "TOUCHER POUR CHARGER LE RÉSULTAT",
+  "generationSubmissionStatusGenerationFailed": "Génération échouée",
+  "generationSubmissionStatusWaitingForConfirmation": "En attente de confirmation",
+  "generationSubmissionStatusPreparingUploadImage": "Préparation de l'image à envoyer",
+  "generationSubmissionStatusProcessingResultImage": "Traitement de l'image résultat",
+  "generationSubmissionStatusResultSaved": "Résultat enregistré",
+  "generationSubmissionStatusResultProcessingFailed": "Traitement du résultat échoué",
+  "generationSubmissionStatusWaitingForGenerationResult": "En attente du résultat",
+  "generationSubmissionStatusPreparingGenerationTask": "Préparation de la tâche",
+  "generationSubmissionActionViewInAlbum": "Voir dans l'album",
+  "generationSubmissionActionSaveOriginal": "Enregistrer l'original",
+  "generationSubmissionActionRetry": "Réessayer",
+  "generationSubmissionActionDislikeImage": "Je n'aime pas cette image",
+  "generationSubmissionActionFeedbackSubmitted": "Commentaire envoyé",
+  "generationSubmissionDislikeFeedbackTitle": "Pas tout à fait ?",
+  "generationSubmissionDislikeFeedbackPlaceholder": "Laisse un commentaire (facultatif)",
+  "generationSubmissionDislikeFeedbackSubmit": "Envoyer",
+  "generationSubmissionActionRemove": "Supprimer",
+  "promptSwitchRecomposeTitle": "Recadrer",
+  "promptSwitchBeautifyFaceTitle": "Beauté",
+  "promptSwitchCleanFrameTitle": "Épurer",
+  "promptSwitchBackgroundBlurTitle": "Flou d'arrière-plan",
+  "promptStyleRealisticTitle": "Réaliste",
+  "promptCaptureModeManualTitle": "MANUEL",
+  "promptCaptureModeAutoTitle": "AUTO",
+  "settingsTitle": "RÉGLAGES",
+  "settingsFallbackUserName": "Julian Vane",
+  "settingsCreditsValue": "{value} CRÉDITS",
+  "@settingsCreditsValue": {
+    "placeholders": {
+      "value": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsCreditsLoading": "-- CRÉDITS",
+  "settingsCreditsUnavailable": "CRÉDITS INDISPONIBLES",
+  "settingsSectionAppearance": "APPARENCE",
+  "settingsAppearanceLight": "Clair",
+  "settingsAppearanceDark": "Sombre",
+  "settingsSectionCapture": "CAPTURE",
+  "settingsConfirmBeforeGenerationTitle": "Confirmer avant génération",
+  "settingsConfirmBeforeGenerationSubtitle": "Vérifier la photo avant envoi",
+  "settingsSectionGeneral": "GÉNÉRAL",
+  "settingsLanguageTitle": "Langue",
+  "settingsLanguageSubtitle": "Langue du système",
+  "settingsLanguageSystem": "Langue du système",
+  "settingsLanguageChinese": "简体中文",
+  "settingsLanguageEnglish": "English",
+  "settingsLanguageJapanese": "日本語",
+  "settingsLanguageTraditionalChinese": "繁體中文",
+  "settingsLanguageFrench": "Français",
+  "settingsClearOriginalCacheTitle": "Vider le cache des originaux",
+  "settingsClearOriginalCacheSubtitle": "Supprimer les originaux locaux",
+  "settingsClearOriginalCacheCalculating": "Recalcul en cours...",
+  "settingsClearOriginalCacheNoClearable": "Aucun original en cache",
+  "settingsClearOriginalCacheConfirmTitle": "Vider le cache des originaux ?",
+  "settingsClearOriginalCacheConfirmMessage": "Les originaux caméra de tous les comptes connectés sur cet appareil seront supprimés. Les historiques et images générées ne seront pas affectés.",
+  "settingsClearOriginalCacheConfirmAction": "Vider",
+  "settingsClearOriginalCacheSize": "{size} à libérer",
+  "@settingsClearOriginalCacheSize": {
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "settingsClearOriginalCacheLastCalculatedSize": "Dernier calcul : {size} à libérer",
+  "@settingsClearOriginalCacheLastCalculatedSize": {
+    "placeholders": {
+      "size": {}
+    }
+  },
+  "settingsClearOriginalCacheInProgress": "Vidage en cours...",
+  "settingsClearOriginalCacheDoneTitle": "Cache vidé",
+  "settingsClearOriginalCacheDoneMessage": "{count} originaux supprimés.",
+  "@settingsClearOriginalCacheDoneMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsClearOriginalCachePartialMessage": "{clearedCount} originaux supprimés. {failedCount} ont échoué.",
+  "@settingsClearOriginalCachePartialMessage": {
+    "placeholders": {
+      "clearedCount": {
+        "type": "int"
+      },
+      "failedCount": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsClearOriginalCacheFailedTitle": "Échec du vidage",
+  "settingsClearOriginalCacheFailedMessage": "Impossible de vider le cache. Réessaie plus tard.",
+  "settingsRedeemCodeTitle": "Utiliser un code",
+  "settingsRedeemCodeSubtitle": "Obtenir des crédits avec un code",
+  "settingsManageSubscriptionTitle": "Acheter des crédits",
+  "settingsManageSubscriptionSubtitle": "Packs de crédits et restauration",
+  "settingsSectionInformation": "INFORMATIONS",
+  "settingsPrivacyPolicyTitle": "Politique de confidentialité",
+  "settingsPrivacyPolicySubtitle": "Gestion des données et photos",
+  "settingsTermsTitle": "Conditions d'utilisation",
+  "settingsTermsSubtitle": "Règles et droits du service",
+  "settingsAboutTitle": "À propos",
+  "settingsAboutSubtitle": "Infos de version et remerciements",
+  "settingsContactDeveloperTitle": "Contacter le développeur",
+  "settingsContactDeveloperSubtitle": "Envoyer un commentaire ou une demande d'aide",
+  "settingsSectionAccount": "COMPTE",
+  "settingsDeleteAccountTitle": "Supprimer le compte",
+  "settingsDeleteAccountSubtitle": "Supprimer définitivement ton compte",
+  "settingsSignOutTitle": "Se déconnecter",
+  "settingsSignOutSubtitle": "Retour à l'écran de connexion",
+  "settingsSignOutConfirmTitle": "Se déconnecter ?",
+  "settingsSignOutConfirmMessage": "Tes créations locales resteront sur cet appareil. Tu peux te reconnecter à tout moment.",
+  "settingsSignOutConfirmAction": "Déconnecter",
+  "settingsSignOutFailedTitle": "Déconnexion échouée",
+  "settingsSignOutFailedMessage": "Impossible de se déconnecter. Réessaie plus tard.",
+  "billingTitle": "CRÉDITS",
+  "billingHeroTitle": "Obtenir des crédits",
+  "billingHeroSubtitle": "Les crédits servent à générer des images.",
+  "billingCreditPackTitle": "{credits} crédits",
+  "@billingCreditPackTitle": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "billingCreditPackSubtitle": "Pack de crédits à usage unique",
+  "billingPurchaseButton": "Acheter",
+  "billingPurchaseSuccessButton": "Achat réussi (+{credits} crédits)",
+  "@billingPurchaseSuccessButton": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "billingRestorePurchases": "Restaurer les achats",
+  "billingRedeemCodeTitle": "Utiliser un code",
+  "billingRedeemCodePlaceholder": "Saisir le code",
+  "billingRedeemCodeButton": "Utiliser",
+  "commonCancel": "Annuler",
+  "commonOK": "OK",
+  "billingProductsUnavailable": "Aucun pack de crédits disponible pour l'instant.",
+  "billingRetry": "Réessayer",
+  "billingGrantedCreditsMessage": "+{credits} crédits",
+  "@billingGrantedCreditsMessage": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "billingLegalNote": "Les achats sont traités par l'App Store. En continuant, tu acceptes les conditions d'utilisation et la politique de confidentialité.",
+  "toastGenerationNetworkFailed": "Réseau instable. La photo n'a pas été envoyée. Réessaie plus tard.",
+  "toastOriginalUnavailable": "Impossible de lire la photo originale. Prends ou choisis une autre photo.",
+  "toastInsufficientCredits": "Crédits insuffisants.",
+  "toastGenerationSubmitFailed": "La demande de génération a échoué. Réessaie.",
+  "toastGenerationUploadFailed": "Envoi de la photo échoué. Vérifie ta connexion et réessaie.",
+  "toastGenerationTaskCreateFailed": "La photo a été envoyée, mais la demande n'a pas pu être créée. Réessaie.",
+  "toastGenerationBackendFailed": "Génération de l'image échouée. Réessaie.",
+  "toastResultSaveFailed": "Impossible d'enregistrer l'image résultat. Réessaie.",
+  "toastGalleryICloudImportFailed": "Impossible de télécharger cette photo depuis iCloud. Réessaie plus tard.",
+  "toastGalleryImportFailed": "Impossible d'importer cette photo. Essaies-en une autre.",
+  "toastFavoriteFailed": "Impossible d'enregistrer dans Favoris. Réessaie plus tard.",
+  "toastOriginalSaved": "Photo originale enregistrée dans Photos.",
+  "toastOriginalSaveFailed": "Impossible d'enregistrer la photo originale. Vérifie les permissions Photos et réessaie.",
+  "toastFeedbackSubmitted": "Commentaire envoyé.",
+  "toastFeedbackFailed": "Impossible d'envoyer le commentaire. Réessaie plus tard.",
+  "toastOpenPhotoLibraryFailed": "Impossible d'ouvrir Photos.",
+  "settingsClearOriginalCachePartialTitle": "Vidage partiel",
+  "toastPurchaseSuccess": "Achat réussi. {credits} crédits ajoutés.",
+  "@toastPurchaseSuccess": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "toastPurchaseFailed": "Achat incomplet. Réessaie plus tard.",
+  "toastRestorePurchaseFailed": "Impossible de restaurer les achats. Réessaie plus tard.",
+  "toastCreditRedemptionSuccess": "{credits} crédits échangés.",
+  "@toastCreditRedemptionSuccess": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "toastCreditRedemptionInvalid": "Format de code invalide.",
+  "toastCreditRedemptionUnavailable": "Ce code est invalide ou déjà utilisé.",
+  "toastCreditRedemptionCampaignLimitReached": "Cette offre est limitée à une utilisation par compte.",
+  "toastCreditRedemptionRateLimited": "Trop de tentatives. Réessaie plus tard.",
+  "toastCreditRedemptionFailed": "Échange du code échoué. Réessaie plus tard."
+}
