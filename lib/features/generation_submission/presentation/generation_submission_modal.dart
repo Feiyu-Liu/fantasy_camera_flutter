@@ -2033,12 +2033,13 @@ class _PromptSnapshotBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final PromptSelectionSnapshot selection =
         job.promptSelection ?? PromptSelectionSnapshot.fallback;
-    final int activeCount = selection.switches.values
-        .where((bool selected) => selected)
-        .length;
-    final String label = activeCount == 0
-        ? context.l10n.generationSubmissionDefaultPromptBadge
-        : '+$activeCount';
+    final String? label = generationThumbnailPromptBadgeLabel(
+      selection: selection,
+      manualLabel: context.l10n.promptCaptureModeManualTitle,
+    );
+    if (label == null) {
+      return const SizedBox.shrink();
+    }
 
     return Align(
       alignment: Alignment.topLeft,
@@ -2063,6 +2064,23 @@ class _PromptSnapshotBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+@visibleForTesting
+String? generationThumbnailPromptBadgeLabel({
+  required PromptSelectionSnapshot selection,
+  required String manualLabel,
+}) {
+  final int activeCount = selection.switches.values
+      .where((bool selected) => selected)
+      .length;
+  if (activeCount > 0) {
+    return '+$activeCount';
+  }
+  if (selection.captureMode == manualCaptureMode) {
+    return manualLabel;
+  }
+  return null;
 }
 
 class _StatusBadge extends StatelessWidget {

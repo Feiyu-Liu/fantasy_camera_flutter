@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -107,6 +108,52 @@ void main() {
     expect(
       find.byKey(const ValueKey<String>('generation-submission-remove-failed')),
       findsOneWidget,
+    );
+  });
+
+  test('thumbnail prompt badge reflects capture mode and switches', () {
+    expect(
+      generationThumbnailPromptBadgeLabel(
+        selection: const PromptSelectionSnapshot(
+          promptStyle: defaultPromptStyle,
+          captureMode: defaultCaptureMode,
+          switches: <String, bool>{},
+        ),
+        manualLabel: '手动',
+      ),
+      isNull,
+    );
+    expect(
+      generationThumbnailPromptBadgeLabel(
+        selection: const PromptSelectionSnapshot(
+          promptStyle: defaultPromptStyle,
+          captureMode: manualCaptureMode,
+          switches: <String, bool>{
+            'recompose': false,
+            'beautifyFace': false,
+            'cleanFrame': false,
+            'backgroundBlur': false,
+          },
+        ),
+        manualLabel: '手动',
+      ),
+      '手动',
+    );
+    expect(
+      generationThumbnailPromptBadgeLabel(
+        selection: const PromptSelectionSnapshot(
+          promptStyle: defaultPromptStyle,
+          captureMode: manualCaptureMode,
+          switches: <String, bool>{
+            'recompose': true,
+            'beautifyFace': false,
+            'cleanFrame': true,
+            'backgroundBlur': false,
+          },
+        ),
+        manualLabel: '手动',
+      ),
+      '+2',
     );
   });
 
@@ -1717,16 +1764,16 @@ Future<void> _seedJobs(
   GenerationRecordRepository repository,
 ) async {
   for (final GenerationSubmissionJob job in jobs) {
+    final PromptSelectionSnapshot promptSelection =
+        job.promptSelection ?? PromptSelectionSnapshot.fallback;
     await repository.createCameraRecord(
       recordId: job.id,
       originalLocalPath: job.imagePath,
       createdAt: job.createdAt,
-      promptStyle:
-          job.promptSelection?.promptStyle ??
-          PromptSelectionSnapshot.fallback.promptStyle,
-      captureMode:
-          job.promptSelection?.captureMode ??
-          PromptSelectionSnapshot.fallback.captureMode,
+      promptStyle: promptSelection.promptStyle,
+      captureMode: promptSelection.captureMode,
+      appInputContractId: promptSelection.appInputContractId,
+      userInputJson: jsonEncode(promptSelection.userInput),
     );
     final GenerationRecordPipelineStatus pipelineStatus = _recordStatusForJob(
       job.status,
@@ -2163,6 +2210,7 @@ GenerationSubmissionJob _job({
   String? taskId,
   String? imagePath,
   String? processedResultPath,
+  PromptSelectionSnapshot? promptSelection,
   GenerationRecordResultAvailability resultAvailability =
       GenerationRecordResultAvailability.none,
   String? resultUrl,
@@ -2179,16 +2227,18 @@ GenerationSubmissionJob _job({
     imagePath: resolvedImagePath,
     status: status,
     taskId: taskId ?? 'task-$id',
-    promptSelection: const PromptSelectionSnapshot(
-      promptStyle: 'realistic',
-      captureMode: 'manual',
-      switches: <String, bool>{
-        'recompose': true,
-        'beautifyFace': false,
-        'cleanFrame': false,
-        'backgroundBlur': false,
-      },
-    ),
+    promptSelection:
+        promptSelection ??
+        const PromptSelectionSnapshot(
+          promptStyle: 'realistic',
+          captureMode: 'manual',
+          switches: <String, bool>{
+            'recompose': true,
+            'beautifyFace': false,
+            'cleanFrame': false,
+            'backgroundBlur': false,
+          },
+        ),
     resultUrl: resultUrl,
     processedResultPath: processedResultPath,
     resultAvailability: resultAvailability,
