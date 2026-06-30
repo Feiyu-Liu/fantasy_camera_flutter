@@ -19,6 +19,7 @@ import '../data/generation_image_processor.dart';
 import '../data/generation_original_file_store.dart';
 import '../data/generation_submission_adapters.dart';
 import '../domain/capture_metadata.dart';
+import '../domain/generation_record_state_machine.dart';
 import '../domain/generation_submission_job.dart';
 import 'generation_record_providers.dart';
 
@@ -698,9 +699,7 @@ class GenerationSubmissionController
 }
 
 bool _isCreditAffectingTerminalStatus(GenerationSubmissionStatus status) {
-  return status == GenerationSubmissionStatus.resultSaved ||
-      status == GenerationSubmissionStatus.failed ||
-      status == GenerationSubmissionStatus.resultProcessingFailed;
+  return GenerationRecordStateMachine.isCreditAffectingTerminalStatus(status);
 }
 
 enum GenerationResultNotificationStatus { none, success, failure }
@@ -752,10 +751,7 @@ class GenerationResultNotificationController
     );
     final Set<String> unreadFailureJobIds = _unreadJobIdsWithStatuses(
       submissionState,
-      const <GenerationSubmissionStatus>{
-        GenerationSubmissionStatus.failed,
-        GenerationSubmissionStatus.resultProcessingFailed,
-      },
+      _notificationFailureStatuses,
     );
     return GenerationResultNotificationState(
       unreadSuccessJobIds: Set<String>.unmodifiable(unreadSuccessJobIds),
@@ -802,11 +798,7 @@ class GenerationResultNotificationController
   bool _hasUnseenTerminalJob(GenerationSubmissionState submissionState) {
     return _unreadJobIdsWithStatuses(
       submissionState,
-      const <GenerationSubmissionStatus>{
-        GenerationSubmissionStatus.resultSaved,
-        GenerationSubmissionStatus.failed,
-        GenerationSubmissionStatus.resultProcessingFailed,
-      },
+      _notificationTerminalStatuses,
     ).isNotEmpty;
   }
 
@@ -824,6 +816,22 @@ class GenerationResultNotificationController
         .toSet();
   }
 }
+
+final Set<GenerationSubmissionStatus> _notificationFailureStatuses =
+    Set<GenerationSubmissionStatus>.unmodifiable(
+      GenerationSubmissionStatus.values.where(
+        GenerationRecordStateMachine.isNotificationFailureStatus,
+      ),
+    );
+
+final Set<GenerationSubmissionStatus> _notificationTerminalStatuses =
+    Set<GenerationSubmissionStatus>.unmodifiable(
+      GenerationSubmissionStatus.values.where(
+        (GenerationSubmissionStatus status) =>
+            status == GenerationSubmissionStatus.resultSaved ||
+            GenerationRecordStateMachine.isNotificationFailureStatus(status),
+      ),
+    );
 
 int _statusRank(GenerationSubmissionStatus status) {
   return switch (status) {

@@ -21,6 +21,7 @@ import '../data/generation_original_file_store.dart';
 import '../data/generation_submission_adapters.dart';
 import '../domain/capture_metadata.dart';
 import '../domain/generation_record.dart';
+import '../domain/generation_record_state_machine.dart';
 import '../domain/generation_submission_job.dart';
 
 abstract interface class NotificationDeviceCoordinator {
@@ -357,15 +358,7 @@ class GenerationSubmissionService extends ChangeNotifier {
     for (final GenerationRecord record in records) {
       final GenerationRecordPipelineStatus status =
           generationRecordPipelineStatusFromName(record.pipelineStatus);
-      if ((status == GenerationRecordPipelineStatus.submitted ||
-              status == GenerationRecordPipelineStatus.pollingTask) &&
-          record.taskId != null &&
-          record.taskId!.isNotEmpty) {
-        shouldPollActiveTasks = true;
-      }
-      if (status == GenerationRecordPipelineStatus.uploadedWaitingTask ||
-          status == GenerationRecordPipelineStatus.uploading ||
-          status == GenerationRecordPipelineStatus.creatingTask) {
+      if (GenerationRecordStateMachine.shouldPollBatch(status)) {
         shouldPollActiveTasks = true;
       }
       await _resumeRecord(record);
@@ -387,44 +380,77 @@ class GenerationSubmissionService extends ChangeNotifier {
 
     final GenerationRecordPipelineStatus status =
         generationRecordPipelineStatusFromName(record.pipelineStatus);
-    if (!_isRetryableFailureRecord(record, status)) {
+    final GenerationRecordRetryDecision retryDecision =
+        GenerationRecordStateMachine.retryDecision(
+          status: status,
+          taskId: record.taskId,
+          uploadSessionId: record.uploadSessionId,
+        );
+    if (retryDecision.plan == GenerationRecordRetryPlan.none) {
       _debugLog(
-        'retry skipped record=$recordId reason=status-${record.pipelineStatus} retryable=${record.failureRetryable ?? false}',
+        'retry skipped record=$recordId status=${record.pipelineStatus} reason=${retryDecision.reason}',
       );
       return;
     }
 
-    _debugLog('retry start record=$recordId status=${record.pipelineStatus}');
+    _debugLog(
+      'retry start record=$recordId status=${record.pipelineStatus} plan=${retryDecision.plan.name} reason=${retryDecision.reason}',
+    );
     _stopTaskPolling(recordId);
     _cancelResultRetry(recordId);
     _runtimeState[recordId]?.clearSubmissionAttempt();
 
-    if (status == GenerationRecordPipelineStatus.resultSaveFailed &&
-        record.taskId != null) {
-      await _generationRecordRepository.updatePipelineStatus(
-        recordId: recordId,
-        status: GenerationRecordPipelineStatus.completed,
-        updatedAt: DateTime.now(),
-        clearError: true,
-        clearFailure: true,
-      );
-      await _processCompletedResult(recordId: recordId, taskId: record.taskId!);
-      notifyListeners();
-      return;
-    }
-
-    final String? existingTaskId = record.taskId;
-    if (existingTaskId != null && existingTaskId.isNotEmpty) {
-      final bool resolvedByRemoteTask = await _refreshRecordTaskFromBackend(
-        record: record,
-        taskId: existingTaskId,
-      );
-      if (resolvedByRemoteTask) {
+    switch (retryDecision.plan) {
+      case GenerationRecordRetryPlan.processResultOnly:
+        await _generationRecordRepository.updatePipelineStatus(
+          recordId: recordId,
+          status: GenerationRecordPipelineStatus.completed,
+          updatedAt: DateTime.now(),
+          clearError: true,
+          clearFailure: true,
+        );
+        await _processCompletedResult(
+          recordId: recordId,
+          taskId: record.taskId!,
+        );
         notifyListeners();
         return;
-      }
+      case GenerationRecordRetryPlan.refreshTask:
+        final bool resolvedByRemoteTask = await _refreshRecordTaskFromBackend(
+          record: record,
+          taskId: record.taskId!,
+        );
+        if (resolvedByRemoteTask) {
+          notifyListeners();
+          return;
+        }
+        final bool recoveredUploadSession = await _recoverUploadSessionForRetry(
+          record,
+        );
+        if (recoveredUploadSession) {
+          notifyListeners();
+          return;
+        }
+        break;
+      case GenerationRecordRetryPlan.recoverUploadSession:
+        final bool recoveredUploadSession = await _recoverUploadSessionForRetry(
+          record,
+        );
+        if (recoveredUploadSession) {
+          notifyListeners();
+          return;
+        }
+        break;
+      case GenerationRecordRetryPlan.resubmitFromOriginal:
+      case GenerationRecordRetryPlan.none:
+        break;
     }
 
+    await _resubmitRecordFromOriginal(recordId);
+    notifyListeners();
+  }
+
+  Future<void> _resubmitRecordFromOriginal(String recordId) async {
     await _generationRecordRepository.resetForRetry(
       recordId: recordId,
       updatedAt: DateTime.now(),
@@ -433,11 +459,46 @@ class GenerationSubmissionService extends ChangeNotifier {
         .findById(recordId);
     if (retryRecord == null) {
       _debugLog('retry aborted record=$recordId reason=missing-after-reset');
-      notifyListeners();
       return;
     }
     await _submitRecord(retryRecord);
-    notifyListeners();
+  }
+
+  Future<bool> _recoverUploadSessionForRetry(GenerationRecord record) async {
+    final String recordId = record.recordId;
+    final String? uploadSessionId = record.uploadSessionId;
+    if (uploadSessionId == null || uploadSessionId.isEmpty) {
+      _debugLog(
+        'retry recover upload skipped record=$recordId reason=missing-upload-session',
+      );
+      return false;
+    }
+    try {
+      await _recoverUploadedTask(
+        recordId: recordId,
+        uploadSessionId: uploadSessionId,
+        sourceImageObjectId: record.sourceImageObjectId,
+      );
+      final GenerationRecord? recoveredRecord =
+          await _generationRecordRepository.findById(recordId);
+      final String? recoveredTaskId = recoveredRecord?.taskId;
+      if (recoveredTaskId != null && recoveredTaskId.isNotEmpty) {
+        await _resumeTaskPolling(recordId: recordId, taskId: recoveredTaskId);
+      } else {
+        _ensureBatchPollingStarted();
+      }
+      return true;
+    } on BackendApiFailure catch (error) {
+      _debugLog(
+        'retry recover upload backend failure record=$recordId code=${error.code} status=${error.statusCode} message=${error.message}',
+      );
+      return false;
+    } on Object catch (error) {
+      _debugLog(
+        'retry recover upload local failure record=$recordId error=$error',
+      );
+      return false;
+    }
   }
 
   Future<bool> _refreshRecordTaskFromBackend({
@@ -784,7 +845,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         recordId: recordId,
         status: GenerationRecordPipelineStatus.submissionFailed,
         failureStage: GenerationRecordFailureStage.originalUnavailable,
-        retryable: false,
+        retryable: true,
         errorCode: 'original_unavailable',
         errorMessage: 'Original image is not available.',
       );
@@ -928,7 +989,9 @@ class GenerationSubmissionService extends ChangeNotifier {
       await _failRecord(
         recordId: recordId,
         status: GenerationRecordPipelineStatus.submissionFailed,
-        failureStage: _submissionFailureStageForSubmitStage(stage),
+        failureStage: GenerationRecordStateMachine.failureStageForSubmitStage(
+          stage,
+        ),
         retryable: true,
         errorCode: error.code,
         errorMessage: error.message,
@@ -938,7 +1001,9 @@ class GenerationSubmissionService extends ChangeNotifier {
       await _failRecord(
         recordId: recordId,
         status: GenerationRecordPipelineStatus.submissionFailed,
-        failureStage: _submissionFailureStageForSubmitStage(stage),
+        failureStage: GenerationRecordStateMachine.failureStageForSubmitStage(
+          stage,
+        ),
         retryable: true,
         errorCode: 'local_error',
         errorMessage: error.toString(),
@@ -1086,10 +1151,7 @@ class GenerationSubmissionService extends ChangeNotifier {
   }
 
   bool _canLoadResultUrl(GenerationSubmissionStatus status) {
-    return status == GenerationSubmissionStatus.completed ||
-        status == GenerationSubmissionStatus.processingResultImage ||
-        status == GenerationSubmissionStatus.resultSaved ||
-        status == GenerationSubmissionStatus.resultProcessingFailed;
+    return GenerationRecordStateMachine.canLoadResultUrl(status);
   }
 
   Future<String?> _loadResultUrlForRecord(GenerationRecord record) async {
@@ -1429,7 +1491,9 @@ class GenerationSubmissionService extends ChangeNotifier {
         : _submissionStatusForRecord(currentRecord);
     if (currentRecord == null ||
         currentStatus == null ||
-        _isTerminalStatus(currentStatus)) {
+        GenerationRecordStateMachine.isTerminalSubmissionStatus(
+          currentStatus,
+        )) {
       final String reason = currentRecord == null
           ? 'missing-record'
           : 'terminal-${currentStatus?.name ?? 'unknown'}';
@@ -2157,79 +2221,17 @@ class GenerationSubmissionService extends ChangeNotifier {
   ) {
     final GenerationRecordPipelineStatus status =
         generationRecordPipelineStatusFromName(record.pipelineStatus);
-    return switch (status) {
-      GenerationRecordPipelineStatus.awaitingConfirmation =>
-        GenerationSubmissionStatus.awaitingConfirmation,
-      GenerationRecordPipelineStatus.awaitingRetry =>
-        GenerationSubmissionStatus.queued,
-      GenerationRecordPipelineStatus.localOriginalSaveFailed =>
-        GenerationSubmissionStatus.failed,
-      GenerationRecordPipelineStatus.submissionFailed =>
-        GenerationSubmissionStatus.failed,
-      GenerationRecordPipelineStatus.preparingUploadImage =>
-        GenerationSubmissionStatus.preparingUploadImage,
-      GenerationRecordPipelineStatus.creatingUpload =>
-        GenerationSubmissionStatus.creatingUpload,
-      GenerationRecordPipelineStatus.uploading =>
-        GenerationSubmissionStatus.uploading,
-      GenerationRecordPipelineStatus.uploadedWaitingTask =>
-        GenerationSubmissionStatus.uploadedWaitingTask,
-      GenerationRecordPipelineStatus.creatingTask =>
-        GenerationSubmissionStatus.creatingTask,
-      GenerationRecordPipelineStatus.submitted =>
-        GenerationSubmissionStatus.submitted,
-      GenerationRecordPipelineStatus.pollingTask =>
-        GenerationSubmissionStatus.pollingTask,
-      GenerationRecordPipelineStatus.completed =>
-        GenerationSubmissionStatus.completed,
-      GenerationRecordPipelineStatus.processingResultImage =>
-        GenerationSubmissionStatus.processingResultImage,
-      GenerationRecordPipelineStatus.resultSaved =>
-        GenerationSubmissionStatus.resultSaved,
-      GenerationRecordPipelineStatus.resultSaveFailed =>
-        GenerationSubmissionStatus.resultProcessingFailed,
-      GenerationRecordPipelineStatus.generationFailed =>
-        GenerationSubmissionStatus.failed,
-      GenerationRecordPipelineStatus.canceled =>
-        GenerationSubmissionStatus.failed,
-    };
+    return GenerationRecordStateMachine.submissionStatusForPipelineStatus(
+      status,
+    );
   }
 
   GenerationTaskStatus? _taskStatusFromWire(String? value) {
     return value == null ? null : GenerationTaskStatus.fromWire(value);
   }
 
-  bool _isTerminalStatus(GenerationSubmissionStatus status) {
-    return status == GenerationSubmissionStatus.resultSaved ||
-        status == GenerationSubmissionStatus.resultProcessingFailed ||
-        status == GenerationSubmissionStatus.failed;
-  }
-
   bool _isResultNotReadyFailure(BackendApiFailure error) {
     return error.code == 'result_not_ready';
-  }
-
-  bool _isRetryableFailureRecord(
-    GenerationRecord record,
-    GenerationRecordPipelineStatus status,
-  ) {
-    return status == GenerationRecordPipelineStatus.localOriginalSaveFailed ||
-        status == GenerationRecordPipelineStatus.submissionFailed ||
-        status == GenerationRecordPipelineStatus.generationFailed ||
-        status == GenerationRecordPipelineStatus.resultSaveFailed;
-  }
-
-  GenerationRecordFailureStage _submissionFailureStageForSubmitStage(
-    String stage,
-  ) {
-    return switch (stage) {
-      'preparingUploadImage' ||
-      'readingFile' => GenerationRecordFailureStage.preparingUploadImage,
-      'creatingUpload' => GenerationRecordFailureStage.creatingUpload,
-      'uploading' => GenerationRecordFailureStage.uploading,
-      'uploadedWaitingTask' => GenerationRecordFailureStage.creatingTask,
-      _ => GenerationRecordFailureStage.local,
-    };
   }
 
   _RuntimeGenerationRecordState _runtimeFor(String recordId) {

@@ -594,7 +594,7 @@ void main() {
     expect(job.status, GenerationSubmissionStatus.failed);
     expect(job.errorCode, 'original_unavailable');
     expect(job.failureStage, GenerationRecordFailureStage.originalUnavailable);
-    expect(job.failureRetryable, isFalse);
+    expect(job.failureRetryable, isTrue);
     expect(job.isRetryableFailure, isTrue);
 
     await controller.retryJob(jobId);
@@ -639,7 +639,7 @@ void main() {
       expect(job.status, GenerationSubmissionStatus.failed);
       expect(job.errorCode, 'local_original_save_failed');
       expect(job.failureStage, GenerationRecordFailureStage.local);
-      expect(job.failureRetryable, isFalse);
+      expect(job.failureRetryable, isTrue);
       expect(job.isRetryableFailure, isTrue);
 
       await controller.retryJob(jobId!);
@@ -1445,7 +1445,7 @@ void main() {
     expect(photoLibraryAssetStore.events.single, contains('record-uploading'));
   });
 
-  test('retry failed job resubmits from original image', () async {
+  test('retry failed job refreshes task before reuploading', () async {
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
     final _FakeGenerationTaskRepository taskRepository =
         _FakeGenerationTaskRepository();
@@ -1494,10 +1494,8 @@ void main() {
     expect(job.errorCode, isNull);
     expect(job.failureStage, isNull);
     expect(job.failureRetryable, isFalse);
-    expect(uploadRepository.events, <String>[
-      'create:image/jpeg:4',
-      'create:image/jpeg:4',
-    ]);
+    expect(uploadRepository.events, <String>['create:image/jpeg:4']);
+    expect(taskRepository.fetchTaskIds, <String>['task-1']);
     expect(taskRepository.createdInputs, isEmpty);
     expect(taskRepository.fetchTaskByUploadSessionIds, <String>[
       'upload-1',

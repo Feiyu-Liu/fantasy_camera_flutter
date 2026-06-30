@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../domain/generation_record.dart';
+import '../domain/generation_record_state_machine.dart';
 import 'generation_record_database.dart';
 
 class GenerationRecordRepository {
@@ -32,7 +33,7 @@ class GenerationRecordRepository {
     final List<GenerationRecord> records = await listRecords();
     return records
         .where((GenerationRecord record) {
-          return activeGenerationRecordStatuses.contains(
+          return GenerationRecordStateMachine.isActive(
             generationRecordPipelineStatusFromName(record.pipelineStatus),
           );
         })
@@ -43,7 +44,7 @@ class GenerationRecordRepository {
     return watchRecords().map((List<GenerationRecord> records) {
       return records
           .where((GenerationRecord record) {
-            return activeGenerationRecordStatuses.contains(
+            return GenerationRecordStateMachine.isActive(
               generationRecordPipelineStatusFromName(record.pipelineStatus),
             );
           })
@@ -201,7 +202,7 @@ class GenerationRecordRepository {
             failureStage: Value<String?>(
               GenerationRecordFailureStage.local.name,
             ),
-            failureRetryable: const Value<bool?>(false),
+            failureRetryable: const Value<bool?>(true),
           ),
         );
   }
@@ -479,7 +480,8 @@ class GenerationRecordRepository {
         .where((GenerationRecord record) {
           final GenerationRecordPipelineStatus status =
               generationRecordPipelineStatusFromName(record.pipelineStatus);
-          return clearableOriginalPipelineStatuses.contains(status);
+          return GenerationRecordStateMachine.clearableOriginalStatuses
+              .contains(status);
         })
         .toList(growable: false);
   }
@@ -489,10 +491,10 @@ class GenerationRecordRepository {
           ($GenerationRecordsTable table) =>
               table.resultNotificationSeenAt.isNull() &
               table.pipelineStatus.isIn(<String>[
-                GenerationRecordPipelineStatus.resultSaved.name,
-                GenerationRecordPipelineStatus.submissionFailed.name,
-                GenerationRecordPipelineStatus.generationFailed.name,
-                GenerationRecordPipelineStatus.resultSaveFailed.name,
+                for (final GenerationRecordPipelineStatus status
+                    in GenerationRecordStateMachine
+                        .notificationTerminalStatuses)
+                  status.name,
               ]),
         ))
         .write(
