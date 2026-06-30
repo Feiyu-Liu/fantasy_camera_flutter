@@ -19,6 +19,7 @@ import '../data/generation_record_repository.dart';
 import '../data/generation_image_processor.dart';
 import '../data/generation_original_file_store.dart';
 import '../data/generation_submission_adapters.dart';
+import '../domain/capture_metadata.dart';
 import '../domain/generation_record.dart';
 import '../domain/generation_submission_job.dart';
 
@@ -100,6 +101,7 @@ class GenerationSubmissionService extends ChangeNotifier {
   Future<String?> queueCapturedFile(
     XFile file, {
     PromptSelectionSnapshot? promptSelection,
+    CameraCaptureMetadataSnapshot? cameraCaptureMetadataSnapshot,
   }) async {
     final DateTime now = DateTime.now();
     final String recordId = _nextRecordId(now);
@@ -124,9 +126,13 @@ class GenerationSubmissionService extends ChangeNotifier {
         captureMode: snapshot.captureMode,
         appInputContractId: snapshot.appInputContractId,
         userInputJson: jsonEncode(snapshot.userInput),
+        displaySnapshotJson: _displaySnapshotJson(
+          cameraCaptureMetadataSnapshot: cameraCaptureMetadataSnapshot,
+        ),
       );
       _runtimeState[recordId] = _RuntimeGenerationRecordState(
         promptSelection: snapshot,
+        cameraCaptureMetadataSnapshot: cameraCaptureMetadataSnapshot,
       );
       _debugLog(
         'queue captured success record=$recordId storedPath=${stored.path}',
@@ -147,6 +153,7 @@ class GenerationSubmissionService extends ChangeNotifier {
       );
       _runtimeState[recordId] = _RuntimeGenerationRecordState(
         promptSelection: snapshot,
+        cameraCaptureMetadataSnapshot: cameraCaptureMetadataSnapshot,
       );
       notifyListeners();
       return recordId;
@@ -823,8 +830,17 @@ class GenerationSubmissionService extends ChangeNotifier {
       final PromptSelectionSnapshot promptSelection = _promptSelectionForRecord(
         record,
       );
+      final CaptureMetadata? captureMetadata = resolveCaptureMetadata(
+        originalSourceType: generationRecordOriginalSourceTypeFromName(
+          record.originalSourceType,
+        ),
+        sourceExif: uploadImage.sourceExif,
+        cameraCaptureMetadataSnapshot: _cameraCaptureMetadataSnapshotForRecord(
+          record,
+        ),
+      );
       _debugLog(
-        'create upload generation request record=$recordId prompt=${promptSelection.promptStyle}/${promptSelection.captureMode} switches=${promptSelection.switches}',
+        'create upload generation request record=$recordId prompt=${promptSelection.promptStyle}/${promptSelection.captureMode} switches=${promptSelection.switches} captureMetadata=${captureMetadata?.toJson() ?? 'none'}',
       );
       final String? originDeviceId = await _notificationDeviceCoordinator
           .ensureRegisteredForGeneration();
@@ -840,6 +856,7 @@ class GenerationSubmissionService extends ChangeNotifier {
           appInputContractId: promptSelection.appInputContractId,
           userInput: promptSelection.userInput,
           originDeviceId: originDeviceId,
+          captureMetadata: captureMetadata?.toJson(),
         ),
       );
       _debugLog(
@@ -2046,6 +2063,63 @@ class GenerationSubmissionService extends ChangeNotifier {
     );
   }
 
+  CameraCaptureMetadataSnapshot? _cameraCaptureMetadataSnapshotForRecord(
+    GenerationRecord record,
+  ) {
+    final _RuntimeGenerationRecordState? runtime =
+        _runtimeState[record.recordId];
+    final CameraCaptureMetadataSnapshot? runtimeSnapshot =
+        runtime?.cameraCaptureMetadataSnapshot;
+    if (runtimeSnapshot != null) {
+      return runtimeSnapshot;
+    }
+
+    final CameraCaptureMetadataSnapshot? persistedSnapshot =
+        _cameraCaptureMetadataSnapshotFromDisplayJson(
+          record.displaySnapshotJson,
+        );
+    if (persistedSnapshot != null) {
+      _runtimeFor(record.recordId).cameraCaptureMetadataSnapshot =
+          persistedSnapshot;
+    }
+    return persistedSnapshot;
+  }
+
+  String? _displaySnapshotJson({
+    CameraCaptureMetadataSnapshot? cameraCaptureMetadataSnapshot,
+  }) {
+    if (cameraCaptureMetadataSnapshot == null) {
+      return null;
+    }
+    return jsonEncode(<String, Object?>{
+      'cameraCaptureMetadata': cameraCaptureMetadataSnapshot.toJson(),
+    });
+  }
+
+  CameraCaptureMetadataSnapshot? _cameraCaptureMetadataSnapshotFromDisplayJson(
+    String? displaySnapshotJson,
+  ) {
+    if (displaySnapshotJson == null || displaySnapshotJson.isEmpty) {
+      return null;
+    }
+    try {
+      final Object? decoded = jsonDecode(displaySnapshotJson);
+      if (decoded is Map<String, Object?>) {
+        return CameraCaptureMetadataSnapshot.fromJson(
+          decoded['cameraCaptureMetadata'],
+        );
+      }
+      if (decoded is Map) {
+        return CameraCaptureMetadataSnapshot.fromJson(
+          decoded['cameraCaptureMetadata'],
+        );
+      }
+    } on Object {
+      return null;
+    }
+    return null;
+  }
+
   Map<String, bool> _switchesFromUserInputJson(
     String? userInputJson, {
     required String captureMode,
@@ -2190,6 +2264,7 @@ class _RuntimeGenerationRecordState {
     this.uploadImagePath,
     this.sourceExif,
     this.processedResultPath,
+    this.cameraCaptureMetadataSnapshot,
   });
 
   String? originalPath;
@@ -2199,6 +2274,7 @@ class _RuntimeGenerationRecordState {
   String? uploadImagePath;
   Map<String, Object>? sourceExif;
   String? processedResultPath;
+  CameraCaptureMetadataSnapshot? cameraCaptureMetadataSnapshot;
 
   void clearSubmissionAttempt() {
     resultUrl = null;

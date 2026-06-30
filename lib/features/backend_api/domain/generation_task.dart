@@ -43,6 +43,7 @@ class CreateGenerationTaskInput {
     this.userInput = const <String, Object?>{},
     this.appInputContractId,
     this.originDeviceId,
+    this.captureMetadata,
   });
 
   final String uploadSessionId;
@@ -51,11 +52,13 @@ class CreateGenerationTaskInput {
   final JsonObject userInput;
   final String? appInputContractId;
   final String? originDeviceId;
+  final JsonObject? captureMetadata;
 
   JsonObject toJson({bool includeUploadSessionId = true}) {
     final JsonObject requestUserInput = <String, Object?>{
       'promptConfigVersion': AppConfig.promptConfigVersion,
       ...userInput,
+      if (captureMetadata != null) 'captureMetadata': captureMetadata,
     };
     return <String, Object?>{
       if (includeUploadSessionId) 'uploadSessionId': uploadSessionId,
@@ -64,6 +67,7 @@ class CreateGenerationTaskInput {
       'userInput': requestUserInput,
       if (appInputContractId != null) 'appInputContractId': appInputContractId,
       if (originDeviceId != null) 'originDeviceId': originDeviceId,
+      if (captureMetadata != null) 'captureMetadata': captureMetadata,
     };
   }
 }

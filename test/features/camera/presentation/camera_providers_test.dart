@@ -5,6 +5,7 @@ import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/config/app_config.dart';
+import 'package:fantasy_camera_flutter/features/camera/data/capture_lens_metadata_reader.dart';
 import 'package:fantasy_camera_flutter/features/camera/data/capture_orientation_reader.dart';
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_choice.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
@@ -342,6 +343,9 @@ void main() {
         appSettingsRepository: _FakeAppSettingsRepository(
           confirmBeforeGenerationEnabled: false,
         ),
+        cameraLensMetadataReader: const _FakeCameraLensMetadataReader(
+          nominalFocalLength35mm: 26,
+        ),
         imageProcessor: imageProcessor,
         uploadRepository: uploadRepository,
         taskRepository: taskRepository,
@@ -376,6 +380,10 @@ void main() {
       job = container.read(generationSubmissionControllerProvider).jobs.single;
       expect(job.status, GenerationSubmissionStatus.uploadedWaitingTask);
       expect(uploadRepository.events, <String>['create:image/jpeg:4']);
+      expect(uploadRepository.generationRequests.single?.captureMetadata, {
+        'focalLength35mmEquivalentMm': 26,
+        'focalLengthSource': 'avcapture_nominal',
+      });
       expect(taskRepository.createdInputs, isEmpty);
     },
   );
@@ -582,6 +590,7 @@ Future<void> _pumpEventQueue() async {
 
 _TestContainer _container({
   required List<CameraChoice> choices,
+  CameraLensMetadataReader? cameraLensMetadataReader,
   AppSettingsRepository? appSettingsRepository,
   GenerationImageProcessor? imageProcessor,
   UploadRepository? uploadRepository,
@@ -595,6 +604,9 @@ _TestContainer _container({
       cameraChoicesProvider.overrideWithValue(choices),
       captureOrientationReaderProvider.overrideWithValue(
         const _FakeCaptureOrientationReader(),
+      ),
+      cameraLensMetadataReaderProvider.overrideWithValue(
+        cameraLensMetadataReader ?? const _FakeCameraLensMetadataReader(),
       ),
       appSettingsRepositoryProvider.overrideWithValue(
         appSettingsRepository ?? _FakeAppSettingsRepository(),
@@ -810,6 +822,20 @@ class _FakeCaptureOrientationReader implements CaptureOrientationReader {
   }
 }
 
+class _FakeCameraLensMetadataReader implements CameraLensMetadataReader {
+  const _FakeCameraLensMetadataReader({this.nominalFocalLength35mm});
+
+  final double? nominalFocalLength35mm;
+
+  @override
+  Future<double?> readNominalFocalLength35mm({
+    required String cameraName,
+    required CameraLensDirection lensDirection,
+  }) async {
+    return nominalFocalLength35mm;
+  }
+}
+
 class _FakeAppSettingsRepository implements AppSettingsRepository {
   _FakeAppSettingsRepository({this.confirmBeforeGenerationEnabled = true});
 
@@ -966,6 +992,8 @@ PreparedUploadImage _preparedUploadImage(String sourcePath) {
 
 class _FakeUploadRepository implements UploadRepository {
   final List<String> events = <String>[];
+  final List<CreateGenerationTaskInput?> generationRequests =
+      <CreateGenerationTaskInput?>[];
 
   @override
   Future<UploadSession> createUpload({
@@ -975,6 +1003,7 @@ class _FakeUploadRepository implements UploadRepository {
     CreateGenerationTaskInput? generationRequest,
   }) async {
     events.add('create:$contentType:${bytes.length}');
+    generationRequests.add(generationRequest);
     return UploadSession(
       uploadSessionId: 'upload-1',
       sourceImageObjectId: 'source-1',

@@ -18,6 +18,7 @@ import '../data/generation_record_repository.dart';
 import '../data/generation_image_processor.dart';
 import '../data/generation_original_file_store.dart';
 import '../data/generation_submission_adapters.dart';
+import '../domain/capture_metadata.dart';
 import '../domain/generation_submission_job.dart';
 import 'generation_record_providers.dart';
 
@@ -498,10 +499,12 @@ class GenerationSubmissionController
   Future<String?> queueCapturedFile(
     XFile file, {
     PromptSelectionSnapshot? promptSelection,
+    CameraCaptureMetadataSnapshot? cameraCaptureMetadataSnapshot,
   }) async {
     final String? recordId = await _service.queueCapturedFile(
       file,
       promptSelection: promptSelection,
+      cameraCaptureMetadataSnapshot: cameraCaptureMetadataSnapshot,
     );
     if (recordId != null) {
       _deletedJobIds.remove(recordId);

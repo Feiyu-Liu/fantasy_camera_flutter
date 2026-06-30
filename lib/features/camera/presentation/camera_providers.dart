@@ -9,11 +9,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/app_config.dart';
 import '../../../features/backend_api/domain/prompt_config.dart';
+import '../../../features/generation_submission/domain/capture_metadata.dart';
 import '../../../features/generation_submission/presentation/generation_submission_providers.dart';
 import '../../../settings/application/app_settings.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/core/app_logger.dart';
 import '../data/camera_device_repository.dart';
+import '../data/capture_lens_metadata_reader.dart';
 import '../data/capture_orientation_reader.dart';
 import '../domain/camera_choice.dart';
 import 'camera_message.dart';
@@ -35,6 +37,12 @@ final captureOrientationReaderProvider = Provider<CaptureOrientationReader>((
   return NativeCaptureOrientationReader();
 });
 
+final cameraLensMetadataReaderProvider = Provider<CameraLensMetadataReader>((
+  Ref ref,
+) {
+  return const NativeCameraLensMetadataReader();
+});
+
 final captureOrientationProvider =
     StreamProvider.autoDispose<DeviceOrientation>((Ref ref) {
       final CaptureOrientationReader reader = ref.watch(
@@ -53,6 +61,7 @@ final cameraStateProvider =
         appSettingsControllerProvider,
         generationSubmissionControllerProvider,
         promptSelectionControllerProvider,
+        cameraLensMetadataReaderProvider,
       ],
     );
 
@@ -69,6 +78,9 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
 
   CameraDeviceRepository get _cameraDeviceRepository =>
       ref.read(cameraDeviceRepositoryProvider);
+
+  CameraLensMetadataReader get _cameraLensMetadataReader =>
+      ref.read(cameraLensMetadataReaderProvider);
 
   @override
   CameraState build() {
@@ -302,6 +314,8 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
           .readCaptureOrientation(
             fallback: currentController.value.deviceOrientation,
           );
+      final CameraCaptureMetadataSnapshot? cameraCaptureMetadataSnapshot =
+          await _cameraCaptureMetadataSnapshot();
       final XFile file = await currentController
           .takePictureWithCaptureOrientation(
             captureOrientation,
@@ -322,6 +336,7 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       final String? recordId = await submissionController.queueCapturedFile(
         file,
         promptSelection: promptSelection,
+        cameraCaptureMetadataSnapshot: cameraCaptureMetadataSnapshot,
       );
       if (!confirmBeforeGeneration && recordId != null) {
         unawaited(_confirmCapturedRecord(recordId));
@@ -465,6 +480,36 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     } on CameraException catch (e) {
       _showCameraException(e);
       state = state.copyWith(isInitializing: false);
+    }
+  }
+
+  Future<CameraCaptureMetadataSnapshot?>
+  _cameraCaptureMetadataSnapshot() async {
+    final CameraController? currentController = state.controller;
+    final CameraChoice? choice = state.selectedCameraChoice;
+    final CameraLensDirection? lensDirection =
+        choice?.description.lensDirection;
+    if (currentController == null ||
+        choice == null ||
+        lensDirection == null ||
+        !currentController.value.isInitialized) {
+      return null;
+    }
+
+    try {
+      final double? nominalFocalLength35mm = await _cameraLensMetadataReader
+          .readNominalFocalLength35mm(
+            cameraName: choice.description.name,
+            lensDirection: lensDirection,
+          );
+      return cameraCaptureMetadataSnapshotFromLens(
+        nominalFocalLength35mm: nominalFocalLength35mm,
+        currentRawZoom: state.currentRawZoom,
+        displayZoomMultiplier: state.displayZoomMultiplier,
+      );
+    } on Object catch (error, stackTrace) {
+      logAppError('capture_lens_metadata_read_failed', error, stackTrace);
+      return null;
     }
   }
 
