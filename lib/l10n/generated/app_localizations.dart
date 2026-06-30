@@ -991,13 +991,13 @@ abstract class AppLocalizations {
   /// No description provided for @toastGenerationNetworkFailed.
   ///
   /// In en, this message translates to:
-  /// **'The network is unstable. The photo wasn\'t uploaded. Try again later.'**
+  /// **'The network is unstable. Try again later.'**
   String get toastGenerationNetworkFailed;
 
   /// No description provided for @toastOriginalUnavailable.
   ///
   /// In en, this message translates to:
-  /// **'The original photo couldn\'t be read. Take or choose another photo.'**
+  /// **'The original photo is missing or can\'t be read. Check Photos permission and try again.'**
   String get toastOriginalUnavailable;
 
   /// No description provided for @toastInsufficientCredits.
@@ -1009,31 +1009,31 @@ abstract class AppLocalizations {
   /// No description provided for @toastGenerationSubmitFailed.
   ///
   /// In en, this message translates to:
-  /// **'The generation request failed. Try again.'**
+  /// **'Photo request failed. Try again.'**
   String get toastGenerationSubmitFailed;
 
   /// No description provided for @toastGenerationUploadFailed.
   ///
   /// In en, this message translates to:
-  /// **'Photo upload failed. Check your network and try again.'**
+  /// **'Photo request failed. Try again.'**
   String get toastGenerationUploadFailed;
 
   /// No description provided for @toastGenerationTaskCreateFailed.
   ///
   /// In en, this message translates to:
-  /// **'The photo was uploaded, but the generation request couldn\'t be created. Try again.'**
+  /// **'Photo request failed. Try again.'**
   String get toastGenerationTaskCreateFailed;
 
   /// No description provided for @toastGenerationBackendFailed.
   ///
   /// In en, this message translates to:
-  /// **'Photo generation failed. Try again.'**
+  /// **'Photo request failed. Try again.'**
   String get toastGenerationBackendFailed;
 
   /// No description provided for @toastResultSaveFailed.
   ///
   /// In en, this message translates to:
-  /// **'The result image couldn\'t be saved. Try again.'**
+  /// **'The result image couldn\'t be saved. Check Photos permission and try again.'**
   String get toastResultSaveFailed;
 
   /// No description provided for @toastGalleryICloudImportFailed.

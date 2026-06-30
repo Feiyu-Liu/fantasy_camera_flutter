@@ -2213,10 +2213,10 @@ class GenerationSubmissionService extends ChangeNotifier {
     GenerationRecord record,
     GenerationRecordPipelineStatus status,
   ) {
-    return (record.failureRetryable ?? false) &&
-        (status == GenerationRecordPipelineStatus.submissionFailed ||
-            status == GenerationRecordPipelineStatus.generationFailed ||
-            status == GenerationRecordPipelineStatus.resultSaveFailed);
+    return status == GenerationRecordPipelineStatus.localOriginalSaveFailed ||
+        status == GenerationRecordPipelineStatus.submissionFailed ||
+        status == GenerationRecordPipelineStatus.generationFailed ||
+        status == GenerationRecordPipelineStatus.resultSaveFailed;
   }
 
   GenerationRecordFailureStage _submissionFailureStageForSubmitStage(

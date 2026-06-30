@@ -507,34 +507,34 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get toastGenerationNetworkFailed =>
-      'Réseau instable. La photo n\'a pas été envoyée. Réessaie plus tard.';
+      'Le réseau est instable. Réessaie plus tard.';
 
   @override
   String get toastOriginalUnavailable =>
-      'Impossible de lire la photo originale. Prends ou choisis une autre photo.';
+      'La photo originale est introuvable ou illisible. Vérifie l\'autorisation Photos puis réessaie.';
 
   @override
   String get toastInsufficientCredits => 'Crédits insuffisants.';
 
   @override
   String get toastGenerationSubmitFailed =>
-      'La demande de génération a échoué. Réessaie.';
+      'La demande photo a échoué. Réessaie.';
 
   @override
   String get toastGenerationUploadFailed =>
-      'Envoi de la photo échoué. Vérifie ta connexion et réessaie.';
+      'La demande photo a échoué. Réessaie.';
 
   @override
   String get toastGenerationTaskCreateFailed =>
-      'La photo a été envoyée, mais la demande n\'a pas pu être créée. Réessaie.';
+      'La demande photo a échoué. Réessaie.';
 
   @override
   String get toastGenerationBackendFailed =>
-      'Génération de l\'image échouée. Réessaie.';
+      'La demande photo a échoué. Réessaie.';
 
   @override
   String get toastResultSaveFailed =>
-      'Impossible d\'enregistrer l\'image résultat. Réessaie.';
+      'Impossible d\'enregistrer l\'image résultat. Vérifie l\'autorisation Photos puis réessaie.';
 
   @override
   String get toastGalleryICloudImportFailed =>

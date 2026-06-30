@@ -500,34 +500,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get toastGenerationNetworkFailed =>
-      'The network is unstable. The photo wasn\'t uploaded. Try again later.';
+      'The network is unstable. Try again later.';
 
   @override
   String get toastOriginalUnavailable =>
-      'The original photo couldn\'t be read. Take or choose another photo.';
+      'The original photo is missing or can\'t be read. Check Photos permission and try again.';
 
   @override
   String get toastInsufficientCredits => 'You don\'t have enough credits.';
 
   @override
-  String get toastGenerationSubmitFailed =>
-      'The generation request failed. Try again.';
+  String get toastGenerationSubmitFailed => 'Photo request failed. Try again.';
 
   @override
-  String get toastGenerationUploadFailed =>
-      'Photo upload failed. Check your network and try again.';
+  String get toastGenerationUploadFailed => 'Photo request failed. Try again.';
 
   @override
   String get toastGenerationTaskCreateFailed =>
-      'The photo was uploaded, but the generation request couldn\'t be created. Try again.';
+      'Photo request failed. Try again.';
 
   @override
-  String get toastGenerationBackendFailed =>
-      'Photo generation failed. Try again.';
+  String get toastGenerationBackendFailed => 'Photo request failed. Try again.';
 
   @override
   String get toastResultSaveFailed =>
-      'The result image couldn\'t be saved. Try again.';
+      'The result image couldn\'t be saved. Check Photos permission and try again.';
 
   @override
   String get toastGalleryICloudImportFailed =>

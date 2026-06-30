@@ -571,7 +571,7 @@ void main() {
     expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
   });
 
-  test('missing original marks non-retryable submission failure', () async {
+  test('missing original marks failed but remains retryable', () async {
     final _FakeGenerationOriginalFileStore originalFileStore =
         _FakeGenerationOriginalFileStore()..existing = false;
     final ProviderContainer container = _container(
@@ -595,17 +595,65 @@ void main() {
     expect(job.errorCode, 'original_unavailable');
     expect(job.failureStage, GenerationRecordFailureStage.originalUnavailable);
     expect(job.failureRetryable, isFalse);
-    expect(job.isRetryableFailure, isFalse);
+    expect(job.isRetryableFailure, isTrue);
 
     await controller.retryJob(jobId);
 
-    final GenerationSubmissionJob retrySkippedJob = container
+    final GenerationSubmissionJob retryFailedJob = container
         .read(generationSubmissionControllerProvider)
         .jobs
         .single;
-    expect(retrySkippedJob.status, GenerationSubmissionStatus.failed);
-    expect(retrySkippedJob.failureRetryable, isFalse);
+    expect(retryFailedJob.status, GenerationSubmissionStatus.failed);
+    expect(retryFailedJob.errorCode, 'original_unavailable');
+    expect(
+      retryFailedJob.failureStage,
+      GenerationRecordFailureStage.originalUnavailable,
+    );
+    expect(retryFailedJob.isRetryableFailure, isTrue);
   });
+
+  test(
+    'local original save failure can retry and reports missing original',
+    () async {
+      final _FakeGenerationOriginalFileStore originalFileStore =
+          _FakeGenerationOriginalFileStore()
+            ..storeFailure = StateError('disk full')
+            ..existing = false;
+      final ProviderContainer container = _container(
+        originalFileStore: originalFileStore,
+      );
+      addTearDown(container.dispose);
+      final GenerationSubmissionController controller = container.read(
+        generationSubmissionControllerProvider.notifier,
+      );
+
+      final String? jobId = await controller.queueCapturedFile(
+        XFile('/tmp/photo.jpg'),
+      );
+      expect(jobId, isNotNull);
+
+      GenerationSubmissionJob job = container
+          .read(generationSubmissionControllerProvider)
+          .jobs
+          .single;
+      expect(job.status, GenerationSubmissionStatus.failed);
+      expect(job.errorCode, 'local_original_save_failed');
+      expect(job.failureStage, GenerationRecordFailureStage.local);
+      expect(job.failureRetryable, isFalse);
+      expect(job.isRetryableFailure, isTrue);
+
+      await controller.retryJob(jobId!);
+
+      job = container.read(generationSubmissionControllerProvider).jobs.single;
+      expect(job.status, GenerationSubmissionStatus.failed);
+      expect(job.errorCode, 'original_unavailable');
+      expect(
+        job.failureStage,
+        GenerationRecordFailureStage.originalUnavailable,
+      );
+      expect(job.isRetryableFailure, isTrue);
+    },
+  );
 
   test('marks job failed when uploaded task recovery fails', () async {
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
