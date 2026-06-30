@@ -186,7 +186,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get generationSubmissionActionViewInAlbum => '在相册中查看';
 
   @override
-  String get generationSubmissionActionSaveOriginal => '保存原图';
+  String get generationSubmissionActionSaveOriginal => '保存原始照片';
 
   @override
   String get generationSubmissionActionRetry => '重试';

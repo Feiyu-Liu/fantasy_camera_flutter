@@ -67,7 +67,7 @@
   "generationSubmissionStatusWaitingForGenerationResult": "等待生成结果",
   "generationSubmissionStatusPreparingGenerationTask": "正在准备生成任务",
   "generationSubmissionActionViewInAlbum": "在相册中查看",
-  "generationSubmissionActionSaveOriginal": "保存原图",
+  "generationSubmissionActionSaveOriginal": "保存原始照片",
   "generationSubmissionActionRetry": "重试",
   "generationSubmissionActionDislikeImage": "不喜欢这张图片",
   "generationSubmissionActionFeedbackSubmitted": "已提交反馈",
