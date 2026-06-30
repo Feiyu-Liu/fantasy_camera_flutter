@@ -215,7 +215,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(uploadRepository.createUploadCount, 1);
+    expect(uploadRepository.createUploadCount, 0);
     expect(taskRepository.createTaskCount, 0);
     expect(
       find.byKey(
@@ -841,7 +841,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 320));
 
     expect(find.text('在相册中查看'), findsOneWidget);
-    expect(find.text('保存原图'), findsOneWidget);
+    expect(find.text('保存原始照片'), findsOneWidget);
     expect(find.text('重试'), findsOneWidget);
     expect(find.text('不喜欢这张图片'), findsOneWidget);
     expect(find.text('移除'), findsOneWidget);

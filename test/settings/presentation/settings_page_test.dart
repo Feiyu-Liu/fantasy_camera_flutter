@@ -85,14 +85,6 @@ void main() {
                 ),
                 localizationsDelegates: AppLocalizations.localizationsDelegates,
                 supportedLocales: AppLocalizations.supportedLocales,
-                builder: (BuildContext context, Widget? child) {
-                  return ProviderScope(
-                    overrides: <Override>[
-                      appLocalizationsProvider.overrideWithValue(context.l10n),
-                    ],
-                    child: child ?? const SizedBox.shrink(),
-                  );
-                },
                 home: const SettingsPage(),
               );
             },
@@ -633,14 +625,6 @@ void main() {
           locale: defaultAppLocale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          builder: (BuildContext context, Widget? child) {
-            return ProviderScope(
-              overrides: <Override>[
-                appLocalizationsProvider.overrideWithValue(context.l10n),
-              ],
-              child: child ?? const SizedBox.shrink(),
-            );
-          },
           routerConfig: router,
         ),
       ),

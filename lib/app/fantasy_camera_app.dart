@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../auth/presentation/auth_providers.dart';
 import '../features/notifications/presentation/notification_providers.dart';
 import '../l10n/l10n.dart';
 import '../shared/toast/app_toast.dart';
@@ -52,7 +51,7 @@ class _FantasyCameraAppViewState extends ConsumerState<_FantasyCameraAppView> {
     );
     final Locale? locale = localeForPreference(appSettings.localePreference);
     final AppLocalizations titleLocalizations = appLocalizationsFor(
-      locale ?? defaultAppLocale,
+      effectiveLocaleForPreference(appSettings.localePreference),
     );
     ref.watch(notificationLifecycleProvider);
     return AnimatedAppTheme(
@@ -65,12 +64,7 @@ class _FantasyCameraAppViewState extends ConsumerState<_FantasyCameraAppView> {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           builder: (BuildContext context, Widget? child) {
-            return ProviderScope(
-              overrides: <Override>[
-                appLocalizationsProvider.overrideWithValue(context.l10n),
-              ],
-              child: child ?? const SizedBox.shrink(),
-            );
+            return child ?? const SizedBox.shrink();
           },
           theme: theme,
           routerConfig: _router,

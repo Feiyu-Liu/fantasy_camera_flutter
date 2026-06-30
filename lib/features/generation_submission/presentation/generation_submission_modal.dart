@@ -756,7 +756,12 @@ class _GenerationSubmissionDebugModalState
       _showToastForFailedUserSubmission(job.id);
     } on Object catch (error) {
       _debugLog('confirm job failure job=${job.id} error=$error');
-      ref.read(appToastServiceProvider).showGenerationSubmitFailure();
+      if (!mounted) {
+        return;
+      }
+      ref
+          .read(appToastServiceProvider)
+          .showGenerationSubmitFailure(localizations: context.l10n);
     }
   }
 
@@ -822,7 +827,10 @@ class _GenerationSubmissionDebugModalState
           .toggleResultFavorite(job.id);
     } on Object catch (error) {
       _debugLog('toggle favorite failure job=${job.id} error=$error');
-      ref.read(appToastServiceProvider).showFavoriteFailure();
+      if (!mounted) {
+        return;
+      }
+      ref.read(appToastServiceProvider).showFavoriteFailure(context.l10n);
     }
   }
 
@@ -840,16 +848,31 @@ class _GenerationSubmissionDebugModalState
           await controller.openPhotoLibrary(job.id);
         } on Object catch (error) {
           _debugLog('open photo library failure job=${job.id} error=$error');
-          ref.read(appToastServiceProvider).showOpenPhotoLibraryFailure();
+          if (!mounted) {
+            return;
+          }
+          ref
+              .read(appToastServiceProvider)
+              .showOpenPhotoLibraryFailure(context.l10n);
         }
       case _HeroMoreAction.saveOriginal:
         _debugLog('more action save original job=${job.id}');
         try {
           await controller.saveOriginalToPhotoLibrary(job.id);
-          ref.read(appToastServiceProvider).showSaveOriginalSuccess();
+          if (!mounted) {
+            return;
+          }
+          ref
+              .read(appToastServiceProvider)
+              .showSaveOriginalSuccess(context.l10n);
         } on Object catch (error) {
           _debugLog('save original failure job=${job.id} error=$error');
-          ref.read(appToastServiceProvider).showSaveOriginalFailure();
+          if (!mounted) {
+            return;
+          }
+          ref
+              .read(appToastServiceProvider)
+              .showSaveOriginalFailure(context.l10n);
         }
       case _HeroMoreAction.retry:
         _debugLog('more action retry job=${job.id}');
@@ -879,10 +902,16 @@ class _GenerationSubmissionDebugModalState
       await ref
           .read(generationSubmissionControllerProvider.notifier)
           .submitNegativeFeedback(job.id, note: note);
-      ref.read(appToastServiceProvider).showFeedbackSuccess();
+      if (!mounted) {
+        return;
+      }
+      ref.read(appToastServiceProvider).showFeedbackSuccess(context.l10n);
     } on Object catch (error) {
       _debugLog('submit negative feedback failure job=${job.id} error=$error');
-      ref.read(appToastServiceProvider).showFeedbackFailure();
+      if (!mounted) {
+        return;
+      }
+      ref.read(appToastServiceProvider).showFeedbackFailure(context.l10n);
     }
   }
 
@@ -958,7 +987,12 @@ class _GenerationSubmissionDebugModalState
           );
     } on Object catch (error) {
       _debugLog('pick gallery failure error=$error');
-      ref.read(appToastServiceProvider).showGalleryImportFailure(error);
+      if (!mounted) {
+        return;
+      }
+      ref
+          .read(appToastServiceProvider)
+          .showGalleryImportFailure(context.l10n, error);
     } finally {
       _cancelGalleryExportProgressSubscription();
       if (mounted) {
@@ -984,7 +1018,10 @@ class _GenerationSubmissionDebugModalState
     if (updatedJob == null) {
       ref
           .read(appToastServiceProvider)
-          .showGenerationSubmitFailure(errorCode: fallbackErrorCode);
+          .showGenerationSubmitFailure(
+            localizations: context.l10n,
+            errorCode: fallbackErrorCode,
+          );
       return;
     }
     switch (updatedJob.status) {
@@ -992,11 +1029,12 @@ class _GenerationSubmissionDebugModalState
         ref
             .read(appToastServiceProvider)
             .showGenerationSubmitFailure(
+              localizations: context.l10n,
               errorCode: updatedJob.errorCode ?? fallbackErrorCode,
               failureStage: updatedJob.failureStage,
             );
       case GenerationSubmissionStatus.resultProcessingFailed:
-        ref.read(appToastServiceProvider).showResultSaveFailure();
+        ref.read(appToastServiceProvider).showResultSaveFailure(context.l10n);
       case GenerationSubmissionStatus.awaitingConfirmation:
       case GenerationSubmissionStatus.queued:
       case GenerationSubmissionStatus.preparingUploadImage:

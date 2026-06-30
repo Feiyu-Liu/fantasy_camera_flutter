@@ -39,7 +39,8 @@ class _AuthPageState extends ConsumerState<AuthPage> {
   @override
   Widget build(BuildContext context) {
     final AuthControllerState state = ref.watch(authControllerProvider);
-    final String? message = state.errorMessage ?? widget.sessionMessage;
+    final String? message =
+        _authControllerMessage(context, state) ?? widget.sessionMessage;
     final AppThemeColors colors = AppThemeColors.of(context);
     return CupertinoPageScaffold(
       backgroundColor: colors.background,
@@ -162,6 +163,26 @@ class _AuthPageState extends ConsumerState<AuthPage> {
     });
     return emailError == null && passwordError == null;
   }
+}
+
+String? _authControllerMessage(
+  BuildContext context,
+  AuthControllerState state,
+) {
+  if (state.rawErrorMessage case final String raw when raw.isNotEmpty) {
+    return raw;
+  }
+  return switch (state.errorCode) {
+    AuthControllerErrorCode.appleSignInFailed =>
+      context.l10n.authAppleSignInFailed,
+    AuthControllerErrorCode.googleSignInFailed =>
+      context.l10n.authGoogleSignInFailed,
+    AuthControllerErrorCode.invalidCredentials =>
+      context.l10n.authInvalidCredentials,
+    AuthControllerErrorCode.authenticationFailed =>
+      context.l10n.authAuthenticationFailed,
+    null => null,
+  };
 }
 
 class _EditorialAuthForm extends StatelessWidget {

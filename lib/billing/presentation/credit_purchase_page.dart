@@ -40,10 +40,11 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
       BillingControllerState next,
     ) {
       final AppToastService toastService = ref.read(appToastServiceProvider);
+      final AppLocalizations l10n = context.l10n;
       final int? purchaseSuccessCredits = next.purchaseSuccessCredits;
       if (purchaseSuccessCredits != null &&
           purchaseSuccessCredits != previous?.purchaseSuccessCredits) {
-        toastService.showPurchaseSuccess(purchaseSuccessCredits);
+        toastService.showPurchaseSuccess(l10n, purchaseSuccessCredits);
       }
 
       final String? errorMessage = next.errorMessage;
@@ -54,9 +55,9 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
       }
       switch (next.errorKind) {
         case BillingErrorKind.purchase:
-          toastService.showPurchaseFailure();
+          toastService.showPurchaseFailure(l10n);
         case BillingErrorKind.restore:
-          toastService.showRestorePurchaseFailure();
+          toastService.showRestorePurchaseFailure(l10n);
         case BillingErrorKind.loadProducts:
         case null:
           break;

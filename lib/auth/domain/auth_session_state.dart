@@ -11,29 +11,31 @@ enum AuthSessionStatus {
   signingOut,
 }
 
+enum AuthSessionNotice { accountCreatedSignIn, sessionExpired }
+
 class AuthSessionState {
-  const AuthSessionState({required this.status, this.user, this.message});
+  const AuthSessionState({required this.status, this.user, this.notice});
 
   const AuthSessionState.restoring()
     : status = AuthSessionStatus.restoring,
       user = null,
-      message = null;
+      notice = null;
 
-  const AuthSessionState.signedOut({this.message})
+  const AuthSessionState.signedOut({this.notice})
     : status = AuthSessionStatus.signedOut,
       user = null;
 
   const AuthSessionState.signedIn(this.user)
     : status = AuthSessionStatus.signedIn,
-      message = null;
+      notice = null;
 
-  const AuthSessionState.sessionExpired({this.message})
+  const AuthSessionState.sessionExpired({this.notice})
     : status = AuthSessionStatus.sessionExpired,
       user = null;
 
   final AuthSessionStatus status;
   final AuthUser? user;
-  final String? message;
+  final AuthSessionNotice? notice;
 
   bool get isSignedIn => status == AuthSessionStatus.signedIn && user != null;
   bool get hasAuthenticatedUser => user != null;
@@ -42,13 +44,13 @@ class AuthSessionState {
     AuthSessionStatus? status,
     AuthUser? user,
     bool clearUser = false,
-    String? message,
-    bool clearMessage = false,
+    AuthSessionNotice? notice,
+    bool clearNotice = false,
   }) {
     return AuthSessionState(
       status: status ?? this.status,
       user: clearUser ? null : user ?? this.user,
-      message: clearMessage ? null : message ?? this.message,
+      notice: clearNotice ? null : notice ?? this.notice,
     );
   }
 }

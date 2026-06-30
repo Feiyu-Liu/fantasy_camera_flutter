@@ -33,13 +33,24 @@ class AuthGate extends ConsumerWidget {
         if (state.status == AuthSessionStatus.restoring) {
           return const AuthCameraLoadingPage();
         }
-        return AuthPage(sessionMessage: state.message);
+        return AuthPage(
+          sessionMessage: _messageForNotice(context, state.notice),
+        );
       },
       loading: () => const AuthCameraLoadingPage(),
       error: (_, _) =>
           AuthPage(sessionMessage: context.l10n.authSessionRestoreFailed),
     );
   }
+}
+
+String? _messageForNotice(BuildContext context, AuthSessionNotice? notice) {
+  return switch (notice) {
+    AuthSessionNotice.accountCreatedSignIn =>
+      context.l10n.authAccountCreatedSignIn,
+    AuthSessionNotice.sessionExpired => context.l10n.authSessionExpired,
+    null => null,
+  };
 }
 
 class _SignedInCameraEntry extends ConsumerWidget {
