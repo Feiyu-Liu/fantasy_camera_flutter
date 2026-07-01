@@ -114,37 +114,52 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
                               )
                             else if (state.products.isEmpty)
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
                                 child: _EmptyPurchaseState(
                                   onRetry: () {
                                     ref
-                                        .read(billingControllerProvider.notifier)
+                                        .read(
+                                          billingControllerProvider.notifier,
+                                        )
                                         .loadProducts();
                                   },
                                 ),
                               )
                             else ...<Widget>[
-                              for (final BillingProduct product in state.products)
+                              for (final BillingProduct product
+                                  in state.products)
                                 Padding(
-                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    12,
+                                  ),
                                   child: _CreditPackRow(
                                     product: product,
                                     isBusy: state.isPurchasing,
-                                    isSelected: product.productId == selectedProductId,
+                                    isSelected:
+                                        product.productId == selectedProductId,
                                     onPressed: () {
                                       HapticFeedback.selectionClick();
                                       setState(() {
                                         _selectedProductId = product.productId;
                                       });
                                       ref
-                                          .read(billingControllerProvider.notifier)
+                                          .read(
+                                            billingControllerProvider.notifier,
+                                          )
                                           .clearPurchaseSuccess();
                                     },
                                   ),
                                 ),
                               const SizedBox(height: 2),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
                                 child: _PurchaseButton(
                                   isBusy: state.isPurchasing,
                                   grantedCredits: state.purchaseSuccessCredits,
@@ -153,7 +168,10 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
                                       : () {
                                           HapticFeedback.selectionClick();
                                           ref
-                                              .read(billingControllerProvider.notifier)
+                                              .read(
+                                                billingControllerProvider
+                                                    .notifier,
+                                              )
                                               .purchase(selectedProduct);
                                         },
                                 ),
@@ -161,7 +179,9 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
                             ],
                             const SizedBox(height: 10),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
                               child: _PurchaseFooterLinks(
                                 isBusy: state.isPurchasing,
                                 onRestorePressed: () {
@@ -263,8 +283,104 @@ class _PurchaseNavigationBar extends StatelessWidget {
   }
 }
 
-class _PurchaseHeroBackground extends StatelessWidget {
+class _Star {
+  _Star({
+    required this.x,
+    required this.y,
+    required this.delay,
+    required this.duration,
+    required this.targetOpacity,
+    required this.twinklePhase,
+    required this.twinkleSpeed,
+  });
+  final double x;
+  final double y;
+  final double delay;
+  final double duration;
+  final double targetOpacity;
+  final double twinklePhase;
+  final double twinkleSpeed;
+}
+
+class _PurchaseHeroBackground extends StatefulWidget {
   const _PurchaseHeroBackground();
+
+  @override
+  State<_PurchaseHeroBackground> createState() =>
+      _PurchaseHeroBackgroundState();
+}
+
+class _PurchaseHeroBackgroundState extends State<_PurchaseHeroBackground>
+    with TickerProviderStateMixin {
+  late AnimationController _entranceController;
+  late AnimationController _twinkleController;
+  List<_Star>? _stars;
+
+  @override
+  void initState() {
+    super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2800),
+    )..forward();
+
+    _twinkleController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    )..repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_stars == null) {
+      _generateStars(MediaQuery.of(context).size.width, 800);
+    }
+  }
+
+  void _generateStars(double width, double height) {
+    _stars = [];
+    final Random rnd = Random();
+    const double cellSize = 60.0; // 控制星星密度，类似 Poisson Disk Sampling，防止扎堆
+
+    for (double x = 0; x < width; x += cellSize) {
+      for (double y = 0; y < height; y += cellSize) {
+        // 在网格内加上一点安全边距随机生成位置
+        final double dotX = x + 5 + rnd.nextDouble() * (cellSize - 10);
+        final double dotY = y + 5 + rnd.nextDouble() * (cellSize - 10);
+
+        final double delay = rnd.nextDouble() * 0.75; // 进场延迟
+        final double duration = 0.2 + rnd.nextDouble() * 0.2; // 进场时长
+        final double targetOpacity = 0.4 + rnd.nextDouble() * 0.6; // 最终透明度
+        final double twinklePhase = rnd.nextDouble() * 2 * pi; // 闪烁相位
+
+        // 修复突变问题：速度必须是整数！
+        // 因为底层动画是 8 秒一循环（0.0 -> 1.0），当进度突变回 0.0 时，
+        // 如果速度不是整数，正弦波的波峰/波谷就会断裂。
+        // 设置为 1, 2, 3，代表在 8 秒内正好呼吸 1 次、2 次或 3 次，保证首尾无缝衔接。
+        final double twinkleSpeed = (1 + rnd.nextInt(3)).toDouble();
+
+        _stars!.add(
+          _Star(
+            x: dotX,
+            y: dotY,
+            delay: delay,
+            duration: duration,
+            targetOpacity: targetOpacity,
+            twinklePhase: twinklePhase,
+            twinkleSpeed: twinkleSpeed,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    _twinkleController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -281,8 +397,12 @@ class _PurchaseHeroBackground extends StatelessWidget {
           ],
         ),
       ),
-      child: const CustomPaint(
-        painter: _StarryBackgroundPainter(),
+      child: CustomPaint(
+        painter: _StarryBackgroundPainter(
+          stars: _stars!,
+          entranceAnimation: _entranceController,
+          twinkleAnimation: _twinkleController,
+        ),
       ),
     );
   }
@@ -359,46 +479,61 @@ class _PurchaseHeroContent extends StatelessWidget {
 }
 
 class _StarryBackgroundPainter extends CustomPainter {
-  const _StarryBackgroundPainter();
+  _StarryBackgroundPainter({
+    required this.stars,
+    required this.entranceAnimation,
+    required this.twinkleAnimation,
+  }) : super(
+         repaint: Listenable.merge(<Listenable>[
+           entranceAnimation,
+           twinkleAnimation,
+         ]),
+       );
 
-  static const List<Offset> _dotPositions = <Offset>[
-    Offset(20, 30),
-    Offset(40, 70),
-    Offset(50, 160),
-    Offset(90, 40),
-    Offset(130, 80),
-    Offset(160, 120),
-    Offset(180, 10),
-    Offset(30, 100),
-    Offset(80, 160),
-    Offset(140, 140),
-    Offset(50, 50),
-    Offset(110, 20),
-  ];
+  final List<_Star> stars;
+  final Animation<double> entranceAnimation;
+  final Animation<double> twinkleAnimation;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()
-      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.8)
-      ..style = PaintingStyle.fill;
+    final Paint paint = Paint()..style = PaintingStyle.fill;
 
-    const double tileSize = 200.0;
-    
-    for (double x = 0; x < size.width; x += tileSize) {
-      for (double y = 0; y < size.height; y += tileSize) {
-        for (final Offset pos in _dotPositions) {
-          final double dotX = x + pos.dx;
-          final double dotY = y + pos.dy;
-          if (dotX <= size.width && dotY <= size.height) {
-            canvas.drawCircle(Offset(dotX, dotY), 1.0, paint);
-          }
-        }
+    for (final _Star star in stars) {
+      double entranceOpacity = 0.0;
+      if (entranceAnimation.value > star.delay) {
+        entranceOpacity =
+            (entranceAnimation.value - star.delay) / star.duration;
+        if (entranceOpacity > 1.0) entranceOpacity = 1.0;
+        entranceOpacity = Curves.easeInOutSine.transform(entranceOpacity);
       }
+
+      // 如果还没开始进场，跳过绘制
+      if (entranceOpacity <= 0) continue;
+
+      // 连续闪烁逻辑：利用正弦波，映射到 0.4x 到 1.0x 的透明度变化
+      final double twinkle =
+          (sin(
+                twinkleAnimation.value * 2 * pi * star.twinkleSpeed +
+                    star.twinklePhase,
+              ) +
+              1) /
+          2;
+
+      // 综合透明度 = 进场进度 * 基础目标透明度 * 闪烁波动
+      final double finalOpacity =
+          star.targetOpacity * entranceOpacity * (0.4 + 0.6 * twinkle);
+
+      paint.color = const Color(0xFFFFFFFF).withValues(alpha: finalOpacity);
+      canvas.drawCircle(Offset(star.x, star.y), 1.0, paint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _StarryBackgroundPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _StarryBackgroundPainter oldDelegate) {
+    return oldDelegate.stars != stars ||
+        oldDelegate.entranceAnimation != entranceAnimation ||
+        oldDelegate.twinkleAnimation != twinkleAnimation;
+  }
 }
 
 class _CreditPackRow extends StatelessWidget {
@@ -694,7 +829,8 @@ class _TopBouncingScrollPhysics extends BouncingScrollPhysics {
 
   @override
   double applyBoundaryConditions(ScrollMetrics position, double value) {
-    if (value > position.maxScrollExtent && position.maxScrollExtent >= position.minScrollExtent) {
+    if (value > position.maxScrollExtent &&
+        position.maxScrollExtent >= position.minScrollExtent) {
       if (position.pixels >= position.maxScrollExtent) {
         return value - position.pixels;
       }
