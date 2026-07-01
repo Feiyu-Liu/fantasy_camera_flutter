@@ -176,7 +176,7 @@
   "settingsSignOutFailedMessage": "無法登出，請稍後再試。",
   "billingTitle": "點數",
   "billingHeroTitle": "取得創作點數",
-  "billingHeroSubtitle": "點數用於生成圖片。",
+  "billingHeroSubtitle": "點數用於圖片生成",
   "billingCreditPackTitle": "{credits} 點數",
   "@billingCreditPackTitle": {
     "placeholders": {

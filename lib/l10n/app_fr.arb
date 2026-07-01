@@ -176,7 +176,7 @@
   "settingsSignOutFailedMessage": "Impossible de se déconnecter. Réessaie plus tard.",
   "billingTitle": "CRÉDITS",
   "billingHeroTitle": "Obtenir des crédits",
-  "billingHeroSubtitle": "Les crédits servent à générer des images.",
+  "billingHeroSubtitle": "Les crédits servent à générer des images",
   "billingCreditPackTitle": "{credits} crédits",
   "@billingCreditPackTitle": {
     "placeholders": {

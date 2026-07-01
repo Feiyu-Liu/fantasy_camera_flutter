@@ -176,7 +176,7 @@
   "settingsSignOutFailedMessage": "Couldn't sign out. Try again later.",
   "billingTitle": "CREDITS",
   "billingHeroTitle": "Get Creation Credits",
-  "billingHeroSubtitle": "Credits are used to generate images.",
+  "billingHeroSubtitle": "Credits are used for image generation",
   "billingCreditPackTitle": "{credits} credits",
   "@billingCreditPackTitle": {
     "placeholders": {

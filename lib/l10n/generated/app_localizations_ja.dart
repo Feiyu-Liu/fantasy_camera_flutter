@@ -429,7 +429,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get billingHeroTitle => 'クレジットを取得';
 
   @override
-  String get billingHeroSubtitle => 'クレジットは画像生成に使用されます。';
+  String get billingHeroSubtitle => 'クレジットは画像生成に使用されます';
 
   @override
   String billingCreditPackTitle(int credits) {

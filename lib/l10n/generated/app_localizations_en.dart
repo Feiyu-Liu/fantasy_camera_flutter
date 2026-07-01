@@ -446,7 +446,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get billingHeroTitle => 'Get Creation Credits';
 
   @override
-  String get billingHeroSubtitle => 'Credits are used to generate images.';
+  String get billingHeroSubtitle => 'Credits are used for image generation';
 
   @override
   String billingCreditPackTitle(int credits) {

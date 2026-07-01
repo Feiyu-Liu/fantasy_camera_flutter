@@ -901,7 +901,7 @@ abstract class AppLocalizations {
   /// No description provided for @billingHeroSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Credits are used to generate images.'**
+  /// **'Credits are used for image generation'**
   String get billingHeroSubtitle;
 
   /// No description provided for @billingCreditPackTitle.

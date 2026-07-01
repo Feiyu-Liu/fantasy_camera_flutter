@@ -453,7 +453,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get billingHeroTitle => 'Obtenir des crédits';
 
   @override
-  String get billingHeroSubtitle => 'Les crédits servent à générer des images.';
+  String get billingHeroSubtitle => 'Les crédits servent à générer des images';
 
   @override
   String billingCreditPackTitle(int credits) {

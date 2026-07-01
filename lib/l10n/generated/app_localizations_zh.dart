@@ -425,7 +425,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get billingHeroTitle => '获取创作积分';
 
   @override
-  String get billingHeroSubtitle => '积分用于生成图片。购买完成后会由服务器验证并写入余额。';
+  String get billingHeroSubtitle => '积分用于图片生成';
 
   @override
   String billingCreditPackTitle(int credits) {
@@ -979,7 +979,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get billingHeroTitle => '取得創作點數';
 
   @override
-  String get billingHeroSubtitle => '點數用於生成圖片。';
+  String get billingHeroSubtitle => '點數用於圖片生成';
 
   @override
   String billingCreditPackTitle(int credits) {

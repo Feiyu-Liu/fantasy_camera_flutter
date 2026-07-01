@@ -176,7 +176,7 @@
   "settingsSignOutFailedMessage": "无法退出登录，请稍后重试。",
   "billingTitle": "积分",
   "billingHeroTitle": "获取创作积分",
-  "billingHeroSubtitle": "积分用于生成图片。购买完成后会由服务器验证并写入余额。",
+  "billingHeroSubtitle": "积分用于图片生成",
   "billingCreditPackTitle": "{credits} 积分",
   "@billingCreditPackTitle": {
     "placeholders": {

@@ -176,7 +176,7 @@
   "settingsSignOutFailedMessage": "サインアウトできませんでした。後でもう一度お試しください。",
   "billingTitle": "クレジット",
   "billingHeroTitle": "クレジットを取得",
-  "billingHeroSubtitle": "クレジットは画像生成に使用されます。",
+  "billingHeroSubtitle": "クレジットは画像生成に使用されます",
   "billingCreditPackTitle": "{credits}クレジット",
   "@billingCreditPackTitle": {
     "placeholders": {
