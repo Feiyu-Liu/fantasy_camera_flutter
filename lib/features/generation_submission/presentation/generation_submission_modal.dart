@@ -21,6 +21,10 @@ import '../../../theme/app_corners.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_theme.dart';
 import '../../backend_api/domain/prompt_config.dart';
+import '../../camera/presentation/camera_ui/camera_photo_option_button.dart';
+import '../../camera/presentation/camera_ui/camera_photo_ui.dart';
+import '../../camera/presentation/camera_ui/camera_ui_models.dart';
+import '../../camera/presentation/camera_ui/camera_ui_tokens.dart';
 import '../data/generation_submission_adapters.dart';
 import '../domain/generation_record.dart';
 import '../domain/generation_submission_job.dart';
@@ -447,6 +451,11 @@ class _GenerationSubmissionDebugModalState
             onToggleFavorite: selectedJob == null
                 ? null
                 : () => unawaited(_toggleFavorite(selectedJob)),
+            onUpdatePromptSelection: selectedJob == null
+                ? null
+                : (PromptSelectionSnapshot promptSelection) => unawaited(
+                    _updatePendingPromptSelection(selectedJob, promptSelection),
+                  ),
             onMoreActions: selectedJob == null
                 ? null
                 : (_HeroMoreAction action) =>
@@ -762,6 +771,25 @@ class _GenerationSubmissionDebugModalState
       ref
           .read(appToastServiceProvider)
           .showGenerationSubmitFailure(localizations: context.l10n);
+    }
+  }
+
+  Future<void> _updatePendingPromptSelection(
+    GenerationSubmissionJob job,
+    PromptSelectionSnapshot promptSelection,
+  ) async {
+    if (job.status != GenerationSubmissionStatus.awaitingConfirmation) {
+      return;
+    }
+    _debugLog(
+      'update prompt selection job=${job.id} prompt=${promptSelection.promptStyle}/${promptSelection.captureMode} switches=${promptSelection.switches}',
+    );
+    try {
+      await ref
+          .read(generationSubmissionControllerProvider.notifier)
+          .updatePendingPromptSelection(job.id, promptSelection);
+    } on Object catch (error) {
+      _debugLog('update prompt selection failure job=${job.id} error=$error');
     }
   }
 
@@ -2242,6 +2270,7 @@ class _GalleryHeroPager extends StatefulWidget {
     required this.onToggleImage,
     required this.onResultArrivalAnimationCompleted,
     required this.onToggleFavorite,
+    required this.onUpdatePromptSelection,
     required this.onMoreActions,
   });
 
@@ -2259,6 +2288,7 @@ class _GalleryHeroPager extends StatefulWidget {
   final VoidCallback? onToggleImage;
   final ValueChanged<String> onResultArrivalAnimationCompleted;
   final VoidCallback? onToggleFavorite;
+  final ValueChanged<PromptSelectionSnapshot>? onUpdatePromptSelection;
   final ValueChanged<_HeroMoreAction>? onMoreActions;
 
   @override
@@ -2270,10 +2300,18 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       <String, PhotoViewController>{};
   final Map<String, Size> _imageSizes = <String, Size>{};
   final Set<String> _resolvingImageSizes = <String>{};
+  bool _toolbarExpanded = false;
+  int _toolbarCollapseRequest = 0;
 
   @override
   void didUpdateWidget(covariant _GalleryHeroPager oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedJob?.id != widget.selectedJob?.id ||
+        widget.selectedJob == null ||
+        widget.jobs.isEmpty) {
+      _toolbarExpanded = false;
+      _toolbarCollapseRequest += 1;
+    }
     if (oldWidget.topPadding != widget.topPadding) {
       _disposePhotoControllers();
     }
@@ -2302,6 +2340,25 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
       controller.dispose();
     }
     _photoControllers.clear();
+  }
+
+  void _handleToolbarExpansionChanged(bool expanded) {
+    if (_toolbarExpanded == expanded) {
+      return;
+    }
+    setState(() {
+      _toolbarExpanded = expanded;
+    });
+  }
+
+  void _collapseExpandedToolbar() {
+    if (!_toolbarExpanded) {
+      return;
+    }
+    setState(() {
+      _toolbarExpanded = false;
+      _toolbarCollapseRequest += 1;
+    });
   }
 
   @override
@@ -2366,11 +2423,33 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
                 color: colors.textSecondary,
               ),
             ),
+          Positioned.fill(
+            key: const ValueKey<String>(
+              'generation-submission-more-dismiss-position',
+            ),
+            child: IgnorePointer(
+              ignoring: !_toolbarExpanded,
+              child: Opacity(
+                opacity: _toolbarExpanded ? 1 : 0,
+                child: GestureDetector(
+                  key: const ValueKey<String>(
+                    'generation-submission-more-dismiss-layer',
+                  ),
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (_) => _collapseExpandedToolbar(),
+                ),
+              ),
+            ),
+          ),
           Positioned(
+            key: const ValueKey<String>(
+              'generation-submission-hero-toolbar-position',
+            ),
             left: 0,
             right: 0,
             bottom: 18,
             child: _HeroToolbar(
+              key: const ValueKey<String>('generation-submission-hero-toolbar'),
               selectedJob: selectedJob,
               showingOriginal:
                   _displayStateForJob(selectedJob).displayedKind ==
@@ -2382,7 +2461,14 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
               onToggleFavorite: _canToggleFavorite(selectedJob)
                   ? widget.onToggleFavorite
                   : null,
+              onUpdatePromptSelection:
+                  selectedJob.status ==
+                      GenerationSubmissionStatus.awaitingConfirmation
+                  ? widget.onUpdatePromptSelection
+                  : null,
               onMoreActions: widget.onMoreActions,
+              collapseRequest: _toolbarCollapseRequest,
+              onExpansionChanged: _handleToolbarExpansionChanged,
             ),
           ),
         ],
@@ -2811,6 +2897,8 @@ class _HeroImageFailure extends StatelessWidget {
 
 enum _HeroMoreAction { viewInAlbum, saveOriginal, retry, dislike, remove }
 
+enum _HeroToolbarExpansion { moreActions, promptSettings }
+
 class _HeroMoreActionItem {
   const _HeroMoreActionItem({
     required this.action,
@@ -2829,12 +2917,16 @@ class _HeroMoreActionItem {
 
 class _HeroToolbar extends StatefulWidget {
   const _HeroToolbar({
+    super.key,
     required this.selectedJob,
     required this.showingOriginal,
     required this.onToggleImage,
     required this.isFavorite,
     required this.onToggleFavorite,
+    required this.onUpdatePromptSelection,
     required this.onMoreActions,
+    required this.collapseRequest,
+    required this.onExpansionChanged,
   });
 
   final GenerationSubmissionJob selectedJob;
@@ -2842,7 +2934,10 @@ class _HeroToolbar extends StatefulWidget {
   final VoidCallback? onToggleImage;
   final bool isFavorite;
   final VoidCallback? onToggleFavorite;
+  final ValueChanged<PromptSelectionSnapshot>? onUpdatePromptSelection;
   final ValueChanged<_HeroMoreAction>? onMoreActions;
+  final int collapseRequest;
+  final ValueChanged<bool> onExpansionChanged;
 
   @override
   State<_HeroToolbar> createState() => _HeroToolbarState();
@@ -2853,9 +2948,12 @@ class _HeroToolbarState extends State<_HeroToolbar>
   static const Duration _expandDuration = Duration(milliseconds: 500);
   static const Duration _collapseDuration = Duration(milliseconds: 220);
   static const double _collapsedWidth = 116;
+  static const double _promptCollapsedWidth = 152;
   static const double _collapsedHeight = 44;
   static const double _expandedWidth = 220;
   static const double _expandedHeight = 232;
+  static const double _promptExpandedWidth = 318;
+  static const double _promptExpandedHeight = 168;
 
   late final AnimationController _controller = AnimationController(
     vsync: this,
@@ -2884,6 +2982,7 @@ class _HeroToolbarState extends State<_HeroToolbar>
         ),
       );
   bool _expanded = false;
+  _HeroToolbarExpansion _expansion = _HeroToolbarExpansion.moreActions;
 
   @override
   void didUpdateWidget(covariant _HeroToolbar oldWidget) {
@@ -2891,9 +2990,20 @@ class _HeroToolbarState extends State<_HeroToolbar>
     final bool selectedJobChanged =
         oldWidget.selectedJob.id != widget.selectedJob.id;
     final bool menuBecameUnavailable =
-        oldWidget.onMoreActions != null && widget.onMoreActions == null;
-    if ((selectedJobChanged || menuBecameUnavailable) && _expanded) {
-      _setExpanded(false);
+        _expansion == _HeroToolbarExpansion.moreActions &&
+        oldWidget.onMoreActions != null &&
+        widget.onMoreActions == null;
+    final bool promptSettingsBecameUnavailable =
+        _expansion == _HeroToolbarExpansion.promptSettings &&
+        oldWidget.onUpdatePromptSelection != null &&
+        widget.onUpdatePromptSelection == null;
+    final bool shouldCollapse =
+        oldWidget.collapseRequest != widget.collapseRequest ||
+        selectedJobChanged ||
+        menuBecameUnavailable ||
+        promptSettingsBecameUnavailable;
+    if (shouldCollapse && _expanded) {
+      _setExpanded(false, notifyParent: false);
     }
   }
 
@@ -2903,13 +3013,22 @@ class _HeroToolbarState extends State<_HeroToolbar>
     super.dispose();
   }
 
-  void _setExpanded(bool expanded) {
-    if (_expanded == expanded) {
+  void _setExpanded(
+    bool expanded, {
+    _HeroToolbarExpansion? expansion,
+    bool notifyParent = true,
+  }) {
+    if (_expanded == expanded &&
+        (expansion == null || _expansion == expansion)) {
       return;
     }
     setState(() {
       _expanded = expanded;
+      _expansion = expansion ?? _expansion;
     });
+    if (notifyParent) {
+      widget.onExpansionChanged(expanded);
+    }
     final bool reduceMotion =
         MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     if (reduceMotion) {
@@ -2937,20 +3056,6 @@ class _HeroToolbarState extends State<_HeroToolbar>
       return;
     }
     widget.onMoreActions?.call(item.action);
-  }
-
-  void _handleExpandedMenuTap(Offset localPosition) {
-    if (!_expanded) {
-      return;
-    }
-    const double topPadding = 10;
-    const double itemHeight = 42;
-    final int index = ((localPosition.dy - topPadding) / itemHeight).floor();
-    final List<_HeroMoreActionItem> items = _items;
-    if (index < 0 || index >= items.length) {
-      return;
-    }
-    unawaited(_selectAction(items[index]));
   }
 
   List<_HeroMoreActionItem> get _items {
@@ -3017,26 +3122,29 @@ class _HeroToolbarState extends State<_HeroToolbar>
     return AnimatedBuilder(
       animation: _expandCurve,
       builder: (BuildContext context, Widget? child) {
+        final double expandedWidth =
+            _expansion == _HeroToolbarExpansion.promptSettings
+            ? _promptExpandedWidth
+            : _expandedWidth;
+        final double expandedHeight =
+            _expansion == _HeroToolbarExpansion.promptSettings
+            ? _promptExpandedHeight
+            : _expandedHeight;
+        final double collapsedWidth = widget.onUpdatePromptSelection == null
+            ? _collapsedWidth
+            : _promptCollapsedWidth;
         final double height = lerpDouble(
           _collapsedHeight,
-          _expandedHeight,
+          expandedHeight,
           _expandCurve.value,
         )!;
+        final bool showExpandedContent =
+            _expanded || _controller.status != AnimationStatus.dismissed;
         return SizedBox(
           height: height,
           child: Stack(
             alignment: Alignment.bottomCenter,
             children: <Widget>[
-              if (_expanded)
-                Positioned.fill(
-                  child: GestureDetector(
-                    key: const ValueKey<String>(
-                      'generation-submission-more-dismiss-layer',
-                    ),
-                    behavior: HitTestBehavior.translucent,
-                    onTapDown: (_) => _setExpanded(false),
-                  ),
-                ),
               Align(
                 alignment: Alignment.bottomCenter,
                 child: AnimatedBuilder(
@@ -3044,13 +3152,13 @@ class _HeroToolbarState extends State<_HeroToolbar>
                   builder: (BuildContext context, Widget? child) {
                     final double value = _expandCurve.value;
                     final double width = lerpDouble(
-                      _collapsedWidth,
-                      _expandedWidth,
+                      collapsedWidth,
+                      expandedWidth,
                       value,
                     )!;
                     final double height = lerpDouble(
                       _collapsedHeight,
-                      _expandedHeight,
+                      expandedHeight,
                       value,
                     )!;
                     final double radius = lerpDouble(
@@ -3067,70 +3175,87 @@ class _HeroToolbarState extends State<_HeroToolbar>
                             width: 0.5,
                           ),
                         );
-                    return GestureDetector(
+                    return SizedBox(
                       key: const ValueKey<String>(
                         'generation-submission-more-hit-region',
                       ),
-                      behavior: HitTestBehavior.translucent,
-                      onTapUp: _expanded
-                          ? (TapUpDetails details) {
-                              _handleExpandedMenuTap(details.localPosition);
-                            }
-                          : null,
-                      child: SizedBox(
-                        width: width,
-                        height: height,
-                        child: ClipPath(
-                          clipper: ShapeBorderClipper(shape: toolbarShape),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                            child: DecoratedBox(
-                              decoration: ShapeDecoration(
-                                color: AppColors.blackOverlay(0.42),
-                                shape: toolbarShape,
-                              ),
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: <Widget>[
-                                  IgnorePointer(
-                                    ignoring: _expanded,
-                                    child: FadeTransition(
-                                      opacity: _toolsOpacity,
-                                      child: ScaleTransition(
-                                        scale: Tween<double>(
-                                          begin: 1,
-                                          end: 0.94,
-                                        ).animate(_expandCurve),
-                                        child: _CollapsedHeroTools(
-                                          showingOriginal:
-                                              widget.showingOriginal,
-                                          onToggleImage: widget.onToggleImage,
-                                          isFavorite: widget.isFavorite,
-                                          onToggleFavorite:
-                                              widget.onToggleFavorite,
-                                          onMorePressed:
-                                              widget.onMoreActions == null
-                                              ? null
-                                              : () => _setExpanded(true),
-                                        ),
+                      width: width,
+                      height: height,
+                      child: ClipPath(
+                        clipper: ShapeBorderClipper(shape: toolbarShape),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                          child: DecoratedBox(
+                            decoration: ShapeDecoration(
+                              color: AppColors.blackOverlay(0.42),
+                              shape: toolbarShape,
+                            ),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: <Widget>[
+                                IgnorePointer(
+                                  ignoring: _expanded,
+                                  child: FadeTransition(
+                                    opacity: _toolsOpacity,
+                                    child: ScaleTransition(
+                                      scale: Tween<double>(
+                                        begin: 1,
+                                        end: 0.94,
+                                      ).animate(_expandCurve),
+                                      child: _CollapsedHeroTools(
+                                        showingOriginal: widget.showingOriginal,
+                                        onToggleImage: widget.onToggleImage,
+                                        isFavorite: widget.isFavorite,
+                                        onToggleFavorite:
+                                            widget.onToggleFavorite,
+                                        onPromptSettingsPressed:
+                                            widget.onUpdatePromptSelection ==
+                                                null
+                                            ? null
+                                            : () => _setExpanded(
+                                                true,
+                                                expansion: _HeroToolbarExpansion
+                                                    .promptSettings,
+                                              ),
+                                        onMorePressed:
+                                            widget.onMoreActions == null
+                                            ? null
+                                            : () => _setExpanded(
+                                                true,
+                                                expansion: _HeroToolbarExpansion
+                                                    .moreActions,
+                                              ),
                                       ),
                                     ),
                                   ),
+                                ),
+                                if (showExpandedContent)
                                   IgnorePointer(
                                     ignoring: !_expanded,
                                     child: FadeTransition(
                                       opacity: _menuOpacity,
-                                      child: _ExpandedHeroMenu(
-                                        animation: _controller,
-                                        items: _items,
-                                        onSelected: (_HeroMoreActionItem item) {
-                                          unawaited(_selectAction(item));
-                                        },
-                                      ),
+                                      child:
+                                          _expansion ==
+                                              _HeroToolbarExpansion.moreActions
+                                          ? _ExpandedHeroMenu(
+                                              animation: _controller,
+                                              items: _items,
+                                              onSelected:
+                                                  (_HeroMoreActionItem item) {
+                                                    unawaited(
+                                                      _selectAction(item),
+                                                    );
+                                                  },
+                                            )
+                                          : _ExpandedPromptSettings(
+                                              job: widget.selectedJob,
+                                              animation: _controller,
+                                              onChanged: widget
+                                                  .onUpdatePromptSelection!,
+                                            ),
                                     ),
                                   ),
-                                ],
-                              ),
+                              ],
                             ),
                           ),
                         ),
@@ -3153,6 +3278,7 @@ class _CollapsedHeroTools extends StatelessWidget {
     required this.onToggleImage,
     required this.isFavorite,
     required this.onToggleFavorite,
+    required this.onPromptSettingsPressed,
     required this.onMorePressed,
   });
 
@@ -3160,6 +3286,7 @@ class _CollapsedHeroTools extends StatelessWidget {
   final VoidCallback? onToggleImage;
   final bool isFavorite;
   final VoidCallback? onToggleFavorite;
+  final VoidCallback? onPromptSettingsPressed;
   final VoidCallback? onMorePressed;
 
   @override
@@ -3169,6 +3296,14 @@ class _CollapsedHeroTools extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
+          if (onPromptSettingsPressed != null)
+            _HeroToolbarButton(
+              key: const ValueKey<String>(
+                'generation-submission-prompt-settings',
+              ),
+              icon: LucideIcons.slidersHorizontal,
+              onPressed: onPromptSettingsPressed,
+            ),
           _ImageToggleButton(
             showingOriginal: showingOriginal,
             onPressed: onToggleImage,
@@ -3180,6 +3315,269 @@ class _CollapsedHeroTools extends StatelessWidget {
             onPressed: onMorePressed,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ExpandedPromptSettings extends StatefulWidget {
+  const _ExpandedPromptSettings({
+    required this.job,
+    required this.animation,
+    required this.onChanged,
+  });
+
+  final GenerationSubmissionJob job;
+  final Animation<double> animation;
+  final ValueChanged<PromptSelectionSnapshot> onChanged;
+
+  @override
+  State<_ExpandedPromptSettings> createState() =>
+      _ExpandedPromptSettingsState();
+}
+
+class _ExpandedPromptSettingsState extends State<_ExpandedPromptSettings> {
+  late PromptSelectionSnapshot _selection = _initialSelection();
+
+  @override
+  void didUpdateWidget(covariant _ExpandedPromptSettings oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.job.id != widget.job.id ||
+        oldWidget.job.promptSelection != widget.job.promptSelection) {
+      _selection = _initialSelection();
+    }
+  }
+
+  PromptSelectionSnapshot _initialSelection() {
+    return widget.job.promptSelection ?? PromptSelectionSnapshot.fallback;
+  }
+
+  void _selectCaptureMode(String captureModeId) {
+    if (_selection.captureMode == captureModeId) {
+      return;
+    }
+    final List<PromptSwitchDefinition> switches = promptSwitchesForDefinitions(
+      fallbackPromptStyles,
+      promptStyle: _selection.promptStyle,
+      captureMode: captureModeId,
+    );
+    final PromptSelectionSnapshot nextSelection = _selection.copyWith(
+      captureMode: captureModeId,
+      switches: defaultSwitchValuesFor(switches),
+    );
+    _updateSelection(nextSelection);
+  }
+
+  void _toggleSwitch(String switchId) {
+    final Map<String, bool> nextSwitches = <String, bool>{
+      ..._selection.switches,
+    };
+    nextSwitches[switchId] = !(nextSwitches[switchId] ?? false);
+    _updateSelection(_selection.copyWith(switches: nextSwitches));
+  }
+
+  void _updateSelection(PromptSelectionSnapshot nextSelection) {
+    setState(() {
+      _selection = nextSelection;
+    });
+    widget.onChanged(nextSelection);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final CameraUiTokens tokens = CameraUiTokens.forTheme(context);
+    final List<CameraUiMode> modes = _localizedCaptureModes(context);
+    final List<PromptSwitchDefinition> switches = _localizedSwitches(context);
+    final bool showSwitches =
+        _selection.captureMode == manualCaptureMode && switches.isNotEmpty;
+
+    return ClipRect(
+      child: OverflowBox(
+        alignment: Alignment.topCenter,
+        minHeight: 166,
+        maxHeight: 166,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              SizedBox(
+                height: 38,
+                child: _PromptModeSelectorRow(
+                  tokens: tokens,
+                  modes: modes,
+                  selectedModeId: _selection.captureMode,
+                  animation: _itemAnimation(0),
+                  onModeSelected: _selectCaptureMode,
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 88,
+                child: showSwitches
+                    ? _PromptSwitchesRow(
+                        tokens: tokens,
+                        switches: switches,
+                        values: _selection.switches,
+                        animation: _itemAnimation(1),
+                        onToggle: _toggleSwitch,
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Animation<double> _itemAnimation(int index) {
+    final double start = (0.42 + index * 0.09).clamp(0.0, 0.86);
+    final double end = (start + 0.34).clamp(start, 1.0);
+    return CurvedAnimation(
+      parent: widget.animation,
+      curve: Interval(start, end, curve: Curves.easeOutCubic),
+      reverseCurve: const Interval(0.74, 1, curve: Curves.easeOutCubic),
+    );
+  }
+
+  List<CameraUiMode> _localizedCaptureModes(BuildContext context) {
+    final AppLocalizations l10n = context.l10n;
+    return const <String>[defaultCaptureMode, manualCaptureMode]
+        .map((String id) {
+          return CameraUiMode(
+            id: id,
+            label: switch (id) {
+              manualCaptureMode => l10n.promptCaptureModeManualTitle,
+              _ => l10n.promptCaptureModeAutoTitle,
+            }.toUpperCase(),
+          );
+        })
+        .toList(growable: false);
+  }
+
+  List<PromptSwitchDefinition> _localizedSwitches(BuildContext context) {
+    final AppLocalizations l10n = context.l10n;
+    return <PromptSwitchDefinition>[
+      for (final PromptSwitchDefinition promptSwitch
+          in promptSwitchesForDefinitions(
+            fallbackPromptStyles,
+            promptStyle: _selection.promptStyle,
+            captureMode: manualCaptureMode,
+          ))
+        PromptSwitchDefinition(
+          id: promptSwitch.id,
+          title: _localizedSwitchTitle(l10n, promptSwitch),
+          defaultValue: promptSwitch.defaultValue,
+        ),
+    ];
+  }
+
+  String _localizedSwitchTitle(
+    AppLocalizations l10n,
+    PromptSwitchDefinition promptSwitch,
+  ) {
+    return switch (promptSwitch.id) {
+      'recompose' => l10n.promptSwitchRecomposeTitle,
+      'beautifyFace' => l10n.promptSwitchBeautifyFaceTitle,
+      'cleanFrame' => l10n.promptSwitchCleanFrameTitle,
+      'backgroundBlur' => l10n.promptSwitchBackgroundBlurTitle,
+      _ => promptSwitch.title,
+    };
+  }
+}
+
+class _PromptModeSelectorRow extends StatelessWidget {
+  const _PromptModeSelectorRow({
+    required this.tokens,
+    required this.modes,
+    required this.selectedModeId,
+    required this.animation,
+    required this.onModeSelected,
+  });
+
+  final CameraUiTokens tokens;
+  final List<CameraUiMode> modes;
+  final String selectedModeId;
+  final Animation<double> animation;
+  final ValueChanged<String> onModeSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.18),
+          end: Offset.zero,
+        ).animate(animation),
+        child: Center(
+          child: SizedBox(
+            width: modes.length * tokens.modeItemWidth,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                for (final CameraUiMode mode in modes)
+                  CameraPhotoModeItem(
+                    key: ValueKey<String>('generation-prompt-mode-${mode.id}'),
+                    tokens: tokens,
+                    mode: mode,
+                    selected: mode.id == selectedModeId,
+                    onPressed: () => onModeSelected(mode.id),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PromptSwitchesRow extends StatelessWidget {
+  const _PromptSwitchesRow({
+    required this.tokens,
+    required this.switches,
+    required this.values,
+    required this.animation,
+    required this.onToggle,
+  });
+
+  final CameraUiTokens tokens;
+  final List<PromptSwitchDefinition> switches;
+  final Map<String, bool> values;
+  final Animation<double> animation;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.16),
+          end: Offset.zero,
+        ).animate(animation),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: <Widget>[
+              for (int index = 0; index < switches.length; index += 1)
+                CameraPhotoOptionButton(
+                  key: ValueKey<String>(
+                    'generation-prompt-option-${switches[index].id}',
+                  ),
+                  tokens: tokens,
+                  label: switches[index].title,
+                  icon: _promptOptionIcon(switches[index].id),
+                  selected: values[switches[index].id] ?? false,
+                  animationIndex: index,
+                  onPressed: () => onToggle(switches[index].id),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -3366,4 +3764,14 @@ class _HeroToolbarButton extends StatelessWidget {
       ),
     );
   }
+}
+
+IconData _promptOptionIcon(String id) {
+  return switch (id) {
+    'recompose' => LucideIcons.wandSparkles,
+    'beautifyFace' => LucideIcons.userRoundCheck,
+    'cleanFrame' => LucideIcons.sparkles,
+    'backgroundBlur' => LucideIcons.aperture,
+    _ => LucideIcons.slidersHorizontal,
+  };
 }

@@ -228,6 +228,59 @@ void main() {
     });
   });
 
+  test('updates pending prompt selection before confirming a job', () async {
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..listTaskResponses.add(_task(status: GenerationTaskStatus.pending));
+    final ProviderContainer container = _container(
+      uploadRepository: uploadRepository,
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    final GenerationSubmissionController notifier = container.read(
+      generationSubmissionControllerProvider.notifier,
+    );
+    final String jobId = await notifier.queueGalleryFile(
+      XFile('/tmp/photo.jpg'),
+    );
+
+    const PromptSelectionSnapshot updatedSelection = PromptSelectionSnapshot(
+      promptStyle: 'realistic',
+      captureMode: 'manual',
+      appInputContractId: 'contract-updated',
+      switches: <String, bool>{
+        'recompose': true,
+        'beautifyFace': false,
+        'cleanFrame': true,
+        'backgroundBlur': false,
+      },
+    );
+    await notifier.updatePendingPromptSelection(jobId, updatedSelection);
+
+    final GenerationSubmissionJob pendingJob = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(pendingJob.status, GenerationSubmissionStatus.awaitingConfirmation);
+    expect(pendingJob.promptSelection?.captureMode, 'manual');
+    expect(pendingJob.promptSelection?.switches['recompose'], isTrue);
+
+    await notifier.confirmJob(jobId);
+
+    final CreateGenerationTaskInput input =
+        uploadRepository.generationRequests.single!;
+    expect(input.captureMode, 'manual');
+    expect(input.appInputContractId, 'contract-updated');
+    expect(input.userInput['switches'], <String, Object?>{
+      'recompose': true,
+      'beautifyFace': false,
+      'cleanFrame': true,
+      'backgroundBlur': false,
+    });
+  });
+
   test('submit captured file keeps provided prompt selection', () async {
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
     final _FakeGenerationTaskRepository taskRepository =

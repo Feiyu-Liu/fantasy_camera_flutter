@@ -417,6 +417,12 @@ void main() {
     );
     expect(
       find.byKey(
+        const ValueKey<String>('generation-submission-prompt-settings'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
         const ValueKey<String>('generation-submission-original-image'),
       ),
       findsOneWidget,
@@ -437,6 +443,105 @@ void main() {
     expect(
       find.byKey(const ValueKey<String>('generation-submission-result-image')),
       findsNothing,
+    );
+  });
+
+  testWidgets('awaiting hero toolbar opens prompt settings', (
+    WidgetTester tester,
+  ) async {
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'awaiting-prompt',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+        promptSelection: const PromptSelectionSnapshot(
+          promptStyle: defaultPromptStyle,
+          captureMode: defaultCaptureMode,
+          switches: <String, bool>{},
+        ),
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-prompt-settings'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('generation-submission-prompt-settings'),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-prompt-mode-manual')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 260));
+
+    expect(
+      find.byKey(const ValueKey<String>('generation-prompt-option-recompose')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-prompt-awaiting-prompt'),
+      ),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(find.text('+4'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('generation-prompt-option-recompose')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+
+    expect(find.text('+3'), findsOneWidget);
+  });
+
+  testWidgets('prompt settings collapse when tapping hero outside toolbar', (
+    WidgetTester tester,
+  ) async {
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'awaiting-prompt-collapse',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+        promptSelection: const PromptSelectionSnapshot(
+          promptStyle: defaultPromptStyle,
+          captureMode: defaultCaptureMode,
+          switches: <String, bool>{},
+        ),
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('generation-submission-prompt-settings'),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    _expectDismissLayerEnabled(tester, true);
+
+    final Rect heroRect = tester.getRect(
+      find.byKey(const ValueKey<String>('generation-gallery-hero-pager')),
+    );
+    await tester.tapAt(Offset(heroRect.center.dx, heroRect.top + 24));
+    await tester.pump(const Duration(milliseconds: 360));
+
+    _expectDismissLayerEnabled(tester, false);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-prompt-settings'),
+      ),
+      findsOneWidget,
     );
   });
 
@@ -920,20 +1025,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 320));
     expect(find.text('在相册中查看'), findsOneWidget);
 
-    final Rect dismissRect = tester.getRect(
-      find.byKey(
-        const ValueKey<String>('generation-submission-more-dismiss-layer'),
-      ),
-    );
+    _expectDismissLayerEnabled(tester, true);
+    final Rect dismissRect = tester.getRect(_dismissLayerFinder());
     await tester.tapAt(Offset(dismissRect.left + 8, dismissRect.top + 8));
     await tester.pump(const Duration(milliseconds: 360));
 
-    expect(
-      find.byKey(
-        const ValueKey<String>('generation-submission-more-dismiss-layer'),
-      ),
-      findsNothing,
-    );
+    _expectDismissLayerEnabled(tester, false);
     expect(
       find.byKey(const ValueKey<String>('generation-submission-more-actions')),
       findsOneWidget,
@@ -972,12 +1069,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 120));
 
     expect(find.text('在相册中查看'), findsOneWidget);
-    expect(
-      find.byKey(
-        const ValueKey<String>('generation-submission-more-dismiss-layer'),
-      ),
-      findsOneWidget,
-    );
+    _expectDismissLayerEnabled(tester, true);
   });
 
   testWidgets('more action opens photo library', (WidgetTester tester) async {
@@ -1368,21 +1460,55 @@ Future<void> _pumpModalHost(WidgetTester tester, _ModalHost host) async {
   await tester.pump();
 }
 
+Finder _dismissLayerFinder() {
+  return find.byKey(
+    const ValueKey<String>('generation-submission-more-dismiss-layer'),
+  );
+}
+
+void _expectDismissLayerEnabled(WidgetTester tester, bool enabled) {
+  expect(_dismissLayerFinder(), findsOneWidget);
+  final Finder ignorePointerFinder = find.ancestor(
+    of: _dismissLayerFinder(),
+    matching: find.byType(IgnorePointer),
+  );
+  final IgnorePointer ignorePointer = tester.widget<IgnorePointer>(
+    ignorePointerFinder.first,
+  );
+  expect(ignorePointer.ignoring, !enabled);
+}
+
 Future<void> _tapExpandedMoreAction(WidgetTester tester, int index) async {
+  const List<String> actionKeys = <String>[
+    'viewInAlbum',
+    'saveOriginal',
+    'retry',
+    'dislike',
+    'remove',
+  ];
+  final Finder action = find.byKey(
+    ValueKey<String>('generation-submission-more-${actionKeys[index]}'),
+  );
   final Finder hitRegion = find.byKey(
     const ValueKey<String>('generation-submission-more-hit-region'),
   );
   final double requiredHeight = 10 + (index + 1) * 42;
   for (int attempt = 0; attempt < 10; attempt += 1) {
-    final Rect rect = tester.getRect(hitRegion);
-    if (rect.height >= requiredHeight) {
+    final bool actionExists = action.evaluate().isNotEmpty;
+    final bool hasRoom =
+        hitRegion.evaluate().isNotEmpty &&
+        tester.getRect(hitRegion).height >= requiredHeight;
+    if (actionExists && hasRoom) {
       break;
     }
     await tester.pump(const Duration(milliseconds: 40));
   }
-  final Rect rect = tester.getRect(hitRegion);
-  expect(rect.height, greaterThanOrEqualTo(requiredHeight));
-  await tester.tapAt(Offset(rect.center.dx, rect.top + 10 + index * 42 + 21));
+  expect(action, findsOneWidget);
+  expect(
+    tester.getRect(hitRegion).height,
+    greaterThanOrEqualTo(requiredHeight),
+  );
+  await tester.tap(action);
 }
 
 class _ModalHost extends StatefulWidget {
@@ -1718,6 +1844,26 @@ class _NotifyingGenerationRecordRepository extends GenerationRecordRepository {
       taskId: taskId,
       taskStatus: taskStatus,
       resultImageObjectId: resultImageObjectId,
+    );
+    await _emitRecords();
+  }
+
+  @override
+  Future<void> updatePromptSelection({
+    required String recordId,
+    required DateTime updatedAt,
+    required String promptStyle,
+    required String captureMode,
+    required String? appInputContractId,
+    required String userInputJson,
+  }) async {
+    await super.updatePromptSelection(
+      recordId: recordId,
+      updatedAt: updatedAt,
+      promptStyle: promptStyle,
+      captureMode: captureMode,
+      appInputContractId: appInputContractId,
+      userInputJson: userInputJson,
     );
     await _emitRecords();
   }

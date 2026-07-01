@@ -299,6 +299,26 @@ class GenerationRecordRepository {
     );
   }
 
+  Future<void> updatePromptSelection({
+    required String recordId,
+    required DateTime updatedAt,
+    required String promptStyle,
+    required String captureMode,
+    required String? appInputContractId,
+    required String userInputJson,
+  }) {
+    return _updateById(
+      recordId,
+      GenerationRecordsCompanion(
+        updatedAt: Value<DateTime>(updatedAt),
+        promptStyle: Value<String?>(promptStyle),
+        captureMode: Value<String?>(captureMode),
+        appInputContractId: Value<String?>(appInputContractId),
+        userInputJson: Value<String?>(userInputJson),
+      ),
+    );
+  }
+
   Future<void> updateResultFields({
     required String recordId,
     required DateTime updatedAt,

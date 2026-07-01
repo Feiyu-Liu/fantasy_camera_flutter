@@ -542,6 +542,14 @@ class GenerationSubmissionController
     await _refreshFromRepository();
   }
 
+  Future<void> updatePendingPromptSelection(
+    String jobId,
+    PromptSelectionSnapshot promptSelection,
+  ) async {
+    await _service.updatePendingPromptSelection(jobId, promptSelection);
+    await _refreshFromRepository();
+  }
+
   Future<void> cancelJob(String jobId) async {
     await _service.cancelJob(jobId);
     _deletedJobIds.add(jobId);

@@ -254,6 +254,45 @@ class GenerationSubmissionService extends ChangeNotifier {
     await _submitRecord(record);
   }
 
+  Future<void> updatePendingPromptSelection(
+    String recordId,
+    PromptSelectionSnapshot promptSelection,
+  ) async {
+    final GenerationRecord? record = await _generationRecordRepository.findById(
+      recordId,
+    );
+    if (record == null) {
+      _debugLog(
+        'update prompt selection skipped record=$recordId reason=missing-record',
+      );
+      return;
+    }
+    if (record.pipelineStatus !=
+        GenerationRecordPipelineStatus.awaitingConfirmation.name) {
+      _debugLog(
+        'update prompt selection skipped record=$recordId reason=status-${record.pipelineStatus}',
+      );
+      return;
+    }
+
+    await _generationRecordRepository.updatePromptSelection(
+      recordId: recordId,
+      updatedAt: DateTime.now(),
+      promptStyle: promptSelection.promptStyle,
+      captureMode: promptSelection.captureMode,
+      appInputContractId: promptSelection.appInputContractId,
+      userInputJson: jsonEncode(promptSelection.userInput),
+    );
+    final _RuntimeGenerationRecordState runtime =
+        _runtimeState[recordId] ?? _RuntimeGenerationRecordState();
+    runtime.promptSelection = promptSelection;
+    _runtimeState[recordId] = runtime;
+    _debugLog(
+      'update prompt selection record=$recordId prompt=${promptSelection.promptStyle}/${promptSelection.captureMode} switches=${promptSelection.switches}',
+    );
+    notifyListeners();
+  }
+
   Future<void> cancelJob(String recordId) async {
     final GenerationRecord? record = await _generationRecordRepository.findById(
       recordId,
