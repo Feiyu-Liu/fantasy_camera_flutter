@@ -22,7 +22,6 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_theme.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../camera/presentation/camera_ui/camera_photo_option_button.dart';
-import '../../camera/presentation/camera_ui/camera_photo_ui.dart';
 import '../../camera/presentation/camera_ui/camera_ui_models.dart';
 import '../../camera/presentation/camera_ui/camera_ui_tokens.dart';
 import '../data/generation_submission_adapters.dart';
@@ -2899,6 +2898,95 @@ enum _HeroMoreAction { viewInAlbum, saveOriginal, retry, dislike, remove }
 
 enum _HeroToolbarExpansion { moreActions, promptSettings }
 
+enum _HeroToolbarContentKind {
+  moreActions,
+  promptAutoSettings,
+  promptManualSettings,
+}
+
+class _HeroToolbarLayoutSpec {
+  const _HeroToolbarLayoutSpec({
+    required this.expandedSize,
+    required this.contentPadding,
+    required this.modeRowHeight,
+    required this.switchesRowHeight,
+    required this.contentGap,
+  });
+
+  static const _HeroToolbarLayoutSpec moreActions = _HeroToolbarLayoutSpec(
+    expandedSize: Size(220, 232),
+    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+    modeRowHeight: 0,
+    switchesRowHeight: 0,
+    contentGap: 0,
+  );
+  static const _HeroToolbarLayoutSpec promptAuto = _HeroToolbarLayoutSpec(
+    expandedSize: Size(164, 50),
+    contentPadding: EdgeInsets.all(8),
+    modeRowHeight: 34,
+    switchesRowHeight: 0,
+    contentGap: 0,
+  );
+  static const _HeroToolbarLayoutSpec promptManual = _HeroToolbarLayoutSpec(
+    expandedSize: Size(320, 106),
+    contentPadding: EdgeInsets.all(8),
+    modeRowHeight: 34,
+    switchesRowHeight: 48,
+    contentGap: 8,
+  );
+
+  final Size expandedSize;
+  final EdgeInsets contentPadding;
+  final double modeRowHeight;
+  final double switchesRowHeight;
+  final double contentGap;
+}
+
+class _HeroToolbarContentModel {
+  const _HeroToolbarContentModel({
+    required this.kind,
+    required this.layout,
+    required this.showsPromptSwitches,
+  });
+
+  final _HeroToolbarContentKind kind;
+  final _HeroToolbarLayoutSpec layout;
+  final bool showsPromptSwitches;
+
+  static _HeroToolbarContentModel resolve({
+    required _HeroToolbarExpansion expansion,
+    required GenerationSubmissionJob selectedJob,
+  }) {
+    if (expansion == _HeroToolbarExpansion.moreActions) {
+      return const _HeroToolbarContentModel(
+        kind: _HeroToolbarContentKind.moreActions,
+        layout: _HeroToolbarLayoutSpec.moreActions,
+        showsPromptSwitches: false,
+      );
+    }
+
+    final PromptSelectionSnapshot selection =
+        selectedJob.promptSelection ?? PromptSelectionSnapshot.fallback;
+    final bool showsPromptSwitches =
+        selection.captureMode == manualCaptureMode &&
+        promptSwitchesForDefinitions(
+          fallbackPromptStyles,
+          promptStyle: selection.promptStyle,
+          captureMode: manualCaptureMode,
+        ).isNotEmpty;
+
+    return _HeroToolbarContentModel(
+      kind: showsPromptSwitches
+          ? _HeroToolbarContentKind.promptManualSettings
+          : _HeroToolbarContentKind.promptAutoSettings,
+      layout: showsPromptSwitches
+          ? _HeroToolbarLayoutSpec.promptManual
+          : _HeroToolbarLayoutSpec.promptAuto,
+      showsPromptSwitches: showsPromptSwitches,
+    );
+  }
+}
+
 class _HeroMoreActionItem {
   const _HeroMoreActionItem({
     required this.action,
@@ -2950,10 +3038,6 @@ class _HeroToolbarState extends State<_HeroToolbar>
   static const double _collapsedWidth = 116;
   static const double _promptCollapsedWidth = 152;
   static const double _collapsedHeight = 44;
-  static const double _expandedWidth = 220;
-  static const double _expandedHeight = 232;
-  static const double _promptExpandedWidth = 318;
-  static const double _promptExpandedHeight = 168;
 
   late final AnimationController _controller = AnimationController(
     vsync: this,
@@ -3119,23 +3203,22 @@ class _HeroToolbarState extends State<_HeroToolbar>
 
   @override
   Widget build(BuildContext context) {
+    final _HeroToolbarContentModel contentModel =
+        _HeroToolbarContentModel.resolve(
+          expansion: _expansion,
+          selectedJob: widget.selectedJob,
+        );
+    final Size targetExpandedSize = contentModel.layout.expandedSize;
+
     return AnimatedBuilder(
       animation: _expandCurve,
       builder: (BuildContext context, Widget? child) {
-        final double expandedWidth =
-            _expansion == _HeroToolbarExpansion.promptSettings
-            ? _promptExpandedWidth
-            : _expandedWidth;
-        final double expandedHeight =
-            _expansion == _HeroToolbarExpansion.promptSettings
-            ? _promptExpandedHeight
-            : _expandedHeight;
         final double collapsedWidth = widget.onUpdatePromptSelection == null
             ? _collapsedWidth
             : _promptCollapsedWidth;
         final double height = lerpDouble(
           _collapsedHeight,
-          expandedHeight,
+          targetExpandedSize.height,
           _expandCurve.value,
         )!;
         final bool showExpandedContent =
@@ -3153,12 +3236,12 @@ class _HeroToolbarState extends State<_HeroToolbar>
                     final double value = _expandCurve.value;
                     final double width = lerpDouble(
                       collapsedWidth,
-                      expandedWidth,
+                      targetExpandedSize.width,
                       value,
                     )!;
-                    final double height = lerpDouble(
+                    final double innerHeight = lerpDouble(
                       _collapsedHeight,
-                      expandedHeight,
+                      targetExpandedSize.height,
                       value,
                     )!;
                     final double radius = lerpDouble(
@@ -3180,7 +3263,7 @@ class _HeroToolbarState extends State<_HeroToolbar>
                         'generation-submission-more-hit-region',
                       ),
                       width: width,
-                      height: height,
+                      height: innerHeight,
                       child: ClipPath(
                         clipper: ShapeBorderClipper(shape: toolbarShape),
                         child: BackdropFilter(
@@ -3235,8 +3318,9 @@ class _HeroToolbarState extends State<_HeroToolbar>
                                     child: FadeTransition(
                                       opacity: _menuOpacity,
                                       child:
-                                          _expansion ==
-                                              _HeroToolbarExpansion.moreActions
+                                          contentModel.kind ==
+                                              _HeroToolbarContentKind
+                                                  .moreActions
                                           ? _ExpandedHeroMenu(
                                               animation: _controller,
                                               items: _items,
@@ -3250,6 +3334,7 @@ class _HeroToolbarState extends State<_HeroToolbar>
                                           : _ExpandedPromptSettings(
                                               job: widget.selectedJob,
                                               animation: _controller,
+                                              contentModel: contentModel,
                                               onChanged: widget
                                                   .onUpdatePromptSelection!,
                                             ),
@@ -3324,11 +3409,13 @@ class _ExpandedPromptSettings extends StatefulWidget {
   const _ExpandedPromptSettings({
     required this.job,
     required this.animation,
+    required this.contentModel,
     required this.onChanged,
   });
 
   final GenerationSubmissionJob job;
   final Animation<double> animation;
+  final _HeroToolbarContentModel contentModel;
   final ValueChanged<PromptSelectionSnapshot> onChanged;
 
   @override
@@ -3388,43 +3475,48 @@ class _ExpandedPromptSettingsState extends State<_ExpandedPromptSettings> {
     final CameraUiTokens tokens = CameraUiTokens.forTheme(context);
     final List<CameraUiMode> modes = _localizedCaptureModes(context);
     final List<PromptSwitchDefinition> switches = _localizedSwitches(context);
-    final bool showSwitches =
-        _selection.captureMode == manualCaptureMode && switches.isNotEmpty;
+    final _HeroToolbarLayoutSpec layout = widget.contentModel.layout;
 
     return ClipRect(
       child: OverflowBox(
         alignment: Alignment.topCenter,
-        minHeight: 166,
-        maxHeight: 166,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              SizedBox(
-                height: 38,
-                child: _PromptModeSelectorRow(
-                  tokens: tokens,
-                  modes: modes,
-                  selectedModeId: _selection.captureMode,
-                  animation: _itemAnimation(0),
-                  onModeSelected: _selectCaptureMode,
+        minWidth: layout.expandedSize.width,
+        maxWidth: layout.expandedSize.width,
+        minHeight: layout.expandedSize.height,
+        maxHeight: layout.expandedSize.height,
+        child: SizedBox(
+          width: layout.expandedSize.width,
+          height: layout.expandedSize.height,
+          child: Padding(
+            padding: layout.contentPadding,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                SizedBox(
+                  height: layout.modeRowHeight,
+                  child: _PromptModeSelectorRow(
+                    tokens: tokens,
+                    modes: modes,
+                    selectedModeId: _selection.captureMode,
+                    animation: _itemAnimation(0),
+                    onModeSelected: _selectCaptureMode,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 88,
-                child: showSwitches
-                    ? _PromptSwitchesRow(
-                        tokens: tokens,
-                        switches: switches,
-                        values: _selection.switches,
-                        animation: _itemAnimation(1),
-                        onToggle: _toggleSwitch,
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ],
+                if (widget.contentModel.showsPromptSwitches) ...<Widget>[
+                  SizedBox(height: layout.contentGap),
+                  SizedBox(
+                    height: layout.switchesRowHeight,
+                    child: _PromptSwitchesRow(
+                      tokens: tokens,
+                      switches: switches,
+                      values: _selection.switches,
+                      animation: _itemAnimation(1),
+                      onToggle: _toggleSwitch,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -3504,6 +3596,14 @@ class _PromptModeSelectorRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const double localModeItemWidth = 60.0;
+    final int selectedIndex = modes.indexWhere(
+      (CameraUiMode mode) => mode.id == selectedModeId,
+    );
+    final double indicatorLeft =
+        selectedIndex.clamp(0, modes.length - 1) * localModeItemWidth +
+        (localModeItemWidth - tokens.modeIndicatorWidth) / 2;
+
     return FadeTransition(
       opacity: animation,
       child: SlideTransition(
@@ -3513,18 +3613,56 @@ class _PromptModeSelectorRow extends StatelessWidget {
         ).animate(animation),
         child: Center(
           child: SizedBox(
-            width: modes.length * tokens.modeItemWidth,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            width: modes.length * localModeItemWidth,
+            height: 34,
+            child: Stack(
               children: <Widget>[
-                for (final CameraUiMode mode in modes)
-                  CameraPhotoModeItem(
-                    key: ValueKey<String>('generation-prompt-mode-${mode.id}'),
-                    tokens: tokens,
-                    mode: mode,
-                    selected: mode.id == selectedModeId,
-                    onPressed: () => onModeSelected(mode.id),
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    for (final CameraUiMode mode in modes)
+                      GestureDetector(
+                        key: ValueKey<String>(
+                          'generation-prompt-mode-${mode.id}',
+                        ),
+                        onTap: () {
+                          Feedback.forTap(context);
+                          onModeSelected(mode.id);
+                        },
+                        behavior: HitTestBehavior.opaque,
+                        child: SizedBox(
+                          width: localModeItemWidth,
+                          height: double.infinity,
+                          child: Center(
+                            child: AnimatedDefaultTextStyle(
+                              duration: tokens.modeSwitchMotionDuration,
+                              curve: tokens.modeSwitchMotionCurve,
+                              style: TextStyle(
+                                color: mode.id == selectedModeId
+                                    ? AppColors.white
+                                    : AppColors.white.withValues(alpha: 0.6),
+                                fontSize: 11,
+                                fontWeight: mode.id == selectedModeId
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                letterSpacing: 0,
+                              ),
+                              child: Text(mode.label),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                AnimatedPositioned(
+                  duration: tokens.modeSwitchMotionDuration,
+                  curve: tokens.modeSwitchMotionCurve,
+                  left: indicatorLeft,
+                  bottom: 0,
+                  width: tokens.modeIndicatorWidth,
+                  height: tokens.modeIndicatorHeight,
+                  child: const ColoredBox(color: AppColors.white),
+                ),
               ],
             ),
           ),
@@ -3561,19 +3699,25 @@ class _PromptSwitchesRow extends StatelessWidget {
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Row(
             children: <Widget>[
               for (int index = 0; index < switches.length; index += 1)
-                CameraPhotoOptionButton(
-                  key: ValueKey<String>(
-                    'generation-prompt-option-${switches[index].id}',
+                Padding(
+                  padding: EdgeInsets.only(
+                    right: index < switches.length - 1 ? 6.0 : 0.0,
                   ),
-                  tokens: tokens,
-                  label: switches[index].title,
-                  icon: _promptOptionIcon(switches[index].id),
-                  selected: values[switches[index].id] ?? false,
-                  animationIndex: index,
-                  onPressed: () => onToggle(switches[index].id),
+                  child: CameraPhotoOptionButton(
+                    key: ValueKey<String>(
+                      'generation-prompt-option-${switches[index].id}',
+                    ),
+                    tokens: tokens,
+                    label: switches[index].title,
+                    icon: _promptOptionIcon(switches[index].id),
+                    selected: values[switches[index].id] ?? false,
+                    animationIndex: index,
+                    onPressed: () => onToggle(switches[index].id),
+                  ),
                 ),
             ],
           ),
