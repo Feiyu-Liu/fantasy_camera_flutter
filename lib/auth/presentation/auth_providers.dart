@@ -6,7 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../config/app_config.dart';
 import '../../features/camera/domain/camera_choice.dart';
 import '../../features/camera/presentation/camera_providers.dart';
-import '../../l10n/l10n.dart';
 import '../../shared/core/app_logger.dart';
 import '../data/apple_sign_in_gateway.dart';
 import '../data/auth_gateway.dart';
@@ -19,10 +18,6 @@ import '../session/supabase_session_coordinator.dart';
 final hasSupabaseConfigProvider = Provider<bool>((Ref ref) {
   return AppConfig.hasSupabaseConfig;
 });
-
-final appLocalizationsProvider = Provider<AppLocalizations>((Ref ref) {
-  return appLocalizationsFor(defaultAppLocale);
-}, dependencies: const <ProviderOrFamily>[]);
 
 final supabaseClientProvider = Provider<SupabaseClient>((Ref ref) {
   return Supabase.instance.client;
@@ -53,59 +48,57 @@ final sessionCoordinatorProvider = Provider<SupabaseSessionCoordinator>((
   final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
     authGateway: ref.watch(authGatewayProvider),
   );
-  coordinator.bindLocalizations(ref.watch(appLocalizationsProvider));
   unawaited(coordinator.restore());
   ref.onDispose(() {
     unawaited(coordinator.dispose());
   });
   return coordinator;
-}, dependencies: <ProviderOrFamily>[appLocalizationsProvider]);
+});
 
-final accessTokenProvider = Provider<AccessTokenProvider>(
-  (Ref ref) {
-    return ref.watch(sessionCoordinatorProvider);
-  },
-  dependencies: <ProviderOrFamily>[
-    appLocalizationsProvider,
-    sessionCoordinatorProvider,
-  ],
-);
+final accessTokenProvider = Provider<AccessTokenProvider>((Ref ref) {
+  return ref.watch(sessionCoordinatorProvider);
+}, dependencies: <ProviderOrFamily>[sessionCoordinatorProvider]);
 
-final authSessionProvider = StreamProvider<AuthSessionState>(
-  (Ref ref) {
-    return ref.watch(sessionCoordinatorProvider).states;
-  },
-  dependencies: <ProviderOrFamily>[
-    appLocalizationsProvider,
-    sessionCoordinatorProvider,
-  ],
-);
+final authSessionProvider = StreamProvider<AuthSessionState>((Ref ref) {
+  return ref.watch(sessionCoordinatorProvider).states;
+}, dependencies: <ProviderOrFamily>[sessionCoordinatorProvider]);
 
 final authControllerProvider =
     NotifierProvider<AuthController, AuthControllerState>(
       AuthController.new,
-      dependencies: <ProviderOrFamily>[
-        appLocalizationsProvider,
-        sessionCoordinatorProvider,
-      ],
+      dependencies: <ProviderOrFamily>[sessionCoordinatorProvider],
     );
 
+enum AuthControllerErrorCode {
+  appleSignInFailed,
+  googleSignInFailed,
+  invalidCredentials,
+  authenticationFailed,
+}
+
 class AuthControllerState {
-  const AuthControllerState({this.isSubmitting = false, this.errorMessage});
+  const AuthControllerState({
+    this.isSubmitting = false,
+    this.errorCode,
+    this.rawErrorMessage,
+  });
 
   final bool isSubmitting;
-  final String? errorMessage;
+  final AuthControllerErrorCode? errorCode;
+  final String? rawErrorMessage;
 
   AuthControllerState copyWith({
     bool? isSubmitting,
-    String? errorMessage,
-    bool clearErrorMessage = false,
+    AuthControllerErrorCode? errorCode,
+    String? rawErrorMessage,
+    bool clearError = false,
   }) {
     return AuthControllerState(
       isSubmitting: isSubmitting ?? this.isSubmitting,
-      errorMessage: clearErrorMessage
+      errorCode: clearError ? null : errorCode ?? this.errorCode,
+      rawErrorMessage: clearError
           ? null
-          : errorMessage ?? this.errorMessage,
+          : rawErrorMessage ?? this.rawErrorMessage,
     );
   }
 }
@@ -152,46 +145,46 @@ class AuthController extends Notifier<AuthControllerState> {
     if (state.isSubmitting) {
       return;
     }
-    state = state.copyWith(isSubmitting: true, clearErrorMessage: true);
+    state = state.copyWith(isSubmitting: true, clearError: true);
     try {
       await ref.read(sessionCoordinatorProvider).markSigningIn(() {
         return ref.read(authGatewayProvider).signInWithApple();
       });
     } on AppleSignInCanceledException {
-      state = state.copyWith(isSubmitting: false, clearErrorMessage: true);
+      state = state.copyWith(isSubmitting: false, clearError: true);
       return;
     } on Object catch (error, stackTrace) {
       logAppError('apple_sign_in_failed', error, stackTrace);
       state = state.copyWith(
         isSubmitting: false,
-        errorMessage: ref.read(appLocalizationsProvider).authAppleSignInFailed,
+        errorCode: AuthControllerErrorCode.appleSignInFailed,
       );
       return;
     }
-    state = state.copyWith(isSubmitting: false, clearErrorMessage: true);
+    state = state.copyWith(isSubmitting: false, clearError: true);
   }
 
   Future<void> signInWithGoogle() async {
     if (state.isSubmitting) {
       return;
     }
-    state = state.copyWith(isSubmitting: true, clearErrorMessage: true);
+    state = state.copyWith(isSubmitting: true, clearError: true);
     try {
       await ref.read(sessionCoordinatorProvider).markSigningIn(() {
         return ref.read(authGatewayProvider).signInWithGoogle();
       });
     } on GoogleSignInCanceledException {
-      state = state.copyWith(isSubmitting: false, clearErrorMessage: true);
+      state = state.copyWith(isSubmitting: false, clearError: true);
       return;
     } on Object catch (error, stackTrace) {
       logAppError('google_sign_in_failed', error, stackTrace);
       state = state.copyWith(
         isSubmitting: false,
-        errorMessage: ref.read(appLocalizationsProvider).authGoogleSignInFailed,
+        errorCode: AuthControllerErrorCode.googleSignInFailed,
       );
       return;
     }
-    state = state.copyWith(isSubmitting: false, clearErrorMessage: true);
+    state = state.copyWith(isSubmitting: false, clearError: true);
   }
 
   Future<void> signOut() async {
@@ -199,27 +192,35 @@ class AuthController extends Notifier<AuthControllerState> {
   }
 
   Future<void> _submit(Future<void> Function() action) async {
-    state = state.copyWith(isSubmitting: true, clearErrorMessage: true);
+    state = state.copyWith(isSubmitting: true, clearError: true);
     try {
       await action();
-      state = state.copyWith(isSubmitting: false, clearErrorMessage: true);
+      state = state.copyWith(isSubmitting: false, clearError: true);
     } on Object catch (error, stackTrace) {
       logAppError('auth_action_failed', error, stackTrace);
       state = state.copyWith(
         isSubmitting: false,
-        errorMessage: _messageFor(error),
+        errorCode: _errorCodeFor(error),
+        rawErrorMessage: _rawMessageFor(error),
       );
     }
   }
 
-  String _messageFor(Object error) {
+  AuthControllerErrorCode _errorCodeFor(Object error) {
     if (error is AuthException) {
       if (error.code == 'invalid_credentials') {
-        return ref.read(appLocalizationsProvider).authInvalidCredentials;
+        return AuthControllerErrorCode.invalidCredentials;
       }
+      return AuthControllerErrorCode.authenticationFailed;
+    }
+    return AuthControllerErrorCode.authenticationFailed;
+  }
+
+  String? _rawMessageFor(Object error) {
+    if (error is AuthException && error.code != 'invalid_credentials') {
       return error.message;
     }
-    return ref.read(appLocalizationsProvider).authAuthenticationFailed;
+    return null;
   }
 }
 

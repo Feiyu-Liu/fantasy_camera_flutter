@@ -13,6 +13,7 @@ import '../../../config/app_config.dart';
 import '../../../features/backend_api/data/backend_repositories.dart';
 import '../../../features/backend_api/presentation/backend_api_providers.dart';
 import '../../../shared/core/app_logger.dart';
+import '../../../settings/application/app_settings.dart';
 import '../../generation_submission/application/generation_submission_service.dart';
 import '../data/notification_device_store.dart';
 import '../data/push_notification_gateway.dart';
@@ -47,7 +48,7 @@ final notificationDeviceControllerProvider =
     NotifierProvider<NotificationDeviceController, NotificationDeviceState>(
       NotificationDeviceController.new,
       dependencies: <ProviderOrFamily>[
-        appLocalizationsProvider,
+        appSettingsControllerProvider,
         authSessionProvider,
         sessionCoordinatorProvider,
         notificationDeviceStoreProvider,
@@ -56,12 +57,9 @@ final notificationDeviceControllerProvider =
       ],
     );
 
-final notificationLifecycleProvider = Provider<void>(
-  (Ref ref) {
-    ref.watch(notificationDeviceControllerProvider.notifier).start();
-  },
-  dependencies: <ProviderOrFamily>[notificationDeviceControllerProvider],
-);
+final notificationLifecycleProvider = Provider<void>((Ref ref) {
+  ref.watch(notificationDeviceControllerProvider.notifier).start();
+}, dependencies: <ProviderOrFamily>[notificationDeviceControllerProvider]);
 
 class NotificationDeviceState {
   const NotificationDeviceState({
@@ -100,7 +98,8 @@ class NotificationDeviceController extends Notifier<NotificationDeviceState>
     return const NotificationDeviceState();
   }
 
-  NotificationDeviceStore get _store => ref.read(notificationDeviceStoreProvider);
+  NotificationDeviceStore get _store =>
+      ref.read(notificationDeviceStoreProvider);
 
   NotificationDeviceRepository get _repository =>
       ref.read(notificationDeviceRepositoryProvider);
@@ -256,10 +255,7 @@ class NotificationDeviceController extends Notifier<NotificationDeviceState>
       return registered.id;
     } on Object catch (error, stackTrace) {
       logAppError('notification_device_register_failed', error, stackTrace);
-      state = state.copyWith(
-        isRegistering: false,
-        lastError: error.toString(),
-      );
+      state = state.copyWith(isRegistering: false, lastError: error.toString());
       return null;
     } finally {
       _registering = false;
@@ -267,8 +263,8 @@ class NotificationDeviceController extends Notifier<NotificationDeviceState>
   }
 
   Future<void> _handleLaunchTap() async {
-    final GenerationNotificationPayload? payload =
-        await _gateway.notificationTapWhichLaunchedApp();
+    final GenerationNotificationPayload? payload = await _gateway
+        .notificationTapWhichLaunchedApp();
     if (payload != null) {
       await _handleTap(payload);
     }
@@ -279,7 +275,9 @@ class NotificationDeviceController extends Notifier<NotificationDeviceState>
   }
 
   String _currentLocale() {
-    return ref.read(appLocalizationsProvider).localeName;
+    return localeNameForPreference(
+      ref.read(appSettingsControllerProvider).localePreference,
+    );
   }
 
   String _pushEnvironment() {

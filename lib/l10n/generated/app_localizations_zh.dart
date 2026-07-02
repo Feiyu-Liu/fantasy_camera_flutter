@@ -186,7 +186,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get generationSubmissionActionViewInAlbum => '在相册中查看';
 
   @override
-  String get generationSubmissionActionSaveOriginal => '保存原图';
+  String get generationSubmissionActionSaveOriginal => '保存原始照片';
 
   @override
   String get generationSubmissionActionRetry => '重试';
@@ -425,7 +425,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get billingHeroTitle => '获取创作积分';
 
   @override
-  String get billingHeroSubtitle => '积分用于生成图片。购买完成后会由服务器验证并写入余额。';
+  String get billingHeroSubtitle => '积分用于图片生成';
 
   @override
   String billingCreditPackTitle(int credits) {
@@ -476,28 +476,28 @@ class AppLocalizationsZh extends AppLocalizations {
   String get billingLegalNote => '购买由 App Store 处理。继续购买即表示你同意使用条款与隐私政策。';
 
   @override
-  String get toastGenerationNetworkFailed => '网络连接不稳定，图片未上传。请稍后重试。';
+  String get toastGenerationNetworkFailed => '网络连接不稳定，请稍后重试。';
 
   @override
-  String get toastOriginalUnavailable => '原图无法读取，请重新拍摄或选择照片。';
+  String get toastOriginalUnavailable => '原图已丢失或无法读取，请检查相册权限后重试。';
 
   @override
   String get toastInsufficientCredits => '创作积分不足，请先获取积分。';
 
   @override
-  String get toastGenerationSubmitFailed => '图片生成请求失败，请重试。';
+  String get toastGenerationSubmitFailed => '照片请求失败，请重试。';
 
   @override
-  String get toastGenerationUploadFailed => '图片上传失败，请检查网络后重试。';
+  String get toastGenerationUploadFailed => '照片请求失败，请重试。';
 
   @override
-  String get toastGenerationTaskCreateFailed => '图片已上传，但生成请求创建失败，请重试。';
+  String get toastGenerationTaskCreateFailed => '照片请求失败，请重试。';
 
   @override
-  String get toastGenerationBackendFailed => '图片生成失败，请重试。';
+  String get toastGenerationBackendFailed => '照片请求失败，请重试。';
 
   @override
-  String get toastResultSaveFailed => '结果图保存失败，请重试。';
+  String get toastResultSaveFailed => '结果图保存失败，请检查相册权限后重试。';
 
   @override
   String get toastGalleryICloudImportFailed => '照片暂时无法从 iCloud 下载，请稍后重试。';
@@ -979,7 +979,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get billingHeroTitle => '取得創作點數';
 
   @override
-  String get billingHeroSubtitle => '點數用於生成圖片。';
+  String get billingHeroSubtitle => '點數用於圖片生成';
 
   @override
   String billingCreditPackTitle(int credits) {
@@ -1030,28 +1030,28 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get billingLegalNote => '購買由 App Store 處理。繼續即表示你同意使用條款與隱私權政策。';
 
   @override
-  String get toastGenerationNetworkFailed => '網路不穩定，照片未上傳。請稍後再試。';
+  String get toastGenerationNetworkFailed => '網路連線不穩定，請稍後再試。';
 
   @override
-  String get toastOriginalUnavailable => '無法讀取原始照片，請重新拍攝或選擇照片。';
+  String get toastOriginalUnavailable => '原始照片已遺失或無法讀取，請檢查相簿權限後重試。';
 
   @override
   String get toastInsufficientCredits => '點數不足。';
 
   @override
-  String get toastGenerationSubmitFailed => '生成請求失敗，請重試。';
+  String get toastGenerationSubmitFailed => '照片請求失敗，請重試。';
 
   @override
-  String get toastGenerationUploadFailed => '照片上傳失敗，請檢查網路後重試。';
+  String get toastGenerationUploadFailed => '照片請求失敗，請重試。';
 
   @override
-  String get toastGenerationTaskCreateFailed => '照片已上傳，但生成請求建立失敗，請重試。';
+  String get toastGenerationTaskCreateFailed => '照片請求失敗，請重試。';
 
   @override
-  String get toastGenerationBackendFailed => '圖片生成失敗，請重試。';
+  String get toastGenerationBackendFailed => '照片請求失敗，請重試。';
 
   @override
-  String get toastResultSaveFailed => '結果圖片無法儲存，請重試。';
+  String get toastResultSaveFailed => '結果圖片儲存失敗，請檢查相簿權限後重試。';
 
   @override
   String get toastGalleryICloudImportFailed => '無法從 iCloud 下載此照片，請稍後再試。';

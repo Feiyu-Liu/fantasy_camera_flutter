@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
@@ -23,7 +24,10 @@ class CreditPurchasePage extends ConsumerStatefulWidget {
 }
 
 class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
+  static const double _baseHeroContentHeight = 380;
+
   String? _selectedProductId;
+  double _heroOverscroll = 0;
 
   @override
   void initState() {
@@ -40,10 +44,11 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
       BillingControllerState next,
     ) {
       final AppToastService toastService = ref.read(appToastServiceProvider);
+      final AppLocalizations l10n = context.l10n;
       final int? purchaseSuccessCredits = next.purchaseSuccessCredits;
       if (purchaseSuccessCredits != null &&
           purchaseSuccessCredits != previous?.purchaseSuccessCredits) {
-        toastService.showPurchaseSuccess(purchaseSuccessCredits);
+        toastService.showPurchaseSuccess(l10n, purchaseSuccessCredits);
       }
 
       final String? errorMessage = next.errorMessage;
@@ -54,9 +59,9 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
       }
       switch (next.errorKind) {
         case BillingErrorKind.purchase:
-          toastService.showPurchaseFailure();
+          toastService.showPurchaseFailure(l10n);
         case BillingErrorKind.restore:
-          toastService.showRestorePurchaseFailure();
+          toastService.showRestorePurchaseFailure(l10n);
         case BillingErrorKind.loadProducts:
         case null:
           break;
@@ -72,79 +77,160 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
           );
     final String? selectedProductId = selectedProduct?.productId;
     final AppThemeColors colors = AppThemeColors.of(context);
+    final double heroContentHeight = _baseHeroContentHeight + _heroOverscroll;
     return CupertinoPageScaffold(
       backgroundColor: colors.background,
       child: Stack(
         children: <Widget>[
-          ListView(
-            padding: EdgeInsets.fromLTRB(16, topInset + 74, 16, 24),
-            physics: const BouncingScrollPhysics(),
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 800,
+            child: _PurchaseHeroBackground(),
+          ),
+          Column(
             children: <Widget>[
-              const _PurchaseHero(),
-              const SizedBox(height: 24),
-              if (state.isLoading)
-                Padding(
-                  padding: const EdgeInsets.only(top: 40),
-                  child: Center(
-                    child: CupertinoActivityIndicator(
-                      color: colors.textPrimary,
-                    ),
-                  ),
-                )
-              else if (state.products.isEmpty)
-                _EmptyPurchaseState(
-                  onRetry: () {
-                    ref.read(billingControllerProvider.notifier).loadProducts();
+              const SizedBox(height: _baseHeroContentHeight),
+              Expanded(
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (ScrollNotification notification) {
+                    _updateHeroOverscroll(notification.metrics);
+                    return false;
                   },
-                )
-              else ...<Widget>[
-                for (final BillingProduct product in state.products)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _CreditPackRow(
-                      product: product,
-                      isBusy: state.isPurchasing,
-                      isSelected: product.productId == selectedProductId,
-                      onPressed: () {
-                        HapticFeedback.selectionClick();
-                        setState(() {
-                          _selectedProductId = product.productId;
-                        });
-                        ref
-                            .read(billingControllerProvider.notifier)
-                            .clearPurchaseSuccess();
-                      },
+                  child: CustomScrollView(
+                    physics: const _TopBouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
                     ),
+                    slivers: <Widget>[
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Container(
+                          color: colors.background,
+                          padding: const EdgeInsets.only(bottom: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              const SizedBox(height: 24),
+                              if (state.isLoading)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 40),
+                                  child: Center(
+                                    child: CupertinoActivityIndicator(
+                                      color: colors.textPrimary,
+                                    ),
+                                  ),
+                                )
+                              else if (state.products.isEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: _EmptyPurchaseState(
+                                    onRetry: () {
+                                      ref
+                                          .read(
+                                            billingControllerProvider.notifier,
+                                          )
+                                          .loadProducts();
+                                    },
+                                  ),
+                                )
+                              else ...<Widget>[
+                                for (final BillingProduct product
+                                    in state.products)
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      0,
+                                      16,
+                                      12,
+                                    ),
+                                    child: _CreditPackRow(
+                                      product: product,
+                                      isBusy: state.isPurchasing,
+                                      isSelected:
+                                          product.productId ==
+                                          selectedProductId,
+                                      onPressed: () {
+                                        HapticFeedback.selectionClick();
+                                        setState(() {
+                                          _selectedProductId =
+                                              product.productId;
+                                        });
+                                        ref
+                                            .read(
+                                              billingControllerProvider
+                                                  .notifier,
+                                            )
+                                            .clearPurchaseSuccess();
+                                      },
+                                    ),
+                                  ),
+                                const SizedBox(height: 2),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: _PurchaseButton(
+                                    isBusy: state.isPurchasing,
+                                    grantedCredits:
+                                        state.purchaseSuccessCredits,
+                                    onPressed: selectedProduct == null
+                                        ? null
+                                        : () {
+                                            HapticFeedback.selectionClick();
+                                            ref
+                                                .read(
+                                                  billingControllerProvider
+                                                      .notifier,
+                                                )
+                                                .purchase(selectedProduct);
+                                          },
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 10),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                child: _PurchaseFooterLinks(
+                                  isBusy: state.isPurchasing,
+                                  onRestorePressed: () {
+                                    HapticFeedback.selectionClick();
+                                    ref
+                                        .read(
+                                          billingControllerProvider.notifier,
+                                        )
+                                        .restore();
+                                  },
+                                  onPrivacyPressed: () {
+                                    HapticFeedback.selectionClick();
+                                  },
+                                  onTermsPressed: () {
+                                    HapticFeedback.selectionClick();
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                const SizedBox(height: 2),
-                _PurchaseButton(
-                  isBusy: state.isPurchasing,
-                  grantedCredits: state.purchaseSuccessCredits,
-                  onPressed: selectedProduct == null
-                      ? null
-                      : () {
-                          HapticFeedback.selectionClick();
-                          ref
-                              .read(billingControllerProvider.notifier)
-                              .purchase(selectedProduct);
-                        },
                 ),
-              ],
-              const SizedBox(height: 10),
-              _PurchaseFooterLinks(
-                isBusy: state.isPurchasing,
-                onRestorePressed: () {
-                  HapticFeedback.selectionClick();
-                  ref.read(billingControllerProvider.notifier).restore();
-                },
-                onPrivacyPressed: () {
-                  HapticFeedback.selectionClick();
-                },
-                onTermsPressed: () {
-                  HapticFeedback.selectionClick();
-                },
               ),
             ],
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: heroContentHeight,
+            child: IgnorePointer(
+              child: _PurchaseHeroContent(topInset: topInset),
+            ),
           ),
           Positioned(
             top: 0,
@@ -159,6 +245,18 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
       ),
     );
   }
+
+  void _updateHeroOverscroll(ScrollMetrics metrics) {
+    final double nextOverscroll = metrics.pixels < metrics.minScrollExtent
+        ? metrics.minScrollExtent - metrics.pixels
+        : 0.0;
+    if ((nextOverscroll - _heroOverscroll).abs() < 0.5) {
+      return;
+    }
+    setState(() {
+      _heroOverscroll = nextOverscroll;
+    });
+  }
 }
 
 class _PurchaseNavigationBar extends StatelessWidget {
@@ -172,15 +270,14 @@ class _PurchaseNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AppThemeColors colors = AppThemeColors.of(context);
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: colors.navBlurBackground,
-            border: Border(
-              bottom: BorderSide(color: colors.border, width: 0.5),
+            color: const Color(0xFF0F1123).withValues(alpha: 0.8),
+            border: const Border(
+              bottom: BorderSide(color: Color(0xFF1D203D), width: 0.5),
             ),
           ),
           child: SizedBox(
@@ -196,9 +293,9 @@ class _PurchaseNavigationBar extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       minimumSize: const Size(44, 44),
                       onPressed: onBackPressed,
-                      child: Icon(
+                      child: const Icon(
                         CupertinoIcons.chevron_left,
-                        color: colors.textPrimary,
+                        color: Color(0xFFFFFFFF),
                         size: 20,
                       ),
                     ),
@@ -206,8 +303,8 @@ class _PurchaseNavigationBar extends StatelessWidget {
                   Text(
                     context.l10n.billingTitle,
                     textScaler: TextScaler.noScaling,
-                    style: TextStyle(
-                      color: colors.textPrimary,
+                    style: const TextStyle(
+                      color: Color(0xFFFFFFFF),
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 3.4,
@@ -223,54 +320,310 @@ class _PurchaseNavigationBar extends StatelessWidget {
   }
 }
 
-class _PurchaseHero extends StatelessWidget {
-  const _PurchaseHero();
+class _Star {
+  _Star({
+    required this.x,
+    required this.y,
+    required this.delay,
+    required this.duration,
+    required this.targetOpacity,
+    required this.twinklePhase,
+    required this.twinkleSpeed,
+  });
+  final double x;
+  final double y;
+  final double delay;
+  final double duration;
+  final double targetOpacity;
+  final double twinklePhase;
+  final double twinkleSpeed;
+}
+
+class _PurchaseHeroBackground extends StatefulWidget {
+  const _PurchaseHeroBackground();
+
+  @override
+  State<_PurchaseHeroBackground> createState() =>
+      _PurchaseHeroBackgroundState();
+}
+
+class _PurchaseHeroBackgroundState extends State<_PurchaseHeroBackground>
+    with TickerProviderStateMixin {
+  late AnimationController _entranceController;
+  late AnimationController _twinkleController;
+  List<_Star>? _stars;
+
+  @override
+  void initState() {
+    super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2800),
+    )..forward();
+
+    _twinkleController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    )..repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_stars == null) {
+      _generateStars(MediaQuery.of(context).size.width, 800);
+    }
+  }
+
+  void _generateStars(double width, double height) {
+    _stars = [];
+    final Random rnd = Random();
+    const double cellSize = 50.0; // 控制星星密度，类似 Poisson Disk Sampling，防止扎堆
+
+    for (double x = 0; x < width; x += cellSize) {
+      for (double y = 0; y < height; y += cellSize) {
+        // 在网格内加上一点安全边距随机生成位置
+        final double dotX = x + 5 + rnd.nextDouble() * (cellSize - 10);
+        final double dotY = y + 5 + rnd.nextDouble() * (cellSize - 10);
+
+        final double delay = rnd.nextDouble() * 0.75; // 进场延迟
+        final double duration = 0.2 + rnd.nextDouble() * 0.2; // 进场时长
+        final double targetOpacity = 0.4 + rnd.nextDouble() * 0.6; // 最终透明度
+        final double twinklePhase = rnd.nextDouble() * 2 * pi; // 闪烁相位
+
+        // 修复突变问题：速度必须是整数！
+        // 因为底层动画是 8 秒一循环（0.0 -> 1.0），当进度突变回 0.0 时，
+        // 如果速度不是整数，正弦波的波峰/波谷就会断裂。
+        // 设置为 1, 2, 3，代表在 8 秒内正好呼吸 1 次、2 次或 3 次，保证首尾无缝衔接。
+        final double twinkleSpeed = (1 + rnd.nextInt(3)).toDouble();
+
+        _stars!.add(
+          _Star(
+            x: dotX,
+            y: dotY,
+            delay: delay,
+            duration: duration,
+            targetOpacity: targetOpacity,
+            twinklePhase: twinklePhase,
+            twinkleSpeed: twinkleSpeed,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    _twinkleController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final AppThemeColors colors = AppThemeColors.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: colors.border, width: 0.5)),
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              stops: <double>[0.0, 0.5, 1.0],
+              colors: <Color>[
+                Color(0xFF0A0A1A), // 顶部依然保持深邃的暗黑蓝色
+                Color(0xFF222255), // 中间过渡色调亮
+                Color(0xFF404085), // 底部（浅蓝色）显著调浅
+              ],
+            ),
+          ),
+          child: CustomPaint(
+            painter: _StarryBackgroundPainter(
+              stars: _stars!,
+              entranceAnimation: _entranceController,
+              twinkleAnimation: _twinkleController,
+            ),
+          ),
+        ),
+        const Positioned(
+          left: 0,
+          right: 0,
+          bottom: 42,
+          child: _PurchaseHeroEasterEggText(),
+        ),
+      ],
+    );
+  }
+}
+
+class _PurchaseHeroEasterEggText extends StatelessWidget {
+  const _PurchaseHeroEasterEggText();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      'Light & Wonder',
+      textAlign: TextAlign.center,
+      textScaler: TextScaler.noScaling,
+      style: TextStyle(
+        color: const Color(0xFFFFFFFF).withValues(alpha: 0.42),
+        fontFamily: 'Snell Roundhand',
+        fontSize: 22,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0,
+        height: 1,
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 18, 4, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: <Widget>[
-            DecoratedBox(
-              decoration: AppCorners.controlDecoration(
-                color: colors.surface,
-                side: BorderSide(color: colors.border, width: 1),
-              ),
-              child: SizedBox(
-                width: 92,
-                height: 92,
-                child: Center(
-                  child: Icon(
-                    LucideIcons.star,
-                    color: colors.textPrimary,
-                    size: 36,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 28),
-            Text(
-              context.l10n.billingHeroTitle,
-              textAlign: TextAlign.center,
-              textScaler: TextScaler.noScaling,
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-                height: 1.05,
-              ),
-            ),
-          ],
+    );
+  }
+}
+
+class _PurchaseHeroContent extends StatelessWidget {
+  const _PurchaseHeroContent({required this.topInset});
+
+  final double topInset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, topInset + 50, 16, 0),
+      child: Center(
+        child: SizedBox(
+          width: double.infinity,
+          child: SizedBox(
+            width: double.infinity,
+            child: _PurchaseHeroMainContent(),
+          ),
         ),
       ),
     );
+  }
+}
+
+class _PurchaseHeroMainContent extends StatelessWidget {
+  const _PurchaseHeroMainContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: <Widget>[
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0x00000000),
+            border: Border.all(
+              color: const Color(0xFFFFFFFF).withValues(alpha: 0.4),
+              width: 1,
+            ),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const SizedBox(
+            width: 76,
+            height: 76,
+            child: Center(
+              child: Icon(LucideIcons.star, color: Color(0xFFFFFFFF), size: 36),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          context.l10n.billingHeroTitle,
+          textAlign: TextAlign.center,
+          textScaler: TextScaler.noScaling,
+          style: const TextStyle(
+            color: Color(0xFFFFFFFF),
+            fontSize: 24,
+            fontWeight: FontWeight.w600,
+            height: 1.05,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            context.l10n.billingHeroSubtitle,
+            textAlign: TextAlign.center,
+            textScaler: TextScaler.noScaling,
+            style: TextStyle(
+              color: const Color(0xFFFFFFFF).withValues(alpha: 0.7),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 1.1,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StarryBackgroundPainter extends CustomPainter {
+  _StarryBackgroundPainter({
+    required this.stars,
+    required this.entranceAnimation,
+    required this.twinkleAnimation,
+  }) : super(
+         repaint: Listenable.merge(<Listenable>[
+           entranceAnimation,
+           twinkleAnimation,
+         ]),
+       );
+
+  final List<_Star> stars;
+  final Animation<double> entranceAnimation;
+  final Animation<double> twinkleAnimation;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()..style = PaintingStyle.fill;
+
+    for (final _Star star in stars) {
+      double entranceOpacity = 0.0;
+      if (entranceAnimation.value > star.delay) {
+        entranceOpacity =
+            (entranceAnimation.value - star.delay) / star.duration;
+        if (entranceOpacity > 1.0) entranceOpacity = 1.0;
+        entranceOpacity = Curves.easeInOutSine.transform(entranceOpacity);
+      }
+
+      // 如果还没开始进场，跳过绘制
+      if (entranceOpacity <= 0) continue;
+
+      // 连续闪烁逻辑：利用正弦波，映射到 0.4x 到 1.0x 的透明度变化
+      final double twinkle =
+          (sin(
+                twinkleAnimation.value * 2 * pi * star.twinkleSpeed +
+                    star.twinklePhase,
+              ) +
+              1) /
+          2;
+
+      // 综合透明度 = 进场进度 * 基础目标透明度 * 闪烁波动
+      final double finalOpacity =
+          star.targetOpacity * entranceOpacity * (0.4 + 0.6 * twinkle);
+
+      final Offset starOffset = Offset(star.x, star.y);
+      paint.shader = RadialGradient(
+        colors: <Color>[
+          const Color(0xFFFFFFFF).withValues(alpha: finalOpacity * 0.22),
+          const Color(0xFFFFFFFF).withValues(alpha: 0),
+        ],
+      ).createShader(Rect.fromCircle(center: starOffset, radius: 4));
+      canvas.drawCircle(starOffset, 4, paint);
+
+      paint
+        ..shader = null
+        ..color = const Color(0xFFFFFFFF).withValues(alpha: finalOpacity);
+      canvas.drawCircle(starOffset, 1.0, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _StarryBackgroundPainter oldDelegate) {
+    return oldDelegate.stars != stars ||
+        oldDelegate.entranceAnimation != entranceAnimation ||
+        oldDelegate.twinkleAnimation != twinkleAnimation;
   }
 }
 
@@ -548,5 +901,32 @@ class _EmptyPurchaseState extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _TopBouncingScrollPhysics extends BouncingScrollPhysics {
+  const _TopBouncingScrollPhysics({super.parent});
+
+  @override
+  _TopBouncingScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return _TopBouncingScrollPhysics(parent: buildParent(ancestor));
+  }
+
+  @override
+  double frictionFactor(double overscrollFraction) {
+    // 默认是 0.52，调到 0.3 会让下拉显得更加“紧绷”，下拉幅度变小
+    return 0.3 * pow(1 - overscrollFraction, 2);
+  }
+
+  @override
+  double applyBoundaryConditions(ScrollMetrics position, double value) {
+    if (value > position.maxScrollExtent &&
+        position.maxScrollExtent >= position.minScrollExtent) {
+      if (position.pixels >= position.maxScrollExtent) {
+        return value - position.pixels;
+      }
+      return value - position.maxScrollExtent;
+    }
+    return super.applyBoundaryConditions(position, value);
   }
 }

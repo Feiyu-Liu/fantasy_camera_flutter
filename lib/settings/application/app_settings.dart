@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../l10n/l10n.dart';
+
 const String confirmBeforeGenerationPreferenceKey =
     'settings.confirm_before_generation';
 const String localePreferenceKey = 'settings.locale_preference';
@@ -34,6 +36,44 @@ Locale? localeForPreference(AppLocalePreference preference) {
     AppLocalePreference.ja => const Locale('ja'),
     AppLocalePreference.fr => const Locale('fr'),
   };
+}
+
+Locale effectiveLocaleForPreference(
+  AppLocalePreference preference, {
+  Locale? platformLocale,
+}) {
+  final Locale? explicitLocale = localeForPreference(preference);
+  if (explicitLocale != null) {
+    return explicitLocale;
+  }
+  final Locale resolvedPlatformLocale =
+      platformLocale ?? WidgetsBinding.instance.platformDispatcher.locale;
+  return _supportedLocaleFor(resolvedPlatformLocale);
+}
+
+String localeNameForPreference(
+  AppLocalePreference preference, {
+  Locale? platformLocale,
+}) {
+  return appLocalizationsFor(
+    effectiveLocaleForPreference(preference, platformLocale: platformLocale),
+  ).localeName;
+}
+
+Locale _supportedLocaleFor(Locale locale) {
+  for (final Locale supportedLocale in AppLocalizations.supportedLocales) {
+    if (supportedLocale.languageCode == locale.languageCode &&
+        supportedLocale.countryCode == locale.countryCode) {
+      return supportedLocale;
+    }
+  }
+  for (final Locale supportedLocale in AppLocalizations.supportedLocales) {
+    if (supportedLocale.languageCode == locale.languageCode &&
+        supportedLocale.countryCode == null) {
+      return supportedLocale;
+    }
+  }
+  return defaultAppLocale;
 }
 
 enum AppThemePreference {

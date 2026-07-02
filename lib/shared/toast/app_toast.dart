@@ -6,7 +6,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:smooth_corner/smooth_corner.dart';
 import 'package:toastification/toastification.dart';
 
-import '../../auth/presentation/auth_providers.dart';
 import '../../features/generation_submission/domain/generation_record.dart';
 import '../../l10n/l10n.dart';
 import '../../theme/app_colors.dart';
@@ -36,18 +35,9 @@ final appToastPresenterProvider = Provider<AppToastPresenter>(
   dependencies: const <ProviderOrFamily>[],
 );
 
-final appToastServiceProvider = Provider<AppToastService>(
-  (Ref ref) {
-    return AppToastService(
-      presenter: ref.watch(appToastPresenterProvider),
-      localizations: ref.watch(appLocalizationsProvider),
-    );
-  },
-  dependencies: <ProviderOrFamily>[
-    appLocalizationsProvider,
-    appToastPresenterProvider,
-  ],
-);
+final appToastServiceProvider = Provider<AppToastService>((Ref ref) {
+  return AppToastService(presenter: ref.watch(appToastPresenterProvider));
+}, dependencies: <ProviderOrFamily>[appToastPresenterProvider]);
 
 class AppToastHost extends StatelessWidget {
   const AppToastHost({required this.child, super.key});
@@ -110,44 +100,45 @@ class AppToastPresenter {
 }
 
 class AppToastService {
-  const AppToastService({
-    required AppToastPresenter presenter,
-    required AppLocalizations localizations,
-  }) : _presenter = presenter,
-       _localizations = localizations;
+  const AppToastService({required AppToastPresenter presenter})
+    : _presenter = presenter;
 
   final AppToastPresenter _presenter;
-  final AppLocalizations _localizations;
 
   void show(AppToastMessage message) {
     _presenter.show(message);
   }
 
   void showGenerationSubmitFailure({
+    required AppLocalizations localizations,
     String? errorCode,
     GenerationRecordFailureStage? failureStage,
   }) {
     show(
       AppToastMessage(
         type: AppToastType.error,
-        title: _generationSubmitFailureMessage(errorCode, failureStage),
+        title: _generationSubmitFailureMessage(
+          localizations,
+          errorCode,
+          failureStage,
+        ),
         dedupeKey:
             'generation.submit.${failureStage?.name ?? errorCode ?? 'unknown'}',
       ),
     );
   }
 
-  void showResultSaveFailure() {
+  void showResultSaveFailure(AppLocalizations localizations) {
     show(
       AppToastMessage(
         type: AppToastType.error,
-        title: _localizations.toastResultSaveFailed,
+        title: localizations.toastResultSaveFailed,
         dedupeKey: 'generation.result.save_failed',
       ),
     );
   }
 
-  void showGalleryImportFailure(Object error) {
+  void showGalleryImportFailure(AppLocalizations localizations, Object error) {
     final String text = error.toString();
     final bool exportFailed =
         text.contains('export_failed') ||
@@ -157,174 +148,190 @@ class AppToastService {
       AppToastMessage(
         type: AppToastType.error,
         title: exportFailed
-            ? _localizations.toastGalleryICloudImportFailed
-            : _localizations.toastGalleryImportFailed,
+            ? localizations.toastGalleryICloudImportFailed
+            : localizations.toastGalleryImportFailed,
         dedupeKey: exportFailed ? 'gallery.import.icloud' : 'gallery.import',
       ),
     );
   }
 
-  void showFavoriteFailure() {
+  void showFavoriteFailure(AppLocalizations localizations) {
     show(
       AppToastMessage(
         type: AppToastType.error,
-        title: _localizations.toastFavoriteFailed,
+        title: localizations.toastFavoriteFailed,
         dedupeKey: 'gallery.favorite.failed',
       ),
     );
   }
 
-  void showSaveOriginalSuccess() {
+  void showSaveOriginalSuccess(AppLocalizations localizations) {
     show(
       AppToastMessage(
         type: AppToastType.success,
-        title: _localizations.toastOriginalSaved,
+        title: localizations.toastOriginalSaved,
         dedupeKey: 'gallery.original.saved',
       ),
     );
   }
 
-  void showSaveOriginalFailure() {
+  void showSaveOriginalFailure(AppLocalizations localizations) {
     show(
       AppToastMessage(
         type: AppToastType.error,
-        title: _localizations.toastOriginalSaveFailed,
+        title: localizations.toastOriginalSaveFailed,
         dedupeKey: 'gallery.original.save_failed',
       ),
     );
   }
 
-  void showFeedbackSuccess() {
+  void showFeedbackSuccess(AppLocalizations localizations) {
     show(
       AppToastMessage(
         type: AppToastType.success,
-        title: _localizations.toastFeedbackSubmitted,
+        title: localizations.toastFeedbackSubmitted,
         dedupeKey: 'gallery.feedback.submitted',
       ),
     );
   }
 
-  void showFeedbackFailure() {
+  void showFeedbackFailure(AppLocalizations localizations) {
     show(
       AppToastMessage(
         type: AppToastType.error,
-        title: _localizations.toastFeedbackFailed,
+        title: localizations.toastFeedbackFailed,
         dedupeKey: 'gallery.feedback.failed',
       ),
     );
   }
 
-  void showOpenPhotoLibraryFailure() {
+  void showOpenPhotoLibraryFailure(AppLocalizations localizations) {
     show(
       AppToastMessage(
         type: AppToastType.error,
-        title: _localizations.toastOpenPhotoLibraryFailed,
+        title: localizations.toastOpenPhotoLibraryFailed,
         dedupeKey: 'gallery.open_library.failed',
       ),
     );
   }
 
-  void showClearOriginalCacheSuccess({String? message}) {
+  void showClearOriginalCacheSuccess(
+    AppLocalizations localizations, {
+    String? message,
+  }) {
     show(
       AppToastMessage(
         type: AppToastType.success,
-        title: _localizations.settingsClearOriginalCacheDoneTitle,
+        title: localizations.settingsClearOriginalCacheDoneTitle,
         message: message,
         dedupeKey: 'settings.original_cache.clear.success',
       ),
     );
   }
 
-  void showClearOriginalCachePartial({String? message}) {
+  void showClearOriginalCachePartial(
+    AppLocalizations localizations, {
+    String? message,
+  }) {
     show(
       AppToastMessage(
         type: AppToastType.warning,
-        title: _localizations.settingsClearOriginalCachePartialTitle,
+        title: localizations.settingsClearOriginalCachePartialTitle,
         message: message,
         dedupeKey: 'settings.original_cache.clear.partial',
       ),
     );
   }
 
-  void showClearOriginalCacheFailure({String? message}) {
+  void showClearOriginalCacheFailure(
+    AppLocalizations localizations, {
+    String? message,
+  }) {
     show(
       AppToastMessage(
         type: AppToastType.error,
-        title: _localizations.settingsClearOriginalCacheFailedTitle,
+        title: localizations.settingsClearOriginalCacheFailedTitle,
         message:
-            message ?? _localizations.settingsClearOriginalCacheFailedMessage,
+            message ?? localizations.settingsClearOriginalCacheFailedMessage,
         dedupeKey: 'settings.original_cache.clear.failed',
       ),
     );
   }
 
-  void showPurchaseFailure() {
+  void showPurchaseFailure(AppLocalizations localizations) {
     show(
       AppToastMessage(
         type: AppToastType.error,
-        title: _localizations.toastPurchaseFailed,
+        title: localizations.toastPurchaseFailed,
         dedupeKey: 'billing.purchase.failed',
       ),
     );
   }
 
-  void showPurchaseSuccess(int credits) {
+  void showPurchaseSuccess(AppLocalizations localizations, int credits) {
     show(
       AppToastMessage(
         type: AppToastType.success,
-        title: _localizations.toastPurchaseSuccess(credits),
+        title: localizations.toastPurchaseSuccess(credits),
         dedupeKey: 'billing.purchase.success',
       ),
     );
   }
 
-  void showRestorePurchaseFailure() {
+  void showRestorePurchaseFailure(AppLocalizations localizations) {
     show(
       AppToastMessage(
         type: AppToastType.error,
-        title: _localizations.toastRestorePurchaseFailed,
+        title: localizations.toastRestorePurchaseFailed,
         dedupeKey: 'billing.restore.failed',
       ),
     );
   }
 
-  void showCreditRedemptionSuccess(int credits) {
+  void showCreditRedemptionSuccess(
+    AppLocalizations localizations,
+    int credits,
+  ) {
     show(
       AppToastMessage(
         type: AppToastType.success,
-        title: _localizations.toastCreditRedemptionSuccess(credits),
+        title: localizations.toastCreditRedemptionSuccess(credits),
         dedupeKey: 'billing.redemption.success',
       ),
     );
   }
 
-  void showCreditRedemptionFailure(String? errorCode) {
+  void showCreditRedemptionFailure(
+    AppLocalizations localizations,
+    String? errorCode,
+  ) {
     show(
       AppToastMessage(
         type: AppToastType.error,
-        title: _creditRedemptionFailureMessage(errorCode),
+        title: _creditRedemptionFailureMessage(localizations, errorCode),
         dedupeKey: 'billing.redemption.${errorCode ?? 'failed'}',
       ),
     );
   }
 
   String _generationSubmitFailureMessage(
+    AppLocalizations localizations,
     String? errorCode,
     GenerationRecordFailureStage? failureStage,
   ) {
     final String? stageMessage = switch (failureStage) {
       GenerationRecordFailureStage.creatingUpload ||
       GenerationRecordFailureStage.uploading =>
-        _localizations.toastGenerationUploadFailed,
+        localizations.toastGenerationUploadFailed,
       GenerationRecordFailureStage.creatingTask =>
-        _localizations.toastGenerationTaskCreateFailed,
+        localizations.toastGenerationTaskCreateFailed,
       GenerationRecordFailureStage.backendGeneration =>
-        _localizations.toastGenerationBackendFailed,
+        localizations.toastGenerationBackendFailed,
       GenerationRecordFailureStage.processingResult ||
       GenerationRecordFailureStage.resultSaving =>
-        _localizations.toastResultSaveFailed,
+        localizations.toastResultSaveFailed,
       GenerationRecordFailureStage.originalUnavailable =>
-        _localizations.toastOriginalUnavailable,
+        localizations.toastOriginalUnavailable,
       GenerationRecordFailureStage.preparingUploadImage ||
       GenerationRecordFailureStage.pollingTask ||
       GenerationRecordFailureStage.local ||
@@ -335,29 +342,32 @@ class AppToastService {
     }
     return switch (errorCode) {
       'network_timeout' ||
-      'network_error' => _localizations.toastGenerationNetworkFailed,
-      'original_unavailable' => _localizations.toastOriginalUnavailable,
+      'network_error' => localizations.toastGenerationNetworkFailed,
+      'original_unavailable' => localizations.toastOriginalUnavailable,
       'insufficient_credits' ||
       'insufficient_credit' ||
       'credits_insufficient' ||
-      'not_enough_credits' => _localizations.toastInsufficientCredits,
-      _ => _localizations.toastGenerationSubmitFailed,
+      'not_enough_credits' => localizations.toastInsufficientCredits,
+      _ => localizations.toastGenerationSubmitFailed,
     };
   }
 
-  String _creditRedemptionFailureMessage(String? errorCode) {
+  String _creditRedemptionFailureMessage(
+    AppLocalizations localizations,
+    String? errorCode,
+  ) {
     return switch (errorCode) {
-      'invalid_redemption_code' => _localizations.toastCreditRedemptionInvalid,
+      'invalid_redemption_code' => localizations.toastCreditRedemptionInvalid,
       'redemption_code_unavailable' ||
       'redemption_code_expired' ||
       'redemption_code_revoked' ||
       'redemption_code_redeemed' =>
-        _localizations.toastCreditRedemptionUnavailable,
+        localizations.toastCreditRedemptionUnavailable,
       'redemption_campaign_user_limit_reached' =>
-        _localizations.toastCreditRedemptionCampaignLimitReached,
+        localizations.toastCreditRedemptionCampaignLimitReached,
       'redemption_rate_limited' =>
-        _localizations.toastCreditRedemptionRateLimited,
-      _ => _localizations.toastCreditRedemptionFailed,
+        localizations.toastCreditRedemptionRateLimited,
+      _ => localizations.toastCreditRedemptionFailed,
     };
   }
 }

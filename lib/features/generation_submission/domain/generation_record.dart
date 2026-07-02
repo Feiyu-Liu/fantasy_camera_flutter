@@ -85,22 +85,3 @@ GenerationRecordResultAvailability generationRecordResultAvailabilityFromName(
 GenerationRecordHashStatus generationRecordHashStatusFromName(String name) {
   return GenerationRecordHashStatus.values.byName(name);
 }
-
-const Set<GenerationRecordPipelineStatus> activeGenerationRecordStatuses =
-    <GenerationRecordPipelineStatus>{
-      GenerationRecordPipelineStatus.preparingUploadImage,
-      GenerationRecordPipelineStatus.creatingUpload,
-      GenerationRecordPipelineStatus.uploading,
-      GenerationRecordPipelineStatus.uploadedWaitingTask,
-      GenerationRecordPipelineStatus.creatingTask,
-      GenerationRecordPipelineStatus.submitted,
-      GenerationRecordPipelineStatus.pollingTask,
-      GenerationRecordPipelineStatus.completed,
-      GenerationRecordPipelineStatus.processingResultImage,
-    };
-
-const Set<GenerationRecordPipelineStatus> clearableOriginalPipelineStatuses =
-    <GenerationRecordPipelineStatus>{
-      GenerationRecordPipelineStatus.resultSaved,
-      GenerationRecordPipelineStatus.canceled,
-    };

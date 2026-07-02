@@ -429,7 +429,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get billingHeroTitle => 'クレジットを取得';
 
   @override
-  String get billingHeroSubtitle => 'クレジットは画像生成に使用されます。';
+  String get billingHeroSubtitle => 'クレジットは画像生成に使用されます';
 
   @override
   String billingCreditPackTitle(int credits) {
@@ -481,31 +481,30 @@ class AppLocalizationsJa extends AppLocalizations {
       '購入はApp Storeで処理されます。続行することで、利用規約とプライバシーポリシーに同意したことになります。';
 
   @override
-  String get toastGenerationNetworkFailed =>
-      'ネットワークが不安定なため、写真をアップロードできませんでした。後でもう一度お試しください。';
+  String get toastGenerationNetworkFailed => 'ネットワークが不安定です。後でもう一度お試しください。';
 
   @override
-  String get toastOriginalUnavailable => '元の写真を読み込めませんでした。別の写真を撮影または選択してください。';
+  String get toastOriginalUnavailable =>
+      '元の写真が見つからないか読み込めません。写真へのアクセス権限を確認してから再試行してください。';
 
   @override
   String get toastInsufficientCredits => 'クレジットが不足しています。';
 
   @override
-  String get toastGenerationSubmitFailed => '生成リクエストに失敗しました。再試行してください。';
+  String get toastGenerationSubmitFailed => '写真リクエストに失敗しました。再試行してください。';
 
   @override
-  String get toastGenerationUploadFailed =>
-      '写真のアップロードに失敗しました。ネットワークを確認してから再試行してください。';
+  String get toastGenerationUploadFailed => '写真リクエストに失敗しました。再試行してください。';
 
   @override
-  String get toastGenerationTaskCreateFailed =>
-      '写真はアップロードされましたが、生成リクエストを作成できませんでした。再試行してください。';
+  String get toastGenerationTaskCreateFailed => '写真リクエストに失敗しました。再試行してください。';
 
   @override
-  String get toastGenerationBackendFailed => '画像生成に失敗しました。再試行してください。';
+  String get toastGenerationBackendFailed => '写真リクエストに失敗しました。再試行してください。';
 
   @override
-  String get toastResultSaveFailed => '結果画像を保存できませんでした。再試行してください。';
+  String get toastResultSaveFailed =>
+      '結果画像を保存できませんでした。写真へのアクセス権限を確認してから再試行してください。';
 
   @override
   String get toastGalleryICloudImportFailed =>

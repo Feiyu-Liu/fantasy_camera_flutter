@@ -228,6 +228,59 @@ void main() {
     });
   });
 
+  test('updates pending prompt selection before confirming a job', () async {
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository()
+          ..listTaskResponses.add(_task(status: GenerationTaskStatus.pending));
+    final ProviderContainer container = _container(
+      uploadRepository: uploadRepository,
+      taskRepository: taskRepository,
+    );
+    addTearDown(container.dispose);
+
+    final GenerationSubmissionController notifier = container.read(
+      generationSubmissionControllerProvider.notifier,
+    );
+    final String jobId = await notifier.queueGalleryFile(
+      XFile('/tmp/photo.jpg'),
+    );
+
+    const PromptSelectionSnapshot updatedSelection = PromptSelectionSnapshot(
+      promptStyle: 'realistic',
+      captureMode: 'manual',
+      appInputContractId: 'contract-updated',
+      switches: <String, bool>{
+        'recompose': true,
+        'beautifyFace': false,
+        'cleanFrame': true,
+        'backgroundBlur': false,
+      },
+    );
+    await notifier.updatePendingPromptSelection(jobId, updatedSelection);
+
+    final GenerationSubmissionJob pendingJob = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(pendingJob.status, GenerationSubmissionStatus.awaitingConfirmation);
+    expect(pendingJob.promptSelection?.captureMode, 'manual');
+    expect(pendingJob.promptSelection?.switches['recompose'], isTrue);
+
+    await notifier.confirmJob(jobId);
+
+    final CreateGenerationTaskInput input =
+        uploadRepository.generationRequests.single!;
+    expect(input.captureMode, 'manual');
+    expect(input.appInputContractId, 'contract-updated');
+    expect(input.userInput['switches'], <String, Object?>{
+      'recompose': true,
+      'beautifyFace': false,
+      'cleanFrame': true,
+      'backgroundBlur': false,
+    });
+  });
+
   test('submit captured file keeps provided prompt selection', () async {
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
     final _FakeGenerationTaskRepository taskRepository =
@@ -571,7 +624,7 @@ void main() {
     expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
   });
 
-  test('missing original marks non-retryable submission failure', () async {
+  test('missing original marks failed but remains retryable', () async {
     final _FakeGenerationOriginalFileStore originalFileStore =
         _FakeGenerationOriginalFileStore()..existing = false;
     final ProviderContainer container = _container(
@@ -594,18 +647,66 @@ void main() {
     expect(job.status, GenerationSubmissionStatus.failed);
     expect(job.errorCode, 'original_unavailable');
     expect(job.failureStage, GenerationRecordFailureStage.originalUnavailable);
-    expect(job.failureRetryable, isFalse);
-    expect(job.isRetryableFailure, isFalse);
+    expect(job.failureRetryable, isTrue);
+    expect(job.isRetryableFailure, isTrue);
 
     await controller.retryJob(jobId);
 
-    final GenerationSubmissionJob retrySkippedJob = container
+    final GenerationSubmissionJob retryFailedJob = container
         .read(generationSubmissionControllerProvider)
         .jobs
         .single;
-    expect(retrySkippedJob.status, GenerationSubmissionStatus.failed);
-    expect(retrySkippedJob.failureRetryable, isFalse);
+    expect(retryFailedJob.status, GenerationSubmissionStatus.failed);
+    expect(retryFailedJob.errorCode, 'original_unavailable');
+    expect(
+      retryFailedJob.failureStage,
+      GenerationRecordFailureStage.originalUnavailable,
+    );
+    expect(retryFailedJob.isRetryableFailure, isTrue);
   });
+
+  test(
+    'local original save failure can retry and reports missing original',
+    () async {
+      final _FakeGenerationOriginalFileStore originalFileStore =
+          _FakeGenerationOriginalFileStore()
+            ..storeFailure = StateError('disk full')
+            ..existing = false;
+      final ProviderContainer container = _container(
+        originalFileStore: originalFileStore,
+      );
+      addTearDown(container.dispose);
+      final GenerationSubmissionController controller = container.read(
+        generationSubmissionControllerProvider.notifier,
+      );
+
+      final String? jobId = await controller.queueCapturedFile(
+        XFile('/tmp/photo.jpg'),
+      );
+      expect(jobId, isNotNull);
+
+      GenerationSubmissionJob job = container
+          .read(generationSubmissionControllerProvider)
+          .jobs
+          .single;
+      expect(job.status, GenerationSubmissionStatus.failed);
+      expect(job.errorCode, 'local_original_save_failed');
+      expect(job.failureStage, GenerationRecordFailureStage.local);
+      expect(job.failureRetryable, isTrue);
+      expect(job.isRetryableFailure, isTrue);
+
+      await controller.retryJob(jobId!);
+
+      job = container.read(generationSubmissionControllerProvider).jobs.single;
+      expect(job.status, GenerationSubmissionStatus.failed);
+      expect(job.errorCode, 'original_unavailable');
+      expect(
+        job.failureStage,
+        GenerationRecordFailureStage.originalUnavailable,
+      );
+      expect(job.isRetryableFailure, isTrue);
+    },
+  );
 
   test('marks job failed when uploaded task recovery fails', () async {
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
@@ -1397,7 +1498,7 @@ void main() {
     expect(photoLibraryAssetStore.events.single, contains('record-uploading'));
   });
 
-  test('retry failed job resubmits from original image', () async {
+  test('retry failed job refreshes task before reuploading', () async {
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
     final _FakeGenerationTaskRepository taskRepository =
         _FakeGenerationTaskRepository();
@@ -1446,10 +1547,8 @@ void main() {
     expect(job.errorCode, isNull);
     expect(job.failureStage, isNull);
     expect(job.failureRetryable, isFalse);
-    expect(uploadRepository.events, <String>[
-      'create:image/jpeg:4',
-      'create:image/jpeg:4',
-    ]);
+    expect(uploadRepository.events, <String>['create:image/jpeg:4']);
+    expect(taskRepository.fetchTaskIds, <String>['task-1']);
     expect(taskRepository.createdInputs, isEmpty);
     expect(taskRepository.fetchTaskByUploadSessionIds, <String>[
       'upload-1',

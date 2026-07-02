@@ -68,14 +68,9 @@ extension on WidgetTester {
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             builder: (BuildContext context, Widget? child) {
-              return ProviderScope(
-                overrides: <Override>[
-                  appLocalizationsProvider.overrideWithValue(context.l10n),
-                ],
-                child: AppThemeColorsScope(
-                  colors: appThemeColorsForPreference(AppThemePreference.light),
-                  child: child ?? const SizedBox.shrink(),
-                ),
+              return AppThemeColorsScope(
+                colors: appThemeColorsForPreference(AppThemePreference.light),
+                child: child ?? const SizedBox.shrink(),
               );
             },
             home: const CreditPurchasePage(),

@@ -371,16 +371,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
 
     final AppToastService toastService = ref.read(appToastServiceProvider);
+    final AppLocalizations l10n = context.l10n;
     if (failure != null || result == null) {
-      toastService.showClearOriginalCacheFailure();
+      toastService.showClearOriginalCacheFailure(l10n);
       return;
     }
-    final String message = _clearOriginalCacheMessage(result, context.l10n);
+    final String message = _clearOriginalCacheMessage(result, l10n);
     if (result.hasFailures) {
-      toastService.showClearOriginalCachePartial(message: message);
+      toastService.showClearOriginalCachePartial(l10n, message: message);
       return;
     }
-    toastService.showClearOriginalCacheSuccess(message: message);
+    toastService.showClearOriginalCacheSuccess(l10n, message: message);
   }
 
   Future<void> _confirmClearOriginalCache() async {
@@ -1029,10 +1030,11 @@ class _RedeemCodeDialogState extends ConsumerState<_RedeemCodeDialog> {
       }
 
       final AppToastService toastService = ref.read(appToastServiceProvider);
+      final AppLocalizations l10n = context.l10n;
       final int? grantedCredits = next.grantedCredits;
       if (grantedCredits != null &&
           grantedCredits != previous?.grantedCredits) {
-        toastService.showCreditRedemptionSuccess(grantedCredits);
+        toastService.showCreditRedemptionSuccess(l10n, grantedCredits);
         Navigator.of(context).pop();
         return;
       }
@@ -1041,7 +1043,7 @@ class _RedeemCodeDialogState extends ConsumerState<_RedeemCodeDialog> {
       if (errorCode != null &&
           (previous?.errorCode != errorCode ||
               previous?.errorMessage != next.errorMessage)) {
-        toastService.showCreditRedemptionFailure(errorCode);
+        toastService.showCreditRedemptionFailure(l10n, errorCode);
       }
     });
 

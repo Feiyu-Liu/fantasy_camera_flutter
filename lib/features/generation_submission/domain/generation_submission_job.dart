@@ -101,9 +101,8 @@ class GenerationSubmissionJob {
       resultNegativeFeedbackSubmittedAt != null;
 
   bool get isRetryableFailure {
-    return failureRetryable &&
-        (status == GenerationSubmissionStatus.failed ||
-            status == GenerationSubmissionStatus.resultProcessingFailed);
+    return status == GenerationSubmissionStatus.failed ||
+        status == GenerationSubmissionStatus.resultProcessingFailed;
   }
 
   bool get hasProcessedResultPath =>

@@ -1,14 +1,12 @@
 import 'dart:async';
 
-import '../../l10n/l10n.dart';
 import '../../shared/core/app_logger.dart';
 import '../data/auth_gateway.dart';
 import '../domain/access_token_provider.dart';
 import '../domain/auth_session_snapshot.dart';
 import '../domain/auth_session_state.dart';
 
-class SupabaseSessionCoordinator
-    implements AccessTokenProvider, AppLocalizationsAware {
+class SupabaseSessionCoordinator implements AccessTokenProvider {
   SupabaseSessionCoordinator({
     required AuthGateway authGateway,
     Duration initialSessionFallbackTimeout = const Duration(seconds: 3),
@@ -31,7 +29,6 @@ class SupabaseSessionCoordinator
   Completer<AuthGatewayEvent?>? _initialSessionEventCompleter;
   AuthGatewayEvent? _lastInitialSessionEvent;
   AuthSessionState _state = const AuthSessionState.restoring();
-  AppLocalizations _localizations = appLocalizationsFor(defaultAppLocale);
   Future<AuthSessionSnapshot?>? _refreshFuture;
   bool _signingOut = false;
 
@@ -40,11 +37,6 @@ class SupabaseSessionCoordinator
   Stream<AuthSessionState> get states async* {
     yield _state;
     yield* _stateController.stream;
-  }
-
-  @override
-  void bindLocalizations(AppLocalizations localizations) {
-    _localizations = localizations;
   }
 
   Future<void> restore() async {
@@ -137,7 +129,7 @@ class SupabaseSessionCoordinator
       if (session == null) {
         _setState(
           AuthSessionState.sessionExpired(
-            message: _localizations.authSessionExpired,
+            notice: AuthSessionNotice.sessionExpired,
           ),
         );
         return null;
@@ -148,7 +140,7 @@ class SupabaseSessionCoordinator
       logAppError('auth_refresh_failed', error, stackTrace);
       _setState(
         AuthSessionState.sessionExpired(
-          message: _localizations.authSessionExpired,
+          notice: AuthSessionNotice.sessionExpired,
         ),
       );
       return null;
@@ -159,12 +151,12 @@ class SupabaseSessionCoordinator
     AuthSessionStatus status,
     Future<AuthSessionSnapshot?> Function() action,
   ) async {
-    _setState(_state.copyWith(status: status, clearMessage: true));
+    _setState(_state.copyWith(status: status, clearNotice: true));
     final AuthSessionSnapshot? session = await action();
     if (session == null) {
       _setState(
         AuthSessionState.signedOut(
-          message: _localizations.authAccountCreatedSignIn,
+          notice: AuthSessionNotice.accountCreatedSignIn,
         ),
       );
       return;
@@ -202,7 +194,7 @@ class SupabaseSessionCoordinator
         } else {
           _setState(
             AuthSessionState.sessionExpired(
-              message: _localizations.authSessionExpired,
+              notice: AuthSessionNotice.sessionExpired,
             ),
           );
         }
