@@ -268,6 +268,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsConfirmBeforeGenerationSubtitle => 'アップロード前に写真を確認する';
 
   @override
+  String get settingsMirrorFrontCameraTitle => 'フロントカメラをミラー';
+
+  @override
+  String get settingsMirrorFrontCameraSubtitle => 'フロントカメラで撮影した写真を反転して保存';
+
+  @override
   String get settingsSectionGeneral => '一般';
 
   @override

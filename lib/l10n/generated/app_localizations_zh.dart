@@ -266,6 +266,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsConfirmBeforeGenerationSubtitle => '上传前先确认照片';
 
   @override
+  String get settingsMirrorFrontCameraTitle => '镜像前置相机';
+
+  @override
+  String get settingsMirrorFrontCameraSubtitle => '使用前置相机拍摄时保存镜像照片';
+
+  @override
   String get settingsSectionGeneral => '通用';
 
   @override
@@ -818,6 +824,12 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get settingsConfirmBeforeGenerationSubtitle => '上傳前先確認照片';
+
+  @override
+  String get settingsMirrorFrontCameraTitle => '鏡像前置相機';
+
+  @override
+  String get settingsMirrorFrontCameraSubtitle => '使用前置相機拍攝時儲存鏡像照片';
 
   @override
   String get settingsSectionGeneral => '一般';

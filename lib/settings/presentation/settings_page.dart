@@ -120,6 +120,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       .setConfirmBeforeGenerationEnabled(value);
                 },
               ),
+              _SettingsToggleRow(
+                switchKey: const ValueKey<String>(
+                  'settings-mirror-front-camera-switch',
+                ),
+                title: l10n.settingsMirrorFrontCameraTitle,
+                subtitle: l10n.settingsMirrorFrontCameraSubtitle,
+                value: appSettings.mirrorFrontCameraEnabled,
+                onChanged: (bool value) {
+                  ref
+                      .read(appSettingsControllerProvider.notifier)
+                      .setMirrorFrontCameraEnabled(value);
+                },
+              ),
               const _SectionDivider(),
               _SectionTitle(l10n.settingsSectionGeneral),
               _SettingsActionRow(

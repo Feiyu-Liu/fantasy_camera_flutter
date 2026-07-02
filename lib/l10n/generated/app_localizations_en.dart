@@ -281,6 +281,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Review a photo before upload';
 
   @override
+  String get settingsMirrorFrontCameraTitle => 'Mirror front camera';
+
+  @override
+  String get settingsMirrorFrontCameraSubtitle =>
+      'Save mirrored photos from the front camera';
+
+  @override
   String get settingsSectionGeneral => 'GENERAL';
 
   @override

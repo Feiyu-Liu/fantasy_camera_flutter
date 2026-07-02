@@ -316,6 +316,90 @@ void main() {
     },
   );
 
+  test('takePicture mirrors front camera captures by default', () async {
+    final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+    CameraPlatform.instance = camera;
+    final _TestContainer testContainer = _container(
+      choices: const <CameraChoice>[
+        CameraChoice(
+          description: CameraDescription(
+            name: 'front',
+            lensDirection: CameraLensDirection.front,
+            sensorOrientation: 0,
+          ),
+          label: 'Front Camera',
+          isVirtualDevice: false,
+          deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+        ),
+      ],
+    );
+    final ProviderContainer container = testContainer.container;
+    addTearDown(() async {
+      await testContainer.dispose();
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    final CameraControllerNotifier notifier = container.read(
+      cameraStateProvider.notifier,
+    );
+    await notifier.openDefaultCamera();
+
+    final Future<XFile?> takePictureFuture = notifier.takePicture();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(camera.photoCaptureMirroredEvents, <bool>[true]);
+
+    camera.completeTakePicture();
+    await takePictureFuture;
+
+    expect(camera.photoCaptureMirroredEvents, <bool>[true, false]);
+  });
+
+  test(
+    'takePicture does not mirror front camera captures when disabled',
+    () async {
+      final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+      CameraPlatform.instance = camera;
+      final _TestContainer testContainer = _container(
+        choices: const <CameraChoice>[
+          CameraChoice(
+            description: CameraDescription(
+              name: 'front',
+              lensDirection: CameraLensDirection.front,
+              sensorOrientation: 0,
+            ),
+            label: 'Front Camera',
+            isVirtualDevice: false,
+            deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+          ),
+        ],
+        appSettingsRepository: _FakeAppSettingsRepository(
+          mirrorFrontCameraEnabled: false,
+        ),
+      );
+      final ProviderContainer container = testContainer.container;
+      addTearDown(() async {
+        await testContainer.dispose();
+        await Future<void>.delayed(Duration.zero);
+      });
+
+      final CameraControllerNotifier notifier = container.read(
+        cameraStateProvider.notifier,
+      );
+      await notifier.openDefaultCamera();
+
+      final Future<XFile?> takePictureFuture = notifier.takePicture();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(camera.photoCaptureMirroredEvents, <bool>[false]);
+
+      camera.completeTakePicture();
+      await takePictureFuture;
+
+      expect(camera.photoCaptureMirroredEvents, <bool>[false, false]);
+    },
+  );
+
   test(
     'takePicture submits captured file when confirmation is disabled',
     () async {
@@ -683,6 +767,7 @@ class _FakeAVFoundationCamera extends AVFoundationCamera {
   Point<double>? exposurePoint;
   int createCameraCount = 0;
   int disposeCount = 0;
+  final List<bool> photoCaptureMirroredEvents = <bool>[];
 
   static const int _cameraId = 0;
 
@@ -774,6 +859,11 @@ class _FakeAVFoundationCamera extends AVFoundationCamera {
   ) async {}
 
   @override
+  Future<void> setPhotoCaptureMirrored(bool mirrored) async {
+    photoCaptureMirroredEvents.add(mirrored);
+  }
+
+  @override
   Future<XFile> takePicture(int cameraId) {
     return _takePictureCompleter.future;
   }
@@ -837,9 +927,13 @@ class _FakeCameraLensMetadataReader implements CameraLensMetadataReader {
 }
 
 class _FakeAppSettingsRepository implements AppSettingsRepository {
-  _FakeAppSettingsRepository({this.confirmBeforeGenerationEnabled = true});
+  _FakeAppSettingsRepository({
+    this.confirmBeforeGenerationEnabled = true,
+    this.mirrorFrontCameraEnabled = true,
+  });
 
   bool confirmBeforeGenerationEnabled;
+  bool mirrorFrontCameraEnabled;
   AppLocalePreference localePreference = AppLocalePreference.system;
   AppThemePreference themePreference = AppThemePreference.light;
 
@@ -847,6 +941,7 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   Future<AppSettingsState> loadSettings() async {
     return AppSettingsState(
       confirmBeforeGenerationEnabled: confirmBeforeGenerationEnabled,
+      mirrorFrontCameraEnabled: mirrorFrontCameraEnabled,
       localePreference: localePreference,
       themePreference: themePreference,
     );
@@ -855,6 +950,11 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   @override
   Future<void> saveConfirmBeforeGenerationEnabled(bool value) async {
     confirmBeforeGenerationEnabled = value;
+  }
+
+  @override
+  Future<void> saveMirrorFrontCameraEnabled(bool value) async {
+    mirrorFrontCameraEnabled = value;
   }
 
   @override

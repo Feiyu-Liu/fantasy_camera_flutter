@@ -165,6 +165,7 @@ void main() {
     expect(find.text('通用'), findsOneWidget);
     expect(find.text('语言切换'), findsOneWidget);
     expect(find.text('清除原图缓存'), findsOneWidget);
+    await scrollDownUntilTextVisible(tester, '使用兑换码');
     expect(find.text('使用兑换码'), findsOneWidget);
 
     await scrollDownUntilTextVisible(tester, '购买积分');
@@ -175,6 +176,7 @@ void main() {
 
     expect(find.text('信息'), findsOneWidget);
     expect(find.text('隐私政策'), findsOneWidget);
+    await scrollDownUntilTextVisible(tester, '使用条款');
     expect(find.text('使用条款'), findsOneWidget);
 
     await scrollDownUntilTextVisible(tester, '关于');
@@ -215,6 +217,17 @@ void main() {
 
     expect(confirmSwitch, findsOneWidget);
     expect(appSettingsRepository.confirmBeforeGenerationEnabled, isFalse);
+
+    final Finder mirrorSwitch = find.byKey(
+      const ValueKey<String>('settings-mirror-front-camera-switch'),
+    );
+
+    expect(mirrorSwitch, findsOneWidget);
+
+    await tester.tap(mirrorSwitch);
+    await tester.pumpAndSettle();
+
+    expect(appSettingsRepository.mirrorFrontCameraEnabled, isFalse);
   });
 
   testWidgets('language row can switch locale preference', (
@@ -660,6 +673,7 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   });
 
   bool confirmBeforeGenerationEnabled = true;
+  bool mirrorFrontCameraEnabled = true;
   AppLocalePreference localePreference;
   AppThemePreference themePreference;
 
@@ -667,6 +681,7 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   Future<AppSettingsState> loadSettings() async {
     return AppSettingsState(
       confirmBeforeGenerationEnabled: confirmBeforeGenerationEnabled,
+      mirrorFrontCameraEnabled: mirrorFrontCameraEnabled,
       localePreference: localePreference,
       themePreference: themePreference,
     );
@@ -675,6 +690,11 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   @override
   Future<void> saveConfirmBeforeGenerationEnabled(bool value) async {
     confirmBeforeGenerationEnabled = value;
+  }
+
+  @override
+  Future<void> saveMirrorFrontCameraEnabled(bool value) async {
+    mirrorFrontCameraEnabled = value;
   }
 
   @override

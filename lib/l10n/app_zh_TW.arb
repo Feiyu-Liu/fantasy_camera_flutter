@@ -100,6 +100,8 @@
   "settingsSectionCapture": "拍攝",
   "settingsConfirmBeforeGenerationTitle": "生成前確認",
   "settingsConfirmBeforeGenerationSubtitle": "上傳前先確認照片",
+  "settingsMirrorFrontCameraTitle": "鏡像前置相機",
+  "settingsMirrorFrontCameraSubtitle": "使用前置相機拍攝時儲存鏡像照片",
   "settingsSectionGeneral": "一般",
   "settingsLanguageTitle": "語言",
   "settingsLanguageSubtitle": "跟隨系統",

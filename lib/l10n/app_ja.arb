@@ -100,6 +100,8 @@
   "settingsSectionCapture": "撮影",
   "settingsConfirmBeforeGenerationTitle": "生成前に確認",
   "settingsConfirmBeforeGenerationSubtitle": "アップロード前に写真を確認する",
+  "settingsMirrorFrontCameraTitle": "フロントカメラをミラー",
+  "settingsMirrorFrontCameraSubtitle": "フロントカメラで撮影した写真を反転して保存",
   "settingsSectionGeneral": "一般",
   "settingsLanguageTitle": "言語",
   "settingsLanguageSubtitle": "システムのデフォルト",

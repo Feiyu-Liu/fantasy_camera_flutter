@@ -601,6 +601,18 @@ abstract class AppLocalizations {
   /// **'Review a photo before upload'**
   String get settingsConfirmBeforeGenerationSubtitle;
 
+  /// No description provided for @settingsMirrorFrontCameraTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Mirror front camera'**
+  String get settingsMirrorFrontCameraTitle;
+
+  /// No description provided for @settingsMirrorFrontCameraSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save mirrored photos from the front camera'**
+  String get settingsMirrorFrontCameraSubtitle;
+
   /// No description provided for @settingsSectionGeneral.
   ///
   /// In en, this message translates to:

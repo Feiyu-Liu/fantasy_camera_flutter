@@ -100,6 +100,8 @@
   "settingsSectionCapture": "拍摄",
   "settingsConfirmBeforeGenerationTitle": "拍摄后图片生成确认",
   "settingsConfirmBeforeGenerationSubtitle": "上传前先确认照片",
+  "settingsMirrorFrontCameraTitle": "镜像前置相机",
+  "settingsMirrorFrontCameraSubtitle": "使用前置相机拍摄时保存镜像照片",
   "settingsSectionGeneral": "通用",
   "settingsLanguageTitle": "语言切换",
   "settingsLanguageSubtitle": "跟随系统",
