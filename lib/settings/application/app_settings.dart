@@ -6,6 +6,7 @@ import '../../l10n/l10n.dart';
 
 const String confirmBeforeGenerationPreferenceKey =
     'settings.confirm_before_generation';
+const String mirrorFrontCameraPreferenceKey = 'settings.mirror_front_camera';
 const String localePreferenceKey = 'settings.locale_preference';
 const String themePreferenceKey = 'settings.theme_preference';
 
@@ -93,22 +94,27 @@ enum AppThemePreference {
 class AppSettingsState {
   const AppSettingsState({
     this.confirmBeforeGenerationEnabled = true,
+    this.mirrorFrontCameraEnabled = true,
     this.localePreference = AppLocalePreference.system,
     this.themePreference = AppThemePreference.light,
   });
 
   final bool confirmBeforeGenerationEnabled;
+  final bool mirrorFrontCameraEnabled;
   final AppLocalePreference localePreference;
   final AppThemePreference themePreference;
 
   AppSettingsState copyWith({
     bool? confirmBeforeGenerationEnabled,
+    bool? mirrorFrontCameraEnabled,
     AppLocalePreference? localePreference,
     AppThemePreference? themePreference,
   }) {
     return AppSettingsState(
       confirmBeforeGenerationEnabled:
           confirmBeforeGenerationEnabled ?? this.confirmBeforeGenerationEnabled,
+      mirrorFrontCameraEnabled:
+          mirrorFrontCameraEnabled ?? this.mirrorFrontCameraEnabled,
       localePreference: localePreference ?? this.localePreference,
       themePreference: themePreference ?? this.themePreference,
     );
@@ -119,6 +125,8 @@ abstract interface class AppSettingsRepository {
   Future<AppSettingsState> loadSettings();
 
   Future<void> saveConfirmBeforeGenerationEnabled(bool value);
+
+  Future<void> saveMirrorFrontCameraEnabled(bool value);
 
   Future<void> saveLocalePreference(AppLocalePreference preference);
 
@@ -134,6 +142,8 @@ class SharedPreferencesAppSettingsRepository implements AppSettingsRepository {
     return AppSettingsState(
       confirmBeforeGenerationEnabled:
           preferences.getBool(confirmBeforeGenerationPreferenceKey) ?? true,
+      mirrorFrontCameraEnabled:
+          preferences.getBool(mirrorFrontCameraPreferenceKey) ?? true,
       localePreference: AppLocalePreference.fromStorageValue(
         preferences.getString(localePreferenceKey),
       ),
@@ -147,6 +157,12 @@ class SharedPreferencesAppSettingsRepository implements AppSettingsRepository {
   Future<void> saveConfirmBeforeGenerationEnabled(bool value) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     await preferences.setBool(confirmBeforeGenerationPreferenceKey, value);
+  }
+
+  @override
+  Future<void> saveMirrorFrontCameraEnabled(bool value) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(mirrorFrontCameraPreferenceKey, value);
   }
 
   @override
@@ -201,6 +217,13 @@ class AppSettingsController extends Notifier<AppSettingsState> {
     await ref
         .read(appSettingsRepositoryProvider)
         .saveConfirmBeforeGenerationEnabled(value);
+  }
+
+  Future<void> setMirrorFrontCameraEnabled(bool value) async {
+    state = state.copyWith(mirrorFrontCameraEnabled: value);
+    await ref
+        .read(appSettingsRepositoryProvider)
+        .saveMirrorFrontCameraEnabled(value);
   }
 
   Future<void> setLocalePreference(AppLocalePreference preference) async {

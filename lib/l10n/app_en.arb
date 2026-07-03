@@ -100,6 +100,8 @@
   "settingsSectionCapture": "CAPTURE",
   "settingsConfirmBeforeGenerationTitle": "Confirm before generation",
   "settingsConfirmBeforeGenerationSubtitle": "Review a photo before upload",
+  "settingsMirrorFrontCameraTitle": "Mirror front camera",
+  "settingsMirrorFrontCameraSubtitle": "Save mirrored photos from the front camera",
   "settingsSectionGeneral": "GENERAL",
   "settingsLanguageTitle": "Language",
   "settingsLanguageSubtitle": "System default",

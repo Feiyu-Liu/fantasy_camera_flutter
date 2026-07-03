@@ -316,10 +316,16 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
           );
       final CameraCaptureMetadataSnapshot? cameraCaptureMetadataSnapshot =
           await _cameraCaptureMetadataSnapshot();
+      final AppSettingsState appSettings = await ref
+          .read(appSettingsControllerProvider.notifier)
+          .ensureLoaded();
+      final bool shouldMirrorPhoto =
+          state.isFrontCamera && appSettings.mirrorFrontCameraEnabled;
       final XFile file = await currentController
           .takePictureWithCaptureOrientation(
             captureOrientation,
             restoreOrientation: DeviceOrientation.portraitUp,
+            photoMirrored: shouldMirrorPhoto,
           );
       state = state.copyWith(lastCapturedFile: file);
       final PromptSelectionSnapshot promptSelection = ref
@@ -328,9 +334,6 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       final GenerationSubmissionController submissionController = ref.read(
         generationSubmissionControllerProvider.notifier,
       );
-      final AppSettingsState appSettings = await ref
-          .read(appSettingsControllerProvider.notifier)
-          .ensureLoaded();
       final bool confirmBeforeGeneration =
           appSettings.confirmBeforeGenerationEnabled;
       final String? recordId = await submissionController.queueCapturedFile(

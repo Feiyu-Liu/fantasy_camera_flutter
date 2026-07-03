@@ -726,6 +726,7 @@ class _FakeCreditBalanceCacheRepository
 
 class _FakeAppSettingsRepository implements AppSettingsRepository {
   bool confirmBeforeGenerationEnabled = true;
+  bool mirrorFrontCameraEnabled = true;
   AppLocalePreference localePreference = AppLocalePreference.zh;
   AppThemePreference themePreference = AppThemePreference.light;
 
@@ -733,6 +734,7 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   Future<AppSettingsState> loadSettings() async {
     return AppSettingsState(
       confirmBeforeGenerationEnabled: confirmBeforeGenerationEnabled,
+      mirrorFrontCameraEnabled: mirrorFrontCameraEnabled,
       localePreference: localePreference,
       themePreference: themePreference,
     );
@@ -741,6 +743,11 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   @override
   Future<void> saveConfirmBeforeGenerationEnabled(bool value) async {
     confirmBeforeGenerationEnabled = value;
+  }
+
+  @override
+  Future<void> saveMirrorFrontCameraEnabled(bool value) async {
+    mirrorFrontCameraEnabled = value;
   }
 
   @override

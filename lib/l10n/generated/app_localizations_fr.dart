@@ -286,6 +286,13 @@ class AppLocalizationsFr extends AppLocalizations {
       'Vérifier la photo avant envoi';
 
   @override
+  String get settingsMirrorFrontCameraTitle => 'Miroir caméra avant';
+
+  @override
+  String get settingsMirrorFrontCameraSubtitle =>
+      'Enregistrer les photos de la caméra avant en miroir';
+
+  @override
   String get settingsSectionGeneral => 'GÉNÉRAL';
 
   @override
