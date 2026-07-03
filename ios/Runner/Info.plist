@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Fantasy Camera Flutter</string>
+	<string>TesserCam</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>fantasy_camera_flutter</string>
+	<string>TesserCam</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleURLTypes</key>
@@ -38,13 +38,13 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Can I use the camera please? Only for demo purpose of the app</string>
+	<string>TesserCam uses the camera to take photos for AI image generation.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Only for demo purpose of the app</string>
+	<string>TesserCam needs microphone access only if you use camera features that record video with sound.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Save captured photos to the TesserCam album for generation debugging.</string>
+	<string>TesserCam saves generated images and originals you choose to save to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Select photos from your library for generation debugging.</string>
+	<string>TesserCam uses your photo library to let you choose images for AI generation.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

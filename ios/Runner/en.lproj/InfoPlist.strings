@@ -1,0 +1,5 @@
+"CFBundleDisplayName" = "TesserCam";
+"NSCameraUsageDescription" = "TesserCam uses the camera to take photos for AI image generation.";
+"NSMicrophoneUsageDescription" = "TesserCam needs microphone access only if you use camera features that record video with sound.";
+"NSPhotoLibraryAddUsageDescription" = "TesserCam saves generated images and originals you choose to save to your photo library.";
+"NSPhotoLibraryUsageDescription" = "TesserCam uses your photo library to let you choose images for AI generation.";

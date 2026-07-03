@@ -1,0 +1,5 @@
+"CFBundleDisplayName" = "TesserCam";
+"NSCameraUsageDescription" = "TesserCam utilise l'appareil photo pour prendre des photos destinées à la génération d'images par IA.";
+"NSMicrophoneUsageDescription" = "TesserCam a besoin du microphone uniquement si vous utilisez des fonctions caméra qui enregistrent une vidéo avec du son.";
+"NSPhotoLibraryAddUsageDescription" = "TesserCam enregistre dans votre photothèque les images générées et les originaux que vous choisissez de sauvegarder.";
+"NSPhotoLibraryUsageDescription" = "TesserCam utilise votre photothèque pour vous permettre de choisir des images destinées à la génération par IA.";

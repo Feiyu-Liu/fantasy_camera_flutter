@@ -1,0 +1,5 @@
+"CFBundleDisplayName" = "TesserCam";
+"NSCameraUsageDescription" = "TesserCam 需要使用相機拍攝照片。";
+"NSMicrophoneUsageDescription" = "僅當你使用帶聲音錄製的相機功能時，TesserCam 才需要取用麥克風。";
+"NSPhotoLibraryAddUsageDescription" = "TesserCam 需要儲存照片。";
+"NSPhotoLibraryUsageDescription" = "TesserCam 需要取用照片圖庫。";
