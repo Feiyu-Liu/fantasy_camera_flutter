@@ -17,6 +17,7 @@ import '../../features/generation_submission/application/generation_original_cac
 import '../../features/generation_submission/presentation/generation_submission_providers.dart';
 import '../../features/notifications/presentation/notification_providers.dart';
 import '../../l10n/l10n.dart';
+import '../../shared/core/app_logger.dart';
 import '../../shared/presentation/widgets/app_blur_navigation_bar.dart';
 import '../../shared/toast/app_toast.dart';
 import '../../theme/app_corners.dart';
@@ -320,7 +321,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       await Navigator.of(context).maybePop();
     } on Object catch (error) {
       failure = error;
-      debugPrint('[SettingsPage] sign out failure error=$error');
+      appDebugLog('SettingsPage', 'sign out failure error=$error');
     } finally {
       if (mounted) {
         setState(() {
@@ -369,7 +370,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           .clearCameraOriginalCache();
     } on Object catch (error) {
       failure = error;
-      debugPrint('[SettingsPage] clear original cache failure error=$error');
+      appDebugLog('SettingsPage', 'clear original cache failure error=$error');
     } finally {
       ref.invalidate(clearableOriginalCacheStatsProvider);
       if (mounted) {

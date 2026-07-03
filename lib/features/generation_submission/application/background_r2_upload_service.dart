@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:background_downloader/background_downloader.dart';
-import 'package:flutter/foundation.dart';
 
+import '../../../shared/core/app_logger.dart';
 import '../../backend_api/domain/upload_session.dart';
 
 class BackgroundR2UploadResult {
@@ -193,5 +193,5 @@ class BackgroundDownloaderR2UploadService implements BackgroundR2UploadService {
 }
 
 void _debugLog(String message) {
-  debugPrint('[BackgroundR2Upload] $message');
+  appDebugLog('BackgroundR2Upload', message);
 }

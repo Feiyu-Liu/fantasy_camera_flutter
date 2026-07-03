@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../auth/domain/access_token_provider.dart';
+import '../../../shared/core/app_logger.dart';
 import '../domain/api_failure.dart';
 import '../domain/json_value.dart';
 
@@ -182,7 +183,7 @@ class FantasyApiClient {
 }
 
 void _debugLog(String message) {
-  debugPrint('[FantasyApiClient] $message');
+  appDebugLog('FantasyApiClient', message);
 }
 
 String _formatDioException(String method, Object url, DioException error) {
