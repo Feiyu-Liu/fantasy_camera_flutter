@@ -7,6 +7,7 @@ import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../config/app_config.dart';
+import '../../../shared/core/app_logger.dart';
 import '../../backend_api/data/backend_repositories.dart';
 import '../../backend_api/domain/api_failure.dart';
 import '../../backend_api/domain/feedback.dart';
@@ -2281,7 +2282,7 @@ class GenerationSubmissionService extends ChangeNotifier {
   }
 
   void _debugLog(String message) {
-    debugPrint('[GenerationSubmissionService] $message');
+    appDebugLog('GenerationSubmissionService', message);
   }
 }
 

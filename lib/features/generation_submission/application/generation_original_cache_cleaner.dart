@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../shared/core/app_logger.dart';
 import '../data/generation_record_database.dart';
 import '../data/generation_original_file_store.dart';
 import '../data/generation_record_repository.dart';
@@ -148,9 +148,9 @@ class GenerationOriginalCacheCleaner {
         final File file = File(resolvedPath);
         if (!await file.exists()) {
           missingFileCount += 1;
-          debugPrint(
-            '[GenerationOriginalCacheCleaner] stats missing file '
-            'record=${record.recordId} path=$originalLocalPath',
+          appDebugLog(
+            'GenerationOriginalCacheCleaner',
+            'stats missing file record=${record.recordId} path=$originalLocalPath',
           );
           continue;
         }
@@ -162,9 +162,9 @@ class GenerationOriginalCacheCleaner {
         fileCount += 1;
       } on Object catch (error) {
         missingFileCount += 1;
-        debugPrint(
-          '[GenerationOriginalCacheCleaner] stats failure '
-          'record=${record.recordId} path=$originalLocalPath error=$error',
+        appDebugLog(
+          'GenerationOriginalCacheCleaner',
+          'stats failure record=${record.recordId} path=$originalLocalPath error=$error',
         );
       }
     }
@@ -175,9 +175,9 @@ class GenerationOriginalCacheCleaner {
       missingFileCount: missingFileCount,
       calculatedAt: _now?.call() ?? DateTime.now(),
     );
-    debugPrint(
-      '[GenerationOriginalCacheCleaner] stats complete '
-      'files=${stats.fileCount} bytes=${stats.totalBytes} missing=${stats.missingFileCount}',
+    appDebugLog(
+      'GenerationOriginalCacheCleaner',
+      'stats complete files=${stats.fileCount} bytes=${stats.totalBytes} missing=${stats.missingFileCount}',
     );
     return stats;
   }
@@ -203,16 +203,16 @@ class GenerationOriginalCacheCleaner {
         clearedCount += 1;
       } on Object catch (error) {
         failedCount += 1;
-        debugPrint(
-          '[GenerationOriginalCacheCleaner] clear failure '
-          'record=${record.recordId} path=$originalLocalPath error=$error',
+        appDebugLog(
+          'GenerationOriginalCacheCleaner',
+          'clear failure record=${record.recordId} path=$originalLocalPath error=$error',
         );
       }
     }
 
-    debugPrint(
-      '[GenerationOriginalCacheCleaner] clear complete '
-      'cleared=$clearedCount failed=$failedCount',
+    appDebugLog(
+      'GenerationOriginalCacheCleaner',
+      'clear complete cleared=$clearedCount failed=$failedCount',
     );
     return GenerationOriginalCacheClearResult(
       clearedCount: clearedCount,

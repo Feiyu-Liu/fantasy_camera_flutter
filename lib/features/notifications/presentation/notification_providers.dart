@@ -308,5 +308,5 @@ class NotificationNavigationDelegate {
 }
 
 void _debugLog(String message) {
-  debugPrint('[Notifications] $message');
+  appDebugLog('Notifications', message);
 }
