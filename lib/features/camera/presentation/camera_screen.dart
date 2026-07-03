@@ -347,8 +347,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       key: ValueKey<String>('camera-gallery-preview-$path'),
       fit: BoxFit.cover,
       errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
-        debugPrint(
-          '[CameraScreen] gallery preview image load failure path=$path error=$error',
+        appDebugLog(
+          'CameraScreen',
+          'gallery preview image load failure path=$path error=$error',
         );
         return const _MissingGalleryPreviewThumbnail();
       },

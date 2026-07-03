@@ -277,10 +277,11 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
     final bool focusSupported = currentController.value.focusPointSupported;
     final bool exposureSupported =
         currentController.value.exposurePointSupported;
-    debugPrint(
-      '[CameraFocus] tap point x=${clampedPoint.x.toStringAsFixed(3)} '
-      'y=${clampedPoint.y.toStringAsFixed(3)} '
-      'focusSupported=$focusSupported exposureSupported=$exposureSupported',
+    appDebugLog(
+      'CameraFocus',
+      'tap point x=${clampedPoint.x.toStringAsFixed(3)} '
+          'y=${clampedPoint.y.toStringAsFixed(3)} '
+          'focusSupported=$focusSupported exposureSupported=$exposureSupported',
     );
 
     if (!focusSupported && !exposureSupported) {

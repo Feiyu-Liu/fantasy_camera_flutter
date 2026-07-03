@@ -8,6 +8,7 @@ import 'package:native_exif/native_exif.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../../config/app_config.dart';
+import '../../../shared/core/app_logger.dart';
 
 class PreparedUploadImage {
   const PreparedUploadImage({
@@ -367,7 +368,7 @@ class FlutterGenerationImageProcessor implements GenerationImageProcessor {
 }
 
 void _debugLog(String message) {
-  debugPrint('[GenerationImageProcessor] $message');
+  appDebugLog('GenerationImageProcessor', message);
 }
 
 const List<String> _resultExifOrientationKeys = <String>['Orientation'];

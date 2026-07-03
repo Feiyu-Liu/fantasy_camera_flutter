@@ -15,6 +15,7 @@ import 'package:smooth_corner/smooth_corner.dart';
 
 import '../../../app/app_router.dart';
 import '../../../l10n/l10n.dart';
+import '../../../shared/core/app_logger.dart';
 import '../../../shared/presentation/widgets/app_blur_navigation_bar.dart';
 import '../../../shared/toast/app_toast.dart';
 import '../../../theme/app_corners.dart';
@@ -1116,7 +1117,7 @@ class _GenerationSubmissionDebugModalState
   }
 
   void _debugLog(String message) {
-    debugPrint('[GenerationSubmissionModal] $message');
+    appDebugLog('GenerationSubmissionModal', message);
   }
 
   _HeroImageSource? _heroImageSourceForJob(GenerationSubmissionJob job) {
@@ -2027,8 +2028,9 @@ class _ThumbnailImage extends StatelessWidget {
       File(path),
       fit: BoxFit.cover,
       errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
-        debugPrint(
-          '[GenerationSubmissionModal] thumbnail image load failure path=$path error=$error',
+        appDebugLog(
+          'GenerationSubmissionModal',
+          'thumbnail image load failure path=$path error=$error',
         );
         return const _MissingOriginalImagePlaceholder();
       },
@@ -2514,8 +2516,9 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
         : _childSizeForSource(imageSource);
 
     Widget errorBuilder(BuildContext context, Object error, StackTrace? stack) {
-      debugPrint(
-        '[GenerationSubmissionModal] ${imageSource.failureLogLabel} load failure path=${imageSource.debugPath} error=$error',
+      appDebugLog(
+        'GenerationSubmissionModal',
+        '${imageSource.failureLogLabel} load failure path=${imageSource.debugPath} error=$error',
       );
       return _HeroImageFailure(message: imageSource.failureMessage);
     }
@@ -2534,8 +2537,9 @@ class _GalleryHeroPagerState extends State<_GalleryHeroPager> {
         ),
         originalErrorBuilder:
             (BuildContext context, Object error, StackTrace? stack) {
-              debugPrint(
-                '[GenerationSubmissionModal] ${originalImageSource.failureLogLabel} load failure path=${originalImageSource.debugPath} error=$error',
+              appDebugLog(
+                'GenerationSubmissionModal',
+                '${originalImageSource.failureLogLabel} load failure path=${originalImageSource.debugPath} error=$error',
               );
               return _HeroImageFailure(
                 message: originalImageSource.failureMessage,
@@ -3127,8 +3131,9 @@ class _HeroToolbarState extends State<_HeroToolbar>
   }
 
   Future<void> _selectAction(_HeroMoreActionItem item) async {
-    debugPrint(
-      '[GenerationSubmissionModal] hero toolbar action selected action=${item.action.name} enabled=${item.enabled}',
+    appDebugLog(
+      'GenerationSubmissionModal',
+      'hero toolbar action selected action=${item.action.name} enabled=${item.enabled}',
     );
     if (!item.enabled) {
       _setExpanded(false);
