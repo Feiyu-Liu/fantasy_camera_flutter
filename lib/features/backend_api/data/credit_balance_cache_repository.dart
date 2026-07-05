@@ -9,6 +9,8 @@ abstract interface class CreditBalanceCacheRepository {
   Future<CreditBalance?> loadBalance(String userId);
 
   Future<void> saveBalance(String userId, CreditBalance balance);
+
+  Future<void> clearBalance(String userId);
 }
 
 class SharedPreferencesCreditBalanceCacheRepository
@@ -35,6 +37,12 @@ class SharedPreferencesCreditBalanceCacheRepository
   Future<void> saveBalance(String userId, CreditBalance balance) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     await preferences.setString(_keyFor(userId), jsonEncode(balance.toJson()));
+  }
+
+  @override
+  Future<void> clearBalance(String userId) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    await preferences.remove(_keyFor(userId));
   }
 
   String _keyFor(String userId) => '$_keyPrefix$userId';

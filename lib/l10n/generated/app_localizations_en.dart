@@ -424,6 +424,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsDeleteAccountSubtitle => 'Permanently remove your account';
 
   @override
+  String get settingsDeleteAccountConfirmTitle => 'Delete account?';
+
+  @override
+  String get settingsDeleteAccountConfirmMessage =>
+      'Your account, credits, and cloud generation records will be permanently deleted. This can\'t be undone.';
+
+  @override
+  String get settingsDeleteAccountConfirmAction => 'Delete';
+
+  @override
+  String get settingsDeleteAccountFailedTitle => 'Delete failed';
+
+  @override
+  String get settingsDeleteAccountFailedMessage =>
+      'Couldn\'t delete your account. Try again later.';
+
+  @override
   String get settingsSignOutTitle => 'Sign out';
 
   @override

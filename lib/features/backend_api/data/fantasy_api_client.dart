@@ -279,8 +279,12 @@ BackendApiFailure _failureFromDioException(DioException error) {
       final Object? rawError = envelope['error'];
       if (rawError is Map || rawError is Map<String, Object?>) {
         final JsonObject apiError = _asJsonObject(rawError);
+        final String code = _normalizedApiErrorCode(
+          _stringOrDefault(apiError['code'], 'api_error'),
+          _stringOrDefault(apiError['message'], 'Request failed.'),
+        );
         return BackendApiFailure(
-          code: _stringOrDefault(apiError['code'], 'api_error'),
+          code: code,
           message: _stringOrDefault(apiError['message'], 'Request failed.'),
           statusCode: statusCode,
           requestId: envelope['requestId'] as String?,
@@ -312,4 +316,12 @@ BackendApiFailure _failureFromDioException(DioException error) {
 
 String _stringOrDefault(Object? value, String fallback) {
   return value is String && value.isNotEmpty ? value : fallback;
+}
+
+String _normalizedApiErrorCode(String code, String message) {
+  if (code == 'conflict' &&
+      message.toLowerCase().contains('insufficient credits')) {
+    return 'insufficient_credits';
+  }
+  return code;
 }

@@ -81,6 +81,17 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<CameraState>(cameraStateProvider, (
+      CameraState? previous,
+      CameraState next,
+    ) {
+      final int previousTrigger =
+          previous?.insufficientCreditsPromptTrigger ?? 0;
+      if (next.insufficientCreditsPromptTrigger <= previousTrigger) {
+        return;
+      }
+      unawaited(_openCreditPurchase());
+    });
     final CameraState cameraState = ref.watch(cameraStateProvider);
     final AppThemeColors colors = AppThemeColors.of(context);
     return CupertinoPageScaffold(

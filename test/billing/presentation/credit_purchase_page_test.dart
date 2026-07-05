@@ -160,6 +160,9 @@ class _FakeCreditBalanceCacheRepository
 
   @override
   Future<void> saveBalance(String userId, CreditBalance balance) async {}
+
+  @override
+  Future<void> clearBalance(String userId) async {}
 }
 
 class _NoopAppToastPresenter extends AppToastPresenter {

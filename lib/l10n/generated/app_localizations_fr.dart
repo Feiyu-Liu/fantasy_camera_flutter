@@ -431,6 +431,23 @@ class AppLocalizationsFr extends AppLocalizations {
       'Supprimer définitivement ton compte';
 
   @override
+  String get settingsDeleteAccountConfirmTitle => 'Supprimer le compte ?';
+
+  @override
+  String get settingsDeleteAccountConfirmMessage =>
+      'Ton compte, tes crédits et tes générations cloud seront supprimés définitivement. Cette action est irréversible.';
+
+  @override
+  String get settingsDeleteAccountConfirmAction => 'Supprimer';
+
+  @override
+  String get settingsDeleteAccountFailedTitle => 'Suppression échouée';
+
+  @override
+  String get settingsDeleteAccountFailedMessage =>
+      'Impossible de supprimer le compte. Réessaie plus tard.';
+
+  @override
   String get settingsSignOutTitle => 'Se déconnecter';
 
   @override

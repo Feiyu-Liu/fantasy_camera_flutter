@@ -120,6 +120,9 @@ class AppConfig {
   // App 内置 prompt 配置版本。随生成请求写入 userInput，便于追踪生成任务使用的配置。
   static const String promptConfigVersion = 'app_bundled_2026_06_01';
 
+  // MVP 阶段每次生成固定消耗 2 积分；与后端 active prompt cost_credits 对齐。
+  static const int generationCostCredits = 2;
+
   // Supabase 是否具备可用配置；用于决定认证模块是否初始化远端能力。
   static bool get hasSupabaseConfig =>
       supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty;

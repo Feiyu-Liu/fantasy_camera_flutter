@@ -6,6 +6,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 
 import '../../config/app_config.dart';
 import '../domain/billing_product.dart';
+import '../../shared/core/app_logger.dart';
 
 sealed class BillingPurchaseOutcome {
   const BillingPurchaseOutcome();
@@ -86,6 +87,11 @@ class RevenueCatBillingGateway implements BillingGateway {
         : offerings.getOffering(_offeringId) ?? offerings.current;
     final List<Package> packages =
         offering?.availablePackages ?? const <Package>[];
+    appDebugLog(
+      'Billing',
+      'RevenueCat products loaded offering=${_offeringId.isEmpty ? 'current' : _offeringId} '
+          'resolvedOffering=${offering?.identifier ?? 'none'} packages=${packages.length}',
+    );
     return packages
         .map((Package package) {
           return BillingProduct(

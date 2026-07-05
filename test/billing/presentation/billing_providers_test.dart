@@ -218,10 +218,7 @@ void main() {
     );
     expect(billingRepository.syncCalls, 1);
     expect(state.isPurchasing, isFalse);
-    expect(
-      state.errorMessage,
-      'Purchase completed, but credits could not be synced.',
-    );
+    expect(state.errorMessage, 'billing_purchase_sync_failed');
     expect(state.lastGrantedCredits, isNull);
   });
 
@@ -249,6 +246,56 @@ void main() {
     );
     expect(state.lastGrantedCredits, 30);
     expect(state.purchaseSuccessCredits, isNull);
+  });
+
+  test(
+    'startup purchase recovery syncs purchases and refreshes balance',
+    () async {
+      final _FakeBillingRepository billingRepository = _FakeBillingRepository(
+        syncResult: const CreditPurchaseSyncResult(
+          grantedCredits: 30,
+          processedPurchases: 1,
+          balance: 158,
+          products: <CreditProduct>[],
+        ),
+      );
+      final _FakeCreditsRepository creditsRepository = _FakeCreditsRepository(
+        balance: 158,
+      );
+      final ProviderContainer container = _container(
+        gateway: _FakeBillingGateway(),
+        billingRepository: billingRepository,
+        creditsRepository: creditsRepository,
+      );
+      addTearDown(container.dispose);
+
+      await container.read(billingStartupPurchaseRecoveryProvider.future);
+      final CreditBalance balance = await container.read(
+        creditBalanceProvider.future,
+      );
+
+      expect(billingRepository.syncCalls, 1);
+      expect(creditsRepository.fetchCalls, greaterThanOrEqualTo(1));
+      expect(balance.balance, 158);
+    },
+  );
+
+  test('startup purchase recovery failure is best effort', () async {
+    final _FakeBillingRepository billingRepository = _FakeBillingRepository(
+      syncError: StateError('sync failed'),
+    );
+    final _FakeCreditsRepository creditsRepository = _FakeCreditsRepository();
+    final ProviderContainer container = _container(
+      gateway: _FakeBillingGateway(),
+      billingRepository: billingRepository,
+      creditsRepository: creditsRepository,
+    );
+    addTearDown(container.dispose);
+
+    await container.read(billingStartupPurchaseRecoveryProvider.future);
+
+    expect(billingRepository.syncCalls, 1);
+    expect(creditsRepository.fetchCalls, 0);
   });
 
   test(
@@ -333,6 +380,7 @@ ProviderContainer _container({
         ),
       ),
       billingGatewayProvider.overrideWithValue(gateway),
+      billingStartupPurchaseRecoveryEnabledProvider.overrideWithValue(true),
       billingRepositoryProvider.overrideWithValue(billingRepository),
       creditsRepositoryProvider.overrideWithValue(
         creditsRepository ?? _FakeCreditsRepository(),
@@ -468,5 +516,10 @@ class _FakeCreditBalanceCacheRepository
   @override
   Future<void> saveBalance(String userId, CreditBalance balance) async {
     balances[userId] = balance;
+  }
+
+  @override
+  Future<void> clearBalance(String userId) async {
+    balances.remove(userId);
   }
 }

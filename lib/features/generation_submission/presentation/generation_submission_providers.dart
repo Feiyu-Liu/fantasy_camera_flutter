@@ -6,7 +6,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart' hide XFile;
 
+import '../../../config/app_config.dart';
 import '../../../auth/presentation/auth_providers.dart';
+import '../../backend_api/domain/credit_balance.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
 import '../../notifications/presentation/notification_providers.dart';
@@ -540,6 +542,24 @@ class GenerationSubmissionController
   Future<void> confirmJob(String jobId) async {
     await _service.confirmJob(jobId);
     await _refreshFromRepository();
+  }
+
+  Future<bool> hasSufficientCreditsForGeneration({
+    int requiredCredits = AppConfig.generationCostCredits,
+  }) async {
+    CreditBalance? balance = ref.read(creditBalanceProvider).valueOrNull;
+    if (balance != null && balance.balance >= requiredCredits) {
+      return true;
+    }
+
+    try {
+      await ref.read(creditBalanceProvider.notifier).refreshFromServer();
+      balance = ref.read(creditBalanceProvider).valueOrNull;
+    } on Object {
+      return true;
+    }
+
+    return balance == null || balance.balance >= requiredCredits;
   }
 
   Future<void> updatePendingPromptSelection(

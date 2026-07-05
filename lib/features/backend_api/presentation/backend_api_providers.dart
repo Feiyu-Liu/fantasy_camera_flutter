@@ -29,6 +29,16 @@ final appConfigRepositoryProvider = Provider<AppConfigRepository>(
   ],
 );
 
+final accountRepositoryProvider = Provider<AccountRepository>(
+  (Ref ref) {
+    return WorkerAccountRepository(ref.watch(fantasyApiClientProvider));
+  },
+  dependencies: <ProviderOrFamily>[
+    accessTokenProvider,
+    fantasyApiClientProvider,
+  ],
+);
+
 final creditsRepositoryProvider = Provider<CreditsRepository>(
   (Ref ref) {
     return WorkerCreditsRepository(ref.watch(fantasyApiClientProvider));

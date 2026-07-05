@@ -356,9 +356,23 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
 
   Future<void> _confirmCapturedRecord(String recordId) async {
     try {
-      await ref
-          .read(generationSubmissionControllerProvider.notifier)
-          .confirmJob(recordId);
+      final GenerationSubmissionController submissionController = ref.read(
+        generationSubmissionControllerProvider.notifier,
+      );
+      final bool canGenerate = await submissionController
+          .hasSufficientCreditsForGeneration();
+      if (!canGenerate) {
+        appDebugLog(
+          'CameraCapture',
+          'auto confirm skipped record=$recordId reason=insufficient-credits',
+        );
+        state = state.copyWith(
+          insufficientCreditsPromptTrigger:
+              state.insufficientCreditsPromptTrigger + 1,
+        );
+        return;
+      }
+      await submissionController.confirmJob(recordId);
     } on Object catch (error, stackTrace) {
       logAppError('camera_auto_confirm_generation_failed', error, stackTrace);
     }

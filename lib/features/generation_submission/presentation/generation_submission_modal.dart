@@ -751,6 +751,10 @@ class _GenerationSubmissionDebugModalState
 
   Future<void> _confirmJob(GenerationSubmissionJob job) async {
     _debugLog('confirm job=${job.id}');
+    final bool canGenerate = await _ensureCreditsBeforeGeneration();
+    if (!canGenerate) {
+      return;
+    }
     setState(() {
       _selectedJobId = job.id;
       _heroDisplayStates[job.id] = const _GalleryHeroDisplayState(
@@ -812,6 +816,10 @@ class _GenerationSubmissionDebugModalState
 
   Future<void> _retryJob(GenerationSubmissionJob job) async {
     _debugLog('retry job=${job.id}');
+    final bool canGenerate = await _ensureCreditsBeforeGeneration();
+    if (!canGenerate) {
+      return;
+    }
     setState(() {
       _selectedJobId = job.id;
       _heroDisplayStates[job.id] = const _GalleryHeroDisplayState(
@@ -828,6 +836,20 @@ class _GenerationSubmissionDebugModalState
       _debugLog('retry job failure job=${job.id} error=$error');
       _showToastForFailedUserSubmission(job.id, fallbackErrorCode: null);
     }
+  }
+
+  Future<bool> _ensureCreditsBeforeGeneration() async {
+    final bool canGenerate = await ref
+        .read(generationSubmissionControllerProvider.notifier)
+        .hasSufficientCreditsForGeneration();
+    if (canGenerate) {
+      return true;
+    }
+    if (!mounted) {
+      return false;
+    }
+    _openPaywallForInsufficientCredits();
+    return false;
   }
 
   Future<void> _removeJob(GenerationSubmissionJob job) async {
@@ -1044,6 +1066,10 @@ class _GenerationSubmissionDebugModalState
       jobId,
     );
     if (updatedJob == null) {
+      if (_isInsufficientCreditsErrorCode(fallbackErrorCode)) {
+        _openPaywallForInsufficientCredits();
+        return;
+      }
       ref
           .read(appToastServiceProvider)
           .showGenerationSubmitFailure(
@@ -1052,13 +1078,19 @@ class _GenerationSubmissionDebugModalState
           );
       return;
     }
+    final String? errorCode = updatedJob.errorCode ?? fallbackErrorCode;
+    if (updatedJob.status == GenerationSubmissionStatus.awaitingConfirmation &&
+        _isInsufficientCreditsErrorCode(errorCode)) {
+      _openPaywallForInsufficientCredits();
+      return;
+    }
     switch (updatedJob.status) {
       case GenerationSubmissionStatus.failed:
         ref
             .read(appToastServiceProvider)
             .showGenerationSubmitFailure(
               localizations: context.l10n,
-              errorCode: updatedJob.errorCode ?? fallbackErrorCode,
+              errorCode: errorCode,
               failureStage: updatedJob.failureStage,
             );
       case GenerationSubmissionStatus.resultProcessingFailed:
@@ -1078,6 +1110,26 @@ class _GenerationSubmissionDebugModalState
       case GenerationSubmissionStatus.resultSaved:
         break;
     }
+  }
+
+  void _openPaywallForInsufficientCredits() {
+    if (!mounted) {
+      return;
+    }
+    ref
+        .read(appToastServiceProvider)
+        .showGenerationSubmitFailure(
+          localizations: context.l10n,
+          errorCode: 'insufficient_credits',
+        );
+    unawaited(context.push(creditPurchaseRoute));
+  }
+
+  bool _isInsufficientCreditsErrorCode(String? errorCode) {
+    return errorCode == 'insufficient_credits' ||
+        errorCode == 'insufficient_credit' ||
+        errorCode == 'credits_insufficient' ||
+        errorCode == 'not_enough_credits';
   }
 
   void _cancelGalleryExportProgressSubscription() {

@@ -404,6 +404,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsDeleteAccountSubtitle => '永久移除当前账号';
 
   @override
+  String get settingsDeleteAccountConfirmTitle => '注销账号？';
+
+  @override
+  String get settingsDeleteAccountConfirmMessage =>
+      '账号、积分和云端生成记录会被永久删除，此操作无法撤销。';
+
+  @override
+  String get settingsDeleteAccountConfirmAction => '注销';
+
+  @override
+  String get settingsDeleteAccountFailedTitle => '注销失败';
+
+  @override
+  String get settingsDeleteAccountFailedMessage => '无法注销账号，请稍后重试。';
+
+  @override
   String get settingsSignOutTitle => '退出登录';
 
   @override
@@ -962,6 +978,22 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get settingsDeleteAccountSubtitle => '永久移除你的帳號';
+
+  @override
+  String get settingsDeleteAccountConfirmTitle => '刪除帳號？';
+
+  @override
+  String get settingsDeleteAccountConfirmMessage =>
+      '帳號、點數與雲端生成記錄會被永久刪除，此操作無法復原。';
+
+  @override
+  String get settingsDeleteAccountConfirmAction => '刪除';
+
+  @override
+  String get settingsDeleteAccountFailedTitle => '刪除失敗';
+
+  @override
+  String get settingsDeleteAccountFailedMessage => '無法刪除帳號，請稍後再試。';
 
   @override
   String get settingsSignOutTitle => '登出';
