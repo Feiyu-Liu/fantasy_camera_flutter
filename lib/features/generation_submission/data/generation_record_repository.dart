@@ -531,6 +531,10 @@ class GenerationRecordRepository {
         .go();
   }
 
+  Future<void> deleteAllRecords() {
+    return _database.delete(_database.generationRecords).go();
+  }
+
   Future<void> _updateById(
     String recordId,
     GenerationRecordsCompanion companion,

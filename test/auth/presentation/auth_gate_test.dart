@@ -722,6 +722,11 @@ class _FakeCreditBalanceCacheRepository
   Future<void> saveBalance(String userId, CreditBalance balance) async {
     balances[userId] = balance;
   }
+
+  @override
+  Future<void> clearBalance(String userId) async {
+    balances.remove(userId);
+  }
 }
 
 class _FakeAppSettingsRepository implements AppSettingsRepository {

@@ -856,6 +856,36 @@ abstract class AppLocalizations {
   /// **'Permanently remove your account'**
   String get settingsDeleteAccountSubtitle;
 
+  /// No description provided for @settingsDeleteAccountConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete account?'**
+  String get settingsDeleteAccountConfirmTitle;
+
+  /// No description provided for @settingsDeleteAccountConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account, credits, and cloud generation records will be permanently deleted. This can\'t be undone.'**
+  String get settingsDeleteAccountConfirmMessage;
+
+  /// No description provided for @settingsDeleteAccountConfirmAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get settingsDeleteAccountConfirmAction;
+
+  /// No description provided for @settingsDeleteAccountFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete failed'**
+  String get settingsDeleteAccountFailedTitle;
+
+  /// No description provided for @settingsDeleteAccountFailedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t delete your account. Try again later.'**
+  String get settingsDeleteAccountFailedMessage;
+
   /// No description provided for @settingsSignOutTitle.
   ///
   /// In en, this message translates to:

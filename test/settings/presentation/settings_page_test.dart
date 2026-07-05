@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/app/app_router.dart';
 import 'package:fantasy_camera_flutter/auth/domain/auth_session_state.dart';
 import 'package:fantasy_camera_flutter/auth/domain/auth_user.dart';
@@ -10,7 +11,12 @@ import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balanc
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_redemption.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_original_cache_cleaner.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_original_file_store.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
+import 'package:fantasy_camera_flutter/features/notifications/data/notification_device_store.dart';
+import 'package:fantasy_camera_flutter/features/notifications/presentation/notification_providers.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
 import 'package:fantasy_camera_flutter/settings/presentation/settings_page.dart';
@@ -610,6 +616,97 @@ void main() {
     expect(signOutAction.callCount, 1);
   });
 
+  testWidgets('delete account confirm calls backend and signs out', (
+    WidgetTester tester,
+  ) async {
+    final _FakeAccountRepository accountRepository = _FakeAccountRepository();
+    final _FakeSettingsSignOutAction signOutAction =
+        _FakeSettingsSignOutAction();
+    final GenerationRecordDatabase database =
+        GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(database.close);
+    final GoRouter router = GoRouter(
+      initialLocation: settingsRoute,
+      routes: <RouteBase>[
+        GoRoute(
+          path: appHomeRoute,
+          builder: (BuildContext context, GoRouterState state) {
+            return const SizedBox(key: ValueKey<String>('test-home'));
+          },
+        ),
+        GoRoute(
+          path: settingsRoute,
+          builder: (BuildContext context, GoRouterState state) {
+            return const SettingsPage();
+          },
+        ),
+      ],
+    );
+
+    await tester.binding.setSurfaceSize(const Size(393, 852));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      AppToastHost(
+        child: ProviderScope(
+          overrides: <Override>[
+            authSessionProvider.overrideWith(
+              (_) => Stream<AuthSessionState>.value(
+                const AuthSessionState.signedIn(
+                  AuthUser(id: 'user-1', email: 'alex@example.com'),
+                ),
+              ),
+            ),
+            accountRepositoryProvider.overrideWithValue(accountRepository),
+            creditsRepositoryProvider.overrideWithValue(
+              _FakeCreditsRepository(),
+            ),
+            creditBalanceCacheRepositoryProvider.overrideWithValue(
+              _FakeCreditBalanceCacheRepository(),
+            ),
+            appSettingsRepositoryProvider.overrideWithValue(
+              _FakeAppSettingsRepository(),
+            ),
+            generationRecordDatabaseProvider.overrideWithValue(database),
+            generationOriginalFileStoreProvider.overrideWithValue(
+              _FakeGenerationOriginalFileStore(),
+            ),
+            notificationDeviceStoreProvider.overrideWithValue(
+              _FakeNotificationDeviceStore(),
+            ),
+            generationOriginalCacheCleanerProvider.overrideWithValue(
+              _FakeGenerationOriginalCacheCleaner(),
+            ),
+            generationOriginalCacheStatsRepositoryProvider.overrideWithValue(
+              _FakeGenerationOriginalCacheStatsRepository(),
+            ),
+            settingsSignOutActionProvider.overrideWithValue(signOutAction.call),
+          ],
+          child: CupertinoApp.router(
+            locale: defaultAppLocale,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            routerConfig: router,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await scrollDownUntilTextTappable(tester, '注销账号');
+    await tester.tap(find.text('注销账号'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('注销账号？'), findsOneWidget);
+    expect(accountRepository.deleteCalls, 0);
+
+    await tester.tap(find.text('注销').last);
+    await tester.pumpAndSettle();
+
+    expect(accountRepository.deleteCalls, 1);
+    expect(signOutAction.callCount, 1);
+    expect(find.byKey(const ValueKey<String>('test-home')), findsOneWidget);
+  });
+
   testWidgets('settings route builds page', (WidgetTester tester) async {
     final GoRouter router = createAppRouter();
     router.go(settingsRoute);
@@ -663,6 +760,15 @@ class _RecordingAppToastPresenter extends AppToastPresenter {
   @override
   void show(AppToastMessage message) {
     messages.add(message);
+  }
+}
+
+class _FakeAccountRepository implements AccountRepository {
+  int deleteCalls = 0;
+
+  @override
+  Future<void> deleteAccount() async {
+    deleteCalls += 1;
   }
 }
 
@@ -757,6 +863,70 @@ class _FakeCreditBalanceCacheRepository
   Future<void> saveBalance(String userId, CreditBalance balance) async {
     balances[userId] = balance;
   }
+
+  @override
+  Future<void> clearBalance(String userId) async {
+    balances.remove(userId);
+  }
+}
+
+class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
+  final List<String> deletedPaths = <String>[];
+
+  @override
+  Future<void> deleteOriginal(String path) async {
+    deletedPaths.add(path);
+  }
+
+  @override
+  Future<bool> originalExists(String path) async {
+    return true;
+  }
+
+  @override
+  Future<String> resolveOriginalPath(String path) async {
+    return path;
+  }
+
+  @override
+  Future<StoredOriginalFile> storeCameraOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime capturedAt,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<StoredOriginalFile> storeGalleryOriginal({
+    required String recordId,
+    required String sourcePath,
+    required DateTime importedAt,
+  }) {
+    throw UnimplementedError();
+  }
+}
+
+class _FakeNotificationDeviceStore implements NotificationDeviceStore {
+  int clearCalls = 0;
+
+  @override
+  Future<void> clearDevice() async {
+    clearCalls += 1;
+  }
+
+  @override
+  Future<String> installationId() async {
+    return 'installation-1';
+  }
+
+  @override
+  Future<StoredNotificationDevice?> loadDevice() async {
+    return null;
+  }
+
+  @override
+  Future<void> saveDevice(StoredNotificationDevice device) async {}
 }
 
 class _FakeGenerationOriginalCacheCleaner

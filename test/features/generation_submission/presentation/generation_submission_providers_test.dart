@@ -161,7 +161,10 @@ void main() {
     expect(job.sourceExif, <String, Object>{
       'DateTimeOriginal': '2026:05:29 00:00:00',
     });
-    expect(uploadRepository.events, <String>['create:image/jpeg:4']);
+    expect(uploadRepository.events, <String>[
+      'create:image/jpeg:4',
+      'complete:upload-1',
+    ]);
     expect(backgroundR2UploadService.events, hasLength(1));
     expect(
       backgroundR2UploadService.events.single,
@@ -349,7 +352,10 @@ void main() {
     expect(imageProcessor.preparedSourcePaths, <String>[
       '/resolved/originals/2026/06/04/$jobId.heic',
     ]);
-    expect(uploadRepository.events, <String>['create:image/jpeg:4']);
+    expect(uploadRepository.events, <String>[
+      'create:image/jpeg:4',
+      'complete:upload-1',
+    ]);
     expect(backgroundR2UploadService.events, hasLength(1));
     expect(taskRepository.createdInputs, isEmpty);
     expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
@@ -504,37 +510,40 @@ void main() {
     },
   );
 
-  test('marks job failed when upload creation fails', () async {
-    final _FakeUploadRepository uploadRepository = _FakeUploadRepository()
-      ..createUploadFailure = const BackendApiFailure(
-        code: 'conflict',
-        message: 'Insufficient credits',
-        statusCode: 409,
+  test(
+    'keeps job awaiting confirmation when backend reports insufficient credits',
+    () async {
+      final _FakeUploadRepository uploadRepository = _FakeUploadRepository()
+        ..createUploadFailure = const BackendApiFailure(
+          code: 'conflict',
+          message: 'Insufficient credits',
+          statusCode: 409,
+        );
+      final _FakeGenerationTaskRepository taskRepository =
+          _FakeGenerationTaskRepository();
+      final ProviderContainer container = _container(
+        uploadRepository: uploadRepository,
+        taskRepository: taskRepository,
       );
-    final _FakeGenerationTaskRepository taskRepository =
-        _FakeGenerationTaskRepository();
-    final ProviderContainer container = _container(
-      uploadRepository: uploadRepository,
-      taskRepository: taskRepository,
-    );
-    addTearDown(container.dispose);
+      addTearDown(container.dispose);
 
-    await container
-        .read(generationSubmissionControllerProvider.notifier)
-        .submitCapturedFile(XFile('/tmp/photo.jpg'));
+      await container
+          .read(generationSubmissionControllerProvider.notifier)
+          .submitCapturedFile(XFile('/tmp/photo.jpg'));
 
-    final GenerationSubmissionJob job = container
-        .read(generationSubmissionControllerProvider)
-        .jobs
-        .single;
-    expect(job.status, GenerationSubmissionStatus.failed);
-    expect(job.errorCode, 'conflict');
-    expect(job.failureStage, GenerationRecordFailureStage.creatingUpload);
-    expect(job.failureRetryable, isTrue);
-    expect(job.isRetryableFailure, isTrue);
-    expect(uploadRepository.events, <String>['create:image/jpeg:4']);
-    expect(taskRepository.createdInputs, isEmpty);
-  });
+      final GenerationSubmissionJob job = container
+          .read(generationSubmissionControllerProvider)
+          .jobs
+          .single;
+      expect(job.status, GenerationSubmissionStatus.awaitingConfirmation);
+      expect(job.errorCode, 'conflict');
+      expect(job.failureStage, isNull);
+      expect(job.failureRetryable, isFalse);
+      expect(job.isRetryableFailure, isFalse);
+      expect(uploadRepository.events, <String>['create:image/jpeg:4']);
+      expect(taskRepository.createdInputs, isEmpty);
+    },
+  );
 
   test('marks job failed when background upload fails', () async {
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
@@ -620,6 +629,7 @@ void main() {
     expect(uploadRepository.events, <String>[
       'create:image/jpeg:4',
       'create:image/jpeg:4',
+      'complete:upload-1',
     ]);
     expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
   });
@@ -737,7 +747,10 @@ void main() {
     expect(job.failureStage, GenerationRecordFailureStage.creatingTask);
     expect(job.failureRetryable, isTrue);
     expect(job.isRetryableFailure, isTrue);
-    expect(uploadRepository.events, <String>['create:image/jpeg:4']);
+    expect(uploadRepository.events, <String>[
+      'create:image/jpeg:4',
+      'complete:upload-1',
+    ]);
     expect(taskRepository.fetchTaskByUploadSessionIds, <String>['upload-1']);
   });
 
@@ -1547,7 +1560,10 @@ void main() {
     expect(job.errorCode, isNull);
     expect(job.failureStage, isNull);
     expect(job.failureRetryable, isFalse);
-    expect(uploadRepository.events, <String>['create:image/jpeg:4']);
+    expect(uploadRepository.events, <String>[
+      'create:image/jpeg:4',
+      'complete:upload-1',
+    ]);
     expect(taskRepository.fetchTaskIds, <String>['task-1']);
     expect(taskRepository.createdInputs, isEmpty);
     expect(taskRepository.fetchTaskByUploadSessionIds, <String>[
@@ -2338,6 +2354,11 @@ class _FakeCreditBalanceCacheRepository
   @override
   Future<void> saveBalance(String userId, CreditBalance balance) async {
     balances[userId] = balance;
+  }
+
+  @override
+  Future<void> clearBalance(String userId) async {
+    balances.remove(userId);
   }
 }
 

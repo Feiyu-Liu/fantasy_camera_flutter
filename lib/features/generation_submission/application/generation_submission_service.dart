@@ -12,6 +12,7 @@ import '../../backend_api/data/backend_repositories.dart';
 import '../../backend_api/domain/api_failure.dart';
 import '../../backend_api/domain/feedback.dart';
 import '../../backend_api/domain/generation_task.dart';
+import '../../backend_api/domain/json_value.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/domain/upload_session.dart';
 import 'background_r2_upload_service.dart';
@@ -1002,6 +1003,17 @@ class GenerationSubmissionService extends ChangeNotifier {
       }
       _debugLog('upload bytes success record=$recordId');
 
+      stage = 'completingUpload';
+      _debugLog(
+        'complete upload start record=$recordId uploadSession=${uploadSession.uploadSessionId}',
+      );
+      final JsonObject completeResult = await _uploadRepository.completeUpload(
+        uploadSession.uploadSessionId,
+      );
+      _debugLog(
+        'complete upload success record=$recordId uploadSession=${uploadSession.uploadSessionId} result=$completeResult',
+      );
+
       stage = 'uploadedWaitingTask';
       await _markPipelineStatus(
         recordId,
@@ -1026,6 +1038,17 @@ class GenerationSubmissionService extends ChangeNotifier {
       _debugLog(
         'submit backend failure record=$recordId stage=$stage code=${error.code} status=${error.statusCode} requestId=${error.requestId ?? 'none'} message=${error.message} details=${error.details ?? 'none'}',
       );
+      if (_isInsufficientCreditsFailure(error)) {
+        await _generationRecordRepository.updatePipelineStatus(
+          recordId: recordId,
+          status: GenerationRecordPipelineStatus.awaitingConfirmation,
+          updatedAt: DateTime.now(),
+          errorCode: error.code,
+          errorMessage: error.message,
+          clearFailure: true,
+        );
+        return;
+      }
       await _failRecord(
         recordId: recordId,
         status: GenerationRecordPipelineStatus.submissionFailed,
@@ -2272,6 +2295,15 @@ class GenerationSubmissionService extends ChangeNotifier {
 
   bool _isResultNotReadyFailure(BackendApiFailure error) {
     return error.code == 'result_not_ready';
+  }
+
+  bool _isInsufficientCreditsFailure(BackendApiFailure error) {
+    final String normalizedMessage = error.message.toLowerCase();
+    return error.code == 'insufficient_credits' ||
+        error.code == 'insufficient_credit' ||
+        error.code == 'credits_insufficient' ||
+        error.code == 'not_enough_credits' ||
+        normalizedMessage.contains('insufficient credits');
   }
 
   _RuntimeGenerationRecordState _runtimeFor(String recordId) {

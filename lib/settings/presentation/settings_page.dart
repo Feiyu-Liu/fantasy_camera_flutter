@@ -14,6 +14,8 @@ import '../../billing/presentation/billing_providers.dart';
 import '../../features/backend_api/domain/credit_balance.dart';
 import '../../features/backend_api/presentation/backend_api_providers.dart';
 import '../../features/generation_submission/application/generation_original_cache_cleaner.dart';
+import '../../features/generation_submission/data/generation_record_database.dart';
+import '../../features/generation_submission/presentation/generation_record_providers.dart';
 import '../../features/generation_submission/presentation/generation_submission_providers.dart';
 import '../../features/notifications/presentation/notification_providers.dart';
 import '../../l10n/l10n.dart';
@@ -52,6 +54,7 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _isClearingOriginalCache = false;
   bool _isSigningOut = false;
+  bool _isDeletingAccount = false;
   GenerationOriginalCacheStats? _latestOriginalCacheStats;
 
   @override
@@ -195,7 +198,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               _SettingsActionRow(
                 title: l10n.settingsDeleteAccountTitle,
                 subtitle: l10n.settingsDeleteAccountSubtitle,
-                onPressed: _handlePlaceholderAction,
+                enabled: !_isDeletingAccount,
+                onPressed: () => unawaited(_confirmDeleteAccount()),
               ),
               _SettingsActionRow(
                 title: l10n.settingsSignOutTitle,
@@ -349,6 +353,146 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ],
           );
         },
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    if (_isDeletingAccount) {
+      return;
+    }
+    HapticFeedback.selectionClick();
+    final AppLocalizations l10n = context.l10n;
+    final bool confirmed =
+        await showCupertinoDialog<bool>(
+          context: context,
+          builder: (BuildContext dialogContext) {
+            return CupertinoAlertDialog(
+              title: Text(l10n.settingsDeleteAccountConfirmTitle),
+              content: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(l10n.settingsDeleteAccountConfirmMessage),
+              ),
+              actions: <Widget>[
+                CupertinoDialogAction(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: Text(l10n.commonCancel),
+                ),
+                CupertinoDialogAction(
+                  isDestructiveAction: true,
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: Text(l10n.settingsDeleteAccountConfirmAction),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+    if (!confirmed || !mounted) {
+      return;
+    }
+    await _deleteAccount();
+  }
+
+  Future<void> _deleteAccount() async {
+    if (_isDeletingAccount) {
+      return;
+    }
+    final String? userId = ref.read(authSessionProvider).valueOrNull?.user?.id;
+    setState(() {
+      _isDeletingAccount = true;
+    });
+    Object? failure;
+    try {
+      await ref.read(accountRepositoryProvider).deleteAccount();
+      await _clearLocalAccountState(userId);
+      await ref.read(settingsSignOutActionProvider).call();
+      if (!mounted) {
+        return;
+      }
+      context.go(appHomeRoute);
+    } on Object catch (error) {
+      failure = error;
+      appDebugLog('SettingsPage', 'delete account failure error=$error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeletingAccount = false;
+        });
+      }
+    }
+
+    if (failure != null && mounted) {
+      final AppLocalizations l10n = context.l10n;
+      await showCupertinoDialog<void>(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          return CupertinoAlertDialog(
+            title: Text(l10n.settingsDeleteAccountFailedTitle),
+            content: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(l10n.settingsDeleteAccountFailedMessage),
+            ),
+            actions: <Widget>[
+              CupertinoDialogAction(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(l10n.commonOK),
+              ),
+            ],
+          );
+        },
+      );
+    }
+  }
+
+  Future<void> _clearLocalAccountState(String? userId) async {
+    try {
+      final List<GenerationRecord> records = await ref
+          .read(generationRecordRepositoryProvider)
+          .listRecords();
+      final originalFileStore = ref.read(generationOriginalFileStoreProvider);
+      for (final GenerationRecord record in records) {
+        final String? originalPath = record.originalLocalPath;
+        if (originalPath != null && originalPath.isNotEmpty) {
+          try {
+            await originalFileStore.deleteOriginal(originalPath);
+          } on Object catch (error) {
+            appDebugLog(
+              'SettingsPage',
+              'delete account local original cleanup failure '
+                  'record=${record.recordId} error=$error',
+            );
+          }
+        }
+      }
+      await ref.read(generationRecordRepositoryProvider).deleteAllRecords();
+      ref.invalidate(generationRecordsProvider);
+    } on Object catch (error) {
+      appDebugLog(
+        'SettingsPage',
+        'delete account local records cleanup failure error=$error',
+      );
+    }
+
+    if (userId != null && userId.isNotEmpty) {
+      try {
+        await ref
+            .read(creditBalanceCacheRepositoryProvider)
+            .clearBalance(userId);
+      } on Object catch (error) {
+        appDebugLog(
+          'SettingsPage',
+          'delete account credit cache cleanup failure error=$error',
+        );
+      }
+    }
+
+    try {
+      await ref.read(notificationDeviceStoreProvider).clearDevice();
+    } on Object catch (error) {
+      appDebugLog(
+        'SettingsPage',
+        'delete account notification cache cleanup failure error=$error',
       );
     }
   }

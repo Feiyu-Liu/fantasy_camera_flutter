@@ -16,6 +16,21 @@ abstract interface class AppConfigRepository {
   Future<AppInputContract> fetchAppInputContract({String? contractKey});
 }
 
+abstract interface class AccountRepository {
+  Future<void> deleteAccount();
+}
+
+class WorkerAccountRepository implements AccountRepository {
+  const WorkerAccountRepository(this._client);
+
+  final FantasyApiClient _client;
+
+  @override
+  Future<void> deleteAccount() {
+    return _client.delete<void>('/v1/account', decode: (_) {});
+  }
+}
+
 class WorkerAppConfigRepository implements AppConfigRepository {
   const WorkerAppConfigRepository(this._client);
 

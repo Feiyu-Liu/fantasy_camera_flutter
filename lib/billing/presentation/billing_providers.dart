@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/presentation/auth_providers.dart';
+import '../../config/app_config.dart';
 import '../../features/backend_api/domain/api_failure.dart';
 import '../../features/backend_api/domain/credit_redemption.dart';
 import '../../features/backend_api/presentation/backend_api_providers.dart';
+import '../../shared/core/app_logger.dart';
 import '../data/billing_repositories.dart';
 import '../data/revenuecat_billing_gateway.dart';
 import '../domain/billing_product.dart';
@@ -39,6 +41,40 @@ final billingControllerProvider =
         creditBalanceProvider,
       ],
     );
+
+final billingStartupPurchaseRecoveryEnabledProvider = Provider<bool>(
+  (Ref ref) => AppConfig.workerApiBaseUrl.isNotEmpty,
+);
+
+final billingStartupPurchaseRecoveryProvider = FutureProvider<void>((
+  Ref ref,
+) async {
+  if (!ref.watch(billingStartupPurchaseRecoveryEnabledProvider)) {
+    return;
+  }
+  final String? userId = (await ref.watch(authSessionProvider.future)).user?.id;
+  if (userId == null || userId.isEmpty) {
+    return;
+  }
+
+  try {
+    final CreditPurchaseSyncResult result = await ref
+        .read(billingRepositoryProvider)
+        .syncRevenueCatPurchases();
+    final balance = await ref.read(creditsRepositoryProvider).fetchBalance();
+    await ref
+        .read(creditBalanceCacheRepositoryProvider)
+        .saveBalance(userId, balance);
+    ref.invalidate(creditBalanceProvider);
+    appDebugLog(
+      'Billing',
+      'startup purchase recovery sync processed=${result.processedPurchases} '
+          'granted=${result.grantedCredits}',
+    );
+  } on Object catch (error, stackTrace) {
+    logAppError('billing_startup_purchase_recovery_failed', error, stackTrace);
+  }
+});
 
 final creditRedemptionControllerProvider =
     NotifierProvider<CreditRedemptionController, CreditRedemptionState>(
@@ -234,20 +270,40 @@ class BillingController extends Notifier<BillingControllerState> {
       if (userId != null && userId.isNotEmpty) {
         await ref.read(billingGatewayProvider).logIn(userId);
       }
+      final CreditPurchaseSyncResult? recoveredPurchases =
+          await _syncRevenueCatPurchasesBestEffort();
       final List<CreditProduct> backendProducts = await ref
           .read(billingRepositoryProvider)
           .fetchProducts();
       final List<BillingProduct> revenueCatProducts = await ref
           .read(billingGatewayProvider)
           .fetchProducts();
-      state = state.copyWith(
-        isLoading: false,
-        products: _mergeProducts(backendProducts, revenueCatProducts),
+      final List<BillingProduct> mergedProducts = _mergeProducts(
+        backendProducts,
+        revenueCatProducts,
       );
-    } on Object {
+      appDebugLog(
+        'Billing',
+        'products loaded backend=${backendProducts.length} '
+            'revenueCat=${revenueCatProducts.length} merged=${mergedProducts.length}',
+      );
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Unable to load credit packs.',
+        products: mergedProducts,
+        lastGrantedCredits:
+            recoveredPurchases != null && recoveredPurchases.grantedCredits > 0
+            ? recoveredPurchases.grantedCredits
+            : null,
+        purchaseSuccessCredits:
+            recoveredPurchases != null && recoveredPurchases.grantedCredits > 0
+            ? recoveredPurchases.grantedCredits
+            : null,
+      );
+    } on Object catch (error, stackTrace) {
+      logAppError('billing_products_load_failed', error, stackTrace);
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'billing_products_load_failed',
         errorKind: BillingErrorKind.loadProducts,
       );
     }
@@ -272,7 +328,7 @@ class BillingController extends Notifier<BillingControllerState> {
       case BillingPurchaseFailed():
         state = state.copyWith(
           isPurchasing: false,
-          errorMessage: 'Purchase failed. Please try again.',
+          errorMessage: 'billing_purchase_failed',
           errorKind: BillingErrorKind.purchase,
         );
         return;
@@ -299,7 +355,7 @@ class BillingController extends Notifier<BillingControllerState> {
     } on Object {
       state = state.copyWith(
         isPurchasing: false,
-        errorMessage: 'Purchase completed, but credits could not be synced.',
+        errorMessage: 'billing_purchase_sync_failed',
         errorKind: BillingErrorKind.purchase,
       );
     }
@@ -332,7 +388,7 @@ class BillingController extends Notifier<BillingControllerState> {
     } on Object {
       state = state.copyWith(
         isPurchasing: false,
-        errorMessage: 'Restore failed. Please try again.',
+        errorMessage: 'billing_restore_failed',
         errorKind: BillingErrorKind.restore,
       );
     }
@@ -343,6 +399,20 @@ class BillingController extends Notifier<BillingControllerState> {
       return;
     }
     state = state.copyWith(clearPurchaseSuccessCredits: true);
+  }
+
+  Future<CreditPurchaseSyncResult?> _syncRevenueCatPurchasesBestEffort() async {
+    try {
+      final CreditPurchaseSyncResult result = await ref
+          .read(billingRepositoryProvider)
+          .syncRevenueCatPurchases();
+      await ref
+          .read(creditBalanceProvider.notifier)
+          .refreshFromServer(userId: await _currentUserId());
+      return result;
+    } on Object {
+      return null;
+    }
   }
 
   List<BillingProduct> _mergeProducts(

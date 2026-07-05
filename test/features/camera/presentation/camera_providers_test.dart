@@ -4,11 +4,17 @@ import 'dart:math';
 import 'package:camera_avfoundation/camera_avfoundation.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:drift/native.dart';
+import 'package:fantasy_camera_flutter/auth/domain/auth_session_state.dart';
+import 'package:fantasy_camera_flutter/auth/domain/auth_user.dart';
+import 'package:fantasy_camera_flutter/auth/presentation/auth_providers.dart';
 import 'package:fantasy_camera_flutter/config/app_config.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/data/credit_balance_cache_repository.dart';
 import 'package:fantasy_camera_flutter/features/camera/data/capture_lens_metadata_reader.dart';
 import 'package:fantasy_camera_flutter/features/camera/data/capture_orientation_reader.dart';
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_choice.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_redemption.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_original_file_store.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
@@ -463,12 +469,87 @@ void main() {
 
       job = container.read(generationSubmissionControllerProvider).jobs.single;
       expect(job.status, GenerationSubmissionStatus.uploadedWaitingTask);
-      expect(uploadRepository.events, <String>['create:image/jpeg:4']);
+      expect(uploadRepository.events, <String>[
+        'create:image/jpeg:4',
+        'complete:upload-1',
+      ]);
       expect(uploadRepository.generationRequests.single?.captureMetadata, {
         'focalLength35mmEquivalentMm': 26,
         'focalLengthSource': 'avcapture_nominal',
       });
       expect(taskRepository.createdInputs, isEmpty);
+    },
+  );
+
+  test(
+    'takePicture prompts credits purchase when auto confirm has insufficient credits',
+    () async {
+      final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+      CameraPlatform.instance = camera;
+      final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+      final _FakeGenerationImageProcessor imageProcessor =
+          _FakeGenerationImageProcessor();
+      final _TestContainer testContainer = _container(
+        choices: const <CameraChoice>[
+          CameraChoice(
+            description: CameraDescription(
+              name: 'back',
+              lensDirection: CameraLensDirection.back,
+              sensorOrientation: 0,
+            ),
+            label: 'Back Camera',
+            isVirtualDevice: false,
+            deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+          ),
+        ],
+        appSettingsRepository: _FakeAppSettingsRepository(
+          confirmBeforeGenerationEnabled: false,
+        ),
+        imageProcessor: imageProcessor,
+        uploadRepository: uploadRepository,
+        creditBalance: _creditBalance(0),
+      );
+      final ProviderContainer container = testContainer.container;
+      addTearDown(() async {
+        await testContainer.dispose();
+        await Future<void>.delayed(Duration.zero);
+      });
+
+      final CameraControllerNotifier notifier = container.read(
+        cameraStateProvider.notifier,
+      );
+      await notifier.openDefaultCamera();
+      final Completer<int> promptTriggerCompleter = Completer<int>();
+      final ProviderSubscription<CameraState> subscription = container.listen(
+        cameraStateProvider,
+        (CameraState? previous, CameraState next) {
+          final int previousTrigger =
+              previous?.insufficientCreditsPromptTrigger ?? 0;
+          if (next.insufficientCreditsPromptTrigger > previousTrigger &&
+              !promptTriggerCompleter.isCompleted) {
+            promptTriggerCompleter.complete(
+              next.insufficientCreditsPromptTrigger,
+            );
+          }
+        },
+      );
+      addTearDown(subscription.close);
+
+      final Future<XFile?> takePictureFuture = notifier.takePicture();
+      camera.completeTakePicture();
+      await takePictureFuture;
+      await promptTriggerCompleter.future.timeout(const Duration(seconds: 1));
+
+      final CameraState cameraState = container.read(cameraStateProvider);
+      expect(cameraState.isTakingPicture, isFalse);
+      expect(cameraState.insufficientCreditsPromptTrigger, 1);
+      final GenerationSubmissionJob job = container
+          .read(generationSubmissionControllerProvider)
+          .jobs
+          .single;
+      expect(job.status, GenerationSubmissionStatus.awaitingConfirmation);
+      expect(imageProcessor.preparedSourcePaths, isEmpty);
+      expect(uploadRepository.events, isEmpty);
     },
   );
 
@@ -679,11 +760,30 @@ _TestContainer _container({
   GenerationImageProcessor? imageProcessor,
   UploadRepository? uploadRepository,
   GenerationTaskRepository? taskRepository,
+  CreditBalance? creditBalance,
 }) {
   final GenerationRecordDatabase database =
       GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+  final List<Override> creditOverrides = creditBalance == null
+      ? const <Override>[]
+      : <Override>[
+          authSessionProvider.overrideWith((Ref ref) {
+            return Stream<AuthSessionState>.value(
+              const AuthSessionState.signedIn(
+                AuthUser(id: 'user-1', email: 'alex@example.com'),
+              ),
+            );
+          }),
+          creditsRepositoryProvider.overrideWithValue(
+            _FakeCreditsRepository(creditBalance),
+          ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
+          ),
+        ];
   final ProviderContainer container = ProviderContainer(
     overrides: <Override>[
+      ...creditOverrides,
       generationRecordDatabaseProvider.overrideWithValue(database),
       cameraChoicesProvider.overrideWithValue(choices),
       captureOrientationReaderProvider.overrideWithValue(
@@ -739,6 +839,16 @@ _TestContainer _container({
     ],
   );
   return _TestContainer(container: container, database: database);
+}
+
+CreditBalance _creditBalance(int balance) {
+  return CreditBalance(
+    balance: balance,
+    reservedBalance: 0,
+    lifetimeEarned: balance,
+    lifetimeSpent: 0,
+    updatedAt: DateTime.parse('2026-05-29T00:00:00Z'),
+  );
 }
 
 class _TestContainer {
@@ -1037,6 +1147,36 @@ class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
       capturedAt: importedAt,
     );
   }
+}
+
+class _FakeCreditsRepository implements CreditsRepository {
+  const _FakeCreditsRepository(this.balance);
+
+  final CreditBalance balance;
+
+  @override
+  Future<CreditBalance> fetchBalance() async {
+    return balance;
+  }
+
+  @override
+  Future<CreditRedemptionResult> redeemCode(String code) {
+    throw UnimplementedError();
+  }
+}
+
+class _FakeCreditBalanceCacheRepository
+    implements CreditBalanceCacheRepository {
+  @override
+  Future<CreditBalance?> loadBalance(String userId) async {
+    return null;
+  }
+
+  @override
+  Future<void> saveBalance(String userId, CreditBalance balance) async {}
+
+  @override
+  Future<void> clearBalance(String userId) async {}
 }
 
 class _FakeGenerationImageProcessor implements GenerationImageProcessor {

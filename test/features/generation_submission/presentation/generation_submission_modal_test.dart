@@ -6,7 +6,15 @@ import 'dart:typed_data';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:drift/native.dart';
+import 'package:fantasy_camera_flutter/app/app_router.dart';
+import 'package:fantasy_camera_flutter/auth/domain/auth_session_state.dart';
+import 'package:fantasy_camera_flutter/auth/domain/auth_user.dart';
+import 'package:fantasy_camera_flutter/auth/presentation/auth_providers.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/data/credit_balance_cache_repository.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/api_failure.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_redemption.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/feedback.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
@@ -32,6 +40,7 @@ import 'package:fantasy_camera_flutter/theme/app_theme.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:my_ui/my_ui.dart';
 
 void main() {
@@ -193,6 +202,98 @@ void main() {
       find.byKey(
         const ValueKey<String>('generation-submission-status-processing'),
       ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('insufficient credits opens paywall before upload', (
+    WidgetTester tester,
+  ) async {
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository();
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'awaiting',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+      ),
+    ];
+
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        jobs: jobs,
+        uploadRepository: uploadRepository,
+        taskRepository: taskRepository,
+        creditBalance: 0,
+        enableRouter: true,
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('generation-submission-confirm-awaiting'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(uploadRepository.createUploadCount, 0);
+    expect(taskRepository.createTaskCount, 0);
+    expect(
+      find.byKey(const ValueKey<String>('test-credit-purchase-page')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('backend insufficient credits fallback opens paywall', (
+    WidgetTester tester,
+  ) async {
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository(
+      createUploadFailure: const BackendApiFailure(
+        code: 'insufficient_credits',
+        message: 'Insufficient credits',
+      ),
+    );
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository();
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'awaiting',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+      ),
+    ];
+
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        jobs: jobs,
+        uploadRepository: uploadRepository,
+        taskRepository: taskRepository,
+        creditBalanceFailure: StateError('balance unavailable'),
+        enableRouter: true,
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('generation-submission-confirm-awaiting'),
+      ),
+    );
+    for (int index = 0; index < 20; index += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (find
+          .byKey(const ValueKey<String>('test-credit-purchase-page'))
+          .evaluate()
+          .isNotEmpty) {
+        break;
+      }
+    }
+
+    expect(uploadRepository.createUploadCount, 1);
+    expect(taskRepository.createTaskCount, 0);
+    expect(
+      find.byKey(const ValueKey<String>('test-credit-purchase-page')),
       findsOneWidget,
     );
   });
@@ -1446,14 +1547,46 @@ Future<void> _pumpModalHost(WidgetTester tester, _ModalHost host) async {
     await tester.pump();
     await tester.pump();
   });
-  await tester.pumpWidget(
-    CupertinoApp(
-      locale: defaultAppLocale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: host,
-    ),
-  );
+  if (host.enableRouter) {
+    final GoRouter router = GoRouter(
+      routes: <RouteBase>[
+        GoRoute(
+          path: '/',
+          builder: (BuildContext context, GoRouterState state) => host,
+        ),
+        GoRoute(
+          path: creditPurchaseRoute,
+          builder: (BuildContext context, GoRouterState state) {
+            return const CupertinoPageScaffold(
+              child: Center(
+                child: SizedBox(
+                  key: ValueKey<String>('test-credit-purchase-page'),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      CupertinoApp.router(
+        locale: defaultAppLocale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    );
+  } else {
+    await tester.pumpWidget(
+      CupertinoApp(
+        locale: defaultAppLocale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: host,
+      ),
+    );
+  }
   await tester.pump();
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 1));
@@ -1520,6 +1653,9 @@ class _ModalHost extends StatefulWidget {
     this.heroImagePrecache,
     this.uploadRepository,
     this.taskRepository,
+    this.creditBalance = 99,
+    this.creditBalanceFailure,
+    this.enableRouter = false,
   });
 
   final List<GenerationSubmissionJob> jobs;
@@ -1528,6 +1664,9 @@ class _ModalHost extends StatefulWidget {
   final HeroImagePrecache? heroImagePrecache;
   final _FakeUploadRepository? uploadRepository;
   final _FakeGenerationTaskRepository? taskRepository;
+  final int creditBalance;
+  final Object? creditBalanceFailure;
+  final bool enableRouter;
 
   @override
   State<_ModalHost> createState() => _ModalHostState();
@@ -1574,6 +1713,22 @@ class _ModalHostState extends State<_ModalHost> {
     return AppToastHost(
       child: ProviderScope(
         overrides: <Override>[
+          authSessionProvider.overrideWith(
+            (_) => Stream<AuthSessionState>.value(
+              const AuthSessionState.signedIn(
+                AuthUser(id: 'user-1', email: 'alex@example.com'),
+              ),
+            ),
+          ),
+          creditsRepositoryProvider.overrideWithValue(
+            _FakeCreditsRepository(
+              widget.creditBalance,
+              failure: widget.creditBalanceFailure,
+            ),
+          ),
+          creditBalanceCacheRepositoryProvider.overrideWithValue(
+            _FakeCreditBalanceCacheRepository(),
+          ),
           generationRecordDatabaseProvider.overrideWithValue(_database),
           generationRecordRepositoryProvider.overrideWithValue(
             _recordRepository,
@@ -2208,6 +2363,9 @@ class _FakeGenerationOriginalFileStore implements GenerationOriginalFileStore {
 }
 
 class _FakeUploadRepository implements UploadRepository {
+  _FakeUploadRepository({this.createUploadFailure});
+
+  final BackendApiFailure? createUploadFailure;
   int createUploadCount = 0;
 
   @override
@@ -2218,6 +2376,10 @@ class _FakeUploadRepository implements UploadRepository {
     CreateGenerationTaskInput? generationRequest,
   }) async {
     createUploadCount += 1;
+    final BackendApiFailure? failure = createUploadFailure;
+    if (failure != null) {
+      throw failure;
+    }
     return UploadSession(
       uploadSessionId: 'upload-1',
       sourceImageObjectId: 'source-1',
@@ -2348,6 +2510,53 @@ class _FakeGenerationTaskRepository implements GenerationTaskRepository {
   Future<List<GenerationTask>> listTasks({int limit = 20}) async {
     return const <GenerationTask>[];
   }
+}
+
+class _FakeCreditsRepository implements CreditsRepository {
+  const _FakeCreditsRepository(this.balance, {this.failure});
+
+  final int balance;
+  final Object? failure;
+
+  @override
+  Future<CreditBalance> fetchBalance() async {
+    final Object? error = failure;
+    if (error != null) {
+      throw error;
+    }
+    return CreditBalance(
+      balance: balance,
+      reservedBalance: 0,
+      lifetimeEarned: balance,
+      lifetimeSpent: 0,
+      updatedAt: DateTime.utc(2026, 7, 5),
+    );
+  }
+
+  @override
+  Future<CreditRedemptionResult> redeemCode(String code) async {
+    return CreditRedemptionResult(
+      grantedCredits: 0,
+      balance: balance,
+      reservedBalance: 0,
+      campaignId: 'test-campaign',
+      codeId: code,
+    );
+  }
+}
+
+class _FakeCreditBalanceCacheRepository
+    implements CreditBalanceCacheRepository {
+  @override
+  Future<void> clearBalance(String userId) async {}
+
+  @override
+  Future<CreditBalance?> loadBalance(String userId) async {
+    return null;
+  }
+
+  @override
+  Future<void> saveBalance(String userId, CreditBalance balance) async {}
 }
 
 GenerationSubmissionJob _job({

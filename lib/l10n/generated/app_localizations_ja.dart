@@ -407,6 +407,23 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsDeleteAccountSubtitle => 'アカウントを完全に削除します';
 
   @override
+  String get settingsDeleteAccountConfirmTitle => 'アカウントを削除しますか？';
+
+  @override
+  String get settingsDeleteAccountConfirmMessage =>
+      'アカウント、クレジット、クラウドの生成履歴は完全に削除されます。この操作は元に戻せません。';
+
+  @override
+  String get settingsDeleteAccountConfirmAction => '削除';
+
+  @override
+  String get settingsDeleteAccountFailedTitle => '削除失敗';
+
+  @override
+  String get settingsDeleteAccountFailedMessage =>
+      'アカウントを削除できませんでした。後でもう一度お試しください。';
+
+  @override
   String get settingsSignOutTitle => 'サインアウト';
 
   @override

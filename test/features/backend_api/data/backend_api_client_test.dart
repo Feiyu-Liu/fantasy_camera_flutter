@@ -102,7 +102,7 @@ void main() {
               .having(
                 (BackendApiFailure error) => error.code,
                 'code',
-                'conflict',
+                'insufficient_credits',
               )
               .having(
                 (BackendApiFailure error) => error.statusCode,

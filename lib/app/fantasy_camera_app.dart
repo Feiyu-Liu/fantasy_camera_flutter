@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../billing/presentation/billing_providers.dart';
 import '../features/notifications/presentation/notification_providers.dart';
 import '../l10n/l10n.dart';
 import '../shared/toast/app_toast.dart';
@@ -54,6 +55,7 @@ class _FantasyCameraAppViewState extends ConsumerState<_FantasyCameraAppView> {
       effectiveLocaleForPreference(appSettings.localePreference),
     );
     ref.watch(notificationLifecycleProvider);
+    ref.watch(billingStartupPurchaseRecoveryProvider);
     return AnimatedAppTheme(
       preference: appSettings.themePreference,
       builder: (BuildContext context, CupertinoThemeData theme) {
