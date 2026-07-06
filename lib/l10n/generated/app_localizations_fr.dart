@@ -44,13 +44,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get authCreateAccountSubtitle => 'Crée ton compte';
 
   @override
-  String get authEmailInvalid => 'Saisis une adresse courriel valide.';
+  String get authEmailInvalid => 'Saisis une adresse e-mail valide.';
 
   @override
-  String get authEmailLabel => 'Adresse courriel';
+  String get authEmailLabel => 'Adresse e-mail';
 
   @override
-  String get authEmailPlaceholder => 'Courriel';
+  String get authEmailPlaceholder => 'E-mail';
 
   @override
   String get authEditorialAccessBadge => 'Accès éditorial';
@@ -65,17 +65,17 @@ class AppLocalizationsFr extends AppLocalizations {
   String get authEditorialTitleLine2 => 'T\'attend';
 
   @override
-  String get authForgotKeyButton => 'Clé oubliée ?';
+  String get authForgotKeyButton => 'Mot de passe oublié ?';
 
   @override
   String get authGoogleSignInFailed => 'La connexion avec Google a échoué.';
 
   @override
-  String get authEmailRequired => 'Le courriel est requis.';
+  String get authEmailRequired => 'L\'e-mail est requis.';
 
   @override
   String get authInvalidCredentials =>
-      'Courriel ou mot de passe incorrect. S\'il s\'agit d\'un nouveau compte, crée-le d\'abord et confirme le courriel si nécessaire.';
+      'E-mail ou mot de passe incorrect. S\'il s\'agit d\'un nouveau compte, crée-le d\'abord et confirme l\'e-mail si nécessaire.';
 
   @override
   String get authMissingSupabaseConfig =>
@@ -91,7 +91,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get authPasswordMinLength => 'Utilise au moins 6 caractères.';
 
   @override
-  String get authPasswordLabel => 'Clé secrète';
+  String get authPasswordLabel => 'Mot de passe';
 
   @override
   String get authPasswordPlaceholder => 'Mot de passe';

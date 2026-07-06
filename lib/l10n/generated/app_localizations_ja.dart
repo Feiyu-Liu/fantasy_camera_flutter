@@ -15,13 +15,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get appName => 'Fantasy Camera';
 
   @override
-  String get authAccountCreatedSignIn => 'アカウントを作成しました。サインインしてください。';
+  String get authAccountCreatedSignIn => 'アカウントを作成しました。ログインしてください。';
 
   @override
-  String get authAlreadyHaveAccountSignIn => 'すでにアカウントをお持ちですか？サインイン';
+  String get authAlreadyHaveAccountSignIn => 'アカウントをお持ちですか？ログイン';
 
   @override
-  String get authAppleSignInFailed => 'Appleサインインに失敗しました。';
+  String get authAppleSignInFailed => 'Appleでのサインインに失敗しました。';
 
   @override
   String get authAuthenticationFailed => '認証に失敗しました。もう一度お試しください。';
@@ -33,7 +33,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get authContinueWithApple => 'Appleでサインイン';
 
   @override
-  String get authContinueWithGoogle => 'Googleでサインイン';
+  String get authContinueWithGoogle => 'Googleでログイン';
 
   @override
   String get authCreateAccountButton => 'アカウントを作成';
@@ -63,10 +63,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get authEditorialTitleLine2 => '待っている';
 
   @override
-  String get authForgotKeyButton => 'キーを忘れた場合';
+  String get authForgotKeyButton => 'パスワードをお忘れですか？';
 
   @override
-  String get authGoogleSignInFailed => 'Googleサインインに失敗しました。';
+  String get authGoogleSignInFailed => 'Googleでのログインに失敗しました。';
 
   @override
   String get authEmailRequired => 'メールアドレスは必須です。';
@@ -80,7 +80,7 @@ class AppLocalizationsJa extends AppLocalizations {
       'Supabase設定が見つかりません。SUPABASE_URLとSUPABASE_PUBLISHABLE_KEYのdart-definesを設定してください。';
 
   @override
-  String get authNewHereCreateAccount => '初めてですか？アカウントを作成';
+  String get authNewHereCreateAccount => '新規登録';
 
   @override
   String get authOrDividerLabel => 'または';
@@ -89,7 +89,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get authPasswordMinLength => '6文字以上で入力してください。';
 
   @override
-  String get authPasswordLabel => 'シークレットキー';
+  String get authPasswordLabel => 'パスワード';
 
   @override
   String get authPasswordPlaceholder => 'パスワード';
@@ -98,16 +98,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get authSecretKeyPlaceholder => '••••••••';
 
   @override
-  String get authSessionExpired => 'セッションの有効期限が切れました。再度サインインしてください。';
+  String get authSessionExpired => 'セッションの有効期限が切れました。再度ログインしてください。';
 
   @override
-  String get authSessionRestoreFailed => 'セッションを復元できませんでした。再度サインインしてください。';
+  String get authSessionRestoreFailed => 'セッションを復元できませんでした。再度ログインしてください。';
 
   @override
-  String get authSignInButton => 'サインイン';
+  String get authSignInButton => 'ログイン';
 
   @override
-  String get authSignInSubtitle => '続行するにはサインインしてください';
+  String get authSignInSubtitle => '続行するにはログインしてください';
 
   @override
   String cameraCreditsBalanceSemanticsLabel(Object value) {

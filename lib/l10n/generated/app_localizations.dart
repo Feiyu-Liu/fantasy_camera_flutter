@@ -214,7 +214,7 @@ abstract class AppLocalizations {
   /// No description provided for @authForgotKeyButton.
   ///
   /// In en, this message translates to:
-  /// **'Forgot key?'**
+  /// **'Forgot password?'**
   String get authForgotKeyButton;
 
   /// No description provided for @authGoogleSignInFailed.
@@ -262,7 +262,7 @@ abstract class AppLocalizations {
   /// No description provided for @authPasswordLabel.
   ///
   /// In en, this message translates to:
-  /// **'Secret key'**
+  /// **'Password'**
   String get authPasswordLabel;
 
   /// No description provided for @authPasswordPlaceholder.

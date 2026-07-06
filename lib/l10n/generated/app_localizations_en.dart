@@ -64,7 +64,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authEditorialTitleLine2 => 'Awaits';
 
   @override
-  String get authForgotKeyButton => 'Forgot key?';
+  String get authForgotKeyButton => 'Forgot password?';
 
   @override
   String get authGoogleSignInFailed => 'Google sign-in failed.';
@@ -90,7 +90,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authPasswordMinLength => 'Use at least 6 characters.';
 
   @override
-  String get authPasswordLabel => 'Secret key';
+  String get authPasswordLabel => 'Password';
 
   @override
   String get authPasswordPlaceholder => 'Password';
