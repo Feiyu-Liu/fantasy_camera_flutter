@@ -147,6 +147,52 @@ void main() {
     },
   );
 
+  test(
+    'purchase success shows feedback when sync was already processed',
+    () async {
+      final _FakeBillingGateway gateway = _FakeBillingGateway(
+        purchaseOutcome: const BillingPurchaseCompleted(),
+      );
+      final _FakeBillingRepository billingRepository = _FakeBillingRepository(
+        syncResult: const CreditPurchaseSyncResult(
+          grantedCredits: 0,
+          processedPurchases: 0,
+          balance: 158,
+          products: <CreditProduct>[],
+        ),
+      );
+      final ProviderContainer container = _container(
+        gateway: gateway,
+        billingRepository: billingRepository,
+        creditsRepository: _FakeCreditsRepository(balance: 158),
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(billingControllerProvider.notifier)
+          .purchase(
+            const BillingProduct(
+              productId: 'tessercam_credits_30',
+              credits: 30,
+              displayRank: 0,
+              price: r'$2.99',
+              packageIdentifier: r'$rc_custom_30',
+            ),
+          );
+
+      final BillingControllerState state = container.read(
+        billingControllerProvider,
+      );
+      expect(gateway.purchaseCalls, 1);
+      expect(billingRepository.syncCalls, 1);
+      expect(state.isPurchasing, isFalse);
+      expect(state.errorMessage, isNull);
+      expect(state.lastGrantedCredits, isNull);
+      expect(state.purchaseSuccessCredits, 30);
+      expect(container.read(creditBalanceProvider).valueOrNull?.balance, 158);
+    },
+  );
+
   test('clearPurchaseSuccess clears purchase button feedback', () async {
     final _FakeBillingGateway gateway = _FakeBillingGateway(
       purchaseOutcome: const BillingPurchaseCompleted(),

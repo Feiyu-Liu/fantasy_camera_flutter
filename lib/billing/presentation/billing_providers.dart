@@ -317,6 +317,7 @@ class BillingController extends Notifier<BillingControllerState> {
       isPurchasing: true,
       clearErrorMessage: true,
       clearLastGrantedCredits: true,
+      clearPurchaseSuccessCredits: true,
     );
     final BillingPurchaseOutcome outcome = await ref
         .read(billingGatewayProvider)
@@ -343,14 +344,23 @@ class BillingController extends Notifier<BillingControllerState> {
       await ref
           .read(creditBalanceProvider.notifier)
           .refreshFromServer(userId: await _currentUserId());
+      final int? purchaseSuccessCredits = result.grantedCredits > 0
+          ? result.grantedCredits
+          : product.credits > 0
+          ? product.credits
+          : null;
+      appDebugLog(
+        'Billing',
+        'purchase sync completed product=${product.productId} '
+            'processed=${result.processedPurchases} granted=${result.grantedCredits} '
+            'feedbackCredits=${purchaseSuccessCredits ?? 0}',
+      );
       state = state.copyWith(
         isPurchasing: false,
         lastGrantedCredits: result.grantedCredits > 0
             ? result.grantedCredits
             : null,
-        purchaseSuccessCredits: result.grantedCredits > 0
-            ? result.grantedCredits
-            : null,
+        purchaseSuccessCredits: purchaseSuccessCredits,
       );
     } on Object {
       state = state.copyWith(
