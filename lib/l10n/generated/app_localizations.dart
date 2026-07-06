@@ -1126,6 +1126,12 @@ abstract class AppLocalizations {
   /// **'Couldn\'t open Photos.'**
   String get toastOpenPhotoLibraryFailed;
 
+  /// No description provided for @toastOpenExternalLinkFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the link. Try again later.'**
+  String get toastOpenExternalLinkFailed;
+
   /// No description provided for @settingsClearOriginalCachePartialTitle.
   ///
   /// In en, this message translates to:

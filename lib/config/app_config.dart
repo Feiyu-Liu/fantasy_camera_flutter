@@ -74,6 +74,13 @@ class AppConfig {
   // 拍摄原图和最终生成图保存到系统相册时使用的相册名。
   static const String generationPhotoAlbumName = 'TesserCam';
 
+  // App 外部网页链接。法律页面首版统一打开英文版，不随 App 语言切换。
+  static const String appHomeUrl = 'https://tessercam.flyingfish.cc';
+  static const String privacyPolicyUrl =
+      'https://tessercam.flyingfish.cc/privacy-policy.html';
+  static const String termsOfUseUrl =
+      'https://tessercam.flyingfish.cc/terms-of-use.html';
+
   // APNs topic，必须与 iOS Bundle ID 以及 Worker 的 APNS_ALLOWED_TOPICS 对齐。
   static const String pushNotificationTopic = String.fromEnvironment(
     'PUSH_NOTIFICATION_TOPIC',

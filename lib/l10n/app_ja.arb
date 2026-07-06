@@ -235,6 +235,7 @@
   "toastFeedbackSubmitted": "フィードバックを送信しました。",
   "toastFeedbackFailed": "フィードバックを送信できませんでした。後でもう一度お試しください。",
   "toastOpenPhotoLibraryFailed": "写真アプリを開けませんでした。",
+  "toastOpenExternalLinkFailed": "リンクを開けませんでした。後でもう一度お試しください。",
   "settingsClearOriginalCachePartialTitle": "一部削除完了",
   "toastPurchaseSuccess": "購入完了。{credits}クレジットが追加されました。",
   "@toastPurchaseSuccess": {

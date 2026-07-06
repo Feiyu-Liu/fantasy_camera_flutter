@@ -556,6 +556,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get toastOpenPhotoLibraryFailed => '写真アプリを開けませんでした。';
 
   @override
+  String get toastOpenExternalLinkFailed => 'リンクを開けませんでした。後でもう一度お試しください。';
+
+  @override
   String get settingsClearOriginalCachePartialTitle => '一部削除完了';
 
   @override

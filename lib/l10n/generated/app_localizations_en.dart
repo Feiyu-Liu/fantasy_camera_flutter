@@ -580,6 +580,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get toastOpenPhotoLibraryFailed => 'Couldn\'t open Photos.';
 
   @override
+  String get toastOpenExternalLinkFailed =>
+      'Couldn\'t open the link. Try again later.';
+
+  @override
   String get settingsClearOriginalCachePartialTitle => 'Partially cleared';
 
   @override

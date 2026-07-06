@@ -546,6 +546,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get toastOpenPhotoLibraryFailed => '无法打开系统相册。';
 
   @override
+  String get toastOpenExternalLinkFailed => '无法打开链接，请稍后重试。';
+
+  @override
   String get settingsClearOriginalCachePartialTitle => '部分清理失败';
 
   @override
@@ -1120,6 +1123,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get toastOpenPhotoLibraryFailed => '無法開啟「照片」。';
+
+  @override
+  String get toastOpenExternalLinkFailed => '無法開啟連結，請稍後再試。';
 
   @override
   String get settingsClearOriginalCachePartialTitle => '部分清除失敗';

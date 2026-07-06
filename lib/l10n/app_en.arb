@@ -235,6 +235,7 @@
   "toastFeedbackSubmitted": "Feedback sent.",
   "toastFeedbackFailed": "Feedback couldn't be sent. Try again later.",
   "toastOpenPhotoLibraryFailed": "Couldn't open Photos.",
+  "toastOpenExternalLinkFailed": "Couldn't open the link. Try again later.",
   "settingsClearOriginalCachePartialTitle": "Partially cleared",
   "toastPurchaseSuccess": "Purchase complete. {credits} credits added.",
   "@toastPurchaseSuccess": {

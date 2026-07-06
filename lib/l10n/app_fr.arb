@@ -235,6 +235,7 @@
   "toastFeedbackSubmitted": "Commentaire envoyé.",
   "toastFeedbackFailed": "Impossible d'envoyer le commentaire. Réessaie plus tard.",
   "toastOpenPhotoLibraryFailed": "Impossible d'ouvrir Photos.",
+  "toastOpenExternalLinkFailed": "Impossible d'ouvrir le lien. Réessaie plus tard.",
   "settingsClearOriginalCachePartialTitle": "Vidage partiel",
   "toastPurchaseSuccess": "Achat réussi. {credits} crédits ajoutés.",
   "@toastPurchaseSuccess": {

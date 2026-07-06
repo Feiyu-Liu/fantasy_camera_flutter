@@ -17,9 +17,11 @@ import 'package:fantasy_camera_flutter/features/generation_submission/presentati
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:fantasy_camera_flutter/features/notifications/data/notification_device_store.dart';
 import 'package:fantasy_camera_flutter/features/notifications/presentation/notification_providers.dart';
+import 'package:fantasy_camera_flutter/config/app_config.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
 import 'package:fantasy_camera_flutter/settings/presentation/settings_page.dart';
+import 'package:fantasy_camera_flutter/shared/platform/external_link_launcher.dart';
 import 'package:fantasy_camera_flutter/shared/toast/app_toast.dart';
 import 'package:fantasy_camera_flutter/theme/app_colors.dart';
 import 'package:fantasy_camera_flutter/theme/app_theme.dart';
@@ -37,6 +39,7 @@ void main() {
     _FakeCreditsRepository? creditsRepository,
     _RecordingAppToastPresenter? toastPresenter,
     _FakeSettingsSignOutAction? signOutAction,
+    _RecordingExternalLinkLauncher? externalLinkLauncher,
   }) async {
     final _FakeAppSettingsRepository settingsRepository =
         appSettingsRepository ?? _FakeAppSettingsRepository();
@@ -67,6 +70,10 @@ void main() {
             appToastPresenterProvider.overrideWithValue(
               toastPresenter ?? _RecordingAppToastPresenter(),
             ),
+            if (externalLinkLauncher != null)
+              externalLinkLauncherProvider.overrideWithValue(
+                externalLinkLauncher.call,
+              ),
             appSettingsRepositoryProvider.overrideWithValue(settingsRepository),
             generationOriginalCacheCleanerProvider.overrideWithValue(
               cacheCleaner,
@@ -567,6 +574,57 @@ void main() {
     expect(toastPresenter.messages.single.title, '已兑换 50 积分。');
   });
 
+  testWidgets('information rows open configured external links', (
+    WidgetTester tester,
+  ) async {
+    final _RecordingExternalLinkLauncher externalLinkLauncher =
+        _RecordingExternalLinkLauncher();
+    await pumpSettingsPage(tester, externalLinkLauncher: externalLinkLauncher);
+
+    await scrollDownUntilTextTappable(tester, '隐私政策');
+    await tester.tap(find.text('隐私政策'));
+    await tester.pump();
+
+    await scrollDownUntilTextTappable(tester, '使用条款');
+    await tester.tap(find.text('使用条款'));
+    await tester.pump();
+
+    await scrollDownUntilTextTappable(tester, '关于');
+    await tester.tap(find.text('关于'));
+    await tester.pump();
+
+    expect(
+      externalLinkLauncher.openedUris.map((Uri uri) => uri.toString()),
+      <String>[
+        AppConfig.privacyPolicyUrl,
+        AppConfig.termsOfUseUrl,
+        AppConfig.appHomeUrl,
+      ],
+    );
+  });
+
+  testWidgets('external link failure shows toast', (WidgetTester tester) async {
+    final _RecordingExternalLinkLauncher externalLinkLauncher =
+        _RecordingExternalLinkLauncher(result: false);
+    final _RecordingAppToastPresenter toastPresenter =
+        _RecordingAppToastPresenter();
+    await pumpSettingsPage(
+      tester,
+      toastPresenter: toastPresenter,
+      externalLinkLauncher: externalLinkLauncher,
+    );
+
+    await scrollDownUntilTextTappable(tester, '隐私政策');
+    await tester.tap(find.text('隐私政策'));
+    await tester.pump();
+
+    expect(
+      externalLinkLauncher.openedUris.single.toString(),
+      AppConfig.privacyPolicyUrl,
+    );
+    expect(toastPresenter.messages.single.title, '无法打开链接，请稍后重试。');
+  });
+
   testWidgets('sign out row shows confirmation before signing out', (
     WidgetTester tester,
   ) async {
@@ -760,6 +818,18 @@ class _RecordingAppToastPresenter extends AppToastPresenter {
   @override
   void show(AppToastMessage message) {
     messages.add(message);
+  }
+}
+
+class _RecordingExternalLinkLauncher {
+  _RecordingExternalLinkLauncher({this.result = true});
+
+  final bool result;
+  final List<Uri> openedUris = <Uri>[];
+
+  Future<bool> call(Uri uri) async {
+    openedUris.add(uri);
+    return result;
   }
 }
 

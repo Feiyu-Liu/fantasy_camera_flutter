@@ -235,6 +235,7 @@
   "toastFeedbackSubmitted": "反馈已提交。",
   "toastFeedbackFailed": "反馈提交失败，请稍后重试。",
   "toastOpenPhotoLibraryFailed": "无法打开系统相册。",
+  "toastOpenExternalLinkFailed": "无法打开链接，请稍后重试。",
   "settingsClearOriginalCachePartialTitle": "部分清理失败",
   "toastPurchaseSuccess": "购买成功，已获得 {credits} 积分。",
   "@toastPurchaseSuccess": {

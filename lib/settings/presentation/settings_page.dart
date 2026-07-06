@@ -11,6 +11,7 @@ import '../../auth/domain/auth_user.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../app/app_router.dart';
 import '../../billing/presentation/billing_providers.dart';
+import '../../config/app_config.dart';
 import '../../features/backend_api/domain/credit_balance.dart';
 import '../../features/backend_api/presentation/backend_api_providers.dart';
 import '../../features/generation_submission/application/generation_original_cache_cleaner.dart';
@@ -20,6 +21,7 @@ import '../../features/generation_submission/presentation/generation_submission_
 import '../../features/notifications/presentation/notification_providers.dart';
 import '../../l10n/l10n.dart';
 import '../../shared/core/app_logger.dart';
+import '../../shared/platform/external_link_launcher.dart';
 import '../../shared/presentation/widgets/app_blur_navigation_bar.dart';
 import '../../shared/toast/app_toast.dart';
 import '../../theme/app_corners.dart';
@@ -176,17 +178,20 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               _SettingsActionRow(
                 title: l10n.settingsPrivacyPolicyTitle,
                 subtitle: l10n.settingsPrivacyPolicySubtitle,
-                onPressed: _handlePlaceholderAction,
+                onPressed: () =>
+                    unawaited(_openExternalLink(AppConfig.privacyPolicyUrl)),
               ),
               _SettingsActionRow(
                 title: l10n.settingsTermsTitle,
                 subtitle: l10n.settingsTermsSubtitle,
-                onPressed: _handlePlaceholderAction,
+                onPressed: () =>
+                    unawaited(_openExternalLink(AppConfig.termsOfUseUrl)),
               ),
               _SettingsActionRow(
                 title: l10n.settingsAboutTitle,
                 subtitle: l10n.settingsAboutSubtitle,
-                onPressed: _handlePlaceholderAction,
+                onPressed: () =>
+                    unawaited(_openExternalLink(AppConfig.appHomeUrl)),
               ),
               _SettingsActionRow(
                 title: l10n.settingsContactDeveloperTitle,
@@ -255,6 +260,30 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   void _handlePlaceholderAction() {
     HapticFeedback.selectionClick();
+  }
+
+  Future<void> _openExternalLink(String url) async {
+    HapticFeedback.selectionClick();
+    final Uri uri = Uri.parse(url);
+    final AppToastService toastService = ref.read(appToastServiceProvider);
+    final AppLocalizations l10n = context.l10n;
+    try {
+      final bool opened = await ref.read(externalLinkLauncherProvider)(uri);
+      if (opened) {
+        return;
+      }
+      _debugLog('open external link returned false url=$url');
+    } catch (error, stackTrace) {
+      _debugLog('open external link failure url=$url error=$error');
+      appDebugLog(
+        'SettingsPage',
+        'open external link stack url=$url stack=$stackTrace',
+      );
+    }
+    if (!mounted) {
+      return;
+    }
+    toastService.showOpenExternalLinkFailure(l10n);
   }
 
   Future<void> _showRedeemCodeDialog() async {
@@ -1382,4 +1411,8 @@ class _BlockSwitch extends StatelessWidget {
       ),
     );
   }
+}
+
+void _debugLog(String message) {
+  appDebugLog('SettingsPage', message);
 }

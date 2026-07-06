@@ -235,6 +235,7 @@
   "toastFeedbackSubmitted": "回饋已送出。",
   "toastFeedbackFailed": "回饋無法送出，請稍後再試。",
   "toastOpenPhotoLibraryFailed": "無法開啟「照片」。",
+  "toastOpenExternalLinkFailed": "無法開啟連結，請稍後再試。",
   "settingsClearOriginalCachePartialTitle": "部分清除失敗",
   "toastPurchaseSuccess": "購買完成，已新增 {credits} 點數。",
   "@toastPurchaseSuccess": {

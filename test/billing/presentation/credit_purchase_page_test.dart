@@ -7,6 +7,7 @@ import 'package:fantasy_camera_flutter/billing/domain/billing_product.dart';
 import 'package:fantasy_camera_flutter/billing/domain/credit_product.dart';
 import 'package:fantasy_camera_flutter/billing/presentation/billing_providers.dart';
 import 'package:fantasy_camera_flutter/billing/presentation/credit_purchase_page.dart';
+import 'package:fantasy_camera_flutter/config/app_config.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/credit_balance_cache_repository.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
@@ -14,6 +15,7 @@ import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_redemp
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
+import 'package:fantasy_camera_flutter/shared/platform/external_link_launcher.dart';
 import 'package:fantasy_camera_flutter/shared/toast/app_toast.dart';
 import 'package:fantasy_camera_flutter/theme/app_theme.dart';
 import 'package:flutter/cupertino.dart';
@@ -31,11 +33,34 @@ void main() {
     expect(find.text('输入兑换码'), findsNothing);
     expect(creditsRepository.redeemedCode, isNull);
   });
+
+  testWidgets('footer legal links open configured URLs', (
+    WidgetTester tester,
+  ) async {
+    final _FakeCreditsRepository creditsRepository = _FakeCreditsRepository();
+    final _RecordingExternalLinkLauncher externalLinkLauncher =
+        _RecordingExternalLinkLauncher();
+    await tester.pumpCreditPurchasePage(
+      creditsRepository: creditsRepository,
+      externalLinkLauncher: externalLinkLauncher,
+    );
+
+    await tester.tap(find.text('隐私政策'));
+    await tester.pump();
+    await tester.tap(find.text('使用条款'));
+    await tester.pump();
+
+    expect(
+      externalLinkLauncher.openedUris.map((Uri uri) => uri.toString()),
+      <String>[AppConfig.privacyPolicyUrl, AppConfig.termsOfUseUrl],
+    );
+  });
 }
 
 extension on WidgetTester {
   Future<void> pumpCreditPurchasePage({
     required _FakeCreditsRepository creditsRepository,
+    _RecordingExternalLinkLauncher? externalLinkLauncher,
   }) async {
     await binding.setSurfaceSize(const Size(393, 852));
     addTearDown(() => binding.setSurfaceSize(null));
@@ -61,6 +86,10 @@ extension on WidgetTester {
             appToastPresenterProvider.overrideWithValue(
               _NoopAppToastPresenter(),
             ),
+            if (externalLinkLauncher != null)
+              externalLinkLauncherProvider.overrideWithValue(
+                externalLinkLauncher.call,
+              ),
           ],
           child: CupertinoApp(
             locale: const Locale('zh'),
@@ -168,4 +197,13 @@ class _FakeCreditBalanceCacheRepository
 class _NoopAppToastPresenter extends AppToastPresenter {
   @override
   void show(AppToastMessage message) {}
+}
+
+class _RecordingExternalLinkLauncher {
+  final List<Uri> openedUris = <Uri>[];
+
+  Future<bool> call(Uri uri) async {
+    openedUris.add(uri);
+    return true;
+  }
 }

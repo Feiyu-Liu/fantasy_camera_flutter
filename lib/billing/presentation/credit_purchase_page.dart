@@ -8,7 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../config/app_config.dart';
 import '../../l10n/l10n.dart';
+import '../../shared/core/app_logger.dart';
+import '../../shared/platform/external_link_launcher.dart';
 import '../../shared/toast/app_toast.dart';
 import '../../theme/app_corners.dart';
 import '../../theme/app_colors.dart';
@@ -205,12 +208,14 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
                                         )
                                         .restore();
                                   },
-                                  onPrivacyPressed: () {
-                                    HapticFeedback.selectionClick();
-                                  },
-                                  onTermsPressed: () {
-                                    HapticFeedback.selectionClick();
-                                  },
+                                  onPrivacyPressed: () => unawaited(
+                                    _openExternalLink(
+                                      AppConfig.privacyPolicyUrl,
+                                    ),
+                                  ),
+                                  onTermsPressed: () => unawaited(
+                                    _openExternalLink(AppConfig.termsOfUseUrl),
+                                  ),
                                 ),
                               ),
                             ],
@@ -257,6 +262,34 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
       _heroOverscroll = nextOverscroll;
     });
   }
+
+  Future<void> _openExternalLink(String url) async {
+    HapticFeedback.selectionClick();
+    final Uri uri = Uri.parse(url);
+    final AppToastService toastService = ref.read(appToastServiceProvider);
+    final AppLocalizations l10n = context.l10n;
+    try {
+      final bool opened = await ref.read(externalLinkLauncherProvider)(uri);
+      if (opened) {
+        return;
+      }
+      _debugLog('open external link returned false url=$url');
+    } catch (error, stackTrace) {
+      _debugLog('open external link failure url=$url error=$error');
+      appDebugLog(
+        'CreditPurchasePage',
+        'open external link stack url=$url stack=$stackTrace',
+      );
+    }
+    if (!mounted) {
+      return;
+    }
+    toastService.showOpenExternalLinkFailure(l10n);
+  }
+}
+
+void _debugLog(String message) {
+  appDebugLog('CreditPurchasePage', message);
 }
 
 class _PurchaseNavigationBar extends StatelessWidget {

@@ -215,6 +215,16 @@ class AppToastService {
     );
   }
 
+  void showOpenExternalLinkFailure(AppLocalizations localizations) {
+    show(
+      AppToastMessage(
+        type: AppToastType.error,
+        title: localizations.toastOpenExternalLinkFailed,
+        dedupeKey: 'external_link.open.failed',
+      ),
+    );
+  }
+
   void showClearOriginalCacheSuccess(
     AppLocalizations localizations, {
     String? message,
