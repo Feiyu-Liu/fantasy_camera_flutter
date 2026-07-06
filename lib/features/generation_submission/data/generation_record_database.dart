@@ -73,12 +73,37 @@ class GenerationRecords extends Table {
 
 @DriftDatabase(tables: <Type>[GenerationRecords])
 class GenerationRecordDatabase extends _$GenerationRecordDatabase {
+  static const int currentSchemaVersion = 2;
+
   GenerationRecordDatabase() : super(_openConnection());
 
   GenerationRecordDatabase.forExecutor(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => currentSchemaVersion;
+
+  @override
+  MigrationStrategy get migration {
+    return MigrationStrategy(
+      onCreate: (Migrator migrator) => migrator.createAll(),
+      onUpgrade: (Migrator migrator, int from, int to) async {
+        for (int version = from; version < to; version += 1) {
+          switch (version) {
+            case 1:
+              await _migrateFrom1To2(migrator);
+          }
+        }
+      },
+      beforeOpen: (OpeningDetails details) async {
+        await customStatement('PRAGMA foreign_keys = ON');
+      },
+    );
+  }
+
+  Future<void> _migrateFrom1To2(Migrator migrator) async {
+    // Schema v2 introduces the explicit migration path before the next
+    // generation_records shape change. The table is unchanged from v1.
+  }
 }
 
 LazyDatabase _openConnection() {

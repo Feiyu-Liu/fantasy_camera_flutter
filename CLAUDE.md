@@ -11,6 +11,10 @@ flutter pub get
 # Code generation (Drift DB + localization)
 flutter pub run build_runner build --delete-conflicting-outputs
 
+# Drift schema snapshots after changing generation_record_database.dart
+dart run drift_dev schema dump lib/features/generation_submission/data/generation_record_database.dart drift_schemas/drift_schema_vN.json
+dart run drift_dev schema generate drift_schemas test/drift/generated
+
 # Run the app (dart-define flags required for backend features)
 flutter run \
   --dart-define=SUPABASE_URL=YOUR_SUPABASE_URL \
@@ -27,6 +31,7 @@ flutter analyze
 ```
 
 Run `build_runner` whenever modifying `generation_record_database.dart` (Drift) or `.arb` localization files.
+For Drift schema changes, also increment `GenerationRecordDatabase.currentSchemaVersion`, add the matching `onUpgrade` step, dump a new `drift_schemas/drift_schema_vN.json`, regenerate `test/drift/generated`, and run the migration test.
 
 ## Architecture
 
@@ -51,7 +56,7 @@ lib/
 
 **State management:** Riverpod throughout. Use `AsyncValue` for async state; providers act as the DI layer. `AutoDispose` variants are standard for screen-scoped state.
 
-**Local database:** Drift (`generation_record_database.dart`) tracks the full generation record lifecycle — from original image capture through upload, task polling, result caching, and user feedback. Schema changes require re-running `build_runner`.
+**Local database:** Drift (`generation_record_database.dart`) tracks the full generation record lifecycle — from original image capture through upload, task polling, result caching, and user feedback. Schema changes require re-running `build_runner`, exporting a new schema snapshot under `drift_schemas/`, regenerating `test/drift/generated`, and updating the migration path.
 
 **Camera zoom:** Raw AVFoundation zoom values map to display zoom via `displayZoomFactorMultiplier`. All zoom logic is centralized in `cameraStateProvider` — do not duplicate it.
 
