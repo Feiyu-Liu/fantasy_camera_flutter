@@ -35,6 +35,7 @@ migrate_working_dir/
 
 # Local dart-define files
 *.local.json
+config/release.env
 
 # Symbolication related
 app.*.symbols
