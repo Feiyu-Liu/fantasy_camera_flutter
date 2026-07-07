@@ -73,32 +73,28 @@ enum AuthControllerErrorCode {
   appleSignInFailed,
   googleSignInFailed,
   invalidCredentials,
+  emailNotConfirmed,
+  accountAlreadyExists,
+  weakPassword,
+  rateLimited,
+  signupDisabled,
   authenticationFailed,
 }
 
 class AuthControllerState {
-  const AuthControllerState({
-    this.isSubmitting = false,
-    this.errorCode,
-    this.rawErrorMessage,
-  });
+  const AuthControllerState({this.isSubmitting = false, this.errorCode});
 
   final bool isSubmitting;
   final AuthControllerErrorCode? errorCode;
-  final String? rawErrorMessage;
 
   AuthControllerState copyWith({
     bool? isSubmitting,
     AuthControllerErrorCode? errorCode,
-    String? rawErrorMessage,
     bool clearError = false,
   }) {
     return AuthControllerState(
       isSubmitting: isSubmitting ?? this.isSubmitting,
       errorCode: clearError ? null : errorCode ?? this.errorCode,
-      rawErrorMessage: clearError
-          ? null
-          : rawErrorMessage ?? this.rawErrorMessage,
     );
   }
 }
@@ -200,28 +196,32 @@ class AuthController extends Notifier<AuthControllerState> {
       logAppError('auth_action_failed', error, stackTrace);
       state = state.copyWith(
         isSubmitting: false,
-        errorCode: _errorCodeFor(error),
-        rawErrorMessage: _rawMessageFor(error),
+        errorCode: authControllerErrorCodeFor(error),
       );
     }
   }
+}
 
-  AuthControllerErrorCode _errorCodeFor(Object error) {
-    if (error is AuthException) {
-      if (error.code == 'invalid_credentials') {
-        return AuthControllerErrorCode.invalidCredentials;
-      }
-      return AuthControllerErrorCode.authenticationFailed;
-    }
+AuthControllerErrorCode authControllerErrorCodeFor(Object error) {
+  if (error is! AuthException) {
     return AuthControllerErrorCode.authenticationFailed;
   }
-
-  String? _rawMessageFor(Object error) {
-    if (error is AuthException && error.code != 'invalid_credentials') {
-      return error.message;
-    }
-    return null;
-  }
+  return switch (error.code) {
+    'invalid_credentials' => AuthControllerErrorCode.invalidCredentials,
+    'email_not_confirmed' || 'provider_email_needs_verification' =>
+      AuthControllerErrorCode.emailNotConfirmed,
+    'user_already_exists' ||
+    'email_exists' ||
+    'identity_already_exists' => AuthControllerErrorCode.accountAlreadyExists,
+    'weak_password' => AuthControllerErrorCode.weakPassword,
+    'over_email_send_rate_limit' ||
+    'over_request_rate_limit' ||
+    'request_timeout' => AuthControllerErrorCode.rateLimited,
+    'signup_disabled' ||
+    'email_provider_disabled' ||
+    'provider_disabled' => AuthControllerErrorCode.signupDisabled,
+    _ => AuthControllerErrorCode.authenticationFailed,
+  };
 }
 
 final signedInCameraChoicesProvider = FutureProvider<List<CameraChoice>>((

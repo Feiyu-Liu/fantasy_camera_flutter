@@ -121,6 +121,12 @@ abstract class AppLocalizations {
   /// **'Account created. Please sign in.'**
   String get authAccountCreatedSignIn;
 
+  /// No description provided for @authAccountAlreadyExists.
+  ///
+  /// In en, this message translates to:
+  /// **'This email is already registered. Sign in instead.'**
+  String get authAccountAlreadyExists;
+
   /// No description provided for @authAlreadyHaveAccountSignIn.
   ///
   /// In en, this message translates to:
@@ -180,6 +186,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Email address'**
   String get authEmailLabel;
+
+  /// No description provided for @authEmailNotConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Email isn\'t confirmed yet. Check your inbox first.'**
+  String get authEmailNotConfirmed;
 
   /// No description provided for @authEmailPlaceholder.
   ///
@@ -271,6 +283,12 @@ abstract class AppLocalizations {
   /// **'Password'**
   String get authPasswordPlaceholder;
 
+  /// No description provided for @authRateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Try again later.'**
+  String get authRateLimited;
+
   /// No description provided for @authSecretKeyPlaceholder.
   ///
   /// In en, this message translates to:
@@ -300,6 +318,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sign in to continue'**
   String get authSignInSubtitle;
+
+  /// No description provided for @authSignupDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Account creation isn\'t available right now.'**
+  String get authSignupDisabled;
+
+  /// No description provided for @authWeakPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a stronger password.'**
+  String get authWeakPassword;
 
   /// No description provided for @cameraCreditsBalanceSemanticsLabel.
   ///

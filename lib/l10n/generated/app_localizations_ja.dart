@@ -18,6 +18,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get authAccountCreatedSignIn => 'アカウントを作成しました。ログインしてください。';
 
   @override
+  String get authAccountAlreadyExists => 'このメールアドレスはすでに登録されています。ログインしてください。';
+
+  @override
   String get authAlreadyHaveAccountSignIn => 'アカウントをお持ちですか？ログイン';
 
   @override
@@ -46,6 +49,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get authEmailLabel => 'メールアドレス';
+
+  @override
+  String get authEmailNotConfirmed => 'メールアドレスがまだ確認されていません。先に受信箱を確認してください。';
 
   @override
   String get authEmailPlaceholder => 'メール';
@@ -95,6 +101,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get authPasswordPlaceholder => 'パスワード';
 
   @override
+  String get authRateLimited => '試行回数が多すぎます。しばらくしてからもう一度お試しください。';
+
+  @override
   String get authSecretKeyPlaceholder => '••••••••';
 
   @override
@@ -108,6 +117,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get authSignInSubtitle => '続行するにはログインしてください';
+
+  @override
+  String get authSignupDisabled => '現在、アカウント作成は利用できません。';
+
+  @override
+  String get authWeakPassword => 'より安全なパスワードを使用してください。';
 
   @override
   String cameraCreditsBalanceSemanticsLabel(Object value) {

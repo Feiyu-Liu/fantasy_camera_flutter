@@ -18,6 +18,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authAccountCreatedSignIn => 'Account created. Please sign in.';
 
   @override
+  String get authAccountAlreadyExists =>
+      'This email is already registered. Sign in instead.';
+
+  @override
   String get authAlreadyHaveAccountSignIn => 'Already have an account? Sign in';
 
   @override
@@ -47,6 +51,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authEmailLabel => 'Email address';
+
+  @override
+  String get authEmailNotConfirmed =>
+      'Email isn\'t confirmed yet. Check your inbox first.';
 
   @override
   String get authEmailPlaceholder => 'Email';
@@ -96,6 +104,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authPasswordPlaceholder => 'Password';
 
   @override
+  String get authRateLimited => 'Too many attempts. Try again later.';
+
+  @override
   String get authSecretKeyPlaceholder => '••••••••';
 
   @override
@@ -110,6 +121,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authSignInSubtitle => 'Sign in to continue';
+
+  @override
+  String get authSignupDisabled =>
+      'Account creation isn\'t available right now.';
+
+  @override
+  String get authWeakPassword => 'Use a stronger password.';
 
   @override
   String cameraCreditsBalanceSemanticsLabel(Object value) {

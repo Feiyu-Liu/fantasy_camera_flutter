@@ -169,9 +169,6 @@ String? _authControllerMessage(
   BuildContext context,
   AuthControllerState state,
 ) {
-  if (state.rawErrorMessage case final String raw when raw.isNotEmpty) {
-    return raw;
-  }
   return switch (state.errorCode) {
     AuthControllerErrorCode.appleSignInFailed =>
       context.l10n.authAppleSignInFailed,
@@ -179,6 +176,13 @@ String? _authControllerMessage(
       context.l10n.authGoogleSignInFailed,
     AuthControllerErrorCode.invalidCredentials =>
       context.l10n.authInvalidCredentials,
+    AuthControllerErrorCode.emailNotConfirmed =>
+      context.l10n.authEmailNotConfirmed,
+    AuthControllerErrorCode.accountAlreadyExists =>
+      context.l10n.authAccountAlreadyExists,
+    AuthControllerErrorCode.weakPassword => context.l10n.authWeakPassword,
+    AuthControllerErrorCode.rateLimited => context.l10n.authRateLimited,
+    AuthControllerErrorCode.signupDisabled => context.l10n.authSignupDisabled,
     AuthControllerErrorCode.authenticationFailed =>
       context.l10n.authAuthenticationFailed,
     null => null,

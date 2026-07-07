@@ -18,6 +18,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get authAccountCreatedSignIn => '账号已创建，请登录。';
 
   @override
+  String get authAccountAlreadyExists => '该邮箱已注册，请直接登录。';
+
+  @override
   String get authAlreadyHaveAccountSignIn => '已有账号？登录';
 
   @override
@@ -46,6 +49,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get authEmailLabel => '邮箱地址';
+
+  @override
+  String get authEmailNotConfirmed => '邮箱尚未确认，请先查看邮箱并完成确认。';
 
   @override
   String get authEmailPlaceholder => '邮箱';
@@ -94,6 +100,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get authPasswordPlaceholder => '密码';
 
   @override
+  String get authRateLimited => '请求过于频繁，请稍后再试。';
+
+  @override
   String get authSecretKeyPlaceholder => '••••••••';
 
   @override
@@ -107,6 +116,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get authSignInSubtitle => '登录以继续';
+
+  @override
+  String get authSignupDisabled => '当前暂不支持创建账号。';
+
+  @override
+  String get authWeakPassword => '密码强度不足，请换一个更安全的密码。';
 
   @override
   String cameraCreditsBalanceSemanticsLabel(Object value) {
@@ -604,6 +619,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get authAccountCreatedSignIn => '帳號已建立，請登入。';
 
   @override
+  String get authAccountAlreadyExists => '此電子郵件已註冊，請直接登入。';
+
+  @override
   String get authAlreadyHaveAccountSignIn => '已有帳號？登入';
 
   @override
@@ -632,6 +650,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get authEmailLabel => '電子郵件地址';
+
+  @override
+  String get authEmailNotConfirmed => '電子郵件尚未確認，請先查看信箱並完成確認。';
 
   @override
   String get authEmailPlaceholder => '電子郵件';
@@ -680,6 +701,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get authPasswordPlaceholder => '密碼';
 
   @override
+  String get authRateLimited => '請求過於頻繁，請稍後再試。';
+
+  @override
   String get authSecretKeyPlaceholder => '••••••••';
 
   @override
@@ -693,6 +717,12 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get authSignInSubtitle => '請登入以繼續';
+
+  @override
+  String get authSignupDisabled => '目前暫不支援建立帳號。';
+
+  @override
+  String get authWeakPassword => '密碼強度不足，請換一組更安全的密碼。';
 
   @override
   String cameraCreditsBalanceSemanticsLabel(Object value) {
