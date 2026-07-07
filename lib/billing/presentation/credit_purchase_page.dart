@@ -76,7 +76,7 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
         ? null
         : state.products.firstWhere(
             (BillingProduct product) => product.productId == _selectedProductId,
-            orElse: () => state.products.first,
+            orElse: () => _defaultSelectedProduct(state.products),
           );
     final String? selectedProductId = selectedProduct?.productId;
     final AppThemeColors colors = AppThemeColors.of(context);
@@ -285,6 +285,10 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
       return;
     }
     toastService.showOpenExternalLinkFailure(l10n);
+  }
+
+  BillingProduct _defaultSelectedProduct(List<BillingProduct> products) {
+    return products.length > 1 ? products[1] : products.first;
   }
 }
 
@@ -694,7 +698,7 @@ class _CreditPackRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      context.l10n.billingCreditPackTitle(product.credits),
+                      product.displayNameKey,
                       textScaler: TextScaler.noScaling,
                       style: TextStyle(
                         color: isSelected
@@ -707,7 +711,7 @@ class _CreditPackRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      context.l10n.billingCreditPackSubtitle,
+                      context.l10n.billingCreditPackTitle(product.credits),
                       textScaler: TextScaler.noScaling,
                       style: TextStyle(
                         color: isSelected

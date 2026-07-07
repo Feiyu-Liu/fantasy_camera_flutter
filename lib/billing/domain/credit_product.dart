@@ -3,17 +3,20 @@ import '../../features/backend_api/domain/json_value.dart';
 class CreditProduct {
   const CreditProduct({
     required this.productId,
+    required this.displayNameKey,
     required this.credits,
     required this.displayRank,
   });
 
   final String productId;
+  final String displayNameKey;
   final int credits;
   final int displayRank;
 
   factory CreditProduct.fromJson(JsonObject json) {
     return CreditProduct(
       productId: _readString(json, 'productId'),
+      displayNameKey: _readString(json, 'displayNameKey'),
       credits: _readInt(json, 'credits'),
       displayRank: _readInt(json, 'displayRank'),
     );

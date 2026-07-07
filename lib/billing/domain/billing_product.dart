@@ -7,6 +7,7 @@ class BillingProduct {
     required this.displayRank,
     required this.price,
     required this.packageIdentifier,
+    this.displayNameKey = '',
   });
 
   final String productId;
@@ -14,10 +15,12 @@ class BillingProduct {
   final int displayRank;
   final String price;
   final String packageIdentifier;
+  final String displayNameKey;
 
   BillingProduct copyWithCreditProduct(CreditProduct product) {
     return BillingProduct(
       productId: productId,
+      displayNameKey: product.displayNameKey,
       credits: product.credits,
       displayRank: product.displayRank,
       price: price,

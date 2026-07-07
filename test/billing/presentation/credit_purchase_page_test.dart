@@ -55,11 +55,97 @@ void main() {
       <String>[AppConfig.privacyPolicyUrl, AppConfig.termsOfUseUrl],
     );
   });
+
+  testWidgets('product card shows display name and credits', (
+    WidgetTester tester,
+  ) async {
+    final _FakeCreditsRepository creditsRepository = _FakeCreditsRepository();
+    await tester.pumpCreditPurchasePage(
+      creditsRepository: creditsRepository,
+      billingGateway: _FakeBillingGateway(
+        products: const <BillingProduct>[
+          BillingProduct(
+            productId: 'tessercam_credits_6_v2',
+            credits: 0,
+            displayRank: 999,
+            price: r'¥6.00',
+            packageIdentifier: r'$rc_custom_6',
+          ),
+        ],
+      ),
+      billingRepository: _FakeBillingRepository(
+        products: const <CreditProduct>[
+          CreditProduct(
+            productId: 'tessercam_credits_6_v2',
+            displayNameKey: 'Mini',
+            credits: 6,
+            displayRank: 0,
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text('Mini'), findsOneWidget);
+    expect(find.text('6 积分'), findsOneWidget);
+    expect(find.text('一次性积分包'), findsNothing);
+  });
+
+  testWidgets('defaults to the second product when available', (
+    WidgetTester tester,
+  ) async {
+    final _FakeBillingGateway billingGateway = _FakeBillingGateway(
+      products: const <BillingProduct>[
+        BillingProduct(
+          productId: 'tessercam_credits_6_v2',
+          credits: 0,
+          displayRank: 999,
+          price: r'¥6.00',
+          packageIdentifier: r'$rc_custom_6',
+        ),
+        BillingProduct(
+          productId: 'tessercam_credits_40_v2',
+          credits: 0,
+          displayRank: 999,
+          price: r'¥30.00',
+          packageIdentifier: r'$rc_custom_40',
+        ),
+      ],
+    );
+    await tester.pumpCreditPurchasePage(
+      creditsRepository: _FakeCreditsRepository(),
+      billingGateway: billingGateway,
+      billingRepository: _FakeBillingRepository(
+        products: const <CreditProduct>[
+          CreditProduct(
+            productId: 'tessercam_credits_6_v2',
+            displayNameKey: 'Mini',
+            credits: 6,
+            displayRank: 0,
+          ),
+          CreditProduct(
+            productId: 'tessercam_credits_40_v2',
+            displayNameKey: 'Standard',
+            credits: 40,
+            displayRank: 1,
+          ),
+        ],
+      ),
+    );
+
+    await tester.tap(find.text('购买'));
+    await tester.pump();
+
+    expect(billingGateway.purchasedProductIds, <String>[
+      'tessercam_credits_40_v2',
+    ]);
+  });
 }
 
 extension on WidgetTester {
   Future<void> pumpCreditPurchasePage({
     required _FakeCreditsRepository creditsRepository,
+    _FakeBillingGateway? billingGateway,
+    _FakeBillingRepository? billingRepository,
     _RecordingExternalLinkLauncher? externalLinkLauncher,
   }) async {
     await binding.setSurfaceSize(const Size(393, 852));
@@ -75,9 +161,11 @@ extension on WidgetTester {
                 ),
               ),
             ),
-            billingGatewayProvider.overrideWithValue(_FakeBillingGateway()),
+            billingGatewayProvider.overrideWithValue(
+              billingGateway ?? _FakeBillingGateway(),
+            ),
             billingRepositoryProvider.overrideWithValue(
-              _FakeBillingRepository(),
+              billingRepository ?? _FakeBillingRepository(),
             ),
             creditsRepositoryProvider.overrideWithValue(creditsRepository),
             creditBalanceCacheRepositoryProvider.overrideWithValue(
@@ -113,12 +201,17 @@ extension on WidgetTester {
 }
 
 class _FakeBillingGateway implements BillingGateway {
+  _FakeBillingGateway({this.products = const <BillingProduct>[]});
+
+  final List<BillingProduct> products;
+  final List<String> purchasedProductIds = <String>[];
+
   @override
   bool get isPurchaseAvailable => true;
 
   @override
   Future<List<BillingProduct>> fetchProducts() async {
-    return const <BillingProduct>[];
+    return products;
   }
 
   @override
@@ -129,6 +222,7 @@ class _FakeBillingGateway implements BillingGateway {
 
   @override
   Future<BillingPurchaseOutcome> purchaseProduct(BillingProduct product) async {
+    purchasedProductIds.add(product.productId);
     return const BillingPurchaseCompleted();
   }
 
@@ -137,9 +231,13 @@ class _FakeBillingGateway implements BillingGateway {
 }
 
 class _FakeBillingRepository implements BillingRepository {
+  _FakeBillingRepository({this.products = const <CreditProduct>[]});
+
+  final List<CreditProduct> products;
+
   @override
   Future<List<CreditProduct>> fetchProducts() async {
-    return const <CreditProduct>[];
+    return products;
   }
 
   @override
