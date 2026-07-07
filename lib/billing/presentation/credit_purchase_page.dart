@@ -54,6 +54,16 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
         toastService.showPurchaseSuccess(l10n, purchaseSuccessCredits);
       }
 
+      final int? restoreFeedbackCredits = next.restoreFeedbackCredits;
+      if (restoreFeedbackCredits != null &&
+          restoreFeedbackCredits != previous?.restoreFeedbackCredits) {
+        if (restoreFeedbackCredits > 0) {
+          toastService.showRestorePurchaseSuccess(l10n, restoreFeedbackCredits);
+        } else {
+          toastService.showRestorePurchaseSynced(l10n);
+        }
+      }
+
       final String? errorMessage = next.errorMessage;
       if (errorMessage == null ||
           (previous?.errorMessage == errorMessage &&

@@ -298,6 +298,26 @@ class AppToastService {
     );
   }
 
+  void showRestorePurchaseSuccess(AppLocalizations localizations, int credits) {
+    show(
+      AppToastMessage(
+        type: AppToastType.success,
+        title: localizations.toastRestorePurchaseSuccess(credits),
+        dedupeKey: 'billing.restore.success',
+      ),
+    );
+  }
+
+  void showRestorePurchaseSynced(AppLocalizations localizations) {
+    show(
+      AppToastMessage(
+        type: AppToastType.success,
+        title: localizations.toastRestorePurchaseSynced,
+        dedupeKey: 'billing.restore.synced',
+      ),
+    );
+  }
+
   void showCreditRedemptionSuccess(
     AppLocalizations localizations,
     int credits,

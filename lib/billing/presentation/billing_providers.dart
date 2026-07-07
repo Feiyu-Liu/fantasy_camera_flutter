@@ -205,6 +205,7 @@ class BillingControllerState {
     this.errorKind,
     this.lastGrantedCredits,
     this.purchaseSuccessCredits,
+    this.restoreFeedbackCredits,
   });
 
   final List<BillingProduct> products;
@@ -214,6 +215,7 @@ class BillingControllerState {
   final BillingErrorKind? errorKind;
   final int? lastGrantedCredits;
   final int? purchaseSuccessCredits;
+  final int? restoreFeedbackCredits;
 
   BillingControllerState copyWith({
     List<BillingProduct>? products,
@@ -226,6 +228,8 @@ class BillingControllerState {
     bool clearLastGrantedCredits = false,
     int? purchaseSuccessCredits,
     bool clearPurchaseSuccessCredits = false,
+    int? restoreFeedbackCredits,
+    bool clearRestoreFeedbackCredits = false,
   }) {
     return BillingControllerState(
       products: products ?? this.products,
@@ -241,6 +245,9 @@ class BillingControllerState {
       purchaseSuccessCredits: clearPurchaseSuccessCredits
           ? null
           : purchaseSuccessCredits ?? this.purchaseSuccessCredits,
+      restoreFeedbackCredits: clearRestoreFeedbackCredits
+          ? null
+          : restoreFeedbackCredits ?? this.restoreFeedbackCredits,
     );
   }
 }
@@ -260,6 +267,7 @@ class BillingController extends Notifier<BillingControllerState> {
       clearErrorMessage: true,
       clearLastGrantedCredits: true,
       clearPurchaseSuccessCredits: true,
+      clearRestoreFeedbackCredits: true,
     );
     try {
       final String? userId = ref
@@ -318,6 +326,7 @@ class BillingController extends Notifier<BillingControllerState> {
       clearErrorMessage: true,
       clearLastGrantedCredits: true,
       clearPurchaseSuccessCredits: true,
+      clearRestoreFeedbackCredits: true,
     );
     final BillingPurchaseOutcome outcome = await ref
         .read(billingGatewayProvider)
@@ -380,22 +389,34 @@ class BillingController extends Notifier<BillingControllerState> {
       clearErrorMessage: true,
       clearLastGrantedCredits: true,
       clearPurchaseSuccessCredits: true,
+      clearRestoreFeedbackCredits: true,
     );
     try {
+      final String? userId = await _currentUserId();
+      if (userId != null && userId.isNotEmpty) {
+        await ref.read(billingGatewayProvider).logIn(userId);
+      }
       await ref.read(billingGatewayProvider).restorePurchases();
       final CreditPurchaseSyncResult result = await ref
           .read(billingRepositoryProvider)
           .syncRevenueCatPurchases();
       await ref
           .read(creditBalanceProvider.notifier)
-          .refreshFromServer(userId: await _currentUserId());
+          .refreshFromServer(userId: userId);
+      appDebugLog(
+        'Billing',
+        'restore sync completed processed=${result.processedPurchases} '
+            'granted=${result.grantedCredits}',
+      );
       state = state.copyWith(
         isPurchasing: false,
         lastGrantedCredits: result.grantedCredits > 0
             ? result.grantedCredits
             : null,
+        restoreFeedbackCredits: result.grantedCredits,
       );
-    } on Object {
+    } on Object catch (error, stackTrace) {
+      logAppError('billing_restore_failed', error, stackTrace);
       state = state.copyWith(
         isPurchasing: false,
         errorMessage: 'billing_restore_failed',

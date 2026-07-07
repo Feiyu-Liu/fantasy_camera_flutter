@@ -261,6 +261,15 @@
     }
   },
   "toastPurchaseFailed": "Purchase couldn't be completed. Try again later.",
+  "toastRestorePurchaseSuccess": "Purchases restored. {credits} credits added.",
+  "@toastRestorePurchaseSuccess": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "toastRestorePurchaseSynced": "Purchase history synced.",
   "toastRestorePurchaseFailed": "Purchases couldn't be restored. Try again later.",
   "toastCreditRedemptionSuccess": "Redeemed {credits} credits.",
   "@toastCreditRedemptionSuccess": {

@@ -597,6 +597,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get toastPurchaseFailed => '購入を完了できませんでした。後でもう一度お試しください。';
 
   @override
+  String toastRestorePurchaseSuccess(int credits) {
+    return '購入を復元しました。$creditsクレジットが追加されました。';
+  }
+
+  @override
+  String get toastRestorePurchaseSynced => '購入履歴を同期しました。';
+
+  @override
   String get toastRestorePurchaseFailed => '購入を復元できませんでした。後でもう一度お試しください。';
 
   @override

@@ -261,6 +261,15 @@
     }
   },
   "toastPurchaseFailed": "购买未完成，请稍后重试。",
+  "toastRestorePurchaseSuccess": "恢复购买成功，已获得 {credits} 积分。",
+  "@toastRestorePurchaseSuccess": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "toastRestorePurchaseSynced": "购买记录已同步。",
   "toastRestorePurchaseFailed": "恢复购买失败，请稍后重试。",
   "toastCreditRedemptionSuccess": "已兑换 {credits} 积分。",
   "@toastCreditRedemptionSuccess": {

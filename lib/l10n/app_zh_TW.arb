@@ -261,6 +261,15 @@
     }
   },
   "toastPurchaseFailed": "購買未完成，請稍後再試。",
+  "toastRestorePurchaseSuccess": "恢復購買完成，已新增 {credits} 點數。",
+  "@toastRestorePurchaseSuccess": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "toastRestorePurchaseSynced": "購買記錄已同步。",
   "toastRestorePurchaseFailed": "無法恢復購買，請稍後再試。",
   "toastCreditRedemptionSuccess": "已兌換 {credits} 點數。",
   "@toastCreditRedemptionSuccess": {

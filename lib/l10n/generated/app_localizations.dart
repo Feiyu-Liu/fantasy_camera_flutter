@@ -1198,6 +1198,18 @@ abstract class AppLocalizations {
   /// **'Purchase couldn\'t be completed. Try again later.'**
   String get toastPurchaseFailed;
 
+  /// No description provided for @toastRestorePurchaseSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchases restored. {credits} credits added.'**
+  String toastRestorePurchaseSuccess(int credits);
+
+  /// No description provided for @toastRestorePurchaseSynced.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase history synced.'**
+  String get toastRestorePurchaseSynced;
+
   /// No description provided for @toastRestorePurchaseFailed.
   ///
   /// In en, this message translates to:

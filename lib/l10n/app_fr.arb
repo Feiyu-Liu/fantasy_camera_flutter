@@ -261,6 +261,15 @@
     }
   },
   "toastPurchaseFailed": "Achat incomplet. Réessaie plus tard.",
+  "toastRestorePurchaseSuccess": "Achats restaurés. {credits} crédits ajoutés.",
+  "@toastRestorePurchaseSuccess": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "toastRestorePurchaseSynced": "Historique d'achat synchronisé.",
   "toastRestorePurchaseFailed": "Impossible de restaurer les achats. Réessaie plus tard.",
   "toastCreditRedemptionSuccess": "{credits} crédits échangés.",
   "@toastCreditRedemptionSuccess": {

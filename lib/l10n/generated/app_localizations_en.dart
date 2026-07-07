@@ -626,6 +626,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Purchase couldn\'t be completed. Try again later.';
 
   @override
+  String toastRestorePurchaseSuccess(int credits) {
+    return 'Purchases restored. $credits credits added.';
+  }
+
+  @override
+  String get toastRestorePurchaseSynced => 'Purchase history synced.';
+
+  @override
   String get toastRestorePurchaseFailed =>
       'Purchases couldn\'t be restored. Try again later.';
 

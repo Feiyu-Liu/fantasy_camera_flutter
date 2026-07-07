@@ -56,6 +56,60 @@ void main() {
     );
   });
 
+  testWidgets('restore purchase shows restored credits toast', (
+    WidgetTester tester,
+  ) async {
+    final _RecordingAppToastPresenter toastPresenter =
+        _RecordingAppToastPresenter();
+    final _FakeBillingGateway billingGateway = _FakeBillingGateway();
+    await tester.pumpCreditPurchasePage(
+      creditsRepository: _FakeCreditsRepository(),
+      billingGateway: billingGateway,
+      billingRepository: _FakeBillingRepository(
+        syncResult: const CreditPurchaseSyncResult(
+          grantedCredits: 40,
+          processedPurchases: 1,
+          balance: 218,
+          products: <CreditProduct>[],
+        ),
+      ),
+      toastPresenter: toastPresenter,
+    );
+
+    await tester.tap(find.text('恢复购买'));
+    await tester.pump();
+
+    expect(billingGateway.restoredPurchases, 1);
+    expect(
+      toastPresenter.messages.map((AppToastMessage message) => message.title),
+      contains('恢复购买成功，已获得 40 积分。'),
+    );
+  });
+
+  testWidgets(
+    'restore purchase shows synced toast when nothing new is granted',
+    (WidgetTester tester) async {
+      final _RecordingAppToastPresenter toastPresenter =
+          _RecordingAppToastPresenter();
+      final _FakeBillingGateway billingGateway = _FakeBillingGateway();
+      await tester.pumpCreditPurchasePage(
+        creditsRepository: _FakeCreditsRepository(),
+        billingGateway: billingGateway,
+        billingRepository: _FakeBillingRepository(),
+        toastPresenter: toastPresenter,
+      );
+
+      await tester.tap(find.text('恢复购买'));
+      await tester.pump();
+
+      expect(billingGateway.restoredPurchases, 1);
+      expect(
+        toastPresenter.messages.map((AppToastMessage message) => message.title),
+        contains('购买记录已同步。'),
+      );
+    },
+  );
+
   testWidgets('product cards show display names credits and savings badges', (
     WidgetTester tester,
   ) async {
@@ -182,6 +236,7 @@ extension on WidgetTester {
     _FakeBillingGateway? billingGateway,
     _FakeBillingRepository? billingRepository,
     _RecordingExternalLinkLauncher? externalLinkLauncher,
+    _RecordingAppToastPresenter? toastPresenter,
   }) async {
     await binding.setSurfaceSize(const Size(393, 852));
     addTearDown(() => binding.setSurfaceSize(null));
@@ -207,7 +262,7 @@ extension on WidgetTester {
               _FakeCreditBalanceCacheRepository(),
             ),
             appToastPresenterProvider.overrideWithValue(
-              _NoopAppToastPresenter(),
+              toastPresenter ?? _NoopAppToastPresenter(),
             ),
             if (externalLinkLauncher != null)
               externalLinkLauncherProvider.overrideWithValue(
@@ -240,6 +295,7 @@ class _FakeBillingGateway implements BillingGateway {
 
   final List<BillingProduct> products;
   final List<String> purchasedProductIds = <String>[];
+  int restoredPurchases = 0;
 
   @override
   bool get isPurchaseAvailable => true;
@@ -262,13 +318,24 @@ class _FakeBillingGateway implements BillingGateway {
   }
 
   @override
-  Future<void> restorePurchases() async {}
+  Future<void> restorePurchases() async {
+    restoredPurchases += 1;
+  }
 }
 
 class _FakeBillingRepository implements BillingRepository {
-  _FakeBillingRepository({this.products = const <CreditProduct>[]});
+  _FakeBillingRepository({
+    this.products = const <CreditProduct>[],
+    this.syncResult = const CreditPurchaseSyncResult(
+      grantedCredits: 0,
+      processedPurchases: 0,
+      balance: null,
+      products: <CreditProduct>[],
+    ),
+  });
 
   final List<CreditProduct> products;
+  final CreditPurchaseSyncResult syncResult;
 
   @override
   Future<List<CreditProduct>> fetchProducts() async {
@@ -277,12 +344,7 @@ class _FakeBillingRepository implements BillingRepository {
 
   @override
   Future<CreditPurchaseSyncResult> syncRevenueCatPurchases() async {
-    return const CreditPurchaseSyncResult(
-      grantedCredits: 0,
-      processedPurchases: 0,
-      balance: null,
-      products: <CreditProduct>[],
-    );
+    return syncResult;
   }
 }
 
@@ -330,6 +392,15 @@ class _FakeCreditBalanceCacheRepository
 class _NoopAppToastPresenter extends AppToastPresenter {
   @override
   void show(AppToastMessage message) {}
+}
+
+class _RecordingAppToastPresenter extends AppToastPresenter {
+  final List<AppToastMessage> messages = <AppToastMessage>[];
+
+  @override
+  void show(AppToastMessage message) {
+    messages.add(message);
+  }
 }
 
 class _RecordingExternalLinkLauncher {

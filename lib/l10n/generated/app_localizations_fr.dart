@@ -635,6 +635,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get toastPurchaseFailed => 'Achat incomplet. Réessaie plus tard.';
 
   @override
+  String toastRestorePurchaseSuccess(int credits) {
+    return 'Achats restaurés. $credits crédits ajoutés.';
+  }
+
+  @override
+  String get toastRestorePurchaseSynced => 'Historique d\'achat synchronisé.';
+
+  @override
   String get toastRestorePurchaseFailed =>
       'Impossible de restaurer les achats. Réessaie plus tard.';
 

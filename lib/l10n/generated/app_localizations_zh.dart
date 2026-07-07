@@ -587,6 +587,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get toastPurchaseFailed => '购买未完成，请稍后重试。';
 
   @override
+  String toastRestorePurchaseSuccess(int credits) {
+    return '恢复购买成功，已获得 $credits 积分。';
+  }
+
+  @override
+  String get toastRestorePurchaseSynced => '购买记录已同步。';
+
+  @override
   String get toastRestorePurchaseFailed => '恢复购买失败，请稍后重试。';
 
   @override
@@ -1191,6 +1199,14 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get toastPurchaseFailed => '購買未完成，請稍後再試。';
+
+  @override
+  String toastRestorePurchaseSuccess(int credits) {
+    return '恢復購買完成，已新增 $credits 點數。';
+  }
+
+  @override
+  String get toastRestorePurchaseSynced => '購買記錄已同步。';
 
   @override
   String get toastRestorePurchaseFailed => '無法恢復購買，請稍後再試。';

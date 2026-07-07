@@ -261,6 +261,15 @@
     }
   },
   "toastPurchaseFailed": "購入を完了できませんでした。後でもう一度お試しください。",
+  "toastRestorePurchaseSuccess": "購入を復元しました。{credits}クレジットが追加されました。",
+  "@toastRestorePurchaseSuccess": {
+    "placeholders": {
+      "credits": {
+        "type": "int"
+      }
+    }
+  },
+  "toastRestorePurchaseSynced": "購入履歴を同期しました。",
   "toastRestorePurchaseFailed": "購入を復元できませんでした。後でもう一度お試しください。",
   "toastCreditRedemptionSuccess": "{credits}クレジットを引き換えました。",
   "@toastCreditRedemptionSuccess": {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fantasy_camera_flutter/auth/domain/auth_session_state.dart';
 import 'package:fantasy_camera_flutter/auth/domain/auth_user.dart';
 import 'package:fantasy_camera_flutter/auth/presentation/auth_providers.dart';
@@ -272,20 +274,83 @@ void main() {
     expect(state.lastGrantedCredits, isNull);
   });
 
-  test('restore success does not set purchase button feedback', () async {
-    final _FakeBillingGateway gateway = _FakeBillingGateway();
-    final _FakeBillingRepository billingRepository = _FakeBillingRepository(
-      syncResult: const CreditPurchaseSyncResult(
-        grantedCredits: 30,
-        processedPurchases: 1,
-        balance: 158,
-        products: <CreditProduct>[],
-      ),
+  test(
+    'restore success logs in syncs credits and sets restore feedback',
+    () async {
+      final _FakeBillingGateway gateway = _FakeBillingGateway();
+      final _FakeBillingRepository billingRepository = _FakeBillingRepository(
+        syncResult: const CreditPurchaseSyncResult(
+          grantedCredits: 30,
+          processedPurchases: 1,
+          balance: 158,
+          products: <CreditProduct>[],
+        ),
+      );
+      final ProviderContainer container = _container(
+        gateway: gateway,
+        billingRepository: billingRepository,
+        creditsRepository: _FakeCreditsRepository(balance: 158),
+      );
+      addTearDown(container.dispose);
+
+      await container.read(billingControllerProvider.notifier).restore();
+
+      final BillingControllerState state = container.read(
+        billingControllerProvider,
+      );
+      expect(gateway.loggedInUserIds, <String>['user-1']);
+      expect(gateway.restoreCalls, 1);
+      expect(billingRepository.syncCalls, 1);
+      expect(state.lastGrantedCredits, 30);
+      expect(state.purchaseSuccessCredits, isNull);
+      expect(state.restoreFeedbackCredits, 30);
+      expect(container.read(creditBalanceProvider).valueOrNull?.balance, 158);
+    },
+  );
+
+  test(
+    'restore success reports synced when no new credits were granted',
+    () async {
+      final _FakeBillingGateway gateway = _FakeBillingGateway();
+      final _FakeBillingRepository billingRepository = _FakeBillingRepository(
+        syncResult: const CreditPurchaseSyncResult(
+          grantedCredits: 0,
+          processedPurchases: 0,
+          balance: 128,
+          products: <CreditProduct>[],
+        ),
+      );
+      final ProviderContainer container = _container(
+        gateway: gateway,
+        billingRepository: billingRepository,
+        creditsRepository: _FakeCreditsRepository(balance: 128),
+      );
+      addTearDown(container.dispose);
+
+      await container.read(billingControllerProvider.notifier).restore();
+
+      final BillingControllerState state = container.read(
+        billingControllerProvider,
+      );
+      expect(gateway.loggedInUserIds, <String>['user-1']);
+      expect(gateway.restoreCalls, 1);
+      expect(billingRepository.syncCalls, 1);
+      expect(state.isPurchasing, isFalse);
+      expect(state.errorMessage, isNull);
+      expect(state.lastGrantedCredits, isNull);
+      expect(state.purchaseSuccessCredits, isNull);
+      expect(state.restoreFeedbackCredits, 0);
+    },
+  );
+
+  test('restore failure reports restore error and clears feedback', () async {
+    final _FakeBillingGateway gateway = _FakeBillingGateway(
+      restoreError: StateError('restore failed'),
     );
+    final _FakeBillingRepository billingRepository = _FakeBillingRepository();
     final ProviderContainer container = _container(
       gateway: gateway,
       billingRepository: billingRepository,
-      creditsRepository: _FakeCreditsRepository(balance: 158),
     );
     addTearDown(container.dispose);
 
@@ -294,9 +359,58 @@ void main() {
     final BillingControllerState state = container.read(
       billingControllerProvider,
     );
-    expect(state.lastGrantedCredits, 30);
+    expect(gateway.loggedInUserIds, <String>['user-1']);
+    expect(gateway.restoreCalls, 1);
+    expect(billingRepository.syncCalls, 0);
+    expect(state.isPurchasing, isFalse);
+    expect(state.errorMessage, 'billing_restore_failed');
+    expect(state.errorKind, BillingErrorKind.restore);
+    expect(state.lastGrantedCredits, isNull);
     expect(state.purchaseSuccessCredits, isNull);
+    expect(state.restoreFeedbackCredits, isNull);
   });
+
+  test(
+    'restore ignores repeated calls while purchase operation is busy',
+    () async {
+      final Completer<void> restoreGate = Completer<void>();
+      final _FakeBillingGateway gateway = _FakeBillingGateway(
+        restoreGate: restoreGate,
+      );
+      final _FakeBillingRepository billingRepository = _FakeBillingRepository(
+        syncResult: const CreditPurchaseSyncResult(
+          grantedCredits: 30,
+          processedPurchases: 1,
+          balance: 158,
+          products: <CreditProduct>[],
+        ),
+      );
+      final ProviderContainer container = _container(
+        gateway: gateway,
+        billingRepository: billingRepository,
+        creditsRepository: _FakeCreditsRepository(balance: 158),
+      );
+      addTearDown(container.dispose);
+
+      final Future<void> firstRestore = container
+          .read(billingControllerProvider.notifier)
+          .restore();
+      await Future<void>.delayed(Duration.zero);
+      final Future<void> secondRestore = container
+          .read(billingControllerProvider.notifier)
+          .restore();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(gateway.restoreCalls, 1);
+      expect(billingRepository.syncCalls, 0);
+
+      restoreGate.complete();
+      await Future.wait(<Future<void>>[firstRestore, secondRestore]);
+
+      expect(gateway.restoreCalls, 1);
+      expect(billingRepository.syncCalls, 1);
+    },
+  );
 
   test(
     'startup purchase recovery syncs purchases and refreshes balance',
@@ -446,12 +560,17 @@ class _FakeBillingGateway implements BillingGateway {
   _FakeBillingGateway({
     this.products = const <BillingProduct>[],
     this.purchaseOutcome = const BillingPurchaseCompleted(),
+    this.restoreError,
+    this.restoreGate,
   });
 
   final List<BillingProduct> products;
   final BillingPurchaseOutcome purchaseOutcome;
+  final Object? restoreError;
+  final Completer<void>? restoreGate;
   final List<String> loggedInUserIds = <String>[];
   int purchaseCalls = 0;
+  int restoreCalls = 0;
 
   @override
   bool get isPurchaseAvailable => true;
@@ -476,7 +595,13 @@ class _FakeBillingGateway implements BillingGateway {
   }
 
   @override
-  Future<void> restorePurchases() async {}
+  Future<void> restorePurchases() async {
+    restoreCalls += 1;
+    await restoreGate?.future;
+    if (restoreError case final Object error) {
+      throw error;
+    }
+  }
 }
 
 class _FakeBillingRepository implements BillingRepository {
