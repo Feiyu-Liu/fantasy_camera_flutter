@@ -439,6 +439,18 @@ abstract class AppLocalizations {
   /// **'Preparing generation task'**
   String get generationSubmissionStatusPreparingGenerationTask;
 
+  /// No description provided for @generationSubmissionConfirmationGuideMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Each photo enhancement uses 2 credits. After confirming, it takes about 1 minute. You can leave the app, and we\'ll notify you when it\'s done.'**
+  String get generationSubmissionConfirmationGuideMessage;
+
+  /// No description provided for @generationSubmissionConfirmationGuideDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it'**
+  String get generationSubmissionConfirmationGuideDismiss;
+
   /// No description provided for @generationSubmissionActionViewInAlbum.
   ///
   /// In en, this message translates to:

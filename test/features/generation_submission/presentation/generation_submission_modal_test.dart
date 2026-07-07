@@ -206,6 +206,114 @@ void main() {
     );
   });
 
+  testWidgets('confirmation guide appears above first awaiting thumbnail', (
+    WidgetTester tester,
+  ) async {
+    final _FakeGenerationSubmissionGuideRepository guideRepository =
+        _FakeGenerationSubmissionGuideRepository(seen: false);
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'awaiting',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+      ),
+    ];
+
+    await _pumpModalHost(
+      tester,
+      _ModalHost(jobs: jobs, guideRepository: guideRepository),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    await tester.pumpAndSettle();
+
+    final Finder message = find.byKey(
+      const ValueKey<String>(
+        'generation-submission-confirmation-guide-message',
+      ),
+    );
+    final Finder thumbnail = find.byKey(
+      const ValueKey<String>('generation-submission-photo-awaiting'),
+    );
+    expect(message, findsOneWidget);
+    expect(
+      find.text('每张照片优化将消耗2积分，确认后需要等待约1分钟。期间你可以退出app，完成后会通过通知提醒'),
+      findsOneWidget,
+    );
+    expect(
+      tester.getRect(message).bottom,
+      lessThan(tester.getRect(thumbnail).top),
+    );
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-confirmation-guide-dismiss',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(guideRepository.seen, isTrue);
+    expect(message, findsNothing);
+  });
+
+  testWidgets('confirmation guide stays hidden after it has been seen', (
+    WidgetTester tester,
+  ) async {
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'awaiting',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+      ),
+    ];
+
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        jobs: jobs,
+        guideRepository: _FakeGenerationSubmissionGuideRepository(seen: true),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-confirmation-guide-message',
+        ),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('confirmation guide is marked seen when confirming photo', (
+    WidgetTester tester,
+  ) async {
+    final _FakeGenerationSubmissionGuideRepository guideRepository =
+        _FakeGenerationSubmissionGuideRepository(seen: false);
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(
+        id: 'awaiting',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+      ),
+    ];
+
+    await _pumpModalHost(
+      tester,
+      _ModalHost(jobs: jobs, guideRepository: guideRepository),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('generation-submission-confirm-awaiting'),
+      ),
+    );
+    await tester.pump();
+
+    expect(guideRepository.seen, isTrue);
+  });
+
   testWidgets('insufficient credits opens paywall before upload', (
     WidgetTester tester,
   ) async {
@@ -1653,6 +1761,7 @@ class _ModalHost extends StatefulWidget {
     this.heroImagePrecache,
     this.uploadRepository,
     this.taskRepository,
+    this.guideRepository,
     this.creditBalance = 99,
     this.creditBalanceFailure,
     this.enableRouter = false,
@@ -1664,6 +1773,7 @@ class _ModalHost extends StatefulWidget {
   final HeroImagePrecache? heroImagePrecache;
   final _FakeUploadRepository? uploadRepository;
   final _FakeGenerationTaskRepository? taskRepository;
+  final _FakeGenerationSubmissionGuideRepository? guideRepository;
   final int creditBalance;
   final Object? creditBalanceFailure;
   final bool enableRouter;
@@ -1735,6 +1845,10 @@ class _ModalHostState extends State<_ModalHost> {
           ),
           appToastPresenterProvider.overrideWithValue(_NoopAppToastPresenter()),
           galleryResumeActiveRecordsOnOpenProvider.overrideWithValue(false),
+          generationSubmissionGuideRepositoryProvider.overrideWithValue(
+            widget.guideRepository ??
+                _FakeGenerationSubmissionGuideRepository(seen: true),
+          ),
           generationRecordsProvider.overrideWith((Ref ref) {
             return (() async* {
               yield await _seedFuture;
@@ -2557,6 +2671,23 @@ class _FakeCreditBalanceCacheRepository
 
   @override
   Future<void> saveBalance(String userId, CreditBalance balance) async {}
+}
+
+class _FakeGenerationSubmissionGuideRepository
+    implements GenerationSubmissionGuideRepository {
+  _FakeGenerationSubmissionGuideRepository({required this.seen});
+
+  bool seen;
+
+  @override
+  Future<bool> isConfirmationGuideSeen() async {
+    return seen;
+  }
+
+  @override
+  Future<void> markConfirmationGuideSeen() async {
+    seen = true;
+  }
 }
 
 GenerationSubmissionJob _job({

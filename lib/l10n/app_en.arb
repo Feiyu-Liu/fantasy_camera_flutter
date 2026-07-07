@@ -66,6 +66,8 @@
   "generationSubmissionStatusResultProcessingFailed": "Result processing failed",
   "generationSubmissionStatusWaitingForGenerationResult": "Waiting for generation result",
   "generationSubmissionStatusPreparingGenerationTask": "Preparing generation task",
+  "generationSubmissionConfirmationGuideMessage": "Each photo enhancement uses 2 credits. After confirming, it takes about 1 minute. You can leave the app, and we'll notify you when it's done.",
+  "generationSubmissionConfirmationGuideDismiss": "Got it",
   "generationSubmissionActionViewInAlbum": "View in Album",
   "generationSubmissionActionSaveOriginal": "Save Original",
   "generationSubmissionActionRetry": "Retry",

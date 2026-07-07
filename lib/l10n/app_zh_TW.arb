@@ -66,6 +66,8 @@
   "generationSubmissionStatusResultProcessingFailed": "結果處理失敗",
   "generationSubmissionStatusWaitingForGenerationResult": "等待生成結果",
   "generationSubmissionStatusPreparingGenerationTask": "正在準備生成任務",
+  "generationSubmissionConfirmationGuideMessage": "每張照片最佳化將消耗 2 點數，確認後需要等待約 1 分鐘。期間你可以退出 App，完成後會透過通知提醒",
+  "generationSubmissionConfirmationGuideDismiss": "知道了",
   "generationSubmissionActionViewInAlbum": "在相簿中檢視",
   "generationSubmissionActionSaveOriginal": "儲存原始照片",
   "generationSubmissionActionRetry": "重試",

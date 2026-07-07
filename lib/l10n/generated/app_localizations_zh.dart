@@ -183,6 +183,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get generationSubmissionStatusPreparingGenerationTask => '正在准备生成任务';
 
   @override
+  String get generationSubmissionConfirmationGuideMessage =>
+      '每张照片优化将消耗2积分，确认后需要等待约1分钟。期间你可以退出app，完成后会通过通知提醒';
+
+  @override
+  String get generationSubmissionConfirmationGuideDismiss => '知道了';
+
+  @override
   String get generationSubmissionActionViewInAlbum => '在相册中查看';
 
   @override
@@ -760,6 +767,13 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get generationSubmissionStatusPreparingGenerationTask => '正在準備生成任務';
+
+  @override
+  String get generationSubmissionConfirmationGuideMessage =>
+      '每張照片最佳化將消耗 2 點數，確認後需要等待約 1 分鐘。期間你可以退出 App，完成後會透過通知提醒';
+
+  @override
+  String get generationSubmissionConfirmationGuideDismiss => '知道了';
 
   @override
   String get generationSubmissionActionViewInAlbum => '在相簿中檢視';

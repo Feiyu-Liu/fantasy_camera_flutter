@@ -66,6 +66,8 @@
   "generationSubmissionStatusResultProcessingFailed": "结果处理失败",
   "generationSubmissionStatusWaitingForGenerationResult": "等待生成结果",
   "generationSubmissionStatusPreparingGenerationTask": "正在准备生成任务",
+  "generationSubmissionConfirmationGuideMessage": "每张照片优化将消耗2积分，确认后需要等待约1分钟。期间你可以退出app，完成后会通过通知提醒",
+  "generationSubmissionConfirmationGuideDismiss": "知道了",
   "generationSubmissionActionViewInAlbum": "在相册中查看",
   "generationSubmissionActionSaveOriginal": "保存原始照片",
   "generationSubmissionActionRetry": "重试",

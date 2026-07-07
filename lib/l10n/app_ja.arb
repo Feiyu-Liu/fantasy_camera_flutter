@@ -66,6 +66,8 @@
   "generationSubmissionStatusResultProcessingFailed": "結果の処理に失敗しました",
   "generationSubmissionStatusWaitingForGenerationResult": "生成結果を待機中",
   "generationSubmissionStatusPreparingGenerationTask": "生成タスクを準備中",
+  "generationSubmissionConfirmationGuideMessage": "写真の最適化には1枚につき2クレジットを使用します。確認後、完了まで約1分かかります。アプリを閉じても、完了時に通知でお知らせします。",
+  "generationSubmissionConfirmationGuideDismiss": "了解",
   "generationSubmissionActionViewInAlbum": "アルバムで表示",
   "generationSubmissionActionSaveOriginal": "元の写真を保存",
   "generationSubmissionActionRetry": "再試行",

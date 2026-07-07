@@ -184,6 +184,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get generationSubmissionStatusPreparingGenerationTask => '生成タスクを準備中';
 
   @override
+  String get generationSubmissionConfirmationGuideMessage =>
+      '写真の最適化には1枚につき2クレジットを使用します。確認後、完了まで約1分かかります。アプリを閉じても、完了時に通知でお知らせします。';
+
+  @override
+  String get generationSubmissionConfirmationGuideDismiss => '了解';
+
+  @override
   String get generationSubmissionActionViewInAlbum => 'アルバムで表示';
 
   @override

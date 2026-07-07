@@ -195,6 +195,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Preparing generation task';
 
   @override
+  String get generationSubmissionConfirmationGuideMessage =>
+      'Each photo enhancement uses 2 credits. After confirming, it takes about 1 minute. You can leave the app, and we\'ll notify you when it\'s done.';
+
+  @override
+  String get generationSubmissionConfirmationGuideDismiss => 'Got it';
+
+  @override
   String get generationSubmissionActionViewInAlbum => 'View in Album';
 
   @override

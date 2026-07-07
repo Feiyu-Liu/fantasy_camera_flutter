@@ -66,6 +66,8 @@
   "generationSubmissionStatusResultProcessingFailed": "Traitement du résultat échoué",
   "generationSubmissionStatusWaitingForGenerationResult": "En attente du résultat",
   "generationSubmissionStatusPreparingGenerationTask": "Préparation de la tâche",
+  "generationSubmissionConfirmationGuideMessage": "Chaque optimisation de photo utilise 2 crédits. Après confirmation, il faut environ 1 minute. Tu peux quitter l'app, nous t'enverrons une notification à la fin.",
+  "generationSubmissionConfirmationGuideDismiss": "Compris",
   "generationSubmissionActionViewInAlbum": "Voir dans l'album",
   "generationSubmissionActionSaveOriginal": "Enregistrer l'original",
   "generationSubmissionActionRetry": "Réessayer",

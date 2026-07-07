@@ -7,6 +7,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:just_the_tooltip/just_the_tooltip.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
@@ -100,6 +101,8 @@ class _GenerationSubmissionDebugModalState
   String? _loadingResultJobId;
   bool _pickingGalleryImage = false;
   bool _galleryExportProgressDialogVisible = false;
+  bool _confirmationGuideDismissed = false;
+  bool _showConfirmationGuide = false;
   final Map<String, _GalleryHeroDisplayState> _heroDisplayStates =
       <String, _GalleryHeroDisplayState>{};
   final Set<String> _knownLocalSavedResultJobIds = <String>{};
@@ -129,6 +132,7 @@ class _GenerationSubmissionDebugModalState
     _hasProcessedInitialJobs = _jobs.isNotEmpty;
     _selectFocusedTaskIfPresent(_jobs, animate: false);
     _scheduleMarkResultNotificationsSeen();
+    unawaited(_loadConfirmationGuideState());
     _jobsSubscription = ref.listenManual<GenerationSubmissionState>(
       generationSubmissionControllerProvider,
       (GenerationSubmissionState? previous, GenerationSubmissionState next) {
@@ -477,8 +481,15 @@ class _GenerationSubmissionDebugModalState
                 pickingGalleryImage: _pickingGalleryImage,
                 onPickGalleryImage: _pickGalleryImage,
                 onSelectJob: _selectJobFromStrip,
-                onConfirmJob: _confirmJob,
+                onConfirmJob: (GenerationSubmissionJob job) {
+                  unawaited(_dismissConfirmationGuide());
+                  unawaited(_confirmJob(job));
+                },
+                showConfirmationGuide:
+                    !_confirmationGuideDismissed && _showConfirmationGuide,
+                onDismissConfirmationGuide: _dismissConfirmationGuide,
                 onCancelJob: (GenerationSubmissionJob job) {
+                  unawaited(_dismissConfirmationGuide());
                   unawaited(_cancelJob(job));
                 },
                 onRetryJob: (GenerationSubmissionJob job) {
@@ -534,6 +545,55 @@ class _GenerationSubmissionDebugModalState
       return;
     }
     context.go(appHomeRoute);
+  }
+
+  Future<void> _dismissConfirmationGuide() async {
+    if (_confirmationGuideDismissed) {
+      return;
+    }
+    setState(() {
+      _confirmationGuideDismissed = true;
+      _showConfirmationGuide = false;
+    });
+    try {
+      await ref
+          .read(generationSubmissionGuideRepositoryProvider)
+          .markConfirmationGuideSeen();
+    } on Object catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'generation submission gallery',
+          context: ErrorDescription(
+            'while dismissing confirmation guide tooltip',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _loadConfirmationGuideState() async {
+    try {
+      final bool seen = await ref
+          .read(generationSubmissionGuideRepositoryProvider)
+          .isConfirmationGuideSeen();
+      if (!mounted || seen) {
+        return;
+      }
+      setState(() {
+        _showConfirmationGuide = true;
+      });
+    } on Object catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'generation submission gallery',
+          context: ErrorDescription('while loading confirmation guide state'),
+        ),
+      );
+    }
   }
 
   GenerationSubmissionJob? _selectedJob(List<GenerationSubmissionJob> jobs) {
@@ -1445,6 +1505,8 @@ class _RelatedMomentsStrip extends StatefulWidget {
     required this.onPickGalleryImage,
     required this.onSelectJob,
     required this.onConfirmJob,
+    required this.showConfirmationGuide,
+    required this.onDismissConfirmationGuide,
     required this.onCancelJob,
     required this.onRetryJob,
     required this.onRemoveJob,
@@ -1456,6 +1518,8 @@ class _RelatedMomentsStrip extends StatefulWidget {
   final VoidCallback onPickGalleryImage;
   final ValueChanged<GenerationSubmissionJob> onSelectJob;
   final ValueChanged<GenerationSubmissionJob> onConfirmJob;
+  final bool showConfirmationGuide;
+  final VoidCallback onDismissConfirmationGuide;
   final ValueChanged<GenerationSubmissionJob> onCancelJob;
   final ValueChanged<GenerationSubmissionJob> onRetryJob;
   final ValueChanged<GenerationSubmissionJob> onRemoveJob;
@@ -1471,15 +1535,25 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
   static const double _itemGap = 8;
 
   late GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+  late final JustTheController _confirmationGuideTooltipController =
+      JustTheController();
   late List<GenerationSubmissionJob> _displayJobs =
       List<GenerationSubmissionJob>.of(widget.jobs);
   final Set<String> _insertingJobIds = <String>{};
   bool _hasSyncedInitialJobs = false;
+  bool _confirmationGuideSyncScheduled = false;
+  String? _pendingConfirmationGuideJobId;
 
   @override
   void didUpdateWidget(covariant _RelatedMomentsStrip oldWidget) {
     super.didUpdateWidget(oldWidget);
     _syncDisplayJobs(widget.jobs);
+  }
+
+  @override
+  void dispose() {
+    _confirmationGuideTooltipController.dispose();
+    super.dispose();
   }
 
   void _syncDisplayJobs(List<GenerationSubmissionJob> nextJobs) {
@@ -1529,6 +1603,10 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
           onCancel: null,
           onRetry: null,
           onRemove: null,
+          showConfirmationGuide: false,
+          confirmationGuideTooltipController:
+              _confirmationGuideTooltipController,
+          onDismissConfirmationGuide: widget.onDismissConfirmationGuide,
         );
       }, duration: _motionDuration(_removeDuration));
     }
@@ -1635,6 +1713,9 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
                         280.0,
                       );
                   final double tileWidth = tileHeight * 0.72;
+                  final String? confirmationGuideJobId =
+                      _confirmationGuideJobId();
+                  _scheduleConfirmationGuideSync(confirmationGuideJobId);
                   return KeyedSubtree(
                     key: const ValueKey<String>(
                       'generation-submission-photo-list',
@@ -1681,6 +1762,8 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
                             }
                             final GenerationSubmissionJob job =
                                 _displayJobs[jobIndex];
+                            final bool showConfirmationGuide =
+                                confirmationGuideJobId == job.id;
                             return _AnimatedGalleryJobListItem(
                               key: ValueKey<String>(
                                 'generation-submission-photo-list-item-${job.id}',
@@ -1707,6 +1790,11 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
                               onRemove: _canRemoveFailedJob(job)
                                   ? () => widget.onRemoveJob(job)
                                   : null,
+                              showConfirmationGuide: showConfirmationGuide,
+                              confirmationGuideTooltipController:
+                                  _confirmationGuideTooltipController,
+                              onDismissConfirmationGuide:
+                                  widget.onDismissConfirmationGuide,
                             );
                           },
                     ),
@@ -1718,6 +1806,59 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
         ),
       ),
     );
+  }
+
+  String? _confirmationGuideJobId() {
+    if (!widget.showConfirmationGuide) {
+      return null;
+    }
+    for (final GenerationSubmissionJob job in _displayJobs) {
+      if (job.status == GenerationSubmissionStatus.awaitingConfirmation) {
+        return job.id;
+      }
+    }
+    return null;
+  }
+
+  void _scheduleConfirmationGuideSync(String? jobId) {
+    _pendingConfirmationGuideJobId = jobId;
+    if (_confirmationGuideSyncScheduled) {
+      return;
+    }
+    _confirmationGuideSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _confirmationGuideSyncScheduled = false;
+      if (!mounted) {
+        return;
+      }
+      final String? pendingJobId = _pendingConfirmationGuideJobId;
+      if (pendingJobId == null) {
+        unawaited(_hideConfirmationGuideTooltip());
+        return;
+      }
+      Future<void>.delayed(Duration.zero, () {
+        if (!mounted || _pendingConfirmationGuideJobId != pendingJobId) {
+          return;
+        }
+        unawaited(_showConfirmationGuideTooltip());
+      });
+    });
+  }
+
+  Future<void> _showConfirmationGuideTooltip() async {
+    try {
+      await _confirmationGuideTooltipController.showTooltip(autoClose: false);
+    } on StateError {
+      // The target item may not be attached yet while AnimatedList scrolls it in.
+    }
+  }
+
+  Future<void> _hideConfirmationGuideTooltip() async {
+    try {
+      await _confirmationGuideTooltipController.hideTooltip();
+    } on StateError {
+      // The tooltip controller is unattached until the target item is built.
+    }
   }
 
   bool _canRetryJob(GenerationSubmissionJob job) {
@@ -1802,6 +1943,9 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
     required this.onCancel,
     required this.onRetry,
     required this.onRemove,
+    required this.showConfirmationGuide,
+    required this.confirmationGuideTooltipController,
+    required this.onDismissConfirmationGuide,
     super.key,
     this.removing = false,
   });
@@ -1814,6 +1958,9 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
   final VoidCallback? onCancel;
   final VoidCallback? onRetry;
   final VoidCallback? onRemove;
+  final bool showConfirmationGuide;
+  final JustTheController confirmationGuideTooltipController;
+  final VoidCallback onDismissConfirmationGuide;
   final bool removing;
 
   @override
@@ -1851,25 +1998,33 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
                         280.0,
                       );
                   final double tileWidth = tileHeight * 0.72;
+                  Widget thumbnail = _JobThumbnail(
+                    thumbnailKey: removing
+                        ? 'generation-submission-removing-photo-${job.id}'
+                        : null,
+                    width: tileWidth,
+                    height: tileHeight,
+                    job: job,
+                    selected: selected,
+                    onTap: onTap,
+                    onConfirm: onConfirm,
+                    onCancel: onCancel,
+                    onRetry: onRetry,
+                    onRemove: onRemove,
+                  );
+                  if (showConfirmationGuide) {
+                    thumbnail = _ConfirmationGuideTooltip(
+                      controller: confirmationGuideTooltipController,
+                      onDismiss: onDismissConfirmationGuide,
+                      child: thumbnail,
+                    );
+                  }
                   return _GalleryMomentItem(
                     width: tileWidth,
                     height: itemHeight,
                     imageHeight: tileHeight,
                     caption: _captionForJob(job),
-                    child: _JobThumbnail(
-                      thumbnailKey: removing
-                          ? 'generation-submission-removing-photo-${job.id}'
-                          : null,
-                      width: tileWidth,
-                      height: tileHeight,
-                      job: job,
-                      selected: selected,
-                      onTap: onTap,
-                      onConfirm: onConfirm,
-                      onCancel: onCancel,
-                      onRetry: onRetry,
-                      onRemove: onRemove,
-                    ),
+                    child: thumbnail,
                   );
                 },
               ),
@@ -1890,6 +2045,98 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
     final String minute = createdAt.minute.toString().padLeft(2, '0');
     final String period = createdAt.hour >= 12 ? 'PM' : 'AM';
     return '$hour:$minute $period';
+  }
+}
+
+class _ConfirmationGuideTooltip extends StatelessWidget {
+  const _ConfirmationGuideTooltip({
+    required this.controller,
+    required this.onDismiss,
+    required this.child,
+  });
+
+  final JustTheController controller;
+  final VoidCallback onDismiss;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return JustTheTooltip(
+      key: const ValueKey<String>(
+        'generation-submission-confirmation-guide-tooltip',
+      ),
+      controller: controller,
+      triggerMode: TooltipTriggerMode.manual,
+      preferredDirection: AxisDirection.up,
+      margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      offset: 8,
+      tailLength: 9,
+      tailBaseWidth: 18,
+      elevation: 0,
+      borderRadius: BorderRadius.circular(18),
+      backgroundColor: AppColors.blackOverlay(0.82),
+      fadeInDuration: const Duration(milliseconds: 180),
+      fadeOutDuration: const Duration(milliseconds: 90),
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+      content: _ConfirmationGuideTooltipContent(onDismiss: onDismiss),
+      child: child,
+    );
+  }
+}
+
+class _ConfirmationGuideTooltipContent extends StatelessWidget {
+  const _ConfirmationGuideTooltipContent({required this.onDismiss});
+
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 260),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              context.l10n.generationSubmissionConfirmationGuideMessage,
+              key: const ValueKey<String>(
+                'generation-submission-confirmation-guide-message',
+              ),
+              style: const TextStyle(
+                color: AppColors.white,
+                fontSize: 12,
+                height: 1.32,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: CupertinoButton(
+                key: const ValueKey<String>(
+                  'generation-submission-confirmation-guide-dismiss',
+                ),
+                minimumSize: Size.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                onPressed: onDismiss,
+                child: Text(
+                  context.l10n.generationSubmissionConfirmationGuideDismiss,
+                  style: TextStyle(
+                    color: colors.accentYellow,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

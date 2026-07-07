@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart' hide XFile;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../config/app_config.dart';
 import '../../../auth/presentation/auth_providers.dart';
@@ -39,6 +40,38 @@ final galleryResumeActiveRecordsOnOpenProvider = Provider<bool>(
   (Ref ref) => true,
   dependencies: const <ProviderOrFamily>[],
 );
+
+abstract interface class GenerationSubmissionGuideRepository {
+  Future<bool> isConfirmationGuideSeen();
+
+  Future<void> markConfirmationGuideSeen();
+}
+
+class SharedPreferencesGenerationSubmissionGuideRepository
+    implements GenerationSubmissionGuideRepository {
+  const SharedPreferencesGenerationSubmissionGuideRepository();
+
+  static const String _confirmationGuideSeenKey =
+      'generation_submission.confirmation_guide_seen';
+
+  @override
+  Future<bool> isConfirmationGuideSeen() async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    return preferences.getBool(_confirmationGuideSeenKey) ?? false;
+  }
+
+  @override
+  Future<void> markConfirmationGuideSeen() async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(_confirmationGuideSeenKey, true);
+  }
+}
+
+final generationSubmissionGuideRepositoryProvider =
+    Provider<GenerationSubmissionGuideRepository>(
+      (Ref ref) => const SharedPreferencesGenerationSubmissionGuideRepository(),
+      dependencies: const <ProviderOrFamily>[],
+    );
 
 Future<bool> defaultHeroImagePrecache(ImageProvider imageProvider) {
   final Completer<bool> completer = Completer<bool>();
