@@ -200,6 +200,14 @@
     }
   },
   "billingCreditPackSubtitle": "一次性积分包",
+  "billingCreditPackSavingsBadge": "节省 {percent}%",
+  "@billingCreditPackSavingsBadge": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "billingPurchaseButton": "购买",
   "billingPurchaseSuccessButton": "购买成功（积分 +{credits}）",
   "@billingPurchaseSuccessButton": {

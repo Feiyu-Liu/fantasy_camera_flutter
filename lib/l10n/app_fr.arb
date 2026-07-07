@@ -200,6 +200,14 @@
     }
   },
   "billingCreditPackSubtitle": "Pack de crédits à usage unique",
+  "billingCreditPackSavingsBadge": "-{percent}%",
+  "@billingCreditPackSavingsBadge": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "billingPurchaseButton": "Acheter",
   "billingPurchaseSuccessButton": "Achat réussi (+{credits} crédits)",
   "@billingPurchaseSuccessButton": {

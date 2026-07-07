@@ -485,6 +485,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get billingCreditPackSubtitle => '買い切りクレジットパック';
 
   @override
+  String billingCreditPackSavingsBadge(int percent) {
+    return '$percent%お得';
+  }
+
+  @override
   String get billingPurchaseButton => '購入';
 
   @override

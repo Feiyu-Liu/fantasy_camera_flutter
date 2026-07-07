@@ -506,6 +506,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get billingCreditPackSubtitle => 'One-time credit pack';
 
   @override
+  String billingCreditPackSavingsBadge(int percent) {
+    return 'Save $percent%';
+  }
+
+  @override
   String get billingPurchaseButton => 'Purchase';
 
   @override

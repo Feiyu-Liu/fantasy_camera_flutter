@@ -42,6 +42,7 @@ void main() {
           displayNameKey: 'Pro',
           credits: 100,
           displayRank: 1,
+          savingsPercent: 55,
         ),
       ],
     );
@@ -61,6 +62,7 @@ void main() {
     expect(state.products, hasLength(1));
     expect(state.products.single.productId, 'tessercam_credits_100');
     expect(state.products.single.displayNameKey, 'Pro');
+    expect(state.products.single.savingsPercent, 55);
     expect(state.products.single.credits, 100);
     expect(state.products.single.displayRank, 1);
     expect(state.products.single.price, r'$9.99');

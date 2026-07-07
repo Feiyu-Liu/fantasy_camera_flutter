@@ -200,6 +200,14 @@
     }
   },
   "billingCreditPackSubtitle": "買い切りクレジットパック",
+  "billingCreditPackSavingsBadge": "{percent}%お得",
+  "@billingCreditPackSavingsBadge": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "billingPurchaseButton": "購入",
   "billingPurchaseSuccessButton": "購入完了（+{credits}クレジット）",
   "@billingPurchaseSuccessButton": {

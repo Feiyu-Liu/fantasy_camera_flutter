@@ -56,7 +56,7 @@ void main() {
     );
   });
 
-  testWidgets('product card shows display name and credits', (
+  testWidgets('product cards show display names credits and savings badges', (
     WidgetTester tester,
   ) async {
     final _FakeCreditsRepository creditsRepository = _FakeCreditsRepository();
@@ -71,6 +71,20 @@ void main() {
             price: r'¥6.00',
             packageIdentifier: r'$rc_custom_6',
           ),
+          BillingProduct(
+            productId: 'tessercam_credits_40_v2',
+            credits: 0,
+            displayRank: 999,
+            price: r'¥30.00',
+            packageIdentifier: r'$rc_custom_40',
+          ),
+          BillingProduct(
+            productId: 'tessercam_credits_100_v2',
+            credits: 0,
+            displayRank: 999,
+            price: r'¥98.00',
+            packageIdentifier: r'$rc_custom_100',
+          ),
         ],
       ),
       billingRepository: _FakeBillingRepository(
@@ -81,12 +95,32 @@ void main() {
             credits: 6,
             displayRank: 0,
           ),
+          CreditProduct(
+            productId: 'tessercam_credits_40_v2',
+            displayNameKey: 'Standard',
+            credits: 40,
+            displayRank: 1,
+            savingsPercent: 47,
+          ),
+          CreditProduct(
+            productId: 'tessercam_credits_100_v2',
+            displayNameKey: 'Pro',
+            credits: 100,
+            displayRank: 2,
+            savingsPercent: 55,
+          ),
         ],
       ),
     );
 
     expect(find.text('Mini'), findsOneWidget);
     expect(find.text('6 积分'), findsOneWidget);
+    expect(find.text('Standard'), findsOneWidget);
+    expect(find.text('40 积分'), findsOneWidget);
+    expect(find.text('节省 47%'), findsOneWidget);
+    expect(find.text('Pro'), findsOneWidget);
+    expect(find.text('100 积分'), findsOneWidget);
+    expect(find.text('节省 55%'), findsOneWidget);
     expect(find.text('一次性积分包'), findsNothing);
   });
 
@@ -127,6 +161,7 @@ void main() {
             displayNameKey: 'Standard',
             credits: 40,
             displayRank: 1,
+            savingsPercent: 47,
           ),
         ],
       ),

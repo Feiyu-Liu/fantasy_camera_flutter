@@ -697,17 +697,33 @@ class _CreditPackRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
-                      product.displayNameKey,
-                      textScaler: TextScaler.noScaling,
-                      style: TextStyle(
-                        color: isSelected
-                            ? AppColors.black
-                            : colors.textPrimary,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w500,
-                        height: 1,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Flexible(
+                          child: Text(
+                            product.displayNameKey,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textScaler: TextScaler.noScaling,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? AppColors.black
+                                  : colors.textPrimary,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w500,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                        if (product.savingsPercent case final int percent) ...[
+                          const SizedBox(width: 8),
+                          _SavingsBadge(
+                            percent: percent,
+                            isSelected: isSelected,
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 5),
                     Text(
@@ -735,6 +751,47 @@ class _CreditPackRow extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SavingsBadge extends StatelessWidget {
+  const _SavingsBadge({required this.percent, required this.isSelected});
+
+  final int percent;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
+    return DecoratedBox(
+      decoration: AppCorners.controlDecoration(
+        color: isSelected ? AppColors.black : colors.accentYellow,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: SizedBox(
+        height: 22,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Center(
+            child: Transform.translate(
+              offset: const Offset(0, 1.5),
+              child: Text(
+                context.l10n.billingCreditPackSavingsBadge(percent),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textScaler: TextScaler.noScaling,
+                style: TextStyle(
+                  color: isSelected ? AppColors.white : AppColors.black,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  height: 1,
+                ),
+              ),
+            ),
           ),
         ),
       ),

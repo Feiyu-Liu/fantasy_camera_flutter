@@ -6,12 +6,14 @@ class CreditProduct {
     required this.displayNameKey,
     required this.credits,
     required this.displayRank,
+    this.savingsPercent,
   });
 
   final String productId;
   final String displayNameKey;
   final int credits;
   final int displayRank;
+  final int? savingsPercent;
 
   factory CreditProduct.fromJson(JsonObject json) {
     return CreditProduct(
@@ -19,6 +21,7 @@ class CreditProduct {
       displayNameKey: _readString(json, 'displayNameKey'),
       credits: _readInt(json, 'credits'),
       displayRank: _readInt(json, 'displayRank'),
+      savingsPercent: _readOptionalInt(json, 'savingsPercent'),
     );
   }
 }

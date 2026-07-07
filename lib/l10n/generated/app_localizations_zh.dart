@@ -480,6 +480,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get billingCreditPackSubtitle => '一次性积分包';
 
   @override
+  String billingCreditPackSavingsBadge(int percent) {
+    return '节省 $percent%';
+  }
+
+  @override
   String get billingPurchaseButton => '购买';
 
   @override
@@ -1079,6 +1084,11 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get billingCreditPackSubtitle => '一次性點數包';
+
+  @override
+  String billingCreditPackSavingsBadge(int percent) {
+    return '節省 $percent%';
+  }
 
   @override
   String get billingPurchaseButton => '購買';

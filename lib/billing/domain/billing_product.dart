@@ -8,6 +8,7 @@ class BillingProduct {
     required this.price,
     required this.packageIdentifier,
     this.displayNameKey = '',
+    this.savingsPercent,
   });
 
   final String productId;
@@ -16,11 +17,13 @@ class BillingProduct {
   final String price;
   final String packageIdentifier;
   final String displayNameKey;
+  final int? savingsPercent;
 
   BillingProduct copyWithCreditProduct(CreditProduct product) {
     return BillingProduct(
       productId: productId,
       displayNameKey: product.displayNameKey,
+      savingsPercent: product.savingsPercent,
       credits: product.credits,
       displayRank: product.displayRank,
       price: price,

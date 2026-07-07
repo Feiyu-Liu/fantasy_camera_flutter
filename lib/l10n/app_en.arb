@@ -200,6 +200,14 @@
     }
   },
   "billingCreditPackSubtitle": "One-time credit pack",
+  "billingCreditPackSavingsBadge": "Save {percent}%",
+  "@billingCreditPackSavingsBadge": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "billingPurchaseButton": "Purchase",
   "billingPurchaseSuccessButton": "Purchase complete (+{credits} credits)",
   "@billingPurchaseSuccessButton": {

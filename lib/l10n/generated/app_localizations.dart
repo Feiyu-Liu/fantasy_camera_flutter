@@ -1000,6 +1000,12 @@ abstract class AppLocalizations {
   /// **'One-time credit pack'**
   String get billingCreditPackSubtitle;
 
+  /// No description provided for @billingCreditPackSavingsBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Save {percent}%'**
+  String billingCreditPackSavingsBadge(int percent);
+
   /// No description provided for @billingPurchaseButton.
   ///
   /// In en, this message translates to:
