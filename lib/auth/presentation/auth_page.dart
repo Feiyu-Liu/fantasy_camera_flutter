@@ -269,22 +269,13 @@ class _EditorialAuthForm extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 34),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: <Widget>[
-            _EditorialTextAction(
-              label: l10n.authForgotKeyButton.toUpperCase(),
-              onPressed: state.isSubmitting ? null : () {},
-            ),
-            _EditorialTextAction(
-              label:
-                  (isSignUp
-                          ? l10n.authAlreadyHaveAccountSignIn
-                          : l10n.authCreateAccountButton)
-                      .toUpperCase(),
-              onPressed: onToggleMode,
-            ),
-          ],
+        _EditorialAuthActionRow(
+          forgotLabel: l10n.authForgotKeyButton,
+          toggleLabel: isSignUp
+              ? l10n.authAlreadyHaveAccountSignIn
+              : l10n.authCreateAccountButton,
+          onForgotPressed: state.isSubmitting ? null : () {},
+          onToggleMode: onToggleMode,
         ),
         const SizedBox(height: 22),
         _EditorialSubmitButton(
@@ -314,33 +305,36 @@ class _AuthEditorialTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppThemeColors colors = AppThemeColors.of(context);
     return Center(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: <Widget>[
-          Text(
-            'TesserCam',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: colors.textPrimary,
-              fontFamily: 'Snell Roundhand',
-              fontSize: 40,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
-              height: 1,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 3, bottom: 4),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: colors.accentYellow,
-                shape: BoxShape.circle,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: <Widget>[
+            Text(
+              'TesserCam',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontFamily: 'Snell Roundhand',
+                fontSize: 40,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0,
+                height: 1,
               ),
-              child: const SizedBox(width: 7, height: 7),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.only(left: 3, bottom: 4),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colors.accentYellow,
+                  shape: BoxShape.circle,
+                ),
+                child: const SizedBox(width: 7, height: 7),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -378,29 +372,39 @@ class _EditorialSubmitButton extends StatelessWidget {
           child: Center(
             child: isSubmitting
                 ? const CupertinoActivityIndicator(color: AppColors.white)
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Text(
-                        (isSignUp
-                                ? l10n.authCreateAccountButton
-                                : l10n.authSignInButton)
-                            .toUpperCase(),
-                        style: TextStyle(
-                          color: colors.inverseText,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.6,
-                          height: 1,
+                : Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              (isSignUp
+                                      ? l10n.authCreateAccountButton
+                                      : l10n.authSignInButton)
+                                  .toUpperCase(),
+                              maxLines: 1,
+                              softWrap: false,
+                              style: TextStyle(
+                                color: colors.inverseText,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.6,
+                                height: 1,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Icon(
-                        LucideIcons.arrowRight,
-                        color: accentYellow,
-                        size: 18,
-                      ),
-                    ],
+                        const SizedBox(width: 10),
+                        Icon(
+                          LucideIcons.arrowRight,
+                          color: accentYellow,
+                          size: 18,
+                        ),
+                      ],
+                    ),
                   ),
           ),
         ),
@@ -409,10 +413,53 @@ class _EditorialSubmitButton extends StatelessWidget {
   }
 }
 
+class _EditorialAuthActionRow extends StatelessWidget {
+  const _EditorialAuthActionRow({
+    required this.forgotLabel,
+    required this.toggleLabel,
+    required this.onForgotPressed,
+    required this.onToggleMode,
+  });
+
+  final String forgotLabel;
+  final String toggleLabel;
+  final VoidCallback? onForgotPressed;
+  final VoidCallback? onToggleMode;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Expanded(
+          child: _EditorialTextAction(
+            label: forgotLabel,
+            textAlign: TextAlign.left,
+            onPressed: onForgotPressed,
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: _EditorialTextAction(
+            label: toggleLabel,
+            textAlign: TextAlign.right,
+            onPressed: onToggleMode,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _EditorialTextAction extends StatelessWidget {
-  const _EditorialTextAction({required this.label, required this.onPressed});
+  const _EditorialTextAction({
+    required this.label,
+    required this.textAlign,
+    required this.onPressed,
+  });
 
   final String label;
+  final TextAlign textAlign;
   final VoidCallback? onPressed;
 
   @override
@@ -422,14 +469,22 @@ class _EditorialTextAction extends StatelessWidget {
       onPressed: onPressed,
       minimumSize: Size.zero,
       padding: EdgeInsets.zero,
-      child: Text(
-        label,
-        style: TextStyle(
-          color: onPressed == null ? colors.textMuted : colors.textPrimary,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.4,
-          height: 1,
+      child: Align(
+        alignment: textAlign == TextAlign.right
+            ? Alignment.centerRight
+            : Alignment.centerLeft,
+        child: Text(
+          label,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: textAlign,
+          style: TextStyle(
+            color: onPressed == null ? colors.textMuted : colors.textPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            letterSpacing: 0,
+            height: 1.2,
+          ),
         ),
       ),
     );

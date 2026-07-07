@@ -83,6 +83,39 @@ void main() {
     );
   });
 
+  testWidgets('auth page action labels fit in long locales', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(393, 852));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    for (final AppLocalePreference localePreference in <AppLocalePreference>[
+      AppLocalePreference.en,
+      AppLocalePreference.ja,
+    ]) {
+      await tester.pumpWidget(
+        FantasyCameraApp(
+          initialSettings: AppSettingsState(localePreference: localePreference),
+          overrides: <Override>[
+            hasSupabaseConfigProvider.overrideWithValue(true),
+            notificationLifecycleProvider.overrideWith((Ref ref) {}),
+            authSessionProvider.overrideWith(
+              (_) => Stream<AuthSessionState>.value(
+                const AuthSessionState.signedOut(
+                  notice: AuthSessionNotice.sessionExpired,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(AuthPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('shows camera screen when signed in', (
     WidgetTester tester,
   ) async {
