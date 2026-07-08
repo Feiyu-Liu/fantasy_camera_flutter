@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 
+import '../../../config/app_config.dart';
 import '../../../shared/core/app_logger.dart';
 import '../domain/auth_session_snapshot.dart';
 import '../domain/auth_user.dart';
@@ -61,6 +62,7 @@ class SupabaseAuthGateway implements AuthGateway {
     final AuthResponse response = await _client.auth.signUp(
       email: email,
       password: password,
+      emailRedirectTo: AppConfig.authEmailRedirectUrl,
     );
     return _snapshotFromSession(response.session);
   }

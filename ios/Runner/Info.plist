@@ -28,6 +28,16 @@
 				<string>$(GOOGLE_IOS_REVERSED_CLIENT_ID)</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>host.eunoia.tessercam.auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>host.eunoia.tessercam</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleShortVersionString</key>
 	<string>$(FLUTTER_BUILD_NAME)</string>

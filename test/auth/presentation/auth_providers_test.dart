@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:fantasy_camera_flutter/auth/presentation/auth_page.dart';
 import 'package:fantasy_camera_flutter/auth/presentation/auth_providers.dart';
+import 'package:fantasy_camera_flutter/config/app_config.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
 import 'package:fantasy_camera_flutter/theme/app_colors.dart';
@@ -10,6 +13,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
+  group('auth callback configuration', () {
+    test('uses an iOS registered URL scheme for email confirmation', () {
+      final Uri redirectUri = Uri.parse(AppConfig.authEmailRedirectUrl);
+      final String infoPlist = File('ios/Runner/Info.plist').readAsStringSync();
+
+      expect(redirectUri.scheme, AppConfig.authCallbackScheme);
+      expect(redirectUri.host, 'login-callback');
+      expect(
+        infoPlist,
+        contains('<string>${AppConfig.authCallbackScheme}</string>'),
+      );
+    });
+  });
+
   group('authControllerErrorCodeFor', () {
     test('maps known Supabase auth error codes', () {
       expect(

@@ -85,6 +85,11 @@ class AppConfig {
   static const String developerRedditUrl =
       'https://www.reddit.com/r/tessercam/';
 
+  // Supabase 邮箱确认回调。该 URL 必须同时加入 Supabase Auth Redirect URLs。
+  static const String authCallbackScheme = 'host.eunoia.tessercam';
+  static const String authEmailRedirectUrl =
+      '$authCallbackScheme://login-callback/';
+
   // APNs topic，必须与 iOS Bundle ID 以及 Worker 的 APNS_ALLOWED_TOPICS 对齐。
   static const String pushNotificationTopic = String.fromEnvironment(
     'PUSH_NOTIFICATION_TOPIC',
