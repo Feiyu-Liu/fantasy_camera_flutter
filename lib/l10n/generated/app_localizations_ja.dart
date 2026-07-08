@@ -15,7 +15,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get appName => 'Fantasy Camera';
 
   @override
-  String get authAccountCreatedSignIn => 'アカウントを作成しました。ログインしてください。';
+  String get authAccountCreatedSignIn =>
+      'アカウントを作成しました。メールを確認して認証を完了してからログインしてください。';
 
   @override
   String get authAccountAlreadyExists => 'このメールアドレスはすでに登録されています。ログインしてください。';

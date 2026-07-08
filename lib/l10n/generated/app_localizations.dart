@@ -118,7 +118,7 @@ abstract class AppLocalizations {
   /// No description provided for @authAccountCreatedSignIn.
   ///
   /// In en, this message translates to:
-  /// **'Account created. Please sign in.'**
+  /// **'Account created. Check your inbox and finish verification before signing in.'**
   String get authAccountCreatedSignIn;
 
   /// No description provided for @authAccountAlreadyExists.

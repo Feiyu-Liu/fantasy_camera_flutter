@@ -2,7 +2,7 @@
   "@@locale": "ja",
   "appTitle": "Fantasy Camera",
   "appName": "Fantasy Camera",
-  "authAccountCreatedSignIn": "アカウントを作成しました。ログインしてください。",
+  "authAccountCreatedSignIn": "アカウントを作成しました。メールを確認して認証を完了してからログインしてください。",
   "authAccountAlreadyExists": "このメールアドレスはすでに登録されています。ログインしてください。",
   "authAlreadyHaveAccountSignIn": "アカウントをお持ちですか？ログイン",
   "authAppleSignInFailed": "Appleでのサインインに失敗しました。",

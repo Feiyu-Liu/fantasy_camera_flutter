@@ -2,7 +2,7 @@
   "@@locale": "en",
   "appTitle": "Fantasy Camera",
   "appName": "Fantasy Camera",
-  "authAccountCreatedSignIn": "Account created. Please sign in.",
+  "authAccountCreatedSignIn": "Account created. Check your inbox and finish verification before signing in.",
   "authAccountAlreadyExists": "This email is already registered. Sign in instead.",
   "authAlreadyHaveAccountSignIn": "Already have an account? Sign in",
   "authAppleSignInFailed": "Apple sign-in failed.",

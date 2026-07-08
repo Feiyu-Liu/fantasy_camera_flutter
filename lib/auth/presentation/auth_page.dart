@@ -13,10 +13,17 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_theme.dart';
 import 'auth_providers.dart';
 
+enum AuthPageMessageTone { error, success }
+
 class AuthPage extends ConsumerStatefulWidget {
-  const AuthPage({this.sessionMessage, super.key});
+  const AuthPage({
+    this.sessionMessage,
+    this.sessionMessageTone = AuthPageMessageTone.error,
+    super.key,
+  });
 
   final String? sessionMessage;
+  final AuthPageMessageTone sessionMessageTone;
 
   @override
   ConsumerState<AuthPage> createState() => _AuthPageState();
@@ -39,8 +46,11 @@ class _AuthPageState extends ConsumerState<AuthPage> {
   @override
   Widget build(BuildContext context) {
     final AuthControllerState state = ref.watch(authControllerProvider);
-    final String? message =
-        _authControllerMessage(context, state) ?? widget.sessionMessage;
+    final String? controllerMessage = _authControllerMessage(context, state);
+    final String? message = controllerMessage ?? widget.sessionMessage;
+    final AuthPageMessageTone messageTone = controllerMessage == null
+        ? widget.sessionMessageTone
+        : AuthPageMessageTone.error;
     final AppThemeColors colors = AppThemeColors.of(context);
     return CupertinoPageScaffold(
       backgroundColor: colors.background,
@@ -70,6 +80,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                     isSignUp: _isSignUp,
                     state: state,
                     message: message,
+                    messageTone: messageTone,
                     emailController: _emailController,
                     passwordController: _passwordController,
                     emailError: _emailError,
@@ -205,6 +216,7 @@ class _EditorialAuthForm extends StatelessWidget {
     required this.onAppleSignIn,
     required this.onGoogleSignIn,
     this.message,
+    this.messageTone = AuthPageMessageTone.error,
     this.emailError,
     this.passwordError,
   });
@@ -216,6 +228,7 @@ class _EditorialAuthForm extends StatelessWidget {
   final bool supportsAppleSignIn;
   final bool supportsGoogleSignIn;
   final String? message;
+  final AuthPageMessageTone messageTone;
   final String? emailError;
   final String? passwordError;
   final ValueChanged<String> onEmailChanged;
@@ -265,7 +278,9 @@ class _EditorialAuthForm extends StatelessWidget {
           Text(
             message!,
             style: TextStyle(
-              color: AppColors.danger,
+              color: messageTone == AuthPageMessageTone.success
+                  ? AppColors.success
+                  : AppColors.danger,
               fontSize: 13,
               fontWeight: FontWeight.w600,
               height: 1.35,

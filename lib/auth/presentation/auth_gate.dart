@@ -35,6 +35,7 @@ class AuthGate extends ConsumerWidget {
         }
         return AuthPage(
           sessionMessage: _messageForNotice(context, state.notice),
+          sessionMessageTone: _messageToneForNotice(state.notice),
         );
       },
       loading: () => const AuthCameraLoadingPage(),
@@ -42,6 +43,13 @@ class AuthGate extends ConsumerWidget {
           AuthPage(sessionMessage: context.l10n.authSessionRestoreFailed),
     );
   }
+}
+
+AuthPageMessageTone _messageToneForNotice(AuthSessionNotice? notice) {
+  return switch (notice) {
+    AuthSessionNotice.accountCreatedSignIn => AuthPageMessageTone.success,
+    AuthSessionNotice.sessionExpired || null => AuthPageMessageTone.error,
+  };
 }
 
 String? _messageForNotice(BuildContext context, AuthSessionNotice? notice) {

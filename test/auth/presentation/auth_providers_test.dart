@@ -2,6 +2,7 @@ import 'package:fantasy_camera_flutter/auth/presentation/auth_page.dart';
 import 'package:fantasy_camera_flutter/auth/presentation/auth_providers.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
+import 'package:fantasy_camera_flutter/theme/app_colors.dart';
 import 'package:fantasy_camera_flutter/theme/app_theme.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -105,17 +106,38 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('shows account-created notice as success text', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        const _AuthPageHarness(
+          localePreference: AppLocalePreference.zh,
+          sessionMessage: '账号已创建，请查看邮箱并完成验证后登录。',
+          sessionMessageTone: AuthPageMessageTone.success,
+        ),
+      );
+
+      final Finder notice = find.text('账号已创建，请查看邮箱并完成验证后登录。');
+
+      expect(notice, findsOneWidget);
+      expect(tester.widget<Text>(notice).style?.color, AppColors.success);
+    });
   });
 }
 
 class _AuthPageHarness extends StatelessWidget {
   const _AuthPageHarness({
     required this.localePreference,
-    required this.errorCode,
+    this.errorCode,
+    this.sessionMessage,
+    this.sessionMessageTone = AuthPageMessageTone.error,
   });
 
   final AppLocalePreference localePreference;
-  final AuthControllerErrorCode errorCode;
+  final AuthControllerErrorCode? errorCode;
+  final String? sessionMessage;
+  final AuthPageMessageTone sessionMessageTone;
 
   @override
   Widget build(BuildContext context) {
@@ -134,7 +156,10 @@ class _AuthPageHarness extends StatelessWidget {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: appCupertinoThemeForPreference(themePreference),
-          home: const AuthPage(),
+          home: AuthPage(
+            sessionMessage: sessionMessage,
+            sessionMessageTone: sessionMessageTone,
+          ),
         ),
       ),
     );

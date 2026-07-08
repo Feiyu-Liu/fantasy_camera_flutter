@@ -16,7 +16,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get authAccountCreatedSignIn =>
-      'Compte créé. Connecte-toi pour continuer.';
+      'Compte créé. Vérifie ta boîte mail et termine la vérification avant de te connecter.';
 
   @override
   String get authAccountAlreadyExists =>

@@ -15,7 +15,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appName => 'Fantasy Camera';
 
   @override
-  String get authAccountCreatedSignIn => '账号已创建，请登录。';
+  String get authAccountCreatedSignIn => '账号已创建，请查看邮箱并完成验证后登录。';
 
   @override
   String get authAccountAlreadyExists => '该邮箱已注册，请直接登录。';
@@ -629,7 +629,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get appName => 'Fantasy Camera';
 
   @override
-  String get authAccountCreatedSignIn => '帳號已建立，請登入。';
+  String get authAccountCreatedSignIn => '帳號已建立，請查看信箱並完成驗證後登入。';
 
   @override
   String get authAccountAlreadyExists => '此電子郵件已註冊，請直接登入。';

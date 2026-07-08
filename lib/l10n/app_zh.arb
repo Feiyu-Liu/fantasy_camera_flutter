@@ -2,7 +2,7 @@
   "@@locale": "zh",
   "appTitle": "Fantasy Camera",
   "appName": "Fantasy Camera",
-  "authAccountCreatedSignIn": "账号已创建，请登录。",
+  "authAccountCreatedSignIn": "账号已创建，请查看邮箱并完成验证后登录。",
   "authAccountAlreadyExists": "该邮箱已注册，请直接登录。",
   "authAlreadyHaveAccountSignIn": "已有账号？登录",
   "authAppleSignInFailed": "Apple 登录失败。",

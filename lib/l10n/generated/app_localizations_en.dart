@@ -15,7 +15,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appName => 'Fantasy Camera';
 
   @override
-  String get authAccountCreatedSignIn => 'Account created. Please sign in.';
+  String get authAccountCreatedSignIn =>
+      'Account created. Check your inbox and finish verification before signing in.';
 
   @override
   String get authAccountAlreadyExists =>
