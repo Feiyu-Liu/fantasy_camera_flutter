@@ -441,6 +441,19 @@ class AppLocalizationsEn extends AppLocalizations {
       'Send feedback or support request';
 
   @override
+  String get settingsContactDeveloperMessage =>
+      'Choose how to contact the developer';
+
+  @override
+  String get settingsContactDeveloperEmail => 'Email';
+
+  @override
+  String get settingsContactDeveloperX => 'X';
+
+  @override
+  String get settingsContactDeveloperReddit => 'Reddit';
+
+  @override
   String get settingsSectionAccount => 'ACCOUNT';
 
   @override

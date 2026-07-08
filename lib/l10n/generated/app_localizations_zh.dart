@@ -417,6 +417,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsContactDeveloperSubtitle => '发送反馈或支持请求';
 
   @override
+  String get settingsContactDeveloperMessage => '选择一种方式联系开发者';
+
+  @override
+  String get settingsContactDeveloperEmail => 'Email';
+
+  @override
+  String get settingsContactDeveloperX => 'X';
+
+  @override
+  String get settingsContactDeveloperReddit => 'Reddit';
+
+  @override
   String get settingsSectionAccount => '账号';
 
   @override
@@ -1029,6 +1041,18 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get settingsContactDeveloperSubtitle => '傳送回饋或支援請求';
+
+  @override
+  String get settingsContactDeveloperMessage => '選擇一種方式聯絡開發者';
+
+  @override
+  String get settingsContactDeveloperEmail => 'Email';
+
+  @override
+  String get settingsContactDeveloperX => 'X';
+
+  @override
+  String get settingsContactDeveloperReddit => 'Reddit';
 
   @override
   String get settingsSectionAccount => '帳號';

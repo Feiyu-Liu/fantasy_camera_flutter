@@ -446,6 +446,19 @@ class AppLocalizationsFr extends AppLocalizations {
       'Envoyer un commentaire ou une demande d\'aide';
 
   @override
+  String get settingsContactDeveloperMessage =>
+      'Choisis comment contacter le développeur';
+
+  @override
+  String get settingsContactDeveloperEmail => 'Email';
+
+  @override
+  String get settingsContactDeveloperX => 'X';
+
+  @override
+  String get settingsContactDeveloperReddit => 'Reddit';
+
+  @override
   String get settingsSectionAccount => 'COMPTE';
 
   @override

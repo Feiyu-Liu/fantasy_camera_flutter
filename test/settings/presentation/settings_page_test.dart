@@ -625,6 +625,72 @@ void main() {
     expect(toastPresenter.messages.single.title, '无法打开链接，请稍后重试。');
   });
 
+  testWidgets('contact developer sheet opens configured contact methods', (
+    WidgetTester tester,
+  ) async {
+    final _RecordingExternalLinkLauncher externalLinkLauncher =
+        _RecordingExternalLinkLauncher();
+    await pumpSettingsPage(tester, externalLinkLauncher: externalLinkLauncher);
+
+    await scrollDownUntilTextTappable(tester, '联系开发者');
+    await tester.tap(find.text('联系开发者'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择一种方式联系开发者'), findsOneWidget);
+    expect(find.text('Email'), findsOneWidget);
+    expect(find.text('X'), findsOneWidget);
+    expect(find.text('Reddit'), findsOneWidget);
+
+    await tester.tap(find.text('Email'));
+    await tester.pumpAndSettle();
+
+    final Uri emailUri = externalLinkLauncher.openedUris.single;
+    expect(emailUri.scheme, 'mailto');
+    expect(emailUri.path, AppConfig.developerEmail);
+    expect(emailUri.query, 'subject=TesserCam%20Feedback');
+
+    await tester.tap(find.text('联系开发者'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('X'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('联系开发者'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reddit'));
+    await tester.pumpAndSettle();
+
+    expect(
+      externalLinkLauncher.openedUris.skip(1).map((Uri uri) => uri.toString()),
+      <String>[AppConfig.developerXUrl, AppConfig.developerRedditUrl],
+    );
+  });
+
+  testWidgets('contact developer link failure shows toast', (
+    WidgetTester tester,
+  ) async {
+    final _RecordingExternalLinkLauncher externalLinkLauncher =
+        _RecordingExternalLinkLauncher(result: false);
+    final _RecordingAppToastPresenter toastPresenter =
+        _RecordingAppToastPresenter();
+    await pumpSettingsPage(
+      tester,
+      toastPresenter: toastPresenter,
+      externalLinkLauncher: externalLinkLauncher,
+    );
+
+    await scrollDownUntilTextTappable(tester, '联系开发者');
+    await tester.tap(find.text('联系开发者'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('X'));
+    await tester.pumpAndSettle();
+
+    expect(
+      externalLinkLauncher.openedUris.single.toString(),
+      AppConfig.developerXUrl,
+    );
+    expect(toastPresenter.messages.single.title, '无法打开链接，请稍后重试。');
+  });
+
   testWidgets('sign out row shows confirmation before signing out', (
     WidgetTester tester,
   ) async {

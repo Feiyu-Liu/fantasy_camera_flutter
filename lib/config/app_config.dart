@@ -80,6 +80,10 @@ class AppConfig {
       'https://tessercam.flyingfish.cc/privacy-policy.html';
   static const String termsOfUseUrl =
       'https://tessercam.flyingfish.cc/terms-of-use.html';
+  static const String developerEmail = 'liufeiyu135@gmail.com';
+  static const String developerXUrl = 'https://x.com/tilapia638?s=11';
+  static const String developerRedditUrl =
+      'https://www.reddit.com/r/tessercam/';
 
   // APNs topic，必须与 iOS Bundle ID 以及 Worker 的 APNS_ALLOWED_TOPICS 对齐。
   static const String pushNotificationTopic = String.fromEnvironment(

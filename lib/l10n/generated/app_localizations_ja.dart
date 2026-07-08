@@ -421,6 +421,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsContactDeveloperSubtitle => 'フィードバックまたはサポートリクエストを送信';
 
   @override
+  String get settingsContactDeveloperMessage => '開発者への連絡方法を選択してください';
+
+  @override
+  String get settingsContactDeveloperEmail => 'Email';
+
+  @override
+  String get settingsContactDeveloperX => 'X';
+
+  @override
+  String get settingsContactDeveloperReddit => 'Reddit';
+
+  @override
   String get settingsSectionAccount => 'アカウント';
 
   @override

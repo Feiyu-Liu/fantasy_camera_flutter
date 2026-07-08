@@ -196,7 +196,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               _SettingsActionRow(
                 title: l10n.settingsContactDeveloperTitle,
                 subtitle: l10n.settingsContactDeveloperSubtitle,
-                onPressed: _handlePlaceholderAction,
+                onPressed: _showContactDeveloperSheet,
               ),
               const _SectionDivider(),
               _SectionTitle(l10n.settingsSectionAccount),
@@ -258,13 +258,62 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  void _handlePlaceholderAction() {
+  Future<void> _showContactDeveloperSheet() async {
     HapticFeedback.selectionClick();
+    final AppLocalizations l10n = context.l10n;
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (BuildContext popupContext) {
+        return CupertinoActionSheet(
+          title: Text(l10n.settingsContactDeveloperTitle),
+          message: Text(l10n.settingsContactDeveloperMessage),
+          actions: <Widget>[
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.of(popupContext).pop();
+                unawaited(_openDeveloperEmail());
+              },
+              child: Text(l10n.settingsContactDeveloperEmail),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.of(popupContext).pop();
+                unawaited(_openExternalLink(AppConfig.developerXUrl));
+              },
+              child: Text(l10n.settingsContactDeveloperX),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.of(popupContext).pop();
+                unawaited(_openExternalLink(AppConfig.developerRedditUrl));
+              },
+              child: Text(l10n.settingsContactDeveloperReddit),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(popupContext).pop(),
+            child: Text(l10n.commonCancel),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openDeveloperEmail() async {
+    final Uri uri = Uri(
+      scheme: 'mailto',
+      path: AppConfig.developerEmail,
+      query: 'subject=TesserCam%20Feedback',
+    );
+    await _openExternalUri(uri);
   }
 
   Future<void> _openExternalLink(String url) async {
+    await _openExternalUri(Uri.parse(url));
+  }
+
+  Future<void> _openExternalUri(Uri uri) async {
     HapticFeedback.selectionClick();
-    final Uri uri = Uri.parse(url);
     final AppToastService toastService = ref.read(appToastServiceProvider);
     final AppLocalizations l10n = context.l10n;
     try {
@@ -272,12 +321,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       if (opened) {
         return;
       }
-      _debugLog('open external link returned false url=$url');
+      _debugLog('open external link returned false uri=$uri');
     } catch (error, stackTrace) {
-      _debugLog('open external link failure url=$url error=$error');
+      _debugLog('open external link failure uri=$uri error=$error');
       appDebugLog(
         'SettingsPage',
-        'open external link stack url=$url stack=$stackTrace',
+        'open external link stack uri=$uri stack=$stackTrace',
       );
     }
     if (!mounted) {

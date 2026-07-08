@@ -880,6 +880,30 @@ abstract class AppLocalizations {
   /// **'Send feedback or support request'**
   String get settingsContactDeveloperSubtitle;
 
+  /// No description provided for @settingsContactDeveloperMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how to contact the developer'**
+  String get settingsContactDeveloperMessage;
+
+  /// No description provided for @settingsContactDeveloperEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get settingsContactDeveloperEmail;
+
+  /// No description provided for @settingsContactDeveloperX.
+  ///
+  /// In en, this message translates to:
+  /// **'X'**
+  String get settingsContactDeveloperX;
+
+  /// No description provided for @settingsContactDeveloperReddit.
+  ///
+  /// In en, this message translates to:
+  /// **'Reddit'**
+  String get settingsContactDeveloperReddit;
+
   /// No description provided for @settingsSectionAccount.
   ///
   /// In en, this message translates to:
