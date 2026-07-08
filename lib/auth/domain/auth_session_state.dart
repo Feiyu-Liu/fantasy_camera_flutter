@@ -5,6 +5,7 @@ enum AuthSessionStatus {
   signedOut,
   signingIn,
   signingUp,
+  passwordRecovery,
   signedIn,
   refreshingToken,
   sessionExpired,
@@ -27,6 +28,10 @@ class AuthSessionState {
 
   const AuthSessionState.signedIn(this.user)
     : status = AuthSessionStatus.signedIn,
+      notice = null;
+
+  const AuthSessionState.passwordRecovery(this.user)
+    : status = AuthSessionStatus.passwordRecovery,
       notice = null;
 
   const AuthSessionState.sessionExpired({this.notice})

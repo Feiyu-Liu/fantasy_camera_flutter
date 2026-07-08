@@ -2,6 +2,7 @@ import '../domain/auth_session_snapshot.dart';
 
 enum AuthGatewayEventType {
   initialSession,
+  passwordRecovery,
   signedIn,
   signedOut,
   tokenRefreshed,
@@ -31,6 +32,10 @@ abstract interface class AuthGateway {
     required String email,
     required String password,
   });
+
+  Future<void> requestPasswordReset({required String email});
+
+  Future<AuthSessionSnapshot?> updatePassword({required String password});
 
   Future<AuthSessionSnapshot?> signInWithApple();
 

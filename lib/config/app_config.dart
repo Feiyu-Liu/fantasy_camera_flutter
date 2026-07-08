@@ -89,6 +89,8 @@ class AppConfig {
   static const String authCallbackScheme = 'host.eunoia.tessercam';
   static const String authEmailRedirectUrl =
       '$authCallbackScheme://login-callback/';
+  static const String authPasswordResetRedirectUrl =
+      '$authCallbackScheme://password-reset/';
 
   // APNs topic，必须与 iOS Bundle ID 以及 Worker 的 APNS_ALLOWED_TOPICS 对齐。
   static const String pushNotificationTopic = String.fromEnvironment(

@@ -68,6 +68,22 @@ class SupabaseAuthGateway implements AuthGateway {
   }
 
   @override
+  Future<void> requestPasswordReset({required String email}) {
+    return _client.auth.resetPasswordForEmail(
+      email,
+      redirectTo: AppConfig.authPasswordResetRedirectUrl,
+    );
+  }
+
+  @override
+  Future<AuthSessionSnapshot?> updatePassword({
+    required String password,
+  }) async {
+    await _client.auth.updateUser(UserAttributes(password: password));
+    return currentSession;
+  }
+
+  @override
   Future<AuthSessionSnapshot?> signInWithApple() async {
     final AppleSignInCredentialPayload credential;
     try {
@@ -147,6 +163,7 @@ class SupabaseAuthGateway implements AuthGateway {
 AuthGatewayEventType _eventTypeFor(AuthChangeEvent event) {
   return switch (event) {
     AuthChangeEvent.initialSession => AuthGatewayEventType.initialSession,
+    AuthChangeEvent.passwordRecovery => AuthGatewayEventType.passwordRecovery,
     AuthChangeEvent.signedIn => AuthGatewayEventType.signedIn,
     AuthChangeEvent.signedOut => AuthGatewayEventType.signedOut,
     AuthChangeEvent.tokenRefreshed => AuthGatewayEventType.tokenRefreshed,

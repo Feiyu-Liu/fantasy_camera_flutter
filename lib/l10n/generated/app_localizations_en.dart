@@ -76,6 +76,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authForgotKeyButton => 'Forgot password?';
 
   @override
+  String get authForgotPasswordEmailTitle => 'Reset password';
+
+  @override
+  String get authForgotPasswordEmailMessage =>
+      'Enter your account email and we’ll send a password reset email.';
+
+  @override
+  String get authForgotPasswordEmailSent =>
+      'If that email is registered, we’ll send a password reset email.';
+
+  @override
   String get authGoogleSignInFailed => 'Google sign-in failed.';
 
   @override
@@ -105,7 +116,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authPasswordPlaceholder => 'Password';
 
   @override
+  String get authPasswordResetCancelButton => 'Back to sign in';
+
+  @override
+  String get authPasswordResetFailed =>
+      'Couldn’t reset password. Please try again later.';
+
+  @override
   String get authRateLimited => 'Too many attempts. Try again later.';
+
+  @override
+  String get authResetPasswordConfirmLabel => 'Confirm password';
+
+  @override
+  String get authResetPasswordMismatch => 'Passwords do not match.';
+
+  @override
+  String get authResetPasswordSubmitButton => 'Update password';
+
+  @override
+  String get authResetPasswordTitle => 'Set new password';
 
   @override
   String get authSecretKeyPlaceholder => '••••••••';

@@ -73,6 +73,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get authForgotKeyButton => 'パスワードをお忘れですか？';
 
   @override
+  String get authForgotPasswordEmailTitle => 'パスワードをリセット';
+
+  @override
+  String get authForgotPasswordEmailMessage =>
+      'アカウントのメールアドレスを入力すると、パスワード再設定メールを送信します。';
+
+  @override
+  String get authForgotPasswordEmailSent =>
+      '登録済みのメールアドレスの場合、パスワード再設定メールを送信します。';
+
+  @override
   String get authGoogleSignInFailed => 'Googleでのログインに失敗しました。';
 
   @override
@@ -102,7 +113,25 @@ class AppLocalizationsJa extends AppLocalizations {
   String get authPasswordPlaceholder => 'パスワード';
 
   @override
+  String get authPasswordResetCancelButton => 'ログインに戻る';
+
+  @override
+  String get authPasswordResetFailed => 'パスワードをリセットできません。しばらくしてからもう一度お試しください。';
+
+  @override
   String get authRateLimited => '試行回数が多すぎます。しばらくしてからもう一度お試しください。';
+
+  @override
+  String get authResetPasswordConfirmLabel => 'パスワードを確認';
+
+  @override
+  String get authResetPasswordMismatch => 'パスワードが一致しません。';
+
+  @override
+  String get authResetPasswordSubmitButton => 'パスワードを更新';
+
+  @override
+  String get authResetPasswordTitle => '新しいパスワードを設定';
 
   @override
   String get authSecretKeyPlaceholder => '••••••••';

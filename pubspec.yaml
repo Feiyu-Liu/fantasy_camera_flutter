@@ -29,6 +29,7 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  app_links: ^7.0.0
   camera_avfoundation:
     path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter-camera/camera/packages/camera/camera_avfoundation
   camera_platform_interface: ^2.10.0

@@ -40,14 +40,20 @@ class SupabaseSessionCoordinator implements AccessTokenProvider {
   }
 
   Future<void> restore() async {
+    if (_isPasswordRecovery) {
+      return;
+    }
     _setState(const AuthSessionState.restoring());
     try {
       final AuthSessionSnapshot? session = await _authGateway
           .restoreCurrentSession();
+      if (_isPasswordRecovery) {
+        return;
+      }
       if (session == null) {
         final AuthGatewayEvent? initialEvent =
             await _waitForInitialSessionEvent();
-        if (_state.isSignedIn) {
+        if (_state.isSignedIn || _isPasswordRecovery) {
           return;
         }
         if (initialEvent?.session case final AuthSessionSnapshot session) {
@@ -60,6 +66,9 @@ class SupabaseSessionCoordinator implements AccessTokenProvider {
         }
         final AuthSessionSnapshot? fallbackSession = await _authGateway
             .restoreCurrentSession();
+        if (_isPasswordRecovery) {
+          return;
+        }
         if (fallbackSession != null) {
           _setState(AuthSessionState.signedIn(fallbackSession.user));
           return;
@@ -70,6 +79,9 @@ class SupabaseSessionCoordinator implements AccessTokenProvider {
       _setState(AuthSessionState.signedIn(session.user));
     } on Object catch (error, stackTrace) {
       logAppError('auth_restore_failed', error, stackTrace);
+      if (_isPasswordRecovery) {
+        return;
+      }
       _setState(const AuthSessionState.signedOut());
     }
   }
@@ -82,12 +94,29 @@ class SupabaseSessionCoordinator implements AccessTokenProvider {
     return _runAuthAction(AuthSessionStatus.signingUp, action);
   }
 
+  Future<void> completePasswordRecovery(
+    Future<AuthSessionSnapshot?> Function() action,
+  ) async {
+    final AuthSessionSnapshot? session = await action();
+    if (session == null) {
+      _setState(
+        AuthSessionState.sessionExpired(
+          notice: AuthSessionNotice.sessionExpired,
+        ),
+      );
+      return;
+    }
+    _setState(AuthSessionState.signedIn(session.user));
+  }
+
   Future<void> signOut() async {
     if (_signingOut) {
       return;
     }
     _signingOut = true;
-    _setState(_state.copyWith(status: AuthSessionStatus.signingOut));
+    _setState(
+      _state.copyWith(status: AuthSessionStatus.signingOut, clearUser: true),
+    );
     try {
       await _authGateway.signOut();
       _setState(const AuthSessionState.signedOut());
@@ -175,17 +204,32 @@ class SupabaseSessionCoordinator implements AccessTokenProvider {
     }
     switch (event.type) {
       case AuthGatewayEventType.initialSession:
+        if (_isPasswordRecovery) {
+          return;
+        }
         final AuthSessionSnapshot? session = event.session;
         if (session != null) {
           _setState(AuthSessionState.signedIn(session.user));
         } else if (_state.status == AuthSessionStatus.restoring) {
           _setState(const AuthSessionState.signedOut());
         }
+      case AuthGatewayEventType.passwordRecovery:
+        final AuthSessionSnapshot? session = event.session;
+        if (session != null) {
+          _setState(AuthSessionState.passwordRecovery(session.user));
+        } else {
+          _setState(
+            AuthSessionState.sessionExpired(
+              notice: AuthSessionNotice.sessionExpired,
+            ),
+          );
+        }
       case AuthGatewayEventType.signedIn:
       case AuthGatewayEventType.tokenRefreshed:
       case AuthGatewayEventType.userUpdated:
         final AuthSessionSnapshot? session = event.session;
-        if (session != null) {
+        if (session != null &&
+            _state.status != AuthSessionStatus.passwordRecovery) {
           _setState(AuthSessionState.signedIn(session.user));
         }
       case AuthGatewayEventType.signedOut:
@@ -215,6 +259,9 @@ class SupabaseSessionCoordinator implements AccessTokenProvider {
       onTimeout: () => null,
     );
   }
+
+  bool get _isPasswordRecovery =>
+      _state.status == AuthSessionStatus.passwordRecovery;
 
   void _setState(AuthSessionState state) {
     _state = state;

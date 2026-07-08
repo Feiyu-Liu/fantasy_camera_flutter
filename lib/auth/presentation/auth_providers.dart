@@ -13,6 +13,7 @@ import '../data/google_sign_in_gateway.dart';
 import '../data/supabase_auth_gateway.dart';
 import '../domain/access_token_provider.dart';
 import '../domain/auth_session_state.dart';
+import '../session/auth_deep_link_coordinator.dart';
 import '../session/supabase_session_coordinator.dart';
 
 final hasSupabaseConfigProvider = Provider<bool>((Ref ref) {
@@ -48,8 +49,11 @@ final sessionCoordinatorProvider = Provider<SupabaseSessionCoordinator>((
   final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
     authGateway: ref.watch(authGatewayProvider),
   );
+  final AuthDeepLinkCoordinator deepLinkCoordinator = AuthDeepLinkCoordinator();
+  unawaited(deepLinkCoordinator.start());
   unawaited(coordinator.restore());
   ref.onDispose(() {
+    unawaited(deepLinkCoordinator.dispose());
     unawaited(coordinator.dispose());
   });
   return coordinator;
@@ -79,6 +83,7 @@ enum AuthControllerErrorCode {
   rateLimited,
   signupDisabled,
   authenticationFailed,
+  passwordResetFailed,
 }
 
 class AuthControllerState {
@@ -135,6 +140,50 @@ class AuthController extends Notifier<AuthControllerState> {
             .signUpWithPassword(email: email, password: password);
       });
     });
+  }
+
+  Future<bool> requestPasswordReset({required String email}) async {
+    if (state.isSubmitting) {
+      return false;
+    }
+    state = state.copyWith(isSubmitting: true, clearError: true);
+    try {
+      await ref.read(authGatewayProvider).requestPasswordReset(email: email);
+      state = state.copyWith(isSubmitting: false, clearError: true);
+      return true;
+    } on Object catch (error, stackTrace) {
+      logAppError('password_reset_request_failed', error, stackTrace);
+      state = state.copyWith(
+        isSubmitting: false,
+        errorCode: authControllerErrorCodeFor(
+          error,
+          fallback: AuthControllerErrorCode.passwordResetFailed,
+        ),
+      );
+      return false;
+    }
+  }
+
+  Future<void> updatePassword({required String password}) async {
+    if (state.isSubmitting) {
+      return;
+    }
+    state = state.copyWith(isSubmitting: true, clearError: true);
+    try {
+      await ref.read(sessionCoordinatorProvider).completePasswordRecovery(() {
+        return ref.read(authGatewayProvider).updatePassword(password: password);
+      });
+      state = state.copyWith(isSubmitting: false, clearError: true);
+    } on Object catch (error, stackTrace) {
+      logAppError('password_reset_update_failed', error, stackTrace);
+      state = state.copyWith(
+        isSubmitting: false,
+        errorCode: authControllerErrorCodeFor(
+          error,
+          fallback: AuthControllerErrorCode.passwordResetFailed,
+        ),
+      );
+    }
   }
 
   Future<void> signInWithApple() async {
@@ -202,9 +251,13 @@ class AuthController extends Notifier<AuthControllerState> {
   }
 }
 
-AuthControllerErrorCode authControllerErrorCodeFor(Object error) {
+AuthControllerErrorCode authControllerErrorCodeFor(
+  Object error, {
+  AuthControllerErrorCode fallback =
+      AuthControllerErrorCode.authenticationFailed,
+}) {
   if (error is! AuthException) {
-    return AuthControllerErrorCode.authenticationFailed;
+    return fallback;
   }
   return switch (error.code) {
     'invalid_credentials' => AuthControllerErrorCode.invalidCredentials,
@@ -220,7 +273,7 @@ AuthControllerErrorCode authControllerErrorCodeFor(Object error) {
     'signup_disabled' ||
     'email_provider_disabled' ||
     'provider_disabled' => AuthControllerErrorCode.signupDisabled,
-    _ => AuthControllerErrorCode.authenticationFailed,
+    _ => fallback,
   };
 }
 

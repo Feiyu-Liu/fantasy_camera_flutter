@@ -67,39 +67,45 @@ void main() {
     expect(statuses, isNot(contains(AuthSessionStatus.signedOut)));
   });
 
-  test('restore falls back to current session after missing initial event', () async {
-    final _FakeAuthGateway gateway = _FakeAuthGateway();
-    final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
-      authGateway: gateway,
-      initialSessionFallbackTimeout: const Duration(milliseconds: 10),
-    );
-    addTearDown(coordinator.dispose);
+  test(
+    'restore falls back to current session after missing initial event',
+    () async {
+      final _FakeAuthGateway gateway = _FakeAuthGateway();
+      final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
+        authGateway: gateway,
+        initialSessionFallbackTimeout: const Duration(milliseconds: 10),
+      );
+      addTearDown(coordinator.dispose);
 
-    gateway.restoreResponses = <AuthSessionSnapshot?>[
-      null,
-      _session(accessToken: 'fallback-token'),
-    ];
+      gateway.restoreResponses = <AuthSessionSnapshot?>[
+        null,
+        _session(accessToken: 'fallback-token'),
+      ];
 
-    await coordinator.restore();
+      await coordinator.restore();
 
-    expect(coordinator.currentState.status, AuthSessionStatus.signedIn);
-    expect(coordinator.currentState.user?.id, 'user-1');
-    expect(gateway.restoreCalls, 2);
-  });
+      expect(coordinator.currentState.status, AuthSessionStatus.signedIn);
+      expect(coordinator.currentState.user?.id, 'user-1');
+      expect(gateway.restoreCalls, 2);
+    },
+  );
 
-  test('restore falls back to signedOut when no initial event or session', () async {
-    final _FakeAuthGateway gateway = _FakeAuthGateway();
-    final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
-      authGateway: gateway,
-      initialSessionFallbackTimeout: Duration.zero,
-    );
-    addTearDown(coordinator.dispose);
+  test(
+    'restore falls back to signedOut when no initial event or session',
+    () async {
+      final _FakeAuthGateway gateway = _FakeAuthGateway();
+      final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
+        authGateway: gateway,
+        initialSessionFallbackTimeout: Duration.zero,
+      );
+      addTearDown(coordinator.dispose);
 
-    await coordinator.restore();
+      await coordinator.restore();
 
-    expect(coordinator.currentState.status, AuthSessionStatus.signedOut);
-    expect(gateway.restoreCalls, 2);
-  });
+      expect(coordinator.currentState.status, AuthSessionStatus.signedOut);
+      expect(gateway.restoreCalls, 2);
+    },
+  );
 
   test('ensureValidAccessToken returns current valid token', () async {
     final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
@@ -157,6 +163,70 @@ void main() {
       expect(coordinator.currentState.status, AuthSessionStatus.sessionExpired);
     },
   );
+
+  test('password recovery event enters recovery state', () async {
+    final _FakeAuthGateway gateway = _FakeAuthGateway();
+    final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
+      authGateway: gateway,
+    );
+    addTearDown(coordinator.dispose);
+
+    gateway.emit(
+      AuthGatewayEvent(
+        type: AuthGatewayEventType.passwordRecovery,
+        session: _session(accessToken: 'recovery-token'),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(coordinator.currentState.status, AuthSessionStatus.passwordRecovery);
+    expect(coordinator.currentState.user?.id, 'user-1');
+    expect(coordinator.currentState.isSignedIn, isFalse);
+  });
+
+  test('password recovery completion maps session to signedIn', () async {
+    final _FakeAuthGateway gateway = _FakeAuthGateway(
+      current: _session(accessToken: 'recovery-token'),
+    );
+    final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
+      authGateway: gateway,
+    );
+    addTearDown(coordinator.dispose);
+
+    await coordinator.completePasswordRecovery(() {
+      return gateway.updatePassword(password: 'new-password');
+    });
+
+    expect(coordinator.currentState.status, AuthSessionStatus.signedIn);
+    expect(coordinator.currentState.user?.id, 'user-1');
+  });
+
+  test('restore does not overwrite password recovery state', () async {
+    final _FakeAuthGateway gateway = _FakeAuthGateway();
+    final SupabaseSessionCoordinator coordinator = SupabaseSessionCoordinator(
+      authGateway: gateway,
+      initialSessionFallbackTimeout: const Duration(milliseconds: 10),
+    );
+    addTearDown(coordinator.dispose);
+
+    gateway.restoreResponses = <AuthSessionSnapshot?>[
+      null,
+      _session(accessToken: 'restored-token'),
+    ];
+
+    final Future<void> restore = coordinator.restore();
+    await Future<void>.delayed(Duration.zero);
+    gateway.emit(
+      AuthGatewayEvent(
+        type: AuthGatewayEventType.passwordRecovery,
+        session: _session(accessToken: 'recovery-token'),
+      ),
+    );
+    await restore;
+
+    expect(coordinator.currentState.status, AuthSessionStatus.passwordRecovery);
+    expect(coordinator.currentState.user?.id, 'user-1');
+  });
 }
 
 AuthSessionSnapshot _session({
@@ -226,6 +296,17 @@ class _FakeAuthGateway implements AuthGateway {
     required String email,
     required String password,
   }) async => current;
+
+  @override
+  Future<void> requestPasswordReset({required String email}) async {}
+
+  @override
+  Future<AuthSessionSnapshot?> updatePassword({
+    required String password,
+  }) async {
+    current ??= _session(accessToken: 'updated-token');
+    return current;
+  }
 
   @override
   Future<void> signOut() async {

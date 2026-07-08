@@ -27,6 +27,9 @@ class AuthGate extends ConsumerWidget {
     );
     return authState.when(
       data: (AuthSessionState state) {
+        if (state.status == AuthSessionStatus.passwordRecovery) {
+          return const AuthPasswordResetPage();
+        }
         if (state.hasAuthenticatedUser) {
           return const _SignedInCameraEntry();
         }

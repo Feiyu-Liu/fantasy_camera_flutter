@@ -229,6 +229,24 @@ abstract class AppLocalizations {
   /// **'Forgot password?'**
   String get authForgotKeyButton;
 
+  /// No description provided for @authForgotPasswordEmailTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset password'**
+  String get authForgotPasswordEmailTitle;
+
+  /// No description provided for @authForgotPasswordEmailMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your account email and we’ll send a password reset email.'**
+  String get authForgotPasswordEmailMessage;
+
+  /// No description provided for @authForgotPasswordEmailSent.
+  ///
+  /// In en, this message translates to:
+  /// **'If that email is registered, we’ll send a password reset email.'**
+  String get authForgotPasswordEmailSent;
+
   /// No description provided for @authGoogleSignInFailed.
   ///
   /// In en, this message translates to:
@@ -283,11 +301,47 @@ abstract class AppLocalizations {
   /// **'Password'**
   String get authPasswordPlaceholder;
 
+  /// No description provided for @authPasswordResetCancelButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to sign in'**
+  String get authPasswordResetCancelButton;
+
+  /// No description provided for @authPasswordResetFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn’t reset password. Please try again later.'**
+  String get authPasswordResetFailed;
+
   /// No description provided for @authRateLimited.
   ///
   /// In en, this message translates to:
   /// **'Too many attempts. Try again later.'**
   String get authRateLimited;
+
+  /// No description provided for @authResetPasswordConfirmLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm password'**
+  String get authResetPasswordConfirmLabel;
+
+  /// No description provided for @authResetPasswordMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match.'**
+  String get authResetPasswordMismatch;
+
+  /// No description provided for @authResetPasswordSubmitButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Update password'**
+  String get authResetPasswordSubmitButton;
+
+  /// No description provided for @authResetPasswordTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set new password'**
+  String get authResetPasswordTitle;
 
   /// No description provided for @authSecretKeyPlaceholder.
   ///

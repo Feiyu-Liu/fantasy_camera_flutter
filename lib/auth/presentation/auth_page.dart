@@ -91,6 +91,9 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                     onPasswordChanged: (_) => _clearFieldErrors(),
                     onPasswordSubmitted: (_) => _submitPassword(state),
                     onSubmit: () => _submitPassword(state),
+                    onForgotPassword: state.isSubmitting
+                        ? null
+                        : _showForgotPasswordDialog,
                     onToggleMode: state.isSubmitting
                         ? null
                         : () {
@@ -152,6 +155,43 @@ class _AuthPageState extends ConsumerState<AuthPage> {
     }
   }
 
+  Future<void> _showForgotPasswordDialog() async {
+    final String? email = await showCupertinoDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return _ForgotPasswordDialog(
+          initialEmail: _emailController.text.trim(),
+        );
+      },
+    );
+    if (!mounted || email == null) {
+      return;
+    }
+
+    final bool sent = await ref
+        .read(authControllerProvider.notifier)
+        .requestPasswordReset(email: email);
+    if (!mounted || !sent) {
+      return;
+    }
+
+    await showCupertinoDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return CupertinoAlertDialog(
+          title: Text(context.l10n.authForgotPasswordEmailTitle),
+          content: Text(context.l10n.authForgotPasswordEmailSent),
+          actions: <Widget>[
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(context.l10n.commonOK),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   bool _validatePasswordForm() {
     final String email = _emailController.text.trim();
     final String password = _passwordController.text;
@@ -194,10 +234,275 @@ String? _authControllerMessage(
     AuthControllerErrorCode.weakPassword => context.l10n.authWeakPassword,
     AuthControllerErrorCode.rateLimited => context.l10n.authRateLimited,
     AuthControllerErrorCode.signupDisabled => context.l10n.authSignupDisabled,
+    AuthControllerErrorCode.passwordResetFailed =>
+      context.l10n.authPasswordResetFailed,
     AuthControllerErrorCode.authenticationFailed =>
       context.l10n.authAuthenticationFailed,
     null => null,
   };
+}
+
+class AuthPasswordResetPage extends ConsumerStatefulWidget {
+  const AuthPasswordResetPage({super.key});
+
+  @override
+  ConsumerState<AuthPasswordResetPage> createState() =>
+      _AuthPasswordResetPageState();
+}
+
+class _AuthPasswordResetPageState extends ConsumerState<AuthPasswordResetPage> {
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+  String? _passwordError;
+  String? _confirmPasswordError;
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AuthControllerState state = ref.watch(authControllerProvider);
+    final String? message = _authControllerMessage(context, state);
+    final AppThemeColors colors = AppThemeColors.of(context);
+    return CupertinoPageScaffold(
+      backgroundColor: colors.background,
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final MediaQueryData mediaQuery = MediaQuery.of(context);
+          final EdgeInsets pagePadding = EdgeInsets.fromLTRB(
+            18,
+            mediaQuery.viewPadding.top + 24,
+            18,
+            mediaQuery.viewPadding.bottom + 24,
+          );
+          final double minContentHeight =
+              constraints.maxHeight - pagePadding.vertical;
+          return SingleChildScrollView(
+            padding: pagePadding,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: minContentHeight.isFinite
+                    ? minContentHeight.clamp(0, double.infinity)
+                    : 0,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 430),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      const _AuthEditorialTitle(),
+                      const SizedBox(height: 44),
+                      Text(
+                        context.l10n.authResetPasswordTitle.toUpperCase(),
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.1,
+                          height: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      _EditorialAuthTextField(
+                        key: const ValueKey<String>(
+                          'auth_reset_password_field',
+                        ),
+                        controller: _passwordController,
+                        enabled: !state.isSubmitting,
+                        label: context.l10n.authPasswordLabel.toUpperCase(),
+                        placeholder: '',
+                        obscureText: true,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const <String>[
+                          AutofillHints.newPassword,
+                        ],
+                        errorText: _passwordError,
+                        onChanged: (_) => _clearFieldErrors(),
+                      ),
+                      const SizedBox(height: 24),
+                      _EditorialAuthTextField(
+                        key: const ValueKey<String>(
+                          'auth_reset_password_confirm_field',
+                        ),
+                        controller: _confirmPasswordController,
+                        enabled: !state.isSubmitting,
+                        label: context.l10n.authResetPasswordConfirmLabel
+                            .toUpperCase(),
+                        placeholder: '',
+                        obscureText: true,
+                        textInputAction: TextInputAction.done,
+                        autofillHints: const <String>[
+                          AutofillHints.newPassword,
+                        ],
+                        onSubmitted: (_) => _submit(state),
+                        errorText: _confirmPasswordError,
+                        onChanged: (_) => _clearFieldErrors(),
+                      ),
+                      if (message != null && message.isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 18),
+                        Text(
+                          message,
+                          style: const TextStyle(
+                            color: AppColors.danger,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 34),
+                      _EditorialPasswordResetSubmitButton(
+                        isSubmitting: state.isSubmitting,
+                        onPressed: state.isSubmitting
+                            ? null
+                            : () => _submit(state),
+                      ),
+                      const SizedBox(height: 18),
+                      _EditorialTextAction(
+                        label: context.l10n.authPasswordResetCancelButton,
+                        textAlign: TextAlign.center,
+                        onPressed: state.isSubmitting
+                            ? null
+                            : ref.read(authControllerProvider.notifier).signOut,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _clearFieldErrors() {
+    if (_passwordError == null && _confirmPasswordError == null) {
+      return;
+    }
+    setState(() {
+      _passwordError = null;
+      _confirmPasswordError = null;
+    });
+  }
+
+  Future<void> _submit(AuthControllerState state) async {
+    if (state.isSubmitting || !_validate()) {
+      return;
+    }
+    await ref
+        .read(authControllerProvider.notifier)
+        .updatePassword(password: _passwordController.text);
+  }
+
+  bool _validate() {
+    final String password = _passwordController.text;
+    final String confirmPassword = _confirmPasswordController.text;
+    String? passwordError;
+    String? confirmPasswordError;
+    if (password.length < 6) {
+      passwordError = context.l10n.authPasswordMinLength;
+    }
+    if (confirmPassword != password) {
+      confirmPasswordError = context.l10n.authResetPasswordMismatch;
+    }
+    setState(() {
+      _passwordError = passwordError;
+      _confirmPasswordError = confirmPasswordError;
+    });
+    return passwordError == null && confirmPasswordError == null;
+  }
+}
+
+class _ForgotPasswordDialog extends StatefulWidget {
+  const _ForgotPasswordDialog({required this.initialEmail});
+
+  final String initialEmail;
+
+  @override
+  State<_ForgotPasswordDialog> createState() => _ForgotPasswordDialogState();
+}
+
+class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialEmail,
+  );
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoAlertDialog(
+      title: Text(context.l10n.authForgotPasswordEmailTitle),
+      content: Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Column(
+          children: <Widget>[
+            Text(context.l10n.authForgotPasswordEmailMessage),
+            const SizedBox(height: 14),
+            CupertinoTextField(
+              key: const ValueKey<String>('auth_forgot_password_email_field'),
+              controller: _controller,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.done,
+              autofillHints: const <String>[AutofillHints.email],
+              placeholder: context.l10n.authEmailLabel,
+              onSubmitted: (_) => _submit(),
+            ),
+            if (_errorText != null) ...<Widget>[
+              const SizedBox(height: 8),
+              Text(
+                _errorText!,
+                style: const TextStyle(
+                  color: AppColors.danger,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        CupertinoDialogAction(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(context.l10n.commonCancel),
+        ),
+        CupertinoDialogAction(
+          onPressed: _submit,
+          child: Text(context.l10n.commonOK),
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    final String email = _controller.text.trim();
+    String? errorText;
+    if (email.isEmpty) {
+      errorText = context.l10n.authEmailRequired;
+    } else if (!email.contains('@')) {
+      errorText = context.l10n.authEmailInvalid;
+    }
+    if (errorText != null) {
+      setState(() {
+        _errorText = errorText;
+      });
+      return;
+    }
+    Navigator.of(context).pop(email);
+  }
 }
 
 class _EditorialAuthForm extends StatelessWidget {
@@ -212,6 +517,7 @@ class _EditorialAuthForm extends StatelessWidget {
     required this.onPasswordChanged,
     required this.onPasswordSubmitted,
     required this.onSubmit,
+    required this.onForgotPassword,
     required this.onToggleMode,
     required this.onAppleSignIn,
     required this.onGoogleSignIn,
@@ -235,6 +541,7 @@ class _EditorialAuthForm extends StatelessWidget {
   final ValueChanged<String> onPasswordChanged;
   final ValueChanged<String> onPasswordSubmitted;
   final VoidCallback onSubmit;
+  final VoidCallback? onForgotPassword;
   final VoidCallback? onToggleMode;
   final VoidCallback? onAppleSignIn;
   final VoidCallback? onGoogleSignIn;
@@ -293,7 +600,7 @@ class _EditorialAuthForm extends StatelessWidget {
           toggleLabel: isSignUp
               ? l10n.authAlreadyHaveAccountSignIn
               : l10n.authCreateAccountButton,
-          onForgotPressed: state.isSubmitting ? null : () {},
+          onForgotPressed: onForgotPassword,
           onToggleMode: onToggleMode,
         ),
         const SizedBox(height: 22),
@@ -423,6 +730,56 @@ class _EditorialSubmitButton extends StatelessWidget {
                           size: 18,
                         ),
                       ],
+                    ),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorialPasswordResetSubmitButton extends StatelessWidget {
+  const _EditorialPasswordResetSubmitButton({
+    required this.isSubmitting,
+    required this.onPressed,
+  });
+
+  final bool isSubmitting;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
+    return CupertinoButton(
+      key: const ValueKey<String>('auth_reset_password_submit'),
+      onPressed: onPressed,
+      minimumSize: Size.zero,
+      padding: EdgeInsets.zero,
+      child: DecoratedBox(
+        decoration: AppCorners.controlDecoration(
+          color: onPressed == null
+              ? colors.controlFillDisabled
+              : colors.textPrimary,
+        ),
+        child: SizedBox(
+          height: 52,
+          child: Center(
+            child: isSubmitting
+                ? const CupertinoActivityIndicator(color: AppColors.white)
+                : Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      context.l10n.authResetPasswordSubmitButton.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.inverseText,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.4,
+                        height: 1,
+                      ),
                     ),
                   ),
           ),

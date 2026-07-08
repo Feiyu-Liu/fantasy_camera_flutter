@@ -72,6 +72,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get authForgotKeyButton => '忘记密码？';
 
   @override
+  String get authForgotPasswordEmailTitle => '重置密码';
+
+  @override
+  String get authForgotPasswordEmailMessage => '输入账号邮箱，我们会向你发送密码重置邮件。';
+
+  @override
+  String get authForgotPasswordEmailSent => '如果该邮箱已注册，我们会发送密码重置邮件。';
+
+  @override
   String get authGoogleSignInFailed => 'Google 登录失败。';
 
   @override
@@ -100,7 +109,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get authPasswordPlaceholder => '密码';
 
   @override
+  String get authPasswordResetCancelButton => '返回登录';
+
+  @override
+  String get authPasswordResetFailed => '无法重置密码，请稍后重试。';
+
+  @override
   String get authRateLimited => '请求过于频繁，请稍后再试。';
+
+  @override
+  String get authResetPasswordConfirmLabel => '确认密码';
+
+  @override
+  String get authResetPasswordMismatch => '两次输入的密码不一致。';
+
+  @override
+  String get authResetPasswordSubmitButton => '更新密码';
+
+  @override
+  String get authResetPasswordTitle => '设置新密码';
 
   @override
   String get authSecretKeyPlaceholder => '••••••••';
@@ -698,6 +725,15 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get authForgotKeyButton => '忘記密碼？';
 
   @override
+  String get authForgotPasswordEmailTitle => '重設密碼';
+
+  @override
+  String get authForgotPasswordEmailMessage => '輸入帳號信箱，我們會寄送密碼重設郵件。';
+
+  @override
+  String get authForgotPasswordEmailSent => '如果該信箱已註冊，我們會寄送密碼重設郵件。';
+
+  @override
   String get authGoogleSignInFailed => 'Google 登入失敗。';
 
   @override
@@ -726,7 +762,25 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get authPasswordPlaceholder => '密碼';
 
   @override
+  String get authPasswordResetCancelButton => '返回登入';
+
+  @override
+  String get authPasswordResetFailed => '無法重設密碼，請稍後再試。';
+
+  @override
   String get authRateLimited => '請求過於頻繁，請稍後再試。';
+
+  @override
+  String get authResetPasswordConfirmLabel => '確認密碼';
+
+  @override
+  String get authResetPasswordMismatch => '兩次輸入的密碼不一致。';
+
+  @override
+  String get authResetPasswordSubmitButton => '更新密碼';
+
+  @override
+  String get authResetPasswordTitle => '設定新密碼';
 
   @override
   String get authSecretKeyPlaceholder => '••••••••';

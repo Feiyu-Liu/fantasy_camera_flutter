@@ -25,6 +25,18 @@ void main() {
         contains('<string>${AppConfig.authCallbackScheme}</string>'),
       );
     });
+
+    test('uses an iOS registered URL scheme for password reset', () {
+      final Uri redirectUri = Uri.parse(AppConfig.authPasswordResetRedirectUrl);
+      final String infoPlist = File('ios/Runner/Info.plist').readAsStringSync();
+
+      expect(redirectUri.scheme, AppConfig.authCallbackScheme);
+      expect(redirectUri.host, 'password-reset');
+      expect(
+        infoPlist,
+        contains('<string>${AppConfig.authCallbackScheme}</string>'),
+      );
+    });
   });
 
   group('authControllerErrorCodeFor', () {

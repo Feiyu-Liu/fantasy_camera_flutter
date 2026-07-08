@@ -76,6 +76,17 @@ class AppLocalizationsFr extends AppLocalizations {
   String get authForgotKeyButton => 'Mot de passe oublié ?';
 
   @override
+  String get authForgotPasswordEmailTitle => 'Réinitialiser le mot de passe';
+
+  @override
+  String get authForgotPasswordEmailMessage =>
+      'Saisis l’adresse e-mail de ton compte pour recevoir un lien de réinitialisation.';
+
+  @override
+  String get authForgotPasswordEmailSent =>
+      'Si cette adresse est inscrite, nous enverrons un e-mail de réinitialisation.';
+
+  @override
   String get authGoogleSignInFailed => 'La connexion avec Google a échoué.';
 
   @override
@@ -105,7 +116,27 @@ class AppLocalizationsFr extends AppLocalizations {
   String get authPasswordPlaceholder => 'Mot de passe';
 
   @override
+  String get authPasswordResetCancelButton => 'Retour à la connexion';
+
+  @override
+  String get authPasswordResetFailed =>
+      'Impossible de réinitialiser le mot de passe. Réessaie plus tard.';
+
+  @override
   String get authRateLimited => 'Trop de tentatives. Réessaie plus tard.';
+
+  @override
+  String get authResetPasswordConfirmLabel => 'Confirmer le mot de passe';
+
+  @override
+  String get authResetPasswordMismatch =>
+      'Les mots de passe ne correspondent pas.';
+
+  @override
+  String get authResetPasswordSubmitButton => 'Mettre à jour';
+
+  @override
+  String get authResetPasswordTitle => 'Définir un nouveau mot de passe';
 
   @override
   String get authSecretKeyPlaceholder => '••••••••';
