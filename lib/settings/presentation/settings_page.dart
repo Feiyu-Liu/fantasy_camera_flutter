@@ -34,6 +34,11 @@ typedef SettingsSignOutAction = Future<void> Function();
 final settingsSignOutActionProvider = Provider<SettingsSignOutAction>(
   (Ref ref) {
     return () async {
+      try {
+        await ref.read(billingGatewayProvider).logOut();
+      } on Object catch (error, stackTrace) {
+        logAppError('settings_billing_logout_failed', error, stackTrace);
+      }
       await ref
           .read(notificationDeviceControllerProvider.notifier)
           .unregisterCurrentDevice();
@@ -41,6 +46,7 @@ final settingsSignOutActionProvider = Provider<SettingsSignOutAction>(
     };
   },
   dependencies: <ProviderOrFamily>[
+    billingGatewayProvider,
     notificationDeviceControllerProvider,
     authControllerProvider,
   ],

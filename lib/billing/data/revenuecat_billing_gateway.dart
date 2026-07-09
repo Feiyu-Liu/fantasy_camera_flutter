@@ -71,8 +71,16 @@ class RevenueCatBillingGateway implements BillingGateway {
 
   @override
   Future<void> logOut() async {
-    _configured = false;
-    _configuredUserId = null;
+    try {
+      if (isPurchaseAvailable && _configured) {
+        await Purchases.logOut();
+      }
+    } on Object catch (error, stackTrace) {
+      logAppError('billing_revenuecat_logout_failed', error, stackTrace);
+    } finally {
+      _configured = false;
+      _configuredUserId = null;
+    }
   }
 
   @override
