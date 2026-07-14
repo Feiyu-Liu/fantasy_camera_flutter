@@ -128,6 +128,16 @@ class AppToastService {
     );
   }
 
+  void showCaptureProcessingFailure(AppLocalizations localizations) {
+    show(
+      AppToastMessage(
+        type: AppToastType.error,
+        title: localizations.toastCaptureProcessingFailed,
+        dedupeKey: 'camera.capture.processing_failed',
+      ),
+    );
+  }
+
   void showResultSaveFailure(AppLocalizations localizations) {
     show(
       AppToastMessage(

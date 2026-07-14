@@ -446,6 +446,17 @@ class $GenerationRecordsTable extends GenerationRecords
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _captureAspectRatioMeta =
+      const VerificationMeta('captureAspectRatio');
+  @override
+  late final GeneratedColumn<String> captureAspectRatio =
+      GeneratedColumn<String>(
+        'capture_aspect_ratio',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _appInputContractIdMeta =
       const VerificationMeta('appInputContractId');
   @override
@@ -578,6 +589,7 @@ class $GenerationRecordsTable extends GenerationRecords
     resultNegativeFeedbackSubmittedAt,
     promptStyle,
     captureMode,
+    captureAspectRatio,
     appInputContractId,
     userInputJson,
     displaySnapshotJson,
@@ -949,6 +961,15 @@ class $GenerationRecordsTable extends GenerationRecords
         ),
       );
     }
+    if (data.containsKey('capture_aspect_ratio')) {
+      context.handle(
+        _captureAspectRatioMeta,
+        captureAspectRatio.isAcceptableOrUnknown(
+          data['capture_aspect_ratio']!,
+          _captureAspectRatioMeta,
+        ),
+      );
+    }
     if (data.containsKey('app_input_contract_id')) {
       context.handle(
         _appInputContractIdMeta,
@@ -1183,6 +1204,10 @@ class $GenerationRecordsTable extends GenerationRecords
         DriftSqlType.string,
         data['${effectivePrefix}capture_mode'],
       ),
+      captureAspectRatio: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}capture_aspect_ratio'],
+      ),
       appInputContractId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}app_input_contract_id'],
@@ -1265,6 +1290,7 @@ class GenerationRecord extends DataClass
   final DateTime? resultNegativeFeedbackSubmittedAt;
   final String? promptStyle;
   final String? captureMode;
+  final String? captureAspectRatio;
   final String? appInputContractId;
   final String? userInputJson;
   final String? displaySnapshotJson;
@@ -1313,6 +1339,7 @@ class GenerationRecord extends DataClass
     this.resultNegativeFeedbackSubmittedAt,
     this.promptStyle,
     this.captureMode,
+    this.captureAspectRatio,
     this.appInputContractId,
     this.userInputJson,
     this.displaySnapshotJson,
@@ -1429,6 +1456,9 @@ class GenerationRecord extends DataClass
     }
     if (!nullToAbsent || captureMode != null) {
       map['capture_mode'] = Variable<String>(captureMode);
+    }
+    if (!nullToAbsent || captureAspectRatio != null) {
+      map['capture_aspect_ratio'] = Variable<String>(captureAspectRatio);
     }
     if (!nullToAbsent || appInputContractId != null) {
       map['app_input_contract_id'] = Variable<String>(appInputContractId);
@@ -1564,6 +1594,9 @@ class GenerationRecord extends DataClass
       captureMode: captureMode == null && nullToAbsent
           ? const Value.absent()
           : Value(captureMode),
+      captureAspectRatio: captureAspectRatio == null && nullToAbsent
+          ? const Value.absent()
+          : Value(captureAspectRatio),
       appInputContractId: appInputContractId == null && nullToAbsent
           ? const Value.absent()
           : Value(appInputContractId),
@@ -1666,6 +1699,9 @@ class GenerationRecord extends DataClass
       ),
       promptStyle: serializer.fromJson<String?>(json['promptStyle']),
       captureMode: serializer.fromJson<String?>(json['captureMode']),
+      captureAspectRatio: serializer.fromJson<String?>(
+        json['captureAspectRatio'],
+      ),
       appInputContractId: serializer.fromJson<String?>(
         json['appInputContractId'],
       ),
@@ -1729,6 +1765,7 @@ class GenerationRecord extends DataClass
       ),
       'promptStyle': serializer.toJson<String?>(promptStyle),
       'captureMode': serializer.toJson<String?>(captureMode),
+      'captureAspectRatio': serializer.toJson<String?>(captureAspectRatio),
       'appInputContractId': serializer.toJson<String?>(appInputContractId),
       'userInputJson': serializer.toJson<String?>(userInputJson),
       'displaySnapshotJson': serializer.toJson<String?>(displaySnapshotJson),
@@ -1782,6 +1819,7 @@ class GenerationRecord extends DataClass
     Value<DateTime?> resultNegativeFeedbackSubmittedAt = const Value.absent(),
     Value<String?> promptStyle = const Value.absent(),
     Value<String?> captureMode = const Value.absent(),
+    Value<String?> captureAspectRatio = const Value.absent(),
     Value<String?> appInputContractId = const Value.absent(),
     Value<String?> userInputJson = const Value.absent(),
     Value<String?> displaySnapshotJson = const Value.absent(),
@@ -1880,6 +1918,9 @@ class GenerationRecord extends DataClass
         : this.resultNegativeFeedbackSubmittedAt,
     promptStyle: promptStyle.present ? promptStyle.value : this.promptStyle,
     captureMode: captureMode.present ? captureMode.value : this.captureMode,
+    captureAspectRatio: captureAspectRatio.present
+        ? captureAspectRatio.value
+        : this.captureAspectRatio,
     appInputContractId: appInputContractId.present
         ? appInputContractId.value
         : this.appInputContractId,
@@ -2012,6 +2053,9 @@ class GenerationRecord extends DataClass
       captureMode: data.captureMode.present
           ? data.captureMode.value
           : this.captureMode,
+      captureAspectRatio: data.captureAspectRatio.present
+          ? data.captureAspectRatio.value
+          : this.captureAspectRatio,
       appInputContractId: data.appInputContractId.present
           ? data.appInputContractId.value
           : this.appInputContractId,
@@ -2083,6 +2127,7 @@ class GenerationRecord extends DataClass
           )
           ..write('promptStyle: $promptStyle, ')
           ..write('captureMode: $captureMode, ')
+          ..write('captureAspectRatio: $captureAspectRatio, ')
           ..write('appInputContractId: $appInputContractId, ')
           ..write('userInputJson: $userInputJson, ')
           ..write('displaySnapshotJson: $displaySnapshotJson, ')
@@ -2136,6 +2181,7 @@ class GenerationRecord extends DataClass
     resultNegativeFeedbackSubmittedAt,
     promptStyle,
     captureMode,
+    captureAspectRatio,
     appInputContractId,
     userInputJson,
     displaySnapshotJson,
@@ -2190,6 +2236,7 @@ class GenerationRecord extends DataClass
               this.resultNegativeFeedbackSubmittedAt &&
           other.promptStyle == this.promptStyle &&
           other.captureMode == this.captureMode &&
+          other.captureAspectRatio == this.captureAspectRatio &&
           other.appInputContractId == this.appInputContractId &&
           other.userInputJson == this.userInputJson &&
           other.displaySnapshotJson == this.displaySnapshotJson &&
@@ -2240,6 +2287,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
   final Value<DateTime?> resultNegativeFeedbackSubmittedAt;
   final Value<String?> promptStyle;
   final Value<String?> captureMode;
+  final Value<String?> captureAspectRatio;
   final Value<String?> appInputContractId;
   final Value<String?> userInputJson;
   final Value<String?> displaySnapshotJson;
@@ -2289,6 +2337,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     this.resultNegativeFeedbackSubmittedAt = const Value.absent(),
     this.promptStyle = const Value.absent(),
     this.captureMode = const Value.absent(),
+    this.captureAspectRatio = const Value.absent(),
     this.appInputContractId = const Value.absent(),
     this.userInputJson = const Value.absent(),
     this.displaySnapshotJson = const Value.absent(),
@@ -2339,6 +2388,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     this.resultNegativeFeedbackSubmittedAt = const Value.absent(),
     this.promptStyle = const Value.absent(),
     this.captureMode = const Value.absent(),
+    this.captureAspectRatio = const Value.absent(),
     this.appInputContractId = const Value.absent(),
     this.userInputJson = const Value.absent(),
     this.displaySnapshotJson = const Value.absent(),
@@ -2395,6 +2445,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     Expression<DateTime>? resultNegativeFeedbackSubmittedAt,
     Expression<String>? promptStyle,
     Expression<String>? captureMode,
+    Expression<String>? captureAspectRatio,
     Expression<String>? appInputContractId,
     Expression<String>? userInputJson,
     Expression<String>? displaySnapshotJson,
@@ -2456,6 +2507,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
             resultNegativeFeedbackSubmittedAt,
       if (promptStyle != null) 'prompt_style': promptStyle,
       if (captureMode != null) 'capture_mode': captureMode,
+      if (captureAspectRatio != null)
+        'capture_aspect_ratio': captureAspectRatio,
       if (appInputContractId != null)
         'app_input_contract_id': appInputContractId,
       if (userInputJson != null) 'user_input_json': userInputJson,
@@ -2511,6 +2564,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     Value<DateTime?>? resultNegativeFeedbackSubmittedAt,
     Value<String?>? promptStyle,
     Value<String?>? captureMode,
+    Value<String?>? captureAspectRatio,
     Value<String?>? appInputContractId,
     Value<String?>? userInputJson,
     Value<String?>? displaySnapshotJson,
@@ -2565,6 +2619,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
           this.resultNegativeFeedbackSubmittedAt,
       promptStyle: promptStyle ?? this.promptStyle,
       captureMode: captureMode ?? this.captureMode,
+      captureAspectRatio: captureAspectRatio ?? this.captureAspectRatio,
       appInputContractId: appInputContractId ?? this.appInputContractId,
       userInputJson: userInputJson ?? this.userInputJson,
       displaySnapshotJson: displaySnapshotJson ?? this.displaySnapshotJson,
@@ -2712,6 +2767,9 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     if (captureMode.present) {
       map['capture_mode'] = Variable<String>(captureMode.value);
     }
+    if (captureAspectRatio.present) {
+      map['capture_aspect_ratio'] = Variable<String>(captureAspectRatio.value);
+    }
     if (appInputContractId.present) {
       map['app_input_contract_id'] = Variable<String>(appInputContractId.value);
     }
@@ -2792,6 +2850,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
           )
           ..write('promptStyle: $promptStyle, ')
           ..write('captureMode: $captureMode, ')
+          ..write('captureAspectRatio: $captureAspectRatio, ')
           ..write('appInputContractId: $appInputContractId, ')
           ..write('userInputJson: $userInputJson, ')
           ..write('displaySnapshotJson: $displaySnapshotJson, ')
@@ -2860,6 +2919,7 @@ typedef $$GenerationRecordsTableCreateCompanionBuilder =
       Value<DateTime?> resultNegativeFeedbackSubmittedAt,
       Value<String?> promptStyle,
       Value<String?> captureMode,
+      Value<String?> captureAspectRatio,
       Value<String?> appInputContractId,
       Value<String?> userInputJson,
       Value<String?> displaySnapshotJson,
@@ -2911,6 +2971,7 @@ typedef $$GenerationRecordsTableUpdateCompanionBuilder =
       Value<DateTime?> resultNegativeFeedbackSubmittedAt,
       Value<String?> promptStyle,
       Value<String?> captureMode,
+      Value<String?> captureAspectRatio,
       Value<String?> appInputContractId,
       Value<String?> userInputJson,
       Value<String?> displaySnapshotJson,
@@ -3125,6 +3186,11 @@ class $$GenerationRecordsTableFilterComposer
 
   ColumnFilters<String> get captureMode => $composableBuilder(
     column: $table.captureMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get captureAspectRatio => $composableBuilder(
+    column: $table.captureAspectRatio,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3375,6 +3441,11 @@ class $$GenerationRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get captureAspectRatio => $composableBuilder(
+    column: $table.captureAspectRatio,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get appInputContractId => $composableBuilder(
     column: $table.appInputContractId,
     builder: (column) => ColumnOrderings(column),
@@ -3614,6 +3685,11 @@ class $$GenerationRecordsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get captureAspectRatio => $composableBuilder(
+    column: $table.captureAspectRatio,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get appInputContractId => $composableBuilder(
     column: $table.appInputContractId,
     builder: (column) => column,
@@ -3734,6 +3810,7 @@ class $$GenerationRecordsTableTableManager
                     const Value.absent(),
                 Value<String?> promptStyle = const Value.absent(),
                 Value<String?> captureMode = const Value.absent(),
+                Value<String?> captureAspectRatio = const Value.absent(),
                 Value<String?> appInputContractId = const Value.absent(),
                 Value<String?> userInputJson = const Value.absent(),
                 Value<String?> displaySnapshotJson = const Value.absent(),
@@ -3786,6 +3863,7 @@ class $$GenerationRecordsTableTableManager
                     resultNegativeFeedbackSubmittedAt,
                 promptStyle: promptStyle,
                 captureMode: captureMode,
+                captureAspectRatio: captureAspectRatio,
                 appInputContractId: appInputContractId,
                 userInputJson: userInputJson,
                 displaySnapshotJson: displaySnapshotJson,
@@ -3839,6 +3917,7 @@ class $$GenerationRecordsTableTableManager
                     const Value.absent(),
                 Value<String?> promptStyle = const Value.absent(),
                 Value<String?> captureMode = const Value.absent(),
+                Value<String?> captureAspectRatio = const Value.absent(),
                 Value<String?> appInputContractId = const Value.absent(),
                 Value<String?> userInputJson = const Value.absent(),
                 Value<String?> displaySnapshotJson = const Value.absent(),
@@ -3891,6 +3970,7 @@ class $$GenerationRecordsTableTableManager
                     resultNegativeFeedbackSubmittedAt,
                 promptStyle: promptStyle,
                 captureMode: captureMode,
+                captureAspectRatio: captureAspectRatio,
                 appInputContractId: appInputContractId,
                 userInputJson: userInputJson,
                 displaySnapshotJson: displaySnapshotJson,

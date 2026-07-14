@@ -15,6 +15,7 @@ import '../../backend_api/domain/generation_task.dart';
 import '../../backend_api/domain/json_value.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/domain/upload_session.dart';
+import '../../camera/domain/camera_capture_aspect_ratio.dart';
 import 'background_r2_upload_service.dart';
 import '../data/generation_record_database.dart';
 import '../data/generation_record_repository.dart';
@@ -103,6 +104,8 @@ class GenerationSubmissionService extends ChangeNotifier {
 
   Future<String?> queueCapturedFile(
     XFile file, {
+    CameraCaptureAspectRatio captureAspectRatio =
+        CameraCaptureAspectRatio.fourThree,
     PromptSelectionSnapshot? promptSelection,
     CameraCaptureMetadataSnapshot? cameraCaptureMetadataSnapshot,
   }) async {
@@ -127,10 +130,12 @@ class GenerationSubmissionService extends ChangeNotifier {
         originalFormat: stored.format,
         promptStyle: snapshot.promptStyle,
         captureMode: snapshot.captureMode,
+        captureAspectRatio: captureAspectRatio.storageValue,
         appInputContractId: snapshot.appInputContractId,
         userInputJson: jsonEncode(snapshot.userInput),
         displaySnapshotJson: _displaySnapshotJson(
           cameraCaptureMetadataSnapshot: cameraCaptureMetadataSnapshot,
+          captureAspectRatio: captureAspectRatio,
         ),
       );
       _runtimeState[recordId] = _RuntimeGenerationRecordState(
@@ -151,6 +156,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         errorMessage: error.toString(),
         promptStyle: snapshot.promptStyle,
         captureMode: snapshot.captureMode,
+        captureAspectRatio: captureAspectRatio.storageValue,
         appInputContractId: snapshot.appInputContractId,
         userInputJson: jsonEncode(snapshot.userInput),
       );
@@ -223,10 +229,13 @@ class GenerationSubmissionService extends ChangeNotifier {
 
   Future<void> submitCapturedFile(
     XFile file, {
+    CameraCaptureAspectRatio captureAspectRatio =
+        CameraCaptureAspectRatio.fourThree,
     PromptSelectionSnapshot? promptSelection,
   }) async {
     final String? recordId = await queueCapturedFile(
       file,
+      captureAspectRatio: captureAspectRatio,
       promptSelection: promptSelection,
     );
     if (recordId != null) {
@@ -1981,6 +1990,9 @@ class GenerationSubmissionService extends ChangeNotifier {
         errorCode: record.errorCode,
         errorMessage: record.errorMessage,
         promptSelection: _promptSelectionForRecord(record),
+        captureAspectRatio: CameraCaptureAspectRatio.fromNullableStorageValue(
+          record.captureAspectRatio,
+        ),
         processedResultPath: processedResultPath,
         resultAvailability: resultAvailability,
         resultAssetId: record.resultAssetId,
@@ -2017,6 +2029,9 @@ class GenerationSubmissionService extends ChangeNotifier {
       updatedAt: record.updatedAt,
       uploadSessionId: record.uploadSessionId,
       promptSelection: _promptSelectionForRecord(record),
+      captureAspectRatio: CameraCaptureAspectRatio.fromNullableStorageValue(
+        record.captureAspectRatio,
+      ),
       taskId: record.taskId,
       taskStatus: _taskStatusFromWire(record.taskStatus),
       resultImageObjectId: record.resultImageObjectId,
@@ -2214,12 +2229,16 @@ class GenerationSubmissionService extends ChangeNotifier {
 
   String? _displaySnapshotJson({
     CameraCaptureMetadataSnapshot? cameraCaptureMetadataSnapshot,
+    CameraCaptureAspectRatio? captureAspectRatio,
   }) {
-    if (cameraCaptureMetadataSnapshot == null) {
+    if (cameraCaptureMetadataSnapshot == null && captureAspectRatio == null) {
       return null;
     }
     return jsonEncode(<String, Object?>{
-      'cameraCaptureMetadata': cameraCaptureMetadataSnapshot.toJson(),
+      if (cameraCaptureMetadataSnapshot != null)
+        'cameraCaptureMetadata': cameraCaptureMetadataSnapshot.toJson(),
+      if (captureAspectRatio != null)
+        'captureAspectRatio': captureAspectRatio.storageValue,
     });
   }
 

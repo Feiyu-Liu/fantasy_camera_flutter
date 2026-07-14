@@ -21,6 +21,12 @@ class CameraUiTokens {
       fontSize: 14,
       fontWeight: FontWeight.w900,
     ),
+    this.aspectRatioMotionDuration = const Duration(milliseconds: 220),
+    this.aspectRatioMotionCurve = Curves.easeOutCubic,
+    this.captureCropMaskColor = AppColors.white,
+    this.captureCropMaskOpacity = 0.95,
+    this.captureCropMaskMotionDuration = const Duration(milliseconds: 280),
+    this.captureCropMaskMotionCurve = Curves.easeInOutCubic,
     this.viewfinderMessageMargin = const EdgeInsets.only(
       top: 24,
       left: 24,
@@ -139,6 +145,7 @@ class CameraUiTokens {
       inactiveColor: colors.textMuted,
       dividerColor: colors.divider,
       dividerWidth: dividerWidth,
+      captureCropMaskColor: AppColors.black,
       zoomPillOuterColor: const Color(0xFF151515),
       zoomPillInnerColor: const Color(0xFF262626),
       zoomThumbColor: AppColors.white,
@@ -163,6 +170,12 @@ class CameraUiTokens {
   final double topBarButtonSize;
   final double topBarIconSize;
   final TextStyle aspectRatioTextStyle;
+  final Duration aspectRatioMotionDuration;
+  final Curve aspectRatioMotionCurve;
+  final Color captureCropMaskColor;
+  final double captureCropMaskOpacity;
+  final Duration captureCropMaskMotionDuration;
+  final Curve captureCropMaskMotionCurve;
 
   final EdgeInsetsGeometry viewfinderMessageMargin;
   final double viewfinderMessageOverlayOpacity;

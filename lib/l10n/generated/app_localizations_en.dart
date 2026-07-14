@@ -166,6 +166,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String cameraAspectRatioSemanticsLabel(Object value) {
+    return 'Capture aspect ratio, $value';
+  }
+
+  @override
   String get cameraNoCameraFound => 'No camera found.';
 
   @override
@@ -595,6 +600,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get billingLegalNote =>
       'Purchases are processed by the App Store. By continuing, you agree to the Terms of Use and Privacy Policy.';
+
+  @override
+  String get toastCaptureProcessingFailed =>
+      'Photo processing failed. Take the photo again.';
 
   @override
   String get toastGenerationNetworkFailed =>

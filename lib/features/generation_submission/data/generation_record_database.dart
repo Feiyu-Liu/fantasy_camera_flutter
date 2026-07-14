@@ -57,6 +57,7 @@ class GenerationRecords extends Table {
 
   TextColumn get promptStyle => text().nullable()();
   TextColumn get captureMode => text().nullable()();
+  TextColumn get captureAspectRatio => text().nullable()();
   TextColumn get appInputContractId => text().nullable()();
   TextColumn get userInputJson => text().nullable()();
   TextColumn get displaySnapshotJson => text().nullable()();
@@ -73,7 +74,7 @@ class GenerationRecords extends Table {
 
 @DriftDatabase(tables: <Type>[GenerationRecords])
 class GenerationRecordDatabase extends _$GenerationRecordDatabase {
-  static const int currentSchemaVersion = 2;
+  static const int currentSchemaVersion = 3;
 
   GenerationRecordDatabase() : super(_openConnection());
 
@@ -91,6 +92,8 @@ class GenerationRecordDatabase extends _$GenerationRecordDatabase {
           switch (version) {
             case 1:
               await _migrateFrom1To2(migrator);
+            case 2:
+              await _migrateFrom2To3(migrator);
           }
         }
       },
@@ -103,6 +106,13 @@ class GenerationRecordDatabase extends _$GenerationRecordDatabase {
   Future<void> _migrateFrom1To2(Migrator migrator) async {
     // Schema v2 introduces the explicit migration path before the next
     // generation_records shape change. The table is unchanged from v1.
+  }
+
+  Future<void> _migrateFrom2To3(Migrator migrator) async {
+    await migrator.addColumn(
+      generationRecords,
+      generationRecords.captureAspectRatio,
+    );
   }
 }
 

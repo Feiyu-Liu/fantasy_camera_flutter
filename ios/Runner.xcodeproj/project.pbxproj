@@ -14,6 +14,7 @@
 		4F9D2B1A2C7F4A7AB0C1D902 /* CaptureLensMetadataChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F9D2B192C7F4A7AB0C1D902 /* CaptureLensMetadataChannel.swift */; };
 		4FF2B74CB68B1CF2C71AD395 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A416D651AF41757993D8FF7 /* Pods_RunnerTests.framework */; };
 		5A6B7C8D9E0F123456789ABC /* PhotoLibraryAssetChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A6B7C8D9E0F123456789ABB /* PhotoLibraryAssetChannel.swift */; };
+		C501A0012F10000100C501A0 /* CapturedPhotoProcessingChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C501A0022F10000100C501A0 /* CapturedPhotoProcessingChannel.swift */; };
 		6F4B2C8D2ECA000100A4F001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6F4B2C8E2ECA000100A4F001 /* PrivacyInfo.xcprivacy */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
@@ -56,6 +57,7 @@
 		449593E0DF2332BDD6754C67 /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		4F9D2B192C7F4A7AB0C1D902 /* CaptureLensMetadataChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureLensMetadataChannel.swift; sourceTree = "<group>"; };
 		5A6B7C8D9E0F123456789ABB /* PhotoLibraryAssetChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoLibraryAssetChannel.swift; sourceTree = "<group>"; };
+		C501A0022F10000100C501A0 /* CapturedPhotoProcessingChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapturedPhotoProcessingChannel.swift; sourceTree = "<group>"; };
 		6C3F948DD92340638FF917F5 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		6F4B2C8E2ECA000100A4F001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -181,6 +183,7 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				4F9D2B192C7F4A7AB0C1D902 /* CaptureLensMetadataChannel.swift */,
 				5A6B7C8D9E0F123456789ABB /* PhotoLibraryAssetChannel.swift */,
+				C501A0022F10000100C501A0 /* CapturedPhotoProcessingChannel.swift */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
@@ -426,6 +429,7 @@
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				4F9D2B1A2C7F4A7AB0C1D902 /* CaptureLensMetadataChannel.swift in Sources */,
 				5A6B7C8D9E0F123456789ABC /* PhotoLibraryAssetChannel.swift in Sources */,
+				C501A0012F10000100C501A0 /* CapturedPhotoProcessingChannel.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 			);

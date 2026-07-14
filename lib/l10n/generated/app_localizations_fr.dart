@@ -167,6 +167,11 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String cameraAspectRatioSemanticsLabel(Object value) {
+    return 'Format de prise de vue : $value';
+  }
+
+  @override
   String get cameraNoCameraFound => 'Aucun appareil photo trouvé.';
 
   @override
@@ -602,6 +607,10 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get billingLegalNote =>
       'Les achats sont traités par l\'App Store. En continuant, tu acceptes les conditions d\'utilisation et la politique de confidentialité.';
+
+  @override
+  String get toastCaptureProcessingFailed =>
+      'Le traitement de la photo a échoué. Reprends-la.';
 
   @override
   String get toastGenerationNetworkFailed =>

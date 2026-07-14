@@ -391,6 +391,12 @@ abstract class AppLocalizations {
   /// **'{value} credits'**
   String cameraCreditsBalanceSemanticsLabel(Object value);
 
+  /// No description provided for @cameraAspectRatioSemanticsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Capture aspect ratio, {value}'**
+  String cameraAspectRatioSemanticsLabel(Object value);
+
   /// No description provided for @cameraNoCameraFound.
   ///
   /// In en, this message translates to:
@@ -1155,6 +1161,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Purchases are processed by the App Store. By continuing, you agree to the Terms of Use and Privacy Policy.'**
   String get billingLegalNote;
+
+  /// No description provided for @toastCaptureProcessingFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo processing failed. Take the photo again.'**
+  String get toastCaptureProcessingFailed;
 
   /// No description provided for @toastGenerationNetworkFailed.
   ///

@@ -11,6 +11,8 @@ import 'package:fantasy_camera_flutter/config/app_config.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/credit_balance_cache_repository.dart';
 import 'package:fantasy_camera_flutter/features/camera/data/capture_lens_metadata_reader.dart';
 import 'package:fantasy_camera_flutter/features/camera/data/capture_orientation_reader.dart';
+import 'package:fantasy_camera_flutter/features/camera/data/captured_photo_processor.dart';
+import 'package:fantasy_camera_flutter/features/camera/domain/camera_capture_aspect_ratio.dart';
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_choice.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/json_value.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
@@ -406,6 +408,109 @@ void main() {
     },
   );
 
+  test('takePicture stores the selected square aspect ratio', () async {
+    final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+    final _FakeCapturedPhotoProcessor photoProcessor =
+        _FakeCapturedPhotoProcessor(outputPath: '/tmp/captured-square.heic');
+    CameraPlatform.instance = camera;
+    final _TestContainer testContainer = _container(
+      choices: const <CameraChoice>[
+        CameraChoice(
+          description: CameraDescription(
+            name: 'back',
+            lensDirection: CameraLensDirection.back,
+            sensorOrientation: 0,
+          ),
+          label: 'Back Camera',
+          isVirtualDevice: false,
+          deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+        ),
+      ],
+      appSettingsRepository: _FakeAppSettingsRepository(
+        cameraCaptureAspectRatio: CameraCaptureAspectRatio.square,
+      ),
+      capturedPhotoProcessor: photoProcessor,
+    );
+    final ProviderContainer container = testContainer.container;
+    addTearDown(() async {
+      await testContainer.dispose();
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    final CameraControllerNotifier notifier = container.read(
+      cameraStateProvider.notifier,
+    );
+    await notifier.openDefaultCamera();
+
+    final Future<XFile?> takePictureFuture = notifier.takePicture();
+    camera.completeTakePicture();
+    final XFile? result = await takePictureFuture;
+
+    expect(photoProcessor.aspectRatios, <CameraCaptureAspectRatio>[
+      CameraCaptureAspectRatio.square,
+    ]);
+    expect(result?.path, '/tmp/captured-square.heic');
+    final GenerationSubmissionJob job = container
+        .read(generationSubmissionControllerProvider)
+        .jobs
+        .single;
+    expect(job.captureAspectRatio, CameraCaptureAspectRatio.square);
+    expect(job.imagePath, '/tmp/captured-square.heic');
+  });
+
+  test(
+    'takePicture does not queue a record when square processing fails',
+    () async {
+      final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+      CameraPlatform.instance = camera;
+      final _TestContainer testContainer = _container(
+        choices: const <CameraChoice>[
+          CameraChoice(
+            description: CameraDescription(
+              name: 'back',
+              lensDirection: CameraLensDirection.back,
+              sensorOrientation: 0,
+            ),
+            label: 'Back Camera',
+            isVirtualDevice: false,
+            deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+          ),
+        ],
+        appSettingsRepository: _FakeAppSettingsRepository(
+          cameraCaptureAspectRatio: CameraCaptureAspectRatio.square,
+        ),
+        capturedPhotoProcessor: _FakeCapturedPhotoProcessor(
+          error: const CapturedPhotoProcessingException('test failure'),
+        ),
+      );
+      final ProviderContainer container = testContainer.container;
+      addTearDown(() async {
+        await testContainer.dispose();
+        await Future<void>.delayed(Duration.zero);
+      });
+
+      final CameraControllerNotifier notifier = container.read(
+        cameraStateProvider.notifier,
+      );
+      await notifier.openDefaultCamera();
+
+      final Future<XFile?> takePictureFuture = notifier.takePicture();
+      camera.completeTakePicture();
+      final XFile? result = await takePictureFuture;
+
+      expect(result, isNull);
+      expect(
+        container.read(generationSubmissionControllerProvider).jobs,
+        isEmpty,
+      );
+      expect(
+        container.read(cameraStateProvider).captureProcessingFailureTrigger,
+        1,
+      );
+      expect(container.read(cameraStateProvider).isTakingPicture, isFalse);
+    },
+  );
+
   test(
     'takePicture submits captured file when confirmation is disabled',
     () async {
@@ -757,6 +862,7 @@ _TestContainer _container({
   required List<CameraChoice> choices,
   CameraLensMetadataReader? cameraLensMetadataReader,
   AppSettingsRepository? appSettingsRepository,
+  CapturedPhotoProcessor? capturedPhotoProcessor,
   GenerationImageProcessor? imageProcessor,
   UploadRepository? uploadRepository,
   GenerationTaskRepository? taskRepository,
@@ -791,6 +897,9 @@ _TestContainer _container({
       ),
       cameraLensMetadataReaderProvider.overrideWithValue(
         cameraLensMetadataReader ?? const _FakeCameraLensMetadataReader(),
+      ),
+      capturedPhotoProcessorProvider.overrideWithValue(
+        capturedPhotoProcessor ?? _FakeCapturedPhotoProcessor(),
       ),
       appSettingsRepositoryProvider.overrideWithValue(
         appSettingsRepository ?? _FakeAppSettingsRepository(),
@@ -1036,16 +1145,40 @@ class _FakeCameraLensMetadataReader implements CameraLensMetadataReader {
   }
 }
 
+class _FakeCapturedPhotoProcessor implements CapturedPhotoProcessor {
+  _FakeCapturedPhotoProcessor({this.outputPath, this.error});
+
+  final String? outputPath;
+  final Object? error;
+  final List<CameraCaptureAspectRatio> aspectRatios =
+      <CameraCaptureAspectRatio>[];
+
+  @override
+  Future<PreparedCapturedPhoto> prepareCanonicalOriginal({
+    required XFile source,
+    required CameraCaptureAspectRatio aspectRatio,
+  }) async {
+    aspectRatios.add(aspectRatio);
+    final Object? processingError = error;
+    if (processingError != null) {
+      throw processingError;
+    }
+    return PreparedCapturedPhoto(file: XFile(outputPath ?? source.path));
+  }
+}
+
 class _FakeAppSettingsRepository implements AppSettingsRepository {
   _FakeAppSettingsRepository({
     this.confirmBeforeGenerationEnabled = true,
     this.mirrorFrontCameraEnabled = true,
+    this.cameraCaptureAspectRatio = CameraCaptureAspectRatio.fourThree,
   });
 
   bool confirmBeforeGenerationEnabled;
   bool mirrorFrontCameraEnabled;
   AppLocalePreference localePreference = AppLocalePreference.system;
   AppThemePreference themePreference = AppThemePreference.light;
+  CameraCaptureAspectRatio cameraCaptureAspectRatio;
 
   @override
   Future<AppSettingsState> loadSettings() async {
@@ -1054,6 +1187,7 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
       mirrorFrontCameraEnabled: mirrorFrontCameraEnabled,
       localePreference: localePreference,
       themePreference: themePreference,
+      cameraCaptureAspectRatio: cameraCaptureAspectRatio,
     );
   }
 
@@ -1065,6 +1199,13 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   @override
   Future<void> saveMirrorFrontCameraEnabled(bool value) async {
     mirrorFrontCameraEnabled = value;
+  }
+
+  @override
+  Future<void> saveCameraCaptureAspectRatio(
+    CameraCaptureAspectRatio aspectRatio,
+  ) async {
+    cameraCaptureAspectRatio = aspectRatio;
   }
 
   @override

@@ -12,6 +12,7 @@ import '../../../auth/presentation/auth_providers.dart';
 import '../../backend_api/domain/credit_balance.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
+import '../../camera/domain/camera_capture_aspect_ratio.dart';
 import '../../notifications/presentation/notification_providers.dart';
 import '../application/background_r2_upload_service.dart';
 import '../application/generation_original_cache_cleaner.dart';
@@ -534,11 +535,14 @@ class GenerationSubmissionController
 
   Future<String?> queueCapturedFile(
     XFile file, {
+    CameraCaptureAspectRatio captureAspectRatio =
+        CameraCaptureAspectRatio.fourThree,
     PromptSelectionSnapshot? promptSelection,
     CameraCaptureMetadataSnapshot? cameraCaptureMetadataSnapshot,
   }) async {
     final String? recordId = await _service.queueCapturedFile(
       file,
+      captureAspectRatio: captureAspectRatio,
       promptSelection: promptSelection,
       cameraCaptureMetadataSnapshot: cameraCaptureMetadataSnapshot,
     );

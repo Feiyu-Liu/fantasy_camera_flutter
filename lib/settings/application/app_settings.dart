@@ -2,11 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../features/camera/domain/camera_capture_aspect_ratio.dart';
 import '../../l10n/l10n.dart';
 
 const String confirmBeforeGenerationPreferenceKey =
     'settings.confirm_before_generation';
 const String mirrorFrontCameraPreferenceKey = 'settings.mirror_front_camera';
+const String cameraCaptureAspectRatioPreferenceKey =
+    'settings.camera_capture_aspect_ratio';
 const String localePreferenceKey = 'settings.locale_preference';
 const String themePreferenceKey = 'settings.theme_preference';
 
@@ -95,18 +98,21 @@ class AppSettingsState {
   const AppSettingsState({
     this.confirmBeforeGenerationEnabled = true,
     this.mirrorFrontCameraEnabled = true,
+    this.cameraCaptureAspectRatio = CameraCaptureAspectRatio.fourThree,
     this.localePreference = AppLocalePreference.system,
     this.themePreference = AppThemePreference.light,
   });
 
   final bool confirmBeforeGenerationEnabled;
   final bool mirrorFrontCameraEnabled;
+  final CameraCaptureAspectRatio cameraCaptureAspectRatio;
   final AppLocalePreference localePreference;
   final AppThemePreference themePreference;
 
   AppSettingsState copyWith({
     bool? confirmBeforeGenerationEnabled,
     bool? mirrorFrontCameraEnabled,
+    CameraCaptureAspectRatio? cameraCaptureAspectRatio,
     AppLocalePreference? localePreference,
     AppThemePreference? themePreference,
   }) {
@@ -115,6 +121,8 @@ class AppSettingsState {
           confirmBeforeGenerationEnabled ?? this.confirmBeforeGenerationEnabled,
       mirrorFrontCameraEnabled:
           mirrorFrontCameraEnabled ?? this.mirrorFrontCameraEnabled,
+      cameraCaptureAspectRatio:
+          cameraCaptureAspectRatio ?? this.cameraCaptureAspectRatio,
       localePreference: localePreference ?? this.localePreference,
       themePreference: themePreference ?? this.themePreference,
     );
@@ -127,6 +135,10 @@ abstract interface class AppSettingsRepository {
   Future<void> saveConfirmBeforeGenerationEnabled(bool value);
 
   Future<void> saveMirrorFrontCameraEnabled(bool value);
+
+  Future<void> saveCameraCaptureAspectRatio(
+    CameraCaptureAspectRatio aspectRatio,
+  );
 
   Future<void> saveLocalePreference(AppLocalePreference preference);
 
@@ -144,6 +156,9 @@ class SharedPreferencesAppSettingsRepository implements AppSettingsRepository {
           preferences.getBool(confirmBeforeGenerationPreferenceKey) ?? true,
       mirrorFrontCameraEnabled:
           preferences.getBool(mirrorFrontCameraPreferenceKey) ?? true,
+      cameraCaptureAspectRatio: CameraCaptureAspectRatio.fromStorageValue(
+        preferences.getString(cameraCaptureAspectRatioPreferenceKey),
+      ),
       localePreference: AppLocalePreference.fromStorageValue(
         preferences.getString(localePreferenceKey),
       ),
@@ -163,6 +178,17 @@ class SharedPreferencesAppSettingsRepository implements AppSettingsRepository {
   Future<void> saveMirrorFrontCameraEnabled(bool value) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     await preferences.setBool(mirrorFrontCameraPreferenceKey, value);
+  }
+
+  @override
+  Future<void> saveCameraCaptureAspectRatio(
+    CameraCaptureAspectRatio aspectRatio,
+  ) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      cameraCaptureAspectRatioPreferenceKey,
+      aspectRatio.storageValue,
+    );
   }
 
   @override
@@ -224,6 +250,15 @@ class AppSettingsController extends Notifier<AppSettingsState> {
     await ref
         .read(appSettingsRepositoryProvider)
         .saveMirrorFrontCameraEnabled(value);
+  }
+
+  Future<void> setCameraCaptureAspectRatio(
+    CameraCaptureAspectRatio aspectRatio,
+  ) async {
+    state = state.copyWith(cameraCaptureAspectRatio: aspectRatio);
+    await ref
+        .read(appSettingsRepositoryProvider)
+        .saveCameraCaptureAspectRatio(aspectRatio);
   }
 
   Future<void> setLocalePreference(AppLocalePreference preference) async {

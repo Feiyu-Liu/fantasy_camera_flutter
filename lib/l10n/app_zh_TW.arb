@@ -53,6 +53,12 @@
       "value": {}
     }
   },
+  "cameraAspectRatioSemanticsLabel": "拍攝畫幅，目前為 {value}",
+  "@cameraAspectRatioSemanticsLabel": {
+    "placeholders": {
+      "value": {}
+    }
+  },
   "cameraNoCameraFound": "找不到相機。",
   "cameraStartingCamera": "正在啟動相機...",
   "cameraErrorMessage": "相機錯誤：{message}",
@@ -247,6 +253,7 @@
     }
   },
   "billingLegalNote": "購買由 App Store 處理。繼續即表示你同意使用條款與隱私權政策。",
+  "toastCaptureProcessingFailed": "照片處理失敗，請重新拍攝。",
   "toastGenerationNetworkFailed": "網路連線不穩定，請稍後再試。",
   "toastOriginalUnavailable": "原始照片已遺失或無法讀取，請檢查相簿權限後重試。",
   "toastInsufficientCredits": "點數不足。",

@@ -160,6 +160,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String cameraAspectRatioSemanticsLabel(Object value) {
+    return '撮影アスペクト比、現在は$value';
+  }
+
+  @override
   String get cameraNoCameraFound => 'カメラが見つかりません。';
 
   @override
@@ -571,6 +576,9 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get billingLegalNote =>
       '購入はApp Storeで処理されます。続行することで、利用規約とプライバシーポリシーに同意したことになります。';
+
+  @override
+  String get toastCaptureProcessingFailed => '写真を処理できませんでした。もう一度撮影してください。';
 
   @override
   String get toastGenerationNetworkFailed => 'ネットワークが不安定です。後でもう一度お試しください。';

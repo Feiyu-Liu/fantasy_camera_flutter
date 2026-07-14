@@ -1,5 +1,6 @@
 import '../../backend_api/domain/generation_task.dart';
 import '../../backend_api/domain/prompt_config.dart';
+import '../../camera/domain/camera_capture_aspect_ratio.dart';
 import 'generation_record.dart';
 
 enum GenerationSubmissionStatus {
@@ -29,6 +30,7 @@ class GenerationSubmissionJob {
     required this.updatedAt,
     this.uploadSessionId,
     this.promptSelection,
+    this.captureAspectRatio,
     this.taskId,
     this.taskStatus,
     this.resultImageObjectId,
@@ -60,6 +62,7 @@ class GenerationSubmissionJob {
   final DateTime updatedAt;
   final String? uploadSessionId;
   final PromptSelectionSnapshot? promptSelection;
+  final CameraCaptureAspectRatio? captureAspectRatio;
   final String? taskId;
   final GenerationTaskStatus? taskStatus;
   final String? resultImageObjectId;
@@ -125,6 +128,7 @@ class GenerationSubmissionJob {
     DateTime? updatedAt,
     String? uploadSessionId,
     PromptSelectionSnapshot? promptSelection,
+    CameraCaptureAspectRatio? captureAspectRatio,
     String? taskId,
     GenerationTaskStatus? taskStatus,
     String? resultImageObjectId,
@@ -158,6 +162,7 @@ class GenerationSubmissionJob {
       updatedAt: updatedAt ?? this.updatedAt,
       uploadSessionId: uploadSessionId ?? this.uploadSessionId,
       promptSelection: promptSelection ?? this.promptSelection,
+      captureAspectRatio: captureAspectRatio ?? this.captureAspectRatio,
       taskId: taskId ?? this.taskId,
       taskStatus: taskStatus ?? this.taskStatus,
       resultImageObjectId: resultImageObjectId ?? this.resultImageObjectId,

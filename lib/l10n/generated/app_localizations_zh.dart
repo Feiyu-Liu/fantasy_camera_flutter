@@ -156,6 +156,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String cameraAspectRatioSemanticsLabel(Object value) {
+    return '拍摄画幅，当前 $value';
+  }
+
+  @override
   String get cameraNoCameraFound => '未找到相机。';
 
   @override
@@ -564,6 +569,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get billingLegalNote => '购买由 App Store 处理。继续购买即表示你同意使用条款与隐私政策。';
 
   @override
+  String get toastCaptureProcessingFailed => '照片处理失败，请重新拍摄。';
+
+  @override
   String get toastGenerationNetworkFailed => '网络连接不稳定，请稍后重试。';
 
   @override
@@ -806,6 +814,11 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   @override
   String cameraCreditsBalanceSemanticsLabel(Object value) {
     return '$value 點數';
+  }
+
+  @override
+  String cameraAspectRatioSemanticsLabel(Object value) {
+    return '拍攝畫幅，目前為 $value';
   }
 
   @override
@@ -1215,6 +1228,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get billingLegalNote => '購買由 App Store 處理。繼續即表示你同意使用條款與隱私權政策。';
+
+  @override
+  String get toastCaptureProcessingFailed => '照片處理失敗，請重新拍攝。';
 
   @override
   String get toastGenerationNetworkFailed => '網路連線不穩定，請稍後再試。';

@@ -15,6 +15,8 @@ import '../../../l10n/l10n.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/camera/camera_preview.dart';
 import '../../../shared/core/app_logger.dart';
+import '../../../shared/toast/app_toast.dart';
+import '../../../settings/application/app_settings.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_theme.dart';
 import '../../backend_api/domain/credit_balance.dart';
@@ -23,6 +25,7 @@ import '../../backend_api/presentation/backend_api_providers.dart';
 import '../../generation_submission/domain/generation_submission_job.dart';
 import '../../generation_submission/presentation/generation_submission_providers.dart';
 import '../data/capture_orientation_reader.dart';
+import '../domain/camera_capture_aspect_ratio.dart';
 import 'camera_ui/camera_photo_option_button.dart';
 import 'camera_ui/camera_photo_ui.dart';
 import 'camera_message.dart';
@@ -92,6 +95,19 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       }
       unawaited(_openCreditPurchase());
     });
+    ref.listen<CameraState>(cameraStateProvider, (
+      CameraState? previous,
+      CameraState next,
+    ) {
+      final int previousTrigger =
+          previous?.captureProcessingFailureTrigger ?? 0;
+      if (next.captureProcessingFailureTrigger <= previousTrigger) {
+        return;
+      }
+      ref
+          .read(appToastServiceProvider)
+          .showCaptureProcessingFailure(context.l10n);
+    });
     final CameraState cameraState = ref.watch(cameraStateProvider);
     final AppThemeColors colors = AppThemeColors.of(context);
     return CupertinoPageScaffold(
@@ -107,6 +123,13 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final PromptSelectionState promptSelection = ref.watch(
       promptSelectionControllerProvider,
     );
+    final AppSettingsState appSettings = ref.watch(
+      appSettingsControllerProvider,
+    );
+    final CameraCaptureAspectRatio captureAspectRatio =
+        appSettings.cameraCaptureAspectRatio;
+    final bool isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
     final PromptSelectionState localizedPromptSelection = _localizedPromptState(
       promptSelection,
     );
@@ -144,6 +167,16 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
         onCreditsPressed: _openCreditPurchase,
       ),
       message: _localizedMessage(cameraState.message),
+      aspectRatioLabel: captureAspectRatio.label,
+      aspectRatioSemanticsLabel: context.l10n.cameraAspectRatioSemanticsLabel(
+        captureAspectRatio.label,
+      ),
+      viewfinderAspectRatio: CameraCaptureAspectRatio.fourThree.widthToHeight(
+        isLandscape: isLandscape,
+      ),
+      captureCropAspectRatio: captureAspectRatio.widthToHeight(
+        isLandscape: isLandscape,
+      ),
       controlsRotationTurns: controlsRotationTurns,
       modes: _cameraModesForPrompt(localizedPromptSelection),
       selectedModeId: localizedPromptSelection.selectedCaptureModeId,
@@ -169,6 +202,15 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       flipEnabled: _canFlipCamera(cameraState),
       flipBusy: cameraState.isSwitchingCamera,
       onFlashPressed: notifier.toggleFlash,
+      onAspectRatioPressed: cameraState.canTakePicture
+          ? () {
+              unawaited(
+                ref
+                    .read(appSettingsControllerProvider.notifier)
+                    .setCameraCaptureAspectRatio(captureAspectRatio.next),
+              );
+            }
+          : null,
       onFlipCameraPressed: notifier.flipCamera,
       onShutterPressed: notifier.takePicture,
       onGalleryPressed: _openGallery,

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:drift/drift.dart' hide isNotNull;
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:drift_dev/api/migrations_native.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
@@ -9,6 +9,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/domain/gen
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../drift/generated/schema.dart' as generated_schema;
+import '../../../drift/generated/schema_v1.dart' as generated_v1;
 
 void main() {
   test('creates the current generation records schema', () async {
@@ -45,7 +46,7 @@ void main() {
     }
   });
 
-  test('migrates v1 generation records to v2 without data loss', () async {
+  test('migrates v1 generation records to the current schema', () async {
     final Directory tempDirectory = await Directory.systemTemp.createTemp(
       'generation_record_migration_test_',
     );
@@ -95,83 +96,76 @@ void main() {
     expect(record.resultIsFavorite, isTrue);
     expect(record.promptStyle, 'realistic');
     expect(record.captureMode, 'portrait');
+    expect(record.captureAspectRatio, isNull);
     expect(record.userInputJson, '{"prompt":"v1"}');
   });
 }
 
 Future<void> _seedV1Database(File databaseFile) async {
-  final GenerationRecordDatabase database =
-      GenerationRecordDatabase.forExecutor(NativeDatabase(databaseFile));
-  final GenerationRecordRepository repository = GenerationRecordRepository(
-    database,
+  final generated_v1.DatabaseAtV1 database = generated_v1.DatabaseAtV1(
+    NativeDatabase(databaseFile),
   );
   final DateTime createdAt = DateTime.utc(2026, 6, 4, 1, 2, 3);
   final DateTime updatedAt = DateTime.utc(2026, 6, 4, 1, 5);
 
-  await repository.createCameraRecord(
-    recordId: 'record-v1-saved',
-    originalLocalPath: 'originals/record-v1-saved.heic',
-    originalCapturedAt: createdAt,
-    createdAt: createdAt,
-    originalFormat: 'heic',
-    originalWidth: 4032,
-    originalHeight: 3024,
-    promptStyle: 'realistic',
-    captureMode: 'portrait',
-    appInputContractId: 'app_bundled_2026_06_01',
-    userInputJson: '{"prompt":"v1"}',
-    displaySnapshotJson: '{"mode":"portrait"}',
-  );
-  await repository.updateUploadFields(
-    recordId: 'record-v1-saved',
-    updatedAt: updatedAt,
-    uploadSessionId: 'upload-v1',
-    sourceImageObjectId: 'source-object-v1',
-    uploadContentType: 'image/jpeg',
-    uploadSizeBytes: 123456,
-    uploadSha256: 'upload-sha-v1',
-  );
-  await repository.updateTaskFields(
-    recordId: 'record-v1-saved',
-    updatedAt: updatedAt,
-    taskId: 'task-v1',
-    taskStatus: 'completed',
-    resultImageObjectId: 'result-object-v1',
-  );
-  await repository.updateResultFields(
-    recordId: 'record-v1-saved',
-    updatedAt: updatedAt,
-    resultAvailability: GenerationRecordResultAvailability.localCache,
-    resultImageObjectId: 'result-object-v1',
-    resultLocalCachePath: 'cache/result-v1.heic',
-    resultSizeBytes: 654321,
-    resultSha256: 'result-sha-v1',
-    resultHashStatus: GenerationRecordHashStatus.completed,
-  );
-  await repository.markResultSaved(
-    recordId: 'record-v1-saved',
-    updatedAt: updatedAt,
-    resultAssetId: 'result-asset-v1',
-    resultImageObjectId: 'result-object-v1',
-    resultSavedAt: updatedAt,
-    resultSizeBytes: 654321,
-    resultSha256: 'result-sha-v1',
-    resultHashStatus: GenerationRecordHashStatus.completed,
-  );
-  await repository.updateResultFavorite(
-    recordId: 'record-v1-saved',
-    updatedAt: updatedAt,
-    isFavorite: true,
-    favoritedAt: updatedAt,
-  );
   await database
-      .update(database.generationRecords)
-      .write(
-        const GenerationRecordsCompanion(
-          originalAssetId: Value<String?>('original-asset-v1'),
-        ),
+      .into(database.generationRecords)
+      .insert(
+        RawValuesInsertable<Object?>(<String, Expression<Object>>{
+          'record_id': const Variable<String>('record-v1-saved'),
+          'created_at': Variable<DateTime>(createdAt),
+          'updated_at': Variable<DateTime>(updatedAt),
+          'pipeline_status': Variable<String>(
+            GenerationRecordPipelineStatus.resultSaved.name,
+          ),
+          'original_source_type': Variable<String>(
+            GenerationRecordOriginalSourceType.camera.name,
+          ),
+          'original_availability': Variable<String>(
+            GenerationRecordOriginalAvailability.available.name,
+          ),
+          'result_availability': Variable<String>(
+            GenerationRecordResultAvailability.savedToPhotoLibrary.name,
+          ),
+          'original_local_path': const Variable<String>(
+            'originals/record-v1-saved.heic',
+          ),
+          'original_asset_id': const Variable<String>('original-asset-v1'),
+          'original_captured_at': Variable<DateTime>(createdAt),
+          'original_format': const Variable<String>('heic'),
+          'original_width': const Variable<int>(4032),
+          'original_height': const Variable<int>(3024),
+          'upload_session_id': const Variable<String>('upload-v1'),
+          'source_image_object_id': const Variable<String>('source-object-v1'),
+          'upload_content_type': const Variable<String>('image/jpeg'),
+          'upload_size_bytes': const Variable<int>(123456),
+          'upload_sha256': const Variable<String>('upload-sha-v1'),
+          'task_id': const Variable<String>('task-v1'),
+          'task_status': const Variable<String>('completed'),
+          'result_image_object_id': const Variable<String>('result-object-v1'),
+          'result_local_cache_path': const Variable<String>(
+            'cache/result-v1.heic',
+          ),
+          'result_asset_id': const Variable<String>('result-asset-v1'),
+          'result_saved_at': Variable<DateTime>(updatedAt),
+          'result_size_bytes': const Variable<int>(654321),
+          'result_sha256': const Variable<String>('result-sha-v1'),
+          'result_hash_status': Variable<String>(
+            GenerationRecordHashStatus.completed.name,
+          ),
+          'result_is_favorite': const Variable<bool>(true),
+          'result_favorited_at': Variable<DateTime>(updatedAt),
+          'prompt_style': const Variable<String>('realistic'),
+          'capture_mode': const Variable<String>('portrait'),
+          'app_input_contract_id': const Variable<String>(
+            'app_bundled_2026_06_01',
+          ),
+          'user_input_json': const Variable<String>('{"prompt":"v1"}'),
+          'display_snapshot_json': const Variable<String>(
+            '{"mode":"portrait"}',
+          ),
+        }),
       );
-  await database.customStatement('PRAGMA user_version = 1');
   await database.close();
 }
 

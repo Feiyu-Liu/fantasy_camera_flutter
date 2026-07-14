@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/app_config.dart';
 import '../../features/camera/presentation/camera_providers.dart';
 import '../../features/camera/presentation/camera_screen.dart';
+import '../../features/camera/domain/camera_capture_aspect_ratio.dart';
 import '../../features/camera/presentation/camera_ui/camera_photo_ui.dart';
 import '../../features/camera/presentation/camera_ui/camera_ui_tokens.dart';
 import '../../l10n/l10n.dart';
+import '../../settings/application/app_settings.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_theme.dart';
 import '../domain/auth_session_state.dart';
@@ -86,24 +88,42 @@ class _SignedInCameraEntry extends ConsumerWidget {
   }
 }
 
-class AuthCameraLoadingPage extends StatelessWidget {
+class AuthCameraLoadingPage extends ConsumerWidget {
   const AuthCameraLoadingPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final AppThemeColors colors = AppThemeColors.of(context);
     final CameraUiTokens tokens = CameraUiTokens.forTheme(
       context,
       dividerWidth: AppConfig.cameraUiDividerWidth,
     );
+    final cameraCaptureAspectRatio = ref
+        .watch(appSettingsControllerProvider)
+        .cameraCaptureAspectRatio;
+    final bool isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final double viewfinderAspectRatio = CameraCaptureAspectRatio.fourThree
+        .widthToHeight(isLandscape: isLandscape);
+    final double captureCropAspectRatio = cameraCaptureAspectRatio
+        .widthToHeight(isLandscape: isLandscape);
     return CupertinoPageScaffold(
       backgroundColor: colors.cameraBackground,
       child: ColoredBox(
         color: tokens.backgroundColor,
         child: Column(
           children: <Widget>[
-            _LoadingTopBar(tokens: tokens),
-            Expanded(child: _LoadingCameraBody(tokens: tokens)),
+            _LoadingTopBar(
+              tokens: tokens,
+              aspectRatioLabel: cameraCaptureAspectRatio.label,
+            ),
+            Expanded(
+              child: _LoadingCameraBody(
+                tokens: tokens,
+                viewfinderAspectRatio: viewfinderAspectRatio,
+                captureCropAspectRatio: captureCropAspectRatio,
+              ),
+            ),
           ],
         ),
       ),
@@ -112,9 +132,10 @@ class AuthCameraLoadingPage extends StatelessWidget {
 }
 
 class _LoadingTopBar extends StatelessWidget {
-  const _LoadingTopBar({required this.tokens});
+  const _LoadingTopBar({required this.tokens, required this.aspectRatioLabel});
 
   final CameraUiTokens tokens;
+  final String aspectRatioLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -142,7 +163,17 @@ class _LoadingTopBar extends StatelessWidget {
                 width: tokens.topBarButtonSize,
                 child: _LoadingTopBarPlaceholder(tokens: tokens),
               ),
-              const Spacer(flex: 5),
+              Expanded(
+                flex: 5,
+                child: Center(
+                  child: Text(
+                    aspectRatioLabel,
+                    style: tokens.aspectRatioTextStyle.copyWith(
+                      color: tokens.primaryTextColor.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ),
+              ),
               SizedBox(
                 width: tokens.topBarTrailingWidth,
                 child: DecoratedBox(
@@ -179,18 +210,29 @@ Color _loadingPanelBackground(
 }
 
 class _LoadingCameraBody extends StatelessWidget {
-  const _LoadingCameraBody({required this.tokens});
+  const _LoadingCameraBody({
+    required this.tokens,
+    required this.viewfinderAspectRatio,
+    required this.captureCropAspectRatio,
+  });
 
   final CameraUiTokens tokens;
+  final double viewfinderAspectRatio;
+  final double captureCropAspectRatio;
 
   @override
   Widget build(BuildContext context) {
     return CameraPhotoBodyLayout(
       tokens: tokens,
+      viewfinderAspectRatio: viewfinderAspectRatio,
       minimumBottomHeight: tokens.modeRowHeight + tokens.bottomControlsHeight,
       compactBottomOverlayHeight: tokens.bottomControlsHeight,
       compactHeroOverlayInset: tokens.modeRowHeight,
-      viewfinder: ColoredBox(color: tokens.viewfinderColor),
+      viewfinder: CameraPhotoViewfinder(
+        tokens: tokens,
+        captureCropAspectRatio: captureCropAspectRatio,
+        viewfinder: ColoredBox(color: tokens.viewfinderColor),
+      ),
       controlsBuilder:
           (BuildContext context, CameraPhotoControlsPlacement placement) {
             final Color panelColor = _loadingPanelBackground(tokens, placement);

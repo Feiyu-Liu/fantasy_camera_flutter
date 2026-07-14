@@ -53,6 +53,12 @@
       "value": {}
     }
   },
+  "cameraAspectRatioSemanticsLabel": "Format de prise de vue : {value}",
+  "@cameraAspectRatioSemanticsLabel": {
+    "placeholders": {
+      "value": {}
+    }
+  },
   "cameraNoCameraFound": "Aucun appareil photo trouvé.",
   "cameraStartingCamera": "Démarrage de l'appareil photo...",
   "cameraErrorMessage": "Erreur caméra : {message}",
@@ -247,6 +253,7 @@
     }
   },
   "billingLegalNote": "Les achats sont traités par l'App Store. En continuant, tu acceptes les conditions d'utilisation et la politique de confidentialité.",
+  "toastCaptureProcessingFailed": "Le traitement de la photo a échoué. Reprends-la.",
   "toastGenerationNetworkFailed": "Le réseau est instable. Réessaie plus tard.",
   "toastOriginalUnavailable": "La photo originale est introuvable ou illisible. Vérifie l'autorisation Photos puis réessaie.",
   "toastInsufficientCredits": "Crédits insuffisants.",

@@ -4,11 +4,414 @@ import 'package:fantasy_camera_flutter/features/camera/presentation/camera_ui/ca
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_ui/camera_ui_models.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_ui/camera_ui_tokens.dart';
 import 'package:fantasy_camera_flutter/theme/app_colors.dart';
+import 'package:fantasy_camera_flutter/theme/app_theme.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 void main() {
+  testWidgets('aspect ratio button reports taps and updates its label', (
+    WidgetTester tester,
+  ) async {
+    String label = '4:3';
+    int taps = 0;
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return CameraPhotoTopBar(
+              tokens: const CameraUiTokens(),
+              controlsRotationTurns: 0.25,
+              aspectRatioLabel: label,
+              aspectRatioSemanticsLabel: 'Capture aspect ratio, $label',
+              onAspectRatioPressed: () {
+                setState(() {
+                  taps += 1;
+                  label = '1:1';
+                });
+              },
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('4:3'));
+    await tester.pumpAndSettle();
+
+    expect(taps, 1);
+    expect(find.text('1:1'), findsOneWidget);
+    expect(find.bySemanticsLabel('Capture aspect ratio, 1:1'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.text('1:1'),
+        matching: find.byType(AnimatedRotation),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('crop mask color follows the active app theme', (
+    WidgetTester tester,
+  ) async {
+    late CameraUiTokens lightTokens;
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: AppThemeColorsScope(
+          colors: AppThemeColors.light,
+          child: Builder(
+            builder: (BuildContext context) {
+              lightTokens = CameraUiTokens.forTheme(context);
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
+    expect(lightTokens.captureCropMaskColor, AppColors.white);
+    expect(lightTokens.captureCropMaskOpacity, 0.95);
+
+    late CameraUiTokens darkTokens;
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: AppThemeColorsScope(
+          colors: AppThemeColors.dark,
+          child: Builder(
+            builder: (BuildContext context) {
+              darkTokens = CameraUiTokens.forTheme(context);
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
+    expect(darkTokens.captureCropMaskColor, AppColors.black);
+    expect(darkTokens.captureCropMaskOpacity, 0.95);
+  });
+
+  testWidgets('square capture keeps the visible viewfinder at 3:4', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(375, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: CameraPhotoBodyLayout(
+          tokens: const CameraUiTokens(),
+          viewfinderAspectRatio: 3 / 4,
+          minimumBottomHeight: 92,
+          viewfinder: const CameraPhotoViewfinder(
+            tokens: CameraUiTokens(),
+            captureCropAspectRatio: 1,
+            viewfinder: ColoredBox(
+              key: ValueKey<String>('camera-square-viewfinder'),
+              color: AppColors.black,
+            ),
+          ),
+          controlsBuilder:
+              (BuildContext context, CameraPhotoControlsPlacement placement) =>
+                  const SizedBox(height: 92),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('camera-square-viewfinder')),
+      ),
+      const Size(375, 500),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('camera-capture-crop-mask')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  test('square crop rect is centered inside portrait and landscape frames', () {
+    expect(
+      cameraPhotoCropRectFor(size: const Size(300, 400), aspectRatio: 1),
+      const Rect.fromLTWH(0, 50, 300, 300),
+    );
+    expect(
+      cameraPhotoCropRectFor(size: const Size(400, 300), aspectRatio: 1),
+      const Rect.fromLTWH(50, 0, 300, 300),
+    );
+    expect(
+      cameraPhotoCropRectFor(size: const Size(300, 400), aspectRatio: 3 / 4),
+      const Rect.fromLTWH(0, 0, 300, 400),
+    );
+    expect(
+      cameraPhotoCropInsetsFor(
+        size: const Size(300, 400),
+        cropRect: const Rect.fromLTWH(0, 50, 300, 300),
+      ),
+      const EdgeInsets.only(top: 50, bottom: 50),
+    );
+    expect(
+      cameraPhotoCropInsetsFor(
+        size: const Size(300, 400),
+        cropRect: const Rect.fromLTWH(37.5, 0, 225, 400),
+      ),
+      const EdgeInsets.symmetric(horizontal: 37.5),
+    );
+  });
+
+  testWidgets('switching to square does not resize the viewfinder frame', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(375, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    double captureCropAspectRatio = 3 / 4;
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return CameraPhotoBodyLayout(
+              tokens: const CameraUiTokens(),
+              viewfinderAspectRatio: 3 / 4,
+              minimumBottomHeight: 92,
+              viewfinder: CameraPhotoViewfinder(
+                tokens: const CameraUiTokens(),
+                captureCropAspectRatio: captureCropAspectRatio,
+                viewfinder: const ColoredBox(
+                  key: ValueKey<String>('camera-fixed-viewfinder'),
+                  color: AppColors.black,
+                ),
+              ),
+              controlsBuilder:
+                  (
+                    BuildContext context,
+                    CameraPhotoControlsPlacement placement,
+                  ) => CupertinoButton(
+                    onPressed: () {
+                      setState(() {
+                        captureCropAspectRatio = 1;
+                      });
+                    },
+                    child: const Text('Square'),
+                  ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final Size initialSize = tester.getSize(
+      find.byKey(const ValueKey<String>('camera-fixed-viewfinder')),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('camera-capture-crop-mask')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('Square'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 140));
+
+    expect(
+      tester
+          .getSize(
+            find.byKey(
+              const ValueKey<String>('camera-capture-crop-curtain-top'),
+            ),
+          )
+          .height,
+      greaterThan(0),
+    );
+    expect(
+      tester
+          .getSize(
+            find.byKey(
+              const ValueKey<String>('camera-capture-crop-curtain-bottom'),
+            ),
+          )
+          .height,
+      greaterThan(0),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('camera-fixed-viewfinder')),
+      ),
+      initialSize,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('camera-capture-crop-mask')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('camera-capture-crop-curtain-top')),
+      ),
+      const Size(375, 62.5),
+    );
+    expect(
+      tester.getSize(
+        find.byKey(
+          const ValueKey<String>('camera-capture-crop-curtain-bottom'),
+        ),
+      ),
+      const Size(375, 62.5),
+    );
+  });
+
+  testWidgets('landscape square crop uses synchronized side curtains', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const CupertinoApp(
+        home: Center(
+          child: SizedBox(
+            width: 400,
+            height: 300,
+            child: CameraPhotoCaptureCropOverlay(
+              tokens: CameraUiTokens(),
+              captureAspectRatio: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSize(
+        find.byKey(
+          const ValueKey<String>('camera-capture-crop-curtain-leading'),
+        ),
+      ),
+      const Size(50, 300),
+    );
+    expect(
+      tester.getSize(
+        find.byKey(
+          const ValueKey<String>('camera-capture-crop-curtain-trailing'),
+        ),
+      ),
+      const Size(50, 300),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('camera-capture-crop-curtain-top')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('camera-capture-crop-curtain-bottom')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('crop curtains respect the reduced-motion preference', (
+    WidgetTester tester,
+  ) async {
+    double captureAspectRatio = 3 / 4;
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return Center(
+                child: SizedBox(
+                  width: 300,
+                  height: 400,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: <Widget>[
+                      CameraPhotoCaptureCropOverlay(
+                        tokens: const CameraUiTokens(),
+                        captureAspectRatio: captureAspectRatio,
+                      ),
+                      CupertinoButton(
+                        onPressed: () {
+                          setState(() {
+                            captureAspectRatio = 1;
+                          });
+                        },
+                        child: const Text('Square'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Square'));
+    await tester.pump();
+
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('camera-capture-crop-curtain-top')),
+      ),
+      const Size(300, 50),
+    );
+    expect(
+      tester.getSize(
+        find.byKey(
+          const ValueKey<String>('camera-capture-crop-curtain-bottom'),
+        ),
+      ),
+      const Size(300, 50),
+    );
+  });
+
+  testWidgets('crop mask does not intercept viewfinder taps', (
+    WidgetTester tester,
+  ) async {
+    int taps = 0;
+    final Key previewKey = UniqueKey();
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: Center(
+          child: SizedBox(
+            width: 300,
+            height: 400,
+            child: Stack(
+              fit: StackFit.expand,
+              children: <Widget>[
+                GestureDetector(
+                  key: previewKey,
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    taps += 1;
+                  },
+                ),
+                const CameraPhotoCaptureCropOverlay(
+                  tokens: CameraUiTokens(),
+                  captureAspectRatio: 1,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('camera-capture-crop-mask')),
+      findsOneWidget,
+    );
+    await tester.tapAt(
+      tester.getTopLeft(find.byKey(previewKey)) + const Offset(8, 8),
+    );
+
+    expect(taps, 1);
+  });
+
   testWidgets('gallery button shows green result badge on success', (
     WidgetTester tester,
   ) async {

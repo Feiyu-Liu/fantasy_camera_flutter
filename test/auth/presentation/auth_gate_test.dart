@@ -27,6 +27,7 @@ import 'package:fantasy_camera_flutter/auth/presentation/auth_gate.dart';
 import 'package:fantasy_camera_flutter/auth/presentation/auth_providers.dart';
 import 'package:fantasy_camera_flutter/config/app_config.dart';
 import 'package:fantasy_camera_flutter/features/camera/data/camera_device_repository.dart';
+import 'package:fantasy_camera_flutter/features/camera/domain/camera_capture_aspect_ratio.dart';
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_choice.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_providers.dart';
 import 'package:fantasy_camera_flutter/features/camera/presentation/camera_ui/camera_photo_ui.dart';
@@ -767,6 +768,8 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   bool mirrorFrontCameraEnabled = true;
   AppLocalePreference localePreference = AppLocalePreference.zh;
   AppThemePreference themePreference = AppThemePreference.light;
+  CameraCaptureAspectRatio cameraCaptureAspectRatio =
+      CameraCaptureAspectRatio.fourThree;
 
   @override
   Future<AppSettingsState> loadSettings() async {
@@ -775,6 +778,7 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
       mirrorFrontCameraEnabled: mirrorFrontCameraEnabled,
       localePreference: localePreference,
       themePreference: themePreference,
+      cameraCaptureAspectRatio: cameraCaptureAspectRatio,
     );
   }
 
@@ -786,6 +790,13 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   @override
   Future<void> saveMirrorFrontCameraEnabled(bool value) async {
     mirrorFrontCameraEnabled = value;
+  }
+
+  @override
+  Future<void> saveCameraCaptureAspectRatio(
+    CameraCaptureAspectRatio aspectRatio,
+  ) async {
+    cameraCaptureAspectRatio = aspectRatio;
   }
 
   @override

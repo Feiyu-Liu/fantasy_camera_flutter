@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
+import 'package:fantasy_camera_flutter/features/camera/domain/camera_capture_aspect_ratio.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_repository.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_record.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,6 +30,7 @@ void main() {
       originalHeight: 3024,
       promptStyle: 'realistic',
       captureMode: 'manual',
+      captureAspectRatio: CameraCaptureAspectRatio.square.storageValue,
       appInputContractId: 'app_bundled_2026_06_01',
       userInputJson: '{"style":"realistic"}',
       displaySnapshotJson: '{"styleLabel":"Realistic"}',
@@ -57,6 +59,10 @@ void main() {
     );
     expect(record.promptStyle, 'realistic');
     expect(record.captureMode, 'manual');
+    expect(
+      record.captureAspectRatio,
+      CameraCaptureAspectRatio.square.storageValue,
+    );
   });
 
   test('creates gallery record with external original', () async {
@@ -88,6 +94,7 @@ void main() {
     );
     expect(record.originalAssetId, 'asset-1');
     expect(record.originalLocalPath, isNull);
+    expect(record.captureAspectRatio, isNull);
     expect(
       record.resultAvailability,
       GenerationRecordResultAvailability.none.name,

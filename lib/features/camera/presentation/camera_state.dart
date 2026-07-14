@@ -24,6 +24,7 @@ class CameraState {
     this.isTogglingFlash = false,
     this.captureOverlayTrigger = 0,
     this.insufficientCreditsPromptTrigger = 0,
+    this.captureProcessingFailureTrigger = 0,
   });
 
   final CameraController? controller;
@@ -43,6 +44,7 @@ class CameraState {
   final bool isTogglingFlash;
   final int captureOverlayTrigger;
   final int insufficientCreditsPromptTrigger;
+  final int captureProcessingFailureTrigger;
 
   bool get hasInitializedController => controller?.value.isInitialized ?? false;
 
@@ -112,6 +114,7 @@ class CameraState {
     bool? isTogglingFlash,
     int? captureOverlayTrigger,
     int? insufficientCreditsPromptTrigger,
+    int? captureProcessingFailureTrigger,
   }) {
     return CameraState(
       controller: clearController ? null : controller ?? this.controller,
@@ -139,6 +142,9 @@ class CameraState {
       insufficientCreditsPromptTrigger:
           insufficientCreditsPromptTrigger ??
           this.insufficientCreditsPromptTrigger,
+      captureProcessingFailureTrigger:
+          captureProcessingFailureTrigger ??
+          this.captureProcessingFailureTrigger,
     );
   }
 }

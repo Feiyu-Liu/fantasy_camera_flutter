@@ -10,6 +10,7 @@ import 'package:fantasy_camera_flutter/features/backend_api/data/credit_balance_
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_redemption.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
+import 'package:fantasy_camera_flutter/features/camera/domain/camera_capture_aspect_ratio.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_original_cache_cleaner.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_original_file_store.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
@@ -31,6 +32,35 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
+  test('camera aspect ratio defaults to 4:3 and persists changes', () async {
+    final _FakeAppSettingsRepository repository = _FakeAppSettingsRepository();
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        appSettingsRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final AppSettingsController controller = container.read(
+      appSettingsControllerProvider.notifier,
+    );
+    final AppSettingsState loaded = await controller.ensureLoaded();
+    expect(loaded.cameraCaptureAspectRatio, CameraCaptureAspectRatio.fourThree);
+
+    await controller.setCameraCaptureAspectRatio(
+      CameraCaptureAspectRatio.square,
+    );
+
+    expect(
+      container.read(appSettingsControllerProvider).cameraCaptureAspectRatio,
+      CameraCaptureAspectRatio.square,
+    );
+    expect(
+      repository.cameraCaptureAspectRatio,
+      CameraCaptureAspectRatio.square,
+    );
+  });
+
   Future<void> pumpSettingsPage(
     WidgetTester tester, {
     _FakeAppSettingsRepository? appSettingsRepository,
@@ -918,6 +948,8 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   bool mirrorFrontCameraEnabled = true;
   AppLocalePreference localePreference;
   AppThemePreference themePreference;
+  CameraCaptureAspectRatio cameraCaptureAspectRatio =
+      CameraCaptureAspectRatio.fourThree;
 
   @override
   Future<AppSettingsState> loadSettings() async {
@@ -926,6 +958,7 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
       mirrorFrontCameraEnabled: mirrorFrontCameraEnabled,
       localePreference: localePreference,
       themePreference: themePreference,
+      cameraCaptureAspectRatio: cameraCaptureAspectRatio,
     );
   }
 
@@ -937,6 +970,13 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   @override
   Future<void> saveMirrorFrontCameraEnabled(bool value) async {
     mirrorFrontCameraEnabled = value;
+  }
+
+  @override
+  Future<void> saveCameraCaptureAspectRatio(
+    CameraCaptureAspectRatio aspectRatio,
+  ) async {
+    cameraCaptureAspectRatio = aspectRatio;
   }
 
   @override

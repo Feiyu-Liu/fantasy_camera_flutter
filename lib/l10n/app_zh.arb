@@ -53,6 +53,12 @@
       "value": {}
     }
   },
+  "cameraAspectRatioSemanticsLabel": "拍摄画幅，当前 {value}",
+  "@cameraAspectRatioSemanticsLabel": {
+    "placeholders": {
+      "value": {}
+    }
+  },
   "cameraNoCameraFound": "未找到相机。",
   "cameraStartingCamera": "正在启动相机...",
   "cameraErrorMessage": "相机错误：{message}",
@@ -247,6 +253,7 @@
     }
   },
   "billingLegalNote": "购买由 App Store 处理。继续购买即表示你同意使用条款与隐私政策。",
+  "toastCaptureProcessingFailed": "照片处理失败，请重新拍摄。",
   "toastGenerationNetworkFailed": "网络连接不稳定，请稍后重试。",
   "toastOriginalUnavailable": "原图已丢失或无法读取，请检查相册权限后重试。",
   "toastInsufficientCredits": "创作积分不足，请先获取积分。",

@@ -53,6 +53,12 @@
       "value": {}
     }
   },
+  "cameraAspectRatioSemanticsLabel": "撮影アスペクト比、現在は{value}",
+  "@cameraAspectRatioSemanticsLabel": {
+    "placeholders": {
+      "value": {}
+    }
+  },
   "cameraNoCameraFound": "カメラが見つかりません。",
   "cameraStartingCamera": "カメラを起動中...",
   "cameraErrorMessage": "カメラエラー：{message}",
@@ -247,6 +253,7 @@
     }
   },
   "billingLegalNote": "購入はApp Storeで処理されます。続行することで、利用規約とプライバシーポリシーに同意したことになります。",
+  "toastCaptureProcessingFailed": "写真を処理できませんでした。もう一度撮影してください。",
   "toastGenerationNetworkFailed": "ネットワークが不安定です。後でもう一度お試しください。",
   "toastOriginalUnavailable": "元の写真が見つからないか読み込めません。写真へのアクセス権限を確認してから再試行してください。",
   "toastInsufficientCredits": "クレジットが不足しています。",

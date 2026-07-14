@@ -24,6 +24,10 @@ class CameraPhotoUi extends StatelessWidget {
     this.viewfinder,
     this.galleryPreview,
     this.message,
+    this.aspectRatioLabel = '4:3',
+    this.aspectRatioSemanticsLabel,
+    this.viewfinderAspectRatio = 3 / 4,
+    this.captureCropAspectRatio = 3 / 4,
     this.modes = const <CameraUiMode>[],
     this.selectedModeId,
     this.modeExtensions = const <String, List<Widget>>{},
@@ -44,6 +48,7 @@ class CameraPhotoUi extends StatelessWidget {
     this.onFlashPressed,
     this.onTimerPressed,
     this.onBrightnessPressed,
+    this.onAspectRatioPressed,
     this.leadingContent,
     this.trailingContent,
     this.trailingIcon = LucideIcons.images,
@@ -57,12 +62,17 @@ class CameraPhotoUi extends StatelessWidget {
     this.onZoomDragStart,
     this.onZoomDragUpdate,
     this.onZoomDragEnd,
-  });
+  }) : assert(viewfinderAspectRatio > 0),
+       assert(captureCropAspectRatio > 0);
 
   final CameraUiTokens tokens;
   final Widget? viewfinder;
   final Widget? galleryPreview;
   final String? message;
+  final String aspectRatioLabel;
+  final String? aspectRatioSemanticsLabel;
+  final double viewfinderAspectRatio;
+  final double captureCropAspectRatio;
   final List<CameraUiMode> modes;
   final String? selectedModeId;
   final Map<String, List<Widget>> modeExtensions;
@@ -83,6 +93,7 @@ class CameraPhotoUi extends StatelessWidget {
   final VoidCallback? onFlashPressed;
   final VoidCallback? onTimerPressed;
   final VoidCallback? onBrightnessPressed;
+  final VoidCallback? onAspectRatioPressed;
   final Widget? leadingContent;
   final Widget? trailingContent;
   final IconData trailingIcon;
@@ -122,6 +133,9 @@ class CameraPhotoUi extends StatelessWidget {
             onFlashPressed: onFlashPressed,
             onTimerPressed: onTimerPressed,
             onBrightnessPressed: onBrightnessPressed,
+            aspectRatioLabel: aspectRatioLabel,
+            aspectRatioSemanticsLabel: aspectRatioSemanticsLabel,
+            onAspectRatioPressed: onAspectRatioPressed,
             leadingContent: leadingContent,
             trailingIcon: trailingIcon,
             trailingTooltip: trailingTooltip,
@@ -132,6 +146,7 @@ class CameraPhotoUi extends StatelessWidget {
           Expanded(
             child: CameraPhotoBodyLayout(
               tokens: tokens,
+              viewfinderAspectRatio: viewfinderAspectRatio,
               minimumBottomHeight: minimumBottomHeight,
               compactBottomOverlayHeight: tokens.bottomControlsHeight,
               compactHeroOverlayInset:
@@ -151,6 +166,7 @@ class CameraPhotoUi extends StatelessWidget {
                       currentDisplayZoom: currentDisplayZoom,
                       controlsRotationTurns: controlsRotationTurns,
                       zoomEnabled: zoomEnabled,
+                      captureCropAspectRatio: captureCropAspectRatio,
                       bottomOverlayInset: metrics.heroOverlayInset,
                       onZoomStopSelected: onZoomStopSelected,
                       onZoomDragStart: onZoomDragStart,
@@ -244,7 +260,9 @@ class CameraPhotoBodyLayout extends StatelessWidget {
     this.minimumBottomHeight = 0,
     this.compactBottomOverlayHeight,
     this.compactHeroOverlayInset = 0,
-  }) : assert(viewfinder != null || viewfinderBuilder != null);
+    this.viewfinderAspectRatio = 3 / 4,
+  }) : assert(viewfinder != null || viewfinderBuilder != null),
+       assert(viewfinderAspectRatio > 0);
 
   final CameraUiTokens tokens;
   final Widget? viewfinder;
@@ -253,102 +271,119 @@ class CameraPhotoBodyLayout extends StatelessWidget {
   final double minimumBottomHeight;
   final double? compactBottomOverlayHeight;
   final double compactHeroOverlayInset;
+  final double viewfinderAspectRatio;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final double viewfinderHeight = constraints.maxWidth * 4 / 3;
-        final double availableBottomHeight = math.max(
-          0,
-          constraints.maxHeight - viewfinderHeight,
-        );
-        final double requiredBottomHeight =
-            minimumBottomHeight + MediaQuery.paddingOf(context).bottom;
-        final bool useHeroOverlay =
-            availableBottomHeight < requiredBottomHeight;
-        final double reservedBottomOverlayHeight =
-            (compactBottomOverlayHeight ?? tokens.bottomControlsHeight) +
-            MediaQuery.paddingOf(context).bottom;
-        final double compactViewfinderMaxHeight = math.max(
-          0,
-          constraints.maxHeight - reservedBottomOverlayHeight,
-        );
-        final double overlayOverlapHeight = useHeroOverlay
-            ? math.max(0, requiredBottomHeight - availableBottomHeight)
-            : 0;
-        final double resolvedViewfinderHeight = useHeroOverlay
-            ? math.min(viewfinderHeight, compactViewfinderMaxHeight)
-            : viewfinderHeight;
-        final double resolvedViewfinderWidth = useHeroOverlay
-            ? math.min(constraints.maxWidth, resolvedViewfinderHeight * 3 / 4)
-            : constraints.maxWidth;
-        final CameraPhotoBodyMetrics metrics = CameraPhotoBodyMetrics(
-          controlsPlacement: useHeroOverlay
-              ? CameraPhotoControlsPlacement.heroOverlay
-              : CameraPhotoControlsPlacement.belowHero,
-          overlayOverlapHeight: overlayOverlapHeight,
-          heroOverlayInset: useHeroOverlay ? compactHeroOverlayInset : 0,
-        );
-        final Widget resolvedViewfinder =
-            viewfinderBuilder?.call(context, metrics) ?? viewfinder!;
+    final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: viewfinderAspectRatio),
+      duration: reduceMotion ? Duration.zero : tokens.aspectRatioMotionDuration,
+      curve: tokens.aspectRatioMotionCurve,
+      builder:
+          (BuildContext context, double animatedAspectRatio, Widget? child) {
+            return LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                final double viewfinderHeight =
+                    constraints.maxWidth / animatedAspectRatio;
+                final double availableBottomHeight = math.max(
+                  0,
+                  constraints.maxHeight - viewfinderHeight,
+                );
+                final double requiredBottomHeight =
+                    minimumBottomHeight + MediaQuery.paddingOf(context).bottom;
+                final bool useHeroOverlay =
+                    availableBottomHeight < requiredBottomHeight;
+                final double reservedBottomOverlayHeight =
+                    (compactBottomOverlayHeight ??
+                        tokens.bottomControlsHeight) +
+                    MediaQuery.paddingOf(context).bottom;
+                final double compactViewfinderMaxHeight = math.max(
+                  0,
+                  constraints.maxHeight - reservedBottomOverlayHeight,
+                );
+                final double overlayOverlapHeight = useHeroOverlay
+                    ? math.max(0, requiredBottomHeight - availableBottomHeight)
+                    : 0;
+                final double resolvedViewfinderHeight = useHeroOverlay
+                    ? math.min(viewfinderHeight, compactViewfinderMaxHeight)
+                    : viewfinderHeight;
+                final double resolvedViewfinderWidth = useHeroOverlay
+                    ? math.min(
+                        constraints.maxWidth,
+                        resolvedViewfinderHeight * animatedAspectRatio,
+                      )
+                    : constraints.maxWidth;
+                final CameraPhotoBodyMetrics metrics = CameraPhotoBodyMetrics(
+                  controlsPlacement: useHeroOverlay
+                      ? CameraPhotoControlsPlacement.heroOverlay
+                      : CameraPhotoControlsPlacement.belowHero,
+                  overlayOverlapHeight: overlayOverlapHeight,
+                  heroOverlayInset: useHeroOverlay
+                      ? compactHeroOverlayInset
+                      : 0,
+                );
+                final Widget resolvedViewfinder =
+                    viewfinderBuilder?.call(context, metrics) ?? viewfinder!;
 
-        if (useHeroOverlay) {
-          return Stack(
-            clipBehavior: Clip.none,
-            children: <Widget>[
-              Align(
-                alignment: Alignment.topCenter,
-                child: SizedBox(
-                  width: resolvedViewfinderWidth,
-                  height: resolvedViewfinderHeight,
-                  child: Stack(
-                    fit: StackFit.expand,
+                if (useHeroOverlay) {
+                  return Stack(
+                    clipBehavior: Clip.none,
                     children: <Widget>[
-                      resolvedViewfinder,
                       Align(
-                        alignment: Alignment.bottomCenter,
-                        child: controlsBuilder(
-                          context,
-                          CameraPhotoControlsPlacement.heroOverlay,
+                        alignment: Alignment.topCenter,
+                        child: SizedBox(
+                          width: resolvedViewfinderWidth,
+                          height: resolvedViewfinderHeight,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: <Widget>[
+                              resolvedViewfinder,
+                              Align(
+                                alignment: Alignment.bottomCenter,
+                                child: controlsBuilder(
+                                  context,
+                                  CameraPhotoControlsPlacement.heroOverlay,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 0,
+                        top: resolvedViewfinderHeight,
+                        right: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: controlsBuilder(
+                            context,
+                            CameraPhotoControlsPlacement.bottomOverlay,
+                          ),
                         ),
                       ),
                     ],
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 0,
-                top: resolvedViewfinderHeight,
-                right: 0,
-                bottom: 0,
-                child: Center(
-                  child: controlsBuilder(
-                    context,
-                    CameraPhotoControlsPlacement.bottomOverlay,
-                  ),
-                ),
-              ),
-            ],
-          );
-        }
+                  );
+                }
 
-        return Column(
-          children: <Widget>[
-            SizedBox(
-              width: double.infinity,
-              height: viewfinderHeight,
-              child: resolvedViewfinder,
-            ),
-            Expanded(
-              child: controlsBuilder(
-                context,
-                CameraPhotoControlsPlacement.belowHero,
-              ),
-            ),
-          ],
-        );
-      },
+                return Column(
+                  children: <Widget>[
+                    SizedBox(
+                      width: double.infinity,
+                      height: viewfinderHeight,
+                      child: resolvedViewfinder,
+                    ),
+                    Expanded(
+                      child: controlsBuilder(
+                        context,
+                        CameraPhotoControlsPlacement.belowHero,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
     );
   }
 }
@@ -363,6 +398,9 @@ class CameraPhotoTopBar extends StatelessWidget {
     this.onFlashPressed,
     this.onTimerPressed,
     this.onBrightnessPressed,
+    this.aspectRatioLabel = '4:3',
+    this.aspectRatioSemanticsLabel,
+    this.onAspectRatioPressed,
     this.leadingContent,
     this.trailingContent,
     this.trailingIcon = LucideIcons.images,
@@ -378,6 +416,9 @@ class CameraPhotoTopBar extends StatelessWidget {
   final VoidCallback? onFlashPressed;
   final VoidCallback? onTimerPressed;
   final VoidCallback? onBrightnessPressed;
+  final String aspectRatioLabel;
+  final String? aspectRatioSemanticsLabel;
+  final VoidCallback? onAspectRatioPressed;
   final Widget? leadingContent;
   final Widget? trailingContent;
   final IconData trailingIcon;
@@ -426,7 +467,15 @@ class CameraPhotoTopBar extends StatelessWidget {
                   ),
                 ),
               ),
-              const Spacer(flex: 5),
+              Expanded(
+                flex: 5,
+                child: _AspectRatioButton(
+                  tokens: tokens,
+                  label: aspectRatioLabel,
+                  semanticsLabel: aspectRatioSemanticsLabel,
+                  onPressed: onAspectRatioPressed,
+                ),
+              ),
               SizedBox(
                 width: tokens.topBarTrailingWidth,
                 child: _TopBarSlot(
@@ -461,12 +510,13 @@ class CameraPhotoViewfinder extends StatelessWidget {
     this.currentDisplayZoom = 1.0,
     this.controlsRotationTurns = 0,
     this.zoomEnabled = true,
+    this.captureCropAspectRatio = 3 / 4,
     this.bottomOverlayInset = 0,
     this.onZoomStopSelected,
     this.onZoomDragStart,
     this.onZoomDragUpdate,
     this.onZoomDragEnd,
-  });
+  }) : assert(captureCropAspectRatio > 0);
 
   final CameraUiTokens tokens;
   final Widget? viewfinder;
@@ -475,6 +525,7 @@ class CameraPhotoViewfinder extends StatelessWidget {
   final double currentDisplayZoom;
   final double controlsRotationTurns;
   final bool zoomEnabled;
+  final double captureCropAspectRatio;
   final double bottomOverlayInset;
   final ValueChanged<double>? onZoomStopSelected;
   final VoidCallback? onZoomDragStart;
@@ -489,6 +540,10 @@ class CameraPhotoViewfinder extends StatelessWidget {
         fit: StackFit.expand,
         children: <Widget>[
           ?viewfinder,
+          CameraPhotoCaptureCropOverlay(
+            tokens: tokens,
+            captureAspectRatio: captureCropAspectRatio,
+          ),
           if (message != null)
             Align(
               alignment: Alignment.topCenter,
@@ -549,6 +604,158 @@ class CameraPhotoViewfinder extends StatelessWidget {
       TextDirection.ltr,
     );
     return resolved.copyWith(bottom: resolved.bottom + bottomOverlayInset);
+  }
+}
+
+Rect cameraPhotoCropRectFor({required Size size, required double aspectRatio}) {
+  assert(aspectRatio > 0);
+  if (size.isEmpty) {
+    return Rect.zero;
+  }
+  final double width = math.min(size.width, size.height * aspectRatio);
+  final double height = width / aspectRatio;
+  return Rect.fromLTWH(
+    (size.width - width) / 2,
+    (size.height - height) / 2,
+    width,
+    height,
+  );
+}
+
+EdgeInsets cameraPhotoCropInsetsFor({
+  required Size size,
+  required Rect cropRect,
+}) {
+  assert(cropRect.left >= 0);
+  assert(cropRect.top >= 0);
+  assert(cropRect.right <= size.width);
+  assert(cropRect.bottom <= size.height);
+  return EdgeInsets.fromLTRB(
+    cropRect.left,
+    cropRect.top,
+    size.width - cropRect.right,
+    size.height - cropRect.bottom,
+  );
+}
+
+class CameraPhotoCaptureCropOverlay extends StatelessWidget {
+  const CameraPhotoCaptureCropOverlay({
+    required this.tokens,
+    required this.captureAspectRatio,
+    super.key,
+  }) : assert(captureAspectRatio > 0);
+
+  final CameraUiTokens tokens;
+  final double captureAspectRatio;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return IgnorePointer(
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final Size size = constraints.biggest;
+          final Rect cropRect = cameraPhotoCropRectFor(
+            size: size,
+            aspectRatio: captureAspectRatio,
+          );
+          final EdgeInsets targetInsets = cameraPhotoCropInsetsFor(
+            size: size,
+            cropRect: cropRect,
+          );
+          return TweenAnimationBuilder<EdgeInsets>(
+            tween: EdgeInsetsTween(end: targetInsets),
+            duration: reduceMotion
+                ? Duration.zero
+                : tokens.captureCropMaskMotionDuration,
+            curve: tokens.captureCropMaskMotionCurve,
+            builder:
+                (
+                  BuildContext context,
+                  EdgeInsets animatedInsets,
+                  Widget? child,
+                ) {
+                  return _CameraPhotoCropCurtains(
+                    insets: animatedInsets,
+                    color: tokens.captureCropMaskColor.withValues(
+                      alpha: tokens.captureCropMaskOpacity,
+                    ),
+                  );
+                },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CameraPhotoCropCurtains extends StatelessWidget {
+  const _CameraPhotoCropCurtains({required this.insets, required this.color});
+
+  final EdgeInsets insets;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    if (insets == EdgeInsets.zero) {
+      return const SizedBox(
+        key: ValueKey<String>('camera-capture-crop-mask-empty'),
+      );
+    }
+    return Stack(
+      key: const ValueKey<String>('camera-capture-crop-mask'),
+      fit: StackFit.expand,
+      children: <Widget>[
+        if (insets.top > 0)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: insets.top,
+            child: ColoredBox(
+              key: const ValueKey<String>('camera-capture-crop-curtain-top'),
+              color: color,
+            ),
+          ),
+        if (insets.bottom > 0)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: insets.bottom,
+            child: ColoredBox(
+              key: const ValueKey<String>('camera-capture-crop-curtain-bottom'),
+              color: color,
+            ),
+          ),
+        if (insets.left > 0)
+          Positioned(
+            top: insets.top,
+            left: 0,
+            bottom: insets.bottom,
+            width: insets.left,
+            child: ColoredBox(
+              key: const ValueKey<String>(
+                'camera-capture-crop-curtain-leading',
+              ),
+              color: color,
+            ),
+          ),
+        if (insets.right > 0)
+          Positioned(
+            top: insets.top,
+            right: 0,
+            bottom: insets.bottom,
+            width: insets.right,
+            child: ColoredBox(
+              key: const ValueKey<String>(
+                'camera-capture-crop-curtain-trailing',
+              ),
+              color: color,
+            ),
+          ),
+      ],
+    );
   }
 }
 
@@ -1955,6 +2162,57 @@ class _TopBarButton extends StatelessWidget {
               icon,
               color: iconColor ?? tokens.primaryTextColor,
               size: tokens.topBarIconSize,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AspectRatioButton extends StatelessWidget {
+  const _AspectRatioButton({
+    required this.tokens,
+    required this.label,
+    this.semanticsLabel,
+    this.onPressed,
+  });
+
+  final CameraUiTokens tokens;
+  final String label;
+  final String? semanticsLabel;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return Semantics(
+      label: semanticsLabel,
+      button: true,
+      enabled: onPressed != null,
+      excludeSemantics: semanticsLabel != null,
+      child: CupertinoButton(
+        padding: EdgeInsets.zero,
+        minimumSize: Size.zero,
+        onPressed: onPressed == null
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                onPressed!();
+              },
+        child: Center(
+          child: AnimatedSwitcher(
+            duration: reduceMotion
+                ? Duration.zero
+                : tokens.aspectRatioMotionDuration,
+            switchInCurve: tokens.aspectRatioMotionCurve,
+            switchOutCurve: Curves.easeInCubic,
+            child: Text(
+              label,
+              key: ValueKey<String>('camera-aspect-ratio-$label'),
+              style: tokens.aspectRatioTextStyle.copyWith(
+                color: tokens.primaryTextColor,
+              ),
             ),
           ),
         ),

@@ -53,6 +53,12 @@
       "value": {}
     }
   },
+  "cameraAspectRatioSemanticsLabel": "Capture aspect ratio, {value}",
+  "@cameraAspectRatioSemanticsLabel": {
+    "placeholders": {
+      "value": {}
+    }
+  },
   "cameraNoCameraFound": "No camera found.",
   "cameraStartingCamera": "Starting camera...",
   "cameraErrorMessage": "Camera error: {message}",
@@ -247,6 +253,7 @@
     }
   },
   "billingLegalNote": "Purchases are processed by the App Store. By continuing, you agree to the Terms of Use and Privacy Policy.",
+  "toastCaptureProcessingFailed": "Photo processing failed. Take the photo again.",
   "toastGenerationNetworkFailed": "The network is unstable. Try again later.",
   "toastOriginalUnavailable": "The original photo is missing or can't be read. Check Photos permission and try again.",
   "toastInsufficientCredits": "You don't have enough credits.",
