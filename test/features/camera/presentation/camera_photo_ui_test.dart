@@ -160,6 +160,73 @@ void main() {
     );
   });
 
+  test('zoom pill tracks the bottom of a portrait crop', () {
+    const Size size = Size(300, 400);
+    const Rect squareCrop = Rect.fromLTWH(0, 50, 300, 300);
+
+    expect(
+      cameraPhotoZoomCropOffsetFor(
+        size: size,
+        cropRect: const Rect.fromLTWH(0, 0, 300, 400),
+        downwardOffset: 12,
+      ),
+      12,
+    );
+    expect(
+      cameraPhotoZoomCropOffsetFor(
+        size: size,
+        cropRect: squareCrop,
+        downwardOffset: 12,
+      ),
+      -38,
+    );
+  });
+
+  testWidgets('square capture keeps the zoom pill inside the preview bottom', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(300, 400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: Builder(
+          builder: (BuildContext context) {
+            return MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(padding: const EdgeInsets.only(bottom: 34)),
+              child: Center(
+                child: SizedBox(
+                  width: 300,
+                  height: 400,
+                  child: const CameraPhotoViewfinder(
+                    tokens: CameraUiTokens(),
+                    captureCropAspectRatio: 1,
+                    zoomStops: <CameraZoomStop>[
+                      CameraZoomStop(factor: 0.5, label: '.5x'),
+                      CameraZoomStop(factor: 1, label: '1x'),
+                      CameraZoomStop(factor: 2, label: '2x'),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final Rect viewfinderRect = tester.getRect(
+      find.byType(CameraPhotoViewfinder),
+    );
+    final Rect zoomRect = tester.getRect(find.byType(CameraPhotoZoomSlider));
+
+    expect(zoomRect.top, closeTo(viewfinderRect.top + 288, 0.01));
+    expect(zoomRect.bottom, closeTo(viewfinderRect.top + 328, 0.01));
+  });
+
   testWidgets('switching to square does not resize the viewfinder frame', (
     WidgetTester tester,
   ) async {

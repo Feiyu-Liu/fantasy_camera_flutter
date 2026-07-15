@@ -47,6 +47,7 @@ class CameraUiTokens {
       right: 24,
       bottom: 0,
     ),
+    this.zoomPreviewBottomOffset = 12,
     this.zoomTrackItemWidth = 42,
     this.zoomTrackMinWidth = 112,
     this.zoomTrackMaxWidth = 210,
@@ -184,6 +185,7 @@ class CameraUiTokens {
   final TextStyle viewfinderMessageTextStyle;
 
   final EdgeInsetsGeometry zoomSafeAreaPadding;
+  final double zoomPreviewBottomOffset;
   final double zoomTrackItemWidth;
   final double zoomTrackMinWidth;
   final double zoomTrackMaxWidth;

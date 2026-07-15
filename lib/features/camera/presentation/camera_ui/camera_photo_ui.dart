@@ -534,6 +534,8 @@ class CameraPhotoViewfinder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final EdgeInsets zoomPadding = _zoomPaddingWithOverlayInset();
+    final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
     return ColoredBox(
       color: tokens.viewfinderColor,
       child: Stack(
@@ -574,32 +576,63 @@ class CameraPhotoViewfinder extends StatelessWidget {
               ),
             ),
           if (zoomStops.isNotEmpty)
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: _zoomPaddingWithOverlayInset(),
-                  child: CameraPhotoZoomSlider(
-                    tokens: tokens,
-                    stops: zoomStops,
-                    currentDisplayZoom: currentDisplayZoom,
-                    rotationTurns: controlsRotationTurns,
-                    enabled: zoomEnabled,
-                    onStopSelected: onZoomStopSelected,
-                    onDragStart: onZoomDragStart,
-                    onDragUpdate: onZoomDragUpdate,
-                    onDragEnd: onZoomDragEnd,
+            LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                final Size size = constraints.biggest;
+                final Rect cropRect = cameraPhotoCropRectFor(
+                  size: size,
+                  aspectRatio: captureCropAspectRatio,
+                );
+                final double targetOffset = cameraPhotoZoomCropOffsetFor(
+                  size: size,
+                  cropRect: cropRect,
+                  downwardOffset: math.min(
+                    MediaQuery.paddingOf(context).bottom,
+                    tokens.zoomPreviewBottomOffset,
                   ),
-                ),
-              ),
+                );
+                return Align(
+                  alignment: Alignment.bottomCenter,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween<double>(end: targetOffset),
+                    duration: reduceMotion
+                        ? Duration.zero
+                        : tokens.captureCropMaskMotionDuration,
+                    curve: tokens.captureCropMaskMotionCurve,
+                    builder:
+                        (BuildContext context, double offset, Widget? child) {
+                          return Transform.translate(
+                            offset: Offset(0, offset),
+                            child: child,
+                          );
+                        },
+                    child: SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: zoomPadding,
+                        child: CameraPhotoZoomSlider(
+                          tokens: tokens,
+                          stops: zoomStops,
+                          currentDisplayZoom: currentDisplayZoom,
+                          rotationTurns: controlsRotationTurns,
+                          enabled: zoomEnabled,
+                          onStopSelected: onZoomStopSelected,
+                          onDragStart: onZoomDragStart,
+                          onDragUpdate: onZoomDragUpdate,
+                          onDragEnd: onZoomDragEnd,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
         ],
       ),
     );
   }
 
-  EdgeInsetsGeometry _zoomPaddingWithOverlayInset() {
+  EdgeInsets _zoomPaddingWithOverlayInset() {
     final EdgeInsets resolved = tokens.zoomSafeAreaPadding.resolve(
       TextDirection.ltr,
     );
@@ -636,6 +669,20 @@ EdgeInsets cameraPhotoCropInsetsFor({
     size.width - cropRect.right,
     size.height - cropRect.bottom,
   );
+}
+
+double cameraPhotoZoomCropOffsetFor({
+  required Size size,
+  required Rect cropRect,
+  required double downwardOffset,
+}) {
+  assert(cropRect.top >= 0);
+  assert(cropRect.bottom <= size.height);
+  assert(downwardOffset >= 0);
+  if (size.isEmpty) {
+    return 0;
+  }
+  return math.min(0, cropRect.bottom - size.height) + downwardOffset;
 }
 
 class CameraPhotoCaptureCropOverlay extends StatelessWidget {
