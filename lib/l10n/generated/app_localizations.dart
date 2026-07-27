@@ -436,7 +436,7 @@ abstract class AppLocalizations {
   /// No description provided for @generationSubmissionImportNew.
   ///
   /// In en, this message translates to:
-  /// **'IMPORT FROM PHOTOS'**
+  /// **'Import'**
   String get generationSubmissionImportNew;
 
   /// No description provided for @generationSubmissionDefaultMomentMode.

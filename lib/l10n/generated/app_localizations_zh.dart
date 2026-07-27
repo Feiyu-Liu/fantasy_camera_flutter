@@ -181,7 +181,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get generationSubmissionGalleryTitle => '画廊';
 
   @override
-  String get generationSubmissionImportNew => '从相册导入';
+  String get generationSubmissionImportNew => '导入照片';
 
   @override
   String get generationSubmissionDefaultMomentMode => '时刻';
@@ -842,7 +842,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get generationSubmissionGalleryTitle => '作品集';
 
   @override
-  String get generationSubmissionImportNew => '從照片匯入';
+  String get generationSubmissionImportNew => '匯入照片';
 
   @override
   String get generationSubmissionDefaultMomentMode => '時刻';

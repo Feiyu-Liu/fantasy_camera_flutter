@@ -185,7 +185,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get generationSubmissionGalleryTitle => 'ギャラリー';
 
   @override
-  String get generationSubmissionImportNew => '写真から読み込む';
+  String get generationSubmissionImportNew => '写真を追加';
 
   @override
   String get generationSubmissionDefaultMomentMode => 'モーメント';

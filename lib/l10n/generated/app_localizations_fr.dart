@@ -193,7 +193,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get generationSubmissionGalleryTitle => 'GALERIE';
 
   @override
-  String get generationSubmissionImportNew => 'IMPORTER DEPUIS PHOTOS';
+  String get generationSubmissionImportNew => 'Importer';
 
   @override
   String get generationSubmissionDefaultMomentMode => 'MOMENT';
