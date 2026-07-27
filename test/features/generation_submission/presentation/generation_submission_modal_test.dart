@@ -94,9 +94,42 @@ void main() {
       ),
       findsOneWidget,
     );
+    final Size cancelButtonSize = tester.getSize(
+      find.byKey(
+        const ValueKey<String>('generation-submission-cancel-awaiting'),
+      ),
+    );
+    final Size confirmButtonSize = tester.getSize(
+      find.byKey(
+        const ValueKey<String>('generation-submission-confirm-awaiting'),
+      ),
+    );
+    expect(cancelButtonSize, const Size.square(24));
+    expect(confirmButtonSize.height, 22);
+    expect(confirmButtonSize.width, greaterThan(cancelButtonSize.width));
+    expect(
+      tester
+          .getTopLeft(
+            find.byKey(
+              const ValueKey<String>('generation-submission-cancel-awaiting'),
+            ),
+          )
+          .dy,
+      lessThan(
+        tester
+            .getTopLeft(
+              find.byKey(
+                const ValueKey<String>(
+                  'generation-submission-confirm-awaiting',
+                ),
+              ),
+            )
+            .dy,
+      ),
+    );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-status-processing'),
+        const ValueKey<String>('generation-submission-progress-processing'),
       ),
       findsOneWidget,
     );
@@ -118,6 +151,103 @@ void main() {
       find.byKey(const ValueKey<String>('generation-submission-remove-failed')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('generation progress bar shrinks as the pipeline advances', (
+    WidgetTester tester,
+  ) async {
+    // The bar times itself from its own first frame, so both jobs start from
+    // the same elapsed origin and the width difference comes from the status
+    // floor alone.
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(id: 'early', status: GenerationSubmissionStatus.uploading),
+      _job(
+        id: 'late',
+        status: GenerationSubmissionStatus.processingResultImage,
+      ),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+    await tester.pump();
+
+    final Size earlyBar = tester.getSize(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('generation-submission-progress-early'),
+        ),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+    final Size lateBar = tester.getSize(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('generation-submission-progress-late'),
+        ),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+
+    expect(earlyBar.height, 22);
+    expect(lateBar.height, 22);
+    // Later pipeline stage => more progress => shorter remaining bar.
+    expect(lateBar.width, lessThan(earlyBar.width));
+    // Never shrinks past the pill's own height, so it stays a readable dot.
+    expect(lateBar.width, greaterThanOrEqualTo(22));
+
+    // Shrinking is left-to-right: the bar stays pinned to the right edge of
+    // its slot while the left edge sweeps rightward.
+    final Rect lateSlot = tester.getRect(
+      find.byKey(const ValueKey<String>('generation-submission-progress-late')),
+    );
+    final Rect lateRect = tester.getRect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('generation-submission-progress-late'),
+        ),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+    expect(lateRect.right, moreOrLessEquals(lateSlot.right, epsilon: 0.01));
+    expect(lateRect.left, greaterThan(lateSlot.left));
+  });
+
+  testWidgets('generation progress bar keeps advancing while polling repeats', (
+    WidgetTester tester,
+  ) async {
+    // Each poll rewrites the record's updatedAt to "now". The bar must time
+    // itself independently, otherwise every poll resets its elapsed-time
+    // origin and it freezes at the polling status floor.
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+      _job(id: 'polling', status: GenerationSubmissionStatus.pollingTask),
+    ];
+
+    await _pumpModalHost(tester, _ModalHost(key: hostKey, jobs: jobs));
+    await tester.pump();
+
+    final Finder barFinder = find.descendant(
+      of: find.byKey(
+        const ValueKey<String>('generation-submission-progress-polling'),
+      ),
+      matching: find.byType(AnimatedContainer),
+    );
+    final double initialWidth = tester.getSize(barFinder).width;
+
+    // Advance time while simulating polls that keep bumping updatedAt.
+    for (int i = 0; i < 3; i++) {
+      await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+        _job(
+          id: 'polling',
+          status: GenerationSubmissionStatus.pollingTask,
+          updatedAt: DateTime.now(),
+        ),
+      ]);
+      await tester.pump(const Duration(seconds: 10));
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    final double laterWidth = tester.getSize(barFinder).width;
+    expect(laterWidth, lessThan(initialWidth));
   });
 
   test('thumbnail prompt badge reflects capture mode and switches', () {
@@ -200,7 +330,7 @@ void main() {
     expect(taskRepository.createTaskCount, 0);
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-status-processing'),
+        const ValueKey<String>('generation-submission-progress-awaiting'),
       ),
       findsOneWidget,
     );
@@ -475,7 +605,7 @@ void main() {
     expect(taskRepository.createTaskCount, 0);
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-status-processing'),
+        const ValueKey<String>('generation-submission-progress-failed'),
       ),
       findsOneWidget,
     );
@@ -2706,6 +2836,7 @@ GenerationSubmissionJob _job({
   String? resultUrl,
   String? resultSaveErrorMessage,
   DateTime? resultNegativeFeedbackSubmittedAt,
+  DateTime? updatedAt,
 }) {
   final DateTime now = DateTime.parse('2026-05-29T00:00:00Z');
   final String resolvedImagePath = imagePath ?? _writeImageFile(id).path;
@@ -2739,7 +2870,7 @@ GenerationSubmissionJob _job({
         : null,
     failureRetryable: retryableFailure,
     createdAt: now,
-    updatedAt: now,
+    updatedAt: updatedAt ?? now,
   );
 }
 

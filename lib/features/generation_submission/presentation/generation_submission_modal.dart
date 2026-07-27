@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_the_tooltip/just_the_tooltip.dart';
@@ -1705,7 +1707,7 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
               child: LayoutBuilder(
                 builder: (BuildContext context, BoxConstraints constraints) {
                   final double itemHeight = constraints.maxHeight;
-                  const double captionGap = 10;
+                  const double captionGap = 6;
                   const double captionHeight = 12;
                   final double tileHeight =
                       (itemHeight - captionGap - captionHeight).clamp(
@@ -1913,18 +1915,21 @@ class _GalleryMomentItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           SizedBox(width: width, height: imageHeight, child: child),
-          const SizedBox(height: 10),
-          Text(
-            caption,
-            maxLines: 1,
-            overflow: TextOverflow.clip,
-            softWrap: false,
-            style: TextStyle(
-              color: colors.textMuted,
-              fontSize: 10,
-              height: 1.2,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.1,
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Text(
+              caption,
+              maxLines: 1,
+              overflow: TextOverflow.clip,
+              softWrap: false,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 10,
+                height: 1.2,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.1,
+              ),
             ),
           ),
         ],
@@ -1990,7 +1995,7 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
               child: LayoutBuilder(
                 builder: (BuildContext context, BoxConstraints constraints) {
                   final double itemHeight = constraints.maxHeight;
-                  const double captionGap = 10;
+                  const double captionGap = 6;
                   const double captionHeight = 12;
                   final double tileHeight =
                       (itemHeight - captionGap - captionHeight).clamp(
@@ -2256,7 +2261,8 @@ class _JobThumbnail extends StatelessWidget {
               path: thumbnailImagePath,
             ),
             if (onRetry == null &&
-                job.status != GenerationSubmissionStatus.awaitingConfirmation)
+                job.status != GenerationSubmissionStatus.awaitingConfirmation &&
+                !_isGenerationInFlight(job.status))
               Positioned(
                 right: 6,
                 bottom: 6,
@@ -2292,19 +2298,57 @@ class _JobThumbnail extends StatelessWidget {
             if (job.status == GenerationSubmissionStatus.awaitingConfirmation)
               Positioned(
                 left: 6,
-                right: 6,
+                top: 6,
+                child: _ThumbnailActionButton(
+                  key: ValueKey<String>(
+                    'generation-submission-cancel-${job.id}',
+                  ),
+                  color: AppColors.danger,
+                  icon: LucideIcons.trash2,
+                  onPressed: onCancel,
+                ),
+              ),
+            if (job.status == GenerationSubmissionStatus.awaitingConfirmation)
+              Positioned(
+                left: 10,
+                right: 10,
                 bottom: 6,
-                child: _ConfirmationActions(
-                  jobId: job.id,
-                  onConfirm: onConfirm,
-                  onCancel: onCancel,
+                child: _ThumbnailActionButton(
+                  key: ValueKey<String>(
+                    'generation-submission-confirm-${job.id}',
+                  ),
+                  height: 22,
+                  fillAvailableWidth: true,
+                  color: AppColors.success,
+                  icon: LucideIcons.check,
+                  onPressed: onConfirm,
+                ),
+              ),
+            if (_isGenerationInFlight(job.status))
+              Positioned(
+                left: 10,
+                right: 10,
+                bottom: 6,
+                child: _GenerationProgressBar(
+                  key: ValueKey<String>(
+                    'generation-submission-progress-${job.id}',
+                  ),
+                  status: job.status,
+                  height: 22,
                 ),
               ),
             Positioned(
               left: 6,
               right: 6,
               top: 6,
-              child: _PromptSnapshotBadge(job: job),
+              child: _PromptSnapshotBadge(
+                job: job,
+                alignment:
+                    job.status ==
+                        GenerationSubmissionStatus.awaitingConfirmation
+                    ? Alignment.topRight
+                    : Alignment.topLeft,
+              ),
             ),
           ],
         ),
@@ -2353,12 +2397,17 @@ class _MissingOriginalImagePlaceholder extends StatelessWidget {
 }
 
 class _PromptSnapshotBadge extends StatelessWidget {
-  const _PromptSnapshotBadge({required this.job});
+  const _PromptSnapshotBadge({
+    required this.job,
+    this.alignment = Alignment.topLeft,
+  });
 
   final GenerationSubmissionJob job;
+  final Alignment alignment;
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     final PromptSelectionSnapshot selection =
         job.promptSelection ?? PromptSelectionSnapshot.fallback;
     final String? label = generationThumbnailPromptBadgeLabel(
@@ -2370,11 +2419,9 @@ class _PromptSnapshotBadge extends StatelessWidget {
     }
 
     return Align(
-      alignment: Alignment.topLeft,
+      alignment: alignment,
       child: DecoratedBox(
-        decoration: AppCorners.controlDecoration(
-          color: AppColors.blackOverlay(0.45),
-        ),
+        decoration: AppCorners.controlDecoration(color: colors.accentYellow),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
           child: Text(
@@ -2383,7 +2430,7 @@ class _PromptSnapshotBadge extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.white,
+              color: AppColors.black,
               fontSize: 8,
               fontWeight: FontWeight.w700,
             ),
@@ -2490,39 +2537,6 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-class _ConfirmationActions extends StatelessWidget {
-  const _ConfirmationActions({
-    required this.jobId,
-    required this.onConfirm,
-    required this.onCancel,
-  });
-
-  final String jobId;
-  final VoidCallback? onConfirm;
-  final VoidCallback? onCancel;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: <Widget>[
-        _ThumbnailActionButton(
-          key: ValueKey<String>('generation-submission-cancel-$jobId'),
-          color: AppColors.danger,
-          icon: LucideIcons.x,
-          onPressed: onCancel,
-        ),
-        _ThumbnailActionButton(
-          key: ValueKey<String>('generation-submission-confirm-$jobId'),
-          color: AppColors.success,
-          icon: LucideIcons.check,
-          onPressed: onConfirm,
-        ),
-      ],
-    );
-  }
-}
-
 class _ThumbnailActionButton extends StatelessWidget {
   const _ThumbnailActionButton({
     super.key,
@@ -2530,12 +2544,16 @@ class _ThumbnailActionButton extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.iconColor = AppColors.white,
+    this.height = 24,
+    this.fillAvailableWidth = false,
   });
 
   final Color color;
   final IconData icon;
   final VoidCallback? onPressed;
   final Color iconColor;
+  final double height;
+  final bool fillAvailableWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -2546,9 +2564,201 @@ class _ThumbnailActionButton extends StatelessWidget {
           color: color.withValues(alpha: 0.8),
           borderRadius: BorderRadius.circular(999),
         ),
-        child: SizedBox.square(
-          dimension: 24,
+        child: SizedBox(
+          width: fillAvailableWidth ? double.infinity : height,
+          height: height,
           child: Icon(icon, color: iconColor, size: 14),
+        ),
+      ),
+    );
+  }
+}
+
+/// Statuses covering the window between the user confirming a photo and the
+/// generated result being stored. The confirm bar stays on screen across this
+/// window and shrinks from the left instead of being replaced by a badge.
+bool _isGenerationInFlight(GenerationSubmissionStatus status) {
+  return switch (status) {
+    GenerationSubmissionStatus.queued ||
+    GenerationSubmissionStatus.preparingUploadImage ||
+    GenerationSubmissionStatus.readingFile ||
+    GenerationSubmissionStatus.creatingUpload ||
+    GenerationSubmissionStatus.uploading ||
+    GenerationSubmissionStatus.uploadedWaitingTask ||
+    GenerationSubmissionStatus.creatingTask ||
+    GenerationSubmissionStatus.submitted ||
+    GenerationSubmissionStatus.pollingTask ||
+    GenerationSubmissionStatus.processingResultImage => true,
+    GenerationSubmissionStatus.awaitingConfirmation ||
+    GenerationSubmissionStatus.completed ||
+    GenerationSubmissionStatus.resultSaved ||
+    GenerationSubmissionStatus.resultProcessingFailed ||
+    GenerationSubmissionStatus.failed => false,
+  };
+}
+
+/// The confirm pill turned into a generation indicator: after the user
+/// confirms, the bar keeps its position and shrinks from the left toward the
+/// right as generation advances, ending as a small dot at the right edge.
+///
+/// The backend exposes no completion percentage, only the discrete statuses
+/// above, so progress is driven by elapsed time and floored by the status the
+/// job has actually reached. Time supplies smooth motion; the status floor
+/// keeps the bar honest when generation is slower or faster than typical.
+///
+/// Elapsed time is measured by the widget's own ticker, deliberately not from
+/// [GenerationSubmissionJob.updatedAt]: every poll rewrites `updatedAt` to
+/// `DateTime.now()`, which would reset the origin on each tick and freeze the
+/// bar at whatever status floor applied.
+class _GenerationProgressBar extends StatefulWidget {
+  const _GenerationProgressBar({
+    super.key,
+    required this.status,
+    this.height = 22,
+  });
+
+  final GenerationSubmissionStatus status;
+  final double height;
+
+  /// Typical end-to-end generation duration. Time-driven progress eases toward
+  /// [_timeCeiling] over this window rather than reaching 1.0, so the bar never
+  /// claims completion the backend has not reported.
+  static const Duration _typicalDuration = Duration(seconds: 70);
+
+  /// Upper bound for the purely time-driven component.
+  static const double _timeCeiling = 0.9;
+
+  @override
+  State<_GenerationProgressBar> createState() => _GenerationProgressBarState();
+}
+
+class _GenerationProgressBarState extends State<_GenerationProgressBar>
+    with SingleTickerProviderStateMixin {
+  late final Ticker _ticker;
+
+  /// Time elapsed since the bar appeared, taken from the ticker rather than the
+  /// wall clock: it is immune to system clock changes and advances under test.
+  Duration _elapsed = Duration.zero;
+
+  /// Highest progress shown so far. Progress is monotonic: a status arriving
+  /// out of order or a clock adjustment must never make the bar grow back.
+  double _progress = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _progress = _targetProgress();
+    _ticker = createTicker(_onTick)..start();
+  }
+
+  @override
+  void didUpdateWidget(_GenerationProgressBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.status != oldWidget.status) {
+      _syncProgress();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  void _onTick(Duration elapsed) {
+    _elapsed = elapsed;
+    _syncProgress();
+  }
+
+  void _syncProgress() {
+    final double next = math.max(_progress, _targetProgress());
+    if ((next - _progress).abs() < 0.001) {
+      return;
+    }
+    setState(() => _progress = next);
+  }
+
+  /// Combines the eased time estimate with the floor implied by the status the
+  /// job has reached, taking whichever is further along.
+  double _targetProgress() {
+    return math.max(_statusFloor(widget.status), _elapsedProgress());
+  }
+
+  double _elapsedProgress() {
+    final double elapsed = _elapsed.inMilliseconds.toDouble();
+    if (elapsed <= 0) {
+      return 0;
+    }
+    final double fraction =
+        (elapsed / _GenerationProgressBar._typicalDuration.inMilliseconds)
+            .clamp(0.0, 1.0);
+    // Gentle ease-out: still decelerates toward the ceiling, but without the
+    // steep opening of a cubic, which read as the bar "snapping" shut.
+    final double eased = 1 - math.pow(1 - fraction, 1.6).toDouble();
+    return eased * _GenerationProgressBar._timeCeiling;
+  }
+
+  /// Minimum progress guaranteed by each pipeline stage. These stay low for
+  /// the long-running stages so elapsed time, not the floor, drives the motion —
+  /// a high floor made the bar jump and then sit still. Only the stages that
+  /// genuinely mean "almost done" push the bar far along.
+  double _statusFloor(GenerationSubmissionStatus status) {
+    return switch (status) {
+      GenerationSubmissionStatus.queued ||
+      GenerationSubmissionStatus.preparingUploadImage ||
+      GenerationSubmissionStatus.readingFile => 0.02,
+      GenerationSubmissionStatus.creatingUpload ||
+      GenerationSubmissionStatus.uploading => 0.05,
+      GenerationSubmissionStatus.uploadedWaitingTask ||
+      GenerationSubmissionStatus.creatingTask ||
+      GenerationSubmissionStatus.submitted => 0.1,
+      // The bulk of generation happens here and can run well past the typical
+      // duration, so let time drive it rather than pinning it high.
+      GenerationSubmissionStatus.pollingTask => 0.15,
+      GenerationSubmissionStatus.completed => 0.9,
+      GenerationSubmissionStatus.processingResultImage => 0.95,
+      GenerationSubmissionStatus.awaitingConfirmation ||
+      GenerationSubmissionStatus.resultSaved ||
+      GenerationSubmissionStatus.resultProcessingFailed ||
+      GenerationSubmissionStatus.failed => 0,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    // Remaining width: full pill at 0% shrinking to a dot at 100%. The bar is
+    // anchored to the right edge, so its left edge sweeps rightward as
+    // generation advances and the dot settles where the pill ended.
+    final double remaining = (1 - _progress).clamp(0.0, 1.0);
+    return SizedBox(
+      height: widget.height,
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            final double fullWidth = constraints.maxWidth;
+            final double minWidth = widget.height;
+            final double width = minWidth + (fullWidth - minWidth) * remaining;
+            return AnimatedContainer(
+              duration: reduceMotion
+                  ? Duration.zero
+                  : const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              width: width,
+              height: widget.height,
+              decoration: AppCorners.controlDecoration(
+                color: AppColors.success.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              alignment: Alignment.center,
+              child: CupertinoActivityIndicator(
+                color: AppColors.white,
+                radius: 6,
+              ),
+            );
+          },
         ),
       ),
     );
