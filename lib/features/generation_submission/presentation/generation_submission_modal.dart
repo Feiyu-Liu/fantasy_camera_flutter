@@ -2318,8 +2318,8 @@ class _JobThumbnail extends StatelessWidget {
               key: ValueKey<String>(
                 'generation-submission-state-pill-slot-${job.id}',
               ),
-              left: 10,
-              right: 10,
+              left: 6,
+              right: 6,
               bottom: 6,
               child: GenerationStatusPill(
                 key: ValueKey<String>(
@@ -2517,6 +2517,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   static const Duration _transitionDuration = Duration(milliseconds: 300);
   static const Duration _pulseDuration = Duration(seconds: 2);
+  static const Curve _transitionCurve = ElasticOutCurve(1.2);
   static const double _confirmationStage = 0;
   static const double _loadingStage = 1;
   static const double _terminalStage = 2;
@@ -2526,6 +2527,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
   late final Listenable _visualListenable;
   late _GenerationPillMode _targetMode;
   _GenerationPillMode _terminalMode = _GenerationPillMode.completed;
+  bool _transitionForward = true;
   late DateTime _effectiveStartedAt;
   late DateTime _estimateReferenceNow;
   late GenerationRemainingTimeEstimate _timeEstimate;
@@ -2642,6 +2644,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
       _syncPulseAnimation();
       return;
     }
+    _transitionForward = targetStage >= _transitionController.value;
     final double distance = (_transitionController.value - targetStage).abs();
     final Duration duration = Duration(
       milliseconds: math.max(
@@ -2705,6 +2708,12 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
       _GenerationPillMode.retry ||
       _GenerationPillMode.failure => _terminalStage,
     };
+  }
+
+  double _elasticSegmentValue(double value) {
+    final double progress = _transitionForward ? value : 1 - value;
+    final double transformed = _transitionCurve.transform(progress);
+    return _transitionForward ? transformed : 1 - transformed;
   }
 
   void _syncTimeEstimate({bool rebuild = false, DateTime? now}) {
@@ -2877,29 +2886,35 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
         return AnimatedBuilder(
           animation: _visualListenable,
           builder: (BuildContext context, Widget? child) {
-            final double confirmationToLoading = Curves.easeInOutCubic
-                .transform(
-                  _transitionController.value.clamp(
-                    _confirmationStage,
-                    _loadingStage,
-                  ),
-                );
-            final double loadingToTerminal = Curves.easeInOutCubic.transform(
-              (_transitionController.value - _loadingStage).clamp(0, 1),
+            final double confirmationProgress = _transitionController.value
+                .clamp(_confirmationStage, _loadingStage);
+            final double terminalProgress =
+                (_transitionController.value - _loadingStage).clamp(0, 1);
+            final double confirmationGeometry = _elasticSegmentValue(
+              confirmationProgress,
+            );
+            final double terminalGeometry = _elasticSegmentValue(
+              terminalProgress,
+            );
+            final double confirmationVisual = Curves.easeInOutCubic.transform(
+              confirmationProgress,
+            );
+            final double terminalVisual = Curves.easeInOutCubic.transform(
+              terminalProgress,
             );
             final double loadingWidth =
                 lerpDouble(
                   constraints.maxWidth,
                   compactWidth,
-                  confirmationToLoading,
+                  confirmationGeometry,
                 ) ??
                 compactWidth;
-            final double width =
-                lerpDouble(loadingWidth, terminalSize, loadingToTerminal) ??
-                terminalSize;
             final double height =
-                lerpDouble(widget.height, terminalSize, loadingToTerminal) ??
+                lerpDouble(widget.height, terminalSize, terminalGeometry) ??
                 widget.height;
+            final double width =
+                lerpDouble(loadingWidth, terminalSize, terminalGeometry) ??
+                terminalSize;
             final double pulseAmount =
                 (1 - math.cos(2 * math.pi * _pulseController.value)) / 2;
             final Color dimYellow =
@@ -2912,14 +2927,14 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
                 Color.lerp(
                   AppColors.success.withValues(alpha: 0.8),
                   loadingColor,
-                  confirmationToLoading,
+                  confirmationVisual,
                 ) ??
                 loadingColor;
             final Color backgroundColor =
                 Color.lerp(
                   loadingBackgroundColor,
                   terminalColor,
-                  loadingToTerminal,
+                  terminalVisual,
                 ) ??
                 terminalColor;
             final double confirmOpacity =
@@ -2928,24 +2943,24 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
                   0,
                   0.55,
                   curve: Curves.easeOut,
-                ).transform(confirmationToLoading);
+                ).transform(confirmationVisual);
             final double estimateOpacity =
                 const Interval(
                   0.35,
                   1,
                   curve: Curves.easeIn,
-                ).transform(confirmationToLoading) *
+                ).transform(confirmationVisual) *
                 (1 -
                     const Interval(
                       0,
                       0.65,
                       curve: Curves.easeOut,
-                    ).transform(loadingToTerminal));
+                    ).transform(terminalVisual));
             final double terminalOpacity = const Interval(
               0.35,
               1,
               curve: Curves.easeIn,
-            ).transform(loadingToTerminal);
+            ).transform(terminalVisual);
             return Align(
               alignment: Alignment.centerRight,
               child: Semantics(

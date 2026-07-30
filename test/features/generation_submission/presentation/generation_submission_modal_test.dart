@@ -312,7 +312,7 @@ void main() {
 
     final double compactWidth = tester.getSize(pill).width;
     expect(compactWidth, lessThan(fullWidth));
-    expect(transitioningWidth, greaterThan(compactWidth));
+    expect(transitioningWidth, lessThan(compactWidth));
     expect(
       tester.getRect(pill).right,
       moreOrLessEquals(tester.getRect(pillHost).right, epsilon: 0.01),
@@ -374,7 +374,13 @@ void main() {
       0,
     );
 
-    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump(const Duration(milliseconds: 60));
+
+    final double approachingWidth = tester.getSize(pill).width;
+    expect(approachingWidth, lessThan(loadingWidth));
+    expect(approachingWidth, greaterThan(22));
+
+    await tester.pump(const Duration(milliseconds: 90));
 
     final double transitioningWidth = tester.getSize(pill).width;
     final Color transitioningColor = _generationPillBackgroundColor(
@@ -382,7 +388,8 @@ void main() {
       'completed-transition',
     );
     expect(transitioningWidth, lessThan(loadingWidth));
-    expect(transitioningWidth, greaterThan(22));
+    expect(transitioningWidth, lessThan(22));
+    expect(tester.getSize(pill).height, 22);
     expect(transitioningColor, isNot(AppColors.accentYellow));
     expect(transitioningColor, isNot(AppColors.blackOverlay(0.45)));
     expect(
@@ -455,13 +462,20 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump(const Duration(milliseconds: 60));
+
+    final Size approachingSize = tester.getSize(pill);
+    expect(approachingSize.width, lessThan(loadingWidth));
+    expect(approachingSize.width, greaterThan(24));
+    expect(approachingSize.height, greaterThan(22));
+    expect(approachingSize.height, lessThan(24));
+
+    await tester.pump(const Duration(milliseconds: 90));
 
     final Size transitioningSize = tester.getSize(pill);
     expect(transitioningSize.width, lessThan(loadingWidth));
-    expect(transitioningSize.width, greaterThan(24));
-    expect(transitioningSize.height, greaterThan(22));
-    expect(transitioningSize.height, lessThan(24));
+    expect(transitioningSize.width, lessThan(24));
+    expect(transitioningSize.height, 24);
     expect(
       _generationPillContentOpacity(
         tester,
@@ -500,8 +514,7 @@ void main() {
     expect(tester.getSize(pill), const Size.square(24));
 
     await tester.pump(const Duration(milliseconds: 150));
-    expect(tester.getSize(pill).width, greaterThan(24));
-    expect(tester.getSize(pill).width, lessThan(loadingWidth));
+    expect(tester.getSize(pill).width, greaterThan(loadingWidth));
 
     await tester.pump(const Duration(milliseconds: 150));
     expect(tester.getSize(pill).width, loadingWidth);
