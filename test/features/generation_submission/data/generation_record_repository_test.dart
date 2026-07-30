@@ -132,6 +132,43 @@ void main() {
     expect(record.originalAssetId, 'asset-1');
   });
 
+  test('starts a generation attempt only from awaiting confirmation', () async {
+    final DateTime createdAt = DateTime.utc(2026, 7, 28, 8);
+    final DateTime startedAt = DateTime.utc(2026, 7, 28, 8, 5);
+    await repository.createCameraRecord(
+      recordId: 'begin-attempt',
+      originalLocalPath: '/tmp/begin-attempt.heic',
+      createdAt: createdAt,
+    );
+
+    expect(
+      await repository.beginGenerationAttempt(
+        recordId: 'begin-attempt',
+        startedAt: startedAt,
+      ),
+      isTrue,
+    );
+    expect(
+      await repository.beginGenerationAttempt(
+        recordId: 'begin-attempt',
+        startedAt: startedAt.add(const Duration(minutes: 1)),
+      ),
+      isFalse,
+    );
+
+    final GenerationRecord record = (await repository.findById(
+      'begin-attempt',
+    ))!;
+    expect(
+      record.pipelineStatus,
+      GenerationRecordPipelineStatus.awaitingRetry.name,
+    );
+    expect(
+      record.generationStartedAt?.millisecondsSinceEpoch,
+      startedAt.millisecondsSinceEpoch,
+    );
+  });
+
   test('marks original cleared without deleting record', () async {
     final DateTime createdAt = DateTime.utc(2026, 6, 4, 3);
     final DateTime clearedAt = DateTime.utc(2026, 6, 5, 3);
@@ -428,6 +465,10 @@ void main() {
     expect(
       record.pipelineStatus,
       GenerationRecordPipelineStatus.awaitingRetry.name,
+    );
+    expect(
+      record.generationStartedAt?.millisecondsSinceEpoch,
+      retryAt.millisecondsSinceEpoch,
     );
     expect(record.resultNotificationSeenAt, isNull);
   });

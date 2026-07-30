@@ -5,6 +5,8 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../domain/generation_record.dart';
+
 part 'generation_record_database.g.dart';
 
 class GenerationRecords extends Table {
@@ -12,6 +14,7 @@ class GenerationRecords extends Table {
 
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
+  DateTimeColumn get generationStartedAt => dateTime().nullable()();
 
   TextColumn get pipelineStatus => text()();
   TextColumn get originalSourceType => text()();
@@ -74,7 +77,7 @@ class GenerationRecords extends Table {
 
 @DriftDatabase(tables: <Type>[GenerationRecords])
 class GenerationRecordDatabase extends _$GenerationRecordDatabase {
-  static const int currentSchemaVersion = 3;
+  static const int currentSchemaVersion = 4;
 
   GenerationRecordDatabase() : super(_openConnection());
 
@@ -94,6 +97,8 @@ class GenerationRecordDatabase extends _$GenerationRecordDatabase {
               await _migrateFrom1To2(migrator);
             case 2:
               await _migrateFrom2To3(migrator);
+            case 3:
+              await _migrateFrom3To4(migrator);
           }
         }
       },
@@ -112,6 +117,26 @@ class GenerationRecordDatabase extends _$GenerationRecordDatabase {
     await migrator.addColumn(
       generationRecords,
       generationRecords.captureAspectRatio,
+    );
+  }
+
+  Future<void> _migrateFrom3To4(Migrator migrator) async {
+    await migrator.addColumn(
+      generationRecords,
+      generationRecords.generationStartedAt,
+    );
+    await customStatement(
+      '''
+UPDATE generation_records
+SET generation_started_at = updated_at
+WHERE generation_started_at IS NULL
+  AND pipeline_status NOT IN (?, ?, ?)
+''',
+      <Object?>[
+        GenerationRecordPipelineStatus.awaitingConfirmation.name,
+        GenerationRecordPipelineStatus.resultSaved.name,
+        GenerationRecordPipelineStatus.canceled.name,
+      ],
     );
   }
 }

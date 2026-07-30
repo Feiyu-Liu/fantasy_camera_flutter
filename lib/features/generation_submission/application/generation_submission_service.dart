@@ -244,7 +244,7 @@ class GenerationSubmissionService extends ChangeNotifier {
   }
 
   Future<void> confirmJob(String recordId) async {
-    final GenerationRecord? record = await _generationRecordRepository.findById(
+    GenerationRecord? record = await _generationRecordRepository.findById(
       recordId,
     );
     if (record == null) {
@@ -259,6 +259,20 @@ class GenerationSubmissionService extends ChangeNotifier {
       return;
     }
 
+    final DateTime startedAt = DateTime.now();
+    final bool started = await _generationRecordRepository
+        .beginGenerationAttempt(recordId: recordId, startedAt: startedAt);
+    if (!started) {
+      _debugLog(
+        'confirm skipped record=$recordId reason=concurrent-status-change',
+      );
+      return;
+    }
+    record = await _generationRecordRepository.findById(recordId);
+    if (record == null) {
+      _debugLog('confirm skipped record=$recordId reason=missing-after-start');
+      return;
+    }
     _debugLog(
       'confirm record=$recordId path=${await _sourcePathForRecord(record)}',
     );
@@ -1055,6 +1069,7 @@ class GenerationSubmissionService extends ChangeNotifier {
           errorCode: error.code,
           errorMessage: error.message,
           clearFailure: true,
+          clearGenerationStartedAt: true,
         );
         return;
       }
@@ -1092,6 +1107,9 @@ class GenerationSubmissionService extends ChangeNotifier {
     );
 
     switch (status) {
+      case GenerationRecordPipelineStatus.awaitingRetry:
+        await _submitRecord(record);
+        return;
       case GenerationRecordPipelineStatus.submitted:
       case GenerationRecordPipelineStatus.pollingTask:
         final String? taskId = record.taskId;
@@ -1210,7 +1228,6 @@ class GenerationSubmissionService extends ChangeNotifier {
           await _submitRecord(retryRecord);
         }
       case GenerationRecordPipelineStatus.awaitingConfirmation:
-      case GenerationRecordPipelineStatus.awaitingRetry:
       case GenerationRecordPipelineStatus.localOriginalSaveFailed:
       case GenerationRecordPipelineStatus.submissionFailed:
       case GenerationRecordPipelineStatus.resultSaved:
@@ -1984,6 +2001,7 @@ class GenerationSubmissionService extends ChangeNotifier {
         status: status,
         createdAt: record.createdAt,
         updatedAt: record.updatedAt,
+        generationStartedAt: record.generationStartedAt,
         taskId: record.taskId,
         taskStatus: _taskStatusFromWire(record.taskStatus),
         resultImageObjectId: record.resultImageObjectId,
@@ -2027,6 +2045,7 @@ class GenerationSubmissionService extends ChangeNotifier {
       status: status,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
+      generationStartedAt: record.generationStartedAt,
       uploadSessionId: record.uploadSessionId,
       promptSelection: _promptSelectionForRecord(record),
       captureAspectRatio: CameraCaptureAspectRatio.fromNullableStorageValue(

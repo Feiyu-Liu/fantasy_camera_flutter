@@ -221,6 +221,7 @@ class GenerationRecordRepository {
     String? errorMessage,
     bool clearError = false,
     bool clearFailure = false,
+    bool clearGenerationStartedAt = false,
   }) {
     return _updateById(
       recordId,
@@ -239,8 +240,39 @@ class GenerationRecordRepository {
         failureRetryable: clearFailure
             ? const Value<bool?>(null)
             : const Value<bool?>.absent(),
+        generationStartedAt: clearGenerationStartedAt
+            ? const Value<DateTime?>(null)
+            : const Value<DateTime?>.absent(),
       ),
     );
+  }
+
+  Future<bool> beginGenerationAttempt({
+    required String recordId,
+    required DateTime startedAt,
+  }) async {
+    final UpdateStatement<$GenerationRecordsTable, GenerationRecord> update =
+        _database.update(_database.generationRecords)..where(
+          ($GenerationRecordsTable table) =>
+              table.recordId.equals(recordId) &
+              table.pipelineStatus.equals(
+                GenerationRecordPipelineStatus.awaitingConfirmation.name,
+              ),
+        );
+    final int updatedRows = await update.write(
+      GenerationRecordsCompanion(
+        updatedAt: Value<DateTime>(startedAt),
+        generationStartedAt: Value<DateTime?>(startedAt),
+        pipelineStatus: Value<String>(
+          GenerationRecordPipelineStatus.awaitingRetry.name,
+        ),
+        errorCode: const Value<String?>(null),
+        errorMessage: const Value<String?>(null),
+        failureStage: const Value<String?>(null),
+        failureRetryable: const Value<bool?>(null),
+      ),
+    );
+    return updatedRows == 1;
   }
 
   Future<void> markFailure({
@@ -443,6 +475,7 @@ class GenerationRecordRepository {
       recordId,
       GenerationRecordsCompanion(
         updatedAt: Value<DateTime>(updatedAt),
+        generationStartedAt: Value<DateTime?>(updatedAt),
         pipelineStatus: Value<String>(
           GenerationRecordPipelineStatus.awaitingRetry.name,
         ),

@@ -28,6 +28,7 @@ class GenerationSubmissionJob {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
+    this.generationStartedAt,
     this.uploadSessionId,
     this.promptSelection,
     this.captureAspectRatio,
@@ -60,6 +61,7 @@ class GenerationSubmissionJob {
   final GenerationSubmissionStatus status;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final DateTime? generationStartedAt;
   final String? uploadSessionId;
   final PromptSelectionSnapshot? promptSelection;
   final CameraCaptureAspectRatio? captureAspectRatio;
@@ -126,6 +128,7 @@ class GenerationSubmissionJob {
   GenerationSubmissionJob copyWith({
     GenerationSubmissionStatus? status,
     DateTime? updatedAt,
+    DateTime? generationStartedAt,
     String? uploadSessionId,
     PromptSelectionSnapshot? promptSelection,
     CameraCaptureAspectRatio? captureAspectRatio,
@@ -160,6 +163,7 @@ class GenerationSubmissionJob {
       status: status ?? this.status,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      generationStartedAt: generationStartedAt ?? this.generationStartedAt,
       uploadSessionId: uploadSessionId ?? this.uploadSessionId,
       promptSelection: promptSelection ?? this.promptSelection,
       captureAspectRatio: captureAspectRatio ?? this.captureAspectRatio,

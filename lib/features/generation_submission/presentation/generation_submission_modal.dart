@@ -6,7 +6,6 @@ import 'dart:ui';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_the_tooltip/just_the_tooltip.dart';
@@ -30,6 +29,7 @@ import '../../camera/presentation/camera_ui/camera_ui_models.dart';
 import '../../camera/presentation/camera_ui/camera_ui_tokens.dart';
 import '../data/generation_submission_adapters.dart';
 import '../domain/generation_record.dart';
+import '../domain/generation_record_state_machine.dart';
 import '../domain/generation_submission_job.dart';
 import 'generation_hero_photo_view_page_options.dart';
 import 'generation_submission_providers.dart';
@@ -2262,7 +2262,9 @@ class _JobThumbnail extends StatelessWidget {
             ),
             if (onRetry == null &&
                 job.status != GenerationSubmissionStatus.awaitingConfirmation &&
-                !_isGenerationInFlight(job.status))
+                !GenerationRecordStateMachine.showsGenerationProgress(
+                  job.status,
+                ))
               Positioned(
                 right: 6,
                 bottom: 6,
@@ -2324,7 +2326,9 @@ class _JobThumbnail extends StatelessWidget {
                   onPressed: onConfirm,
                 ),
               ),
-            if (_isGenerationInFlight(job.status))
+            if (GenerationRecordStateMachine.showsGenerationProgress(
+              job.status,
+            ))
               Positioned(
                 left: 10,
                 right: 10,
@@ -2334,6 +2338,7 @@ class _JobThumbnail extends StatelessWidget {
                     'generation-submission-progress-${job.id}',
                   ),
                   status: job.status,
+                  startedAt: job.generationStartedAt,
                   height: 22,
                 ),
               ),
@@ -2574,29 +2579,6 @@ class _ThumbnailActionButton extends StatelessWidget {
   }
 }
 
-/// Statuses covering the window between the user confirming a photo and the
-/// generated result being stored. The confirm bar stays on screen across this
-/// window and shrinks from the left instead of being replaced by a badge.
-bool _isGenerationInFlight(GenerationSubmissionStatus status) {
-  return switch (status) {
-    GenerationSubmissionStatus.queued ||
-    GenerationSubmissionStatus.preparingUploadImage ||
-    GenerationSubmissionStatus.readingFile ||
-    GenerationSubmissionStatus.creatingUpload ||
-    GenerationSubmissionStatus.uploading ||
-    GenerationSubmissionStatus.uploadedWaitingTask ||
-    GenerationSubmissionStatus.creatingTask ||
-    GenerationSubmissionStatus.submitted ||
-    GenerationSubmissionStatus.pollingTask ||
-    GenerationSubmissionStatus.processingResultImage => true,
-    GenerationSubmissionStatus.awaitingConfirmation ||
-    GenerationSubmissionStatus.completed ||
-    GenerationSubmissionStatus.resultSaved ||
-    GenerationSubmissionStatus.resultProcessingFailed ||
-    GenerationSubmissionStatus.failed => false,
-  };
-}
-
 /// The confirm pill turned into a generation indicator: after the user
 /// confirms, the bar keeps its position and shrinks from the left toward the
 /// right as generation advances, ending as a small dot at the right edge.
@@ -2606,18 +2588,17 @@ bool _isGenerationInFlight(GenerationSubmissionStatus status) {
 /// job has actually reached. Time supplies smooth motion; the status floor
 /// keeps the bar honest when generation is slower or faster than typical.
 ///
-/// Elapsed time is measured by the widget's own ticker, deliberately not from
-/// [GenerationSubmissionJob.updatedAt]: every poll rewrites `updatedAt` to
-/// `DateTime.now()`, which would reset the origin on each tick and freeze the
-/// bar at whatever status floor applied.
+/// Elapsed time is measured from the persisted generation attempt start.
 class _GenerationProgressBar extends StatefulWidget {
   const _GenerationProgressBar({
     super.key,
     required this.status,
+    required this.startedAt,
     this.height = 22,
   });
 
   final GenerationSubmissionStatus status;
+  final DateTime? startedAt;
   final double height;
 
   /// Typical end-to-end generation duration. Time-driven progress eases toward
@@ -2633,69 +2614,165 @@ class _GenerationProgressBar extends StatefulWidget {
 }
 
 class _GenerationProgressBarState extends State<_GenerationProgressBar>
-    with SingleTickerProviderStateMixin {
-  late final Ticker _ticker;
-
-  /// Time elapsed since the bar appeared, taken from the ticker rather than the
-  /// wall clock: it is immune to system clock changes and advances under test.
-  Duration _elapsed = Duration.zero;
-
-  /// Highest progress shown so far. Progress is monotonic: a status arriving
-  /// out of order or a clock adjustment must never make the bar grow back.
-  double _progress = 0;
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  late final AnimationController _timeController;
+  late final AnimationController _stageController;
+  late final Listenable _progressListenable;
+  late Animation<double> _stageProgress;
+  late DateTime _effectiveStartedAt;
+  late double _stageFloor;
+  bool _reduceMotion = false;
+  bool _tickerModeEnabled = true;
 
   @override
   void initState() {
     super.initState();
-    _progress = _targetProgress();
-    _ticker = createTicker(_onTick)..start();
+    WidgetsBinding.instance.addObserver(this);
+    _effectiveStartedAt = widget.startedAt ?? DateTime.now();
+    _stageFloor = _statusFloor(widget.status);
+    _stageProgress = AlwaysStoppedAnimation<double>(_stageFloor);
+    _timeController = AnimationController(
+      vsync: this,
+      duration: _GenerationProgressBar._typicalDuration,
+    );
+    _stageController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 240),
+    );
+    _progressListenable = Listenable.merge(<Listenable>[
+      _timeController,
+      _stageController,
+    ]);
   }
 
   @override
   void didUpdateWidget(_GenerationProgressBar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final DateTime? startedAt = widget.startedAt;
+    final DateTime? oldStartedAt = oldWidget.startedAt;
+    if (startedAt != null && startedAt != oldStartedAt) {
+      final bool isNewAttempt = oldStartedAt != null;
+      _effectiveStartedAt = startedAt;
+      if (isNewAttempt) {
+        _resetStageProgress();
+      }
+      _syncTimeProgress(reset: isNewAttempt);
+    }
     if (widget.status != oldWidget.status) {
-      _syncProgress();
+      _advanceStageProgress();
+      if (_reduceMotion) {
+        _syncTimeProgress();
+      }
     }
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final bool reduceMotion =
+        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final bool tickerModeEnabled = TickerMode.valuesOf(context).enabled;
+    final bool policyChanged =
+        reduceMotion != _reduceMotion ||
+        tickerModeEnabled != _tickerModeEnabled;
+    _reduceMotion = reduceMotion;
+    _tickerModeEnabled = tickerModeEnabled;
+    if (policyChanged || !_timeController.isAnimating) {
+      _applyMotionPolicy();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncTimeProgress();
+      return;
+    }
+    _timeController.stop();
+  }
+
+  @override
   void dispose() {
-    _ticker.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _stageController.dispose();
+    _timeController.dispose();
     super.dispose();
   }
 
-  void _onTick(Duration elapsed) {
-    _elapsed = elapsed;
-    _syncProgress();
-  }
-
-  void _syncProgress() {
-    final double next = math.max(_progress, _targetProgress());
-    if ((next - _progress).abs() < 0.001) {
+  void _applyMotionPolicy() {
+    if (_reduceMotion) {
+      _stageController.stop();
+      _stageProgress = AlwaysStoppedAnimation<double>(_stageFloor);
+      _syncTimeProgress();
       return;
     }
-    setState(() => _progress = next);
+    _syncTimeProgress();
   }
 
-  /// Combines the eased time estimate with the floor implied by the status the
-  /// job has reached, taking whichever is further along.
-  double _targetProgress() {
-    return math.max(_statusFloor(widget.status), _elapsedProgress());
+  void _syncTimeProgress({bool reset = false}) {
+    final double measuredFraction = _elapsedFraction();
+    final double elapsedFraction = reset
+        ? measuredFraction
+        : math.max(_timeController.value, measuredFraction);
+    _timeController.value = elapsedFraction;
+    if (_canAnimate && elapsedFraction < 1) {
+      _timeController.forward();
+    } else {
+      _timeController.stop();
+    }
   }
 
-  double _elapsedProgress() {
-    final double elapsed = _elapsed.inMilliseconds.toDouble();
-    if (elapsed <= 0) {
+  bool get _canAnimate {
+    final AppLifecycleState? lifecycleState =
+        WidgetsBinding.instance.lifecycleState;
+    return !_reduceMotion &&
+        _tickerModeEnabled &&
+        (lifecycleState == null || lifecycleState == AppLifecycleState.resumed);
+  }
+
+  double _elapsedFraction() {
+    final int elapsedMilliseconds = DateTime.now()
+        .difference(_effectiveStartedAt)
+        .inMilliseconds;
+    if (elapsedMilliseconds <= 0) {
       return 0;
     }
-    final double fraction =
-        (elapsed / _GenerationProgressBar._typicalDuration.inMilliseconds)
-            .clamp(0.0, 1.0);
+    return (elapsedMilliseconds /
+            _GenerationProgressBar._typicalDuration.inMilliseconds)
+        .clamp(0.0, 1.0);
+  }
+
+  double _elapsedProgress(double fraction) {
     // Gentle ease-out: still decelerates toward the ceiling, but without the
     // steep opening of a cubic, which read as the bar "snapping" shut.
     final double eased = 1 - math.pow(1 - fraction, 1.6).toDouble();
     return eased * _GenerationProgressBar._timeCeiling;
+  }
+
+  void _resetStageProgress() {
+    _stageController.stop();
+    _stageFloor = _statusFloor(widget.status);
+    _stageProgress = AlwaysStoppedAnimation<double>(_stageFloor);
+  }
+
+  void _advanceStageProgress() {
+    final double nextFloor = math.max(_stageFloor, _statusFloor(widget.status));
+    if ((nextFloor - _stageFloor).abs() < 0.001) {
+      return;
+    }
+    final double currentFloor = _stageProgress.value;
+    _stageFloor = nextFloor;
+    _stageController.stop();
+    if (_reduceMotion) {
+      _stageProgress = AlwaysStoppedAnimation<double>(_stageFloor);
+      return;
+    }
+    _stageController.value = 0;
+    _stageProgress = Tween<double>(begin: currentFloor, end: _stageFloor)
+        .animate(
+          CurvedAnimation(parent: _stageController, curve: Curves.easeOutCubic),
+        );
+    _stageController.forward();
   }
 
   /// Minimum progress guaranteed by each pipeline stage. These stay low for
@@ -2726,12 +2803,6 @@ class _GenerationProgressBarState extends State<_GenerationProgressBar>
 
   @override
   Widget build(BuildContext context) {
-    final bool reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    // Remaining width: full pill at 0% shrinking to a dot at 100%. The bar is
-    // anchored to the right edge, so its left edge sweeps rightward as
-    // generation advances and the dot settles where the pill ended.
-    final double remaining = (1 - _progress).clamp(0.0, 1.0);
     return SizedBox(
       height: widget.height,
       child: Align(
@@ -2740,23 +2811,39 @@ class _GenerationProgressBarState extends State<_GenerationProgressBar>
           builder: (BuildContext context, BoxConstraints constraints) {
             final double fullWidth = constraints.maxWidth;
             final double minWidth = widget.height;
-            final double width = minWidth + (fullWidth - minWidth) * remaining;
-            return AnimatedContainer(
-              duration: reduceMotion
-                  ? Duration.zero
-                  : const Duration(milliseconds: 240),
-              curve: Curves.easeOutCubic,
-              width: width,
-              height: widget.height,
-              decoration: AppCorners.controlDecoration(
-                color: AppColors.success.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(999),
+            return AnimatedBuilder(
+              animation: _progressListenable,
+              child: DecoratedBox(
+                decoration: AppCorners.controlDecoration(
+                  color: AppColors.success.withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Center(
+                  child: CupertinoActivityIndicator(
+                    color: AppColors.white,
+                    radius: 6,
+                  ),
+                ),
               ),
-              alignment: Alignment.center,
-              child: CupertinoActivityIndicator(
-                color: AppColors.white,
-                radius: 6,
-              ),
+              builder: (BuildContext context, Widget? child) {
+                final double progress = math.max(
+                  _stageProgress.value,
+                  _elapsedProgress(_timeController.value),
+                );
+                // Remaining width: full pill at 0% shrinking to a dot at 100%.
+                // The right edge remains fixed while the left edge moves.
+                final double remaining = (1 - progress).clamp(0.0, 1.0);
+                final double width =
+                    minWidth + (fullWidth - minWidth) * remaining;
+                return SizedBox(
+                  key: const ValueKey<String>(
+                    'generation-submission-progress-fill',
+                  ),
+                  width: width,
+                  height: widget.height,
+                  child: child,
+                );
+              },
             );
           },
         ),

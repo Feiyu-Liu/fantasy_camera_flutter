@@ -135,9 +135,15 @@ void main() {
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-status-completed'),
+        const ValueKey<String>('generation-submission-progress-completed'),
       ),
       findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-status-completed'),
+      ),
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey<String>('generation-submission-status-failed')),
@@ -156,9 +162,8 @@ void main() {
   testWidgets('generation progress bar shrinks as the pipeline advances', (
     WidgetTester tester,
   ) async {
-    // The bar times itself from its own first frame, so both jobs start from
-    // the same elapsed origin and the width difference comes from the status
-    // floor alone.
+    // Both jobs have no persisted timestamp in this fixture, so the widgets use
+    // the same mount-time fallback and differ only by their status floors.
     final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
       _job(id: 'early', status: GenerationSubmissionStatus.uploading),
       _job(
@@ -175,7 +180,9 @@ void main() {
         of: find.byKey(
           const ValueKey<String>('generation-submission-progress-early'),
         ),
-        matching: find.byType(AnimatedContainer),
+        matching: find.byKey(
+          const ValueKey<String>('generation-submission-progress-fill'),
+        ),
       ),
     );
     final Size lateBar = tester.getSize(
@@ -183,7 +190,9 @@ void main() {
         of: find.byKey(
           const ValueKey<String>('generation-submission-progress-late'),
         ),
-        matching: find.byType(AnimatedContainer),
+        matching: find.byKey(
+          const ValueKey<String>('generation-submission-progress-fill'),
+        ),
       ),
     );
 
@@ -204,7 +213,9 @@ void main() {
         of: find.byKey(
           const ValueKey<String>('generation-submission-progress-late'),
         ),
-        matching: find.byType(AnimatedContainer),
+        matching: find.byKey(
+          const ValueKey<String>('generation-submission-progress-fill'),
+        ),
       ),
     );
     expect(lateRect.right, moreOrLessEquals(lateSlot.right, epsilon: 0.01));
@@ -229,7 +240,9 @@ void main() {
       of: find.byKey(
         const ValueKey<String>('generation-submission-progress-polling'),
       ),
-      matching: find.byType(AnimatedContainer),
+      matching: find.byKey(
+        const ValueKey<String>('generation-submission-progress-fill'),
+      ),
     );
     final double initialWidth = tester.getSize(barFinder).width;
 
@@ -248,6 +261,142 @@ void main() {
 
     final double laterWidth = tester.getSize(barFinder).width;
     expect(laterWidth, lessThan(initialWidth));
+  });
+
+  testWidgets('generation progress survives thumbnail remounts', (
+    WidgetTester tester,
+  ) async {
+    final DateTime startedAt = DateTime.now().subtract(
+      const Duration(seconds: 35),
+    );
+    GenerationSubmissionJob job = _job(
+      id: 'persisted-progress',
+      status: GenerationSubmissionStatus.pollingTask,
+      generationStartedAt: startedAt,
+    );
+
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        key: const ValueKey<String>('first-progress-host'),
+        jobs: <GenerationSubmissionJob>[job],
+      ),
+    );
+    final Finder firstSlot = find.byKey(
+      const ValueKey<String>(
+        'generation-submission-progress-persisted-progress',
+      ),
+    );
+    final Finder firstFill = find.descendant(
+      of: firstSlot,
+      matching: find.byKey(
+        const ValueKey<String>('generation-submission-progress-fill'),
+      ),
+    );
+    final double firstSlotWidth = tester.getSize(firstSlot).width;
+    final double firstWidth = tester.getSize(firstFill).width;
+    expect(firstWidth, lessThan(firstSlotWidth * 0.8));
+
+    job = _job(
+      id: 'persisted-progress',
+      status: GenerationSubmissionStatus.pollingTask,
+      generationStartedAt: startedAt,
+    );
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        key: const ValueKey<String>('second-progress-host'),
+        jobs: <GenerationSubmissionJob>[job],
+      ),
+    );
+    final Finder secondFill = find.descendant(
+      of: find.byKey(
+        const ValueKey<String>(
+          'generation-submission-progress-persisted-progress',
+        ),
+      ),
+      matching: find.byKey(
+        const ValueKey<String>('generation-submission-progress-fill'),
+      ),
+    );
+    final double secondWidth = tester.getSize(secondFill).width;
+
+    expect(secondWidth, lessThanOrEqualTo(firstWidth + 0.5));
+  });
+
+  testWidgets('completed keeps the progress pill visible', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+    final DateTime startedAt = DateTime.now().subtract(
+      const Duration(seconds: 20),
+    );
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        key: hostKey,
+        jobs: <GenerationSubmissionJob>[
+          _job(
+            id: 'completion',
+            status: GenerationSubmissionStatus.pollingTask,
+            generationStartedAt: startedAt,
+          ),
+        ],
+      ),
+    );
+
+    await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+      _job(
+        id: 'completion',
+        status: GenerationSubmissionStatus.completed,
+        generationStartedAt: startedAt,
+      ),
+    ]);
+    await tester.pump();
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-progress-completion'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-status-completed'),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('reduce motion stops continuous progress resizing', (
+    WidgetTester tester,
+  ) async {
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        disableAnimations: true,
+        jobs: <GenerationSubmissionJob>[
+          _job(
+            id: 'reduced-motion',
+            status: GenerationSubmissionStatus.pollingTask,
+            generationStartedAt: DateTime.now(),
+          ),
+        ],
+      ),
+    );
+    final Finder fill = find.descendant(
+      of: find.byKey(
+        const ValueKey<String>('generation-submission-progress-reduced-motion'),
+      ),
+      matching: find.byKey(
+        const ValueKey<String>('generation-submission-progress-fill'),
+      ),
+    );
+    final double initialWidth = tester.getSize(fill).width;
+
+    await tester.pump(const Duration(seconds: 10));
+
+    expect(tester.getSize(fill).width, initialWidth);
   });
 
   test('thumbnail prompt badge reflects capture mode and switches', () {
@@ -1895,6 +2044,7 @@ class _ModalHost extends StatefulWidget {
     this.creditBalance = 99,
     this.creditBalanceFailure,
     this.enableRouter = false,
+    this.disableAnimations = false,
   });
 
   final List<GenerationSubmissionJob> jobs;
@@ -1907,6 +2057,7 @@ class _ModalHost extends StatefulWidget {
   final int creditBalance;
   final Object? creditBalanceFailure;
   final bool enableRouter;
+  final bool disableAnimations;
 
   @override
   State<_ModalHost> createState() => _ModalHostState();
@@ -1945,9 +2096,15 @@ class _ModalHostState extends State<_ModalHost> {
 
   @override
   Widget build(BuildContext context) {
-    final Widget page = CupertinoPageScaffold(
+    Widget page = CupertinoPageScaffold(
       child: _SeededModal(seedFuture: _seedFuture),
     );
+    if (widget.disableAnimations) {
+      page = MediaQuery(
+        data: MediaQuery.of(context).copyWith(disableAnimations: true),
+        child: page,
+      );
+    }
     final bool useExplicitTheme =
         widget.themePreference != AppThemePreference.light;
     return AppToastHost(
@@ -2176,6 +2333,7 @@ class _NotifyingGenerationRecordRepository extends GenerationRecordRepository {
     String? errorMessage,
     bool clearError = false,
     bool clearFailure = false,
+    bool clearGenerationStartedAt = false,
   }) async {
     await super.updatePipelineStatus(
       recordId: recordId,
@@ -2185,8 +2343,22 @@ class _NotifyingGenerationRecordRepository extends GenerationRecordRepository {
       errorMessage: errorMessage,
       clearError: clearError,
       clearFailure: clearFailure,
+      clearGenerationStartedAt: clearGenerationStartedAt,
     );
     await _emitRecords();
+  }
+
+  @override
+  Future<bool> beginGenerationAttempt({
+    required String recordId,
+    required DateTime startedAt,
+  }) async {
+    final bool started = await super.beginGenerationAttempt(
+      recordId: recordId,
+      startedAt: startedAt,
+    );
+    await _emitRecords();
+    return started;
   }
 
   @override
@@ -2324,6 +2496,12 @@ Future<void> _seedJobs(
       appInputContractId: promptSelection.appInputContractId,
       userInputJson: jsonEncode(promptSelection.userInput),
     );
+    if (job.generationStartedAt != null) {
+      await repository.beginGenerationAttempt(
+        recordId: job.id,
+        startedAt: job.generationStartedAt!,
+      );
+    }
     final GenerationRecordPipelineStatus pipelineStatus = _recordStatusForJob(
       job.status,
     );
@@ -2837,6 +3015,7 @@ GenerationSubmissionJob _job({
   String? resultSaveErrorMessage,
   DateTime? resultNegativeFeedbackSubmittedAt,
   DateTime? updatedAt,
+  DateTime? generationStartedAt,
 }) {
   final DateTime now = DateTime.parse('2026-05-29T00:00:00Z');
   final String resolvedImagePath = imagePath ?? _writeImageFile(id).path;
@@ -2871,6 +3050,7 @@ GenerationSubmissionJob _job({
     failureRetryable: retryableFailure,
     createdAt: now,
     updatedAt: updatedAt ?? now,
+    generationStartedAt: generationStartedAt,
   );
 }
 

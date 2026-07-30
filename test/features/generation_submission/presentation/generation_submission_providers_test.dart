@@ -150,6 +150,7 @@ void main() {
     expect(job.uploadSessionId, 'upload-1');
     expect(job.taskId, 'task-1');
     expect(job.taskStatus, GenerationTaskStatus.pending);
+    expect(job.generationStartedAt, isNotNull);
     expect(imageProcessor.preparedSourcePaths, <String>[
       '/resolved/originals/2026/06/04/$jobId.heic',
     ]);
@@ -540,6 +541,7 @@ void main() {
       expect(job.failureStage, isNull);
       expect(job.failureRetryable, isFalse);
       expect(job.isRetryableFailure, isFalse);
+      expect(job.generationStartedAt, isNull);
       expect(uploadRepository.events, <String>['create:image/jpeg:4']);
       expect(taskRepository.createdInputs, isEmpty);
     },
@@ -1181,6 +1183,66 @@ void main() {
     );
     expect(record?.resultAssetId, 'asset-result-1');
     expect(photoLibraryAssetStore.events.single, contains('record-resume'));
+  });
+
+  test('resumes an interrupted confirmed submission', () async {
+    final GenerationRecordDatabase database =
+        GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
+    addTearDown(database.close);
+    final GenerationRecordRepository repository = GenerationRecordRepository(
+      database,
+    );
+    final _FakeUploadRepository uploadRepository = _FakeUploadRepository();
+    final _FakeGenerationTaskRepository taskRepository =
+        _FakeGenerationTaskRepository();
+    final _FakeGenerationImageProcessor imageProcessor =
+        _FakeGenerationImageProcessor();
+    final DateTime startedAt = DateTime.utc(2026, 7, 28, 8);
+
+    await repository.createCameraRecord(
+      recordId: 'record-interrupted-confirm',
+      originalLocalPath: 'originals/record-interrupted-confirm.heic',
+      createdAt: startedAt.subtract(const Duration(minutes: 1)),
+      promptStyle: 'realistic',
+      captureMode: 'auto',
+    );
+    expect(
+      await repository.beginGenerationAttempt(
+        recordId: 'record-interrupted-confirm',
+        startedAt: startedAt,
+      ),
+      isTrue,
+    );
+
+    final GenerationSubmissionService service = GenerationSubmissionService(
+      uploadRepository: uploadRepository,
+      generationTaskRepository: taskRepository,
+      feedbackRepository: _FakeFeedbackRepository(),
+      generationRecordRepository: repository,
+      originalFileStore: _FakeGenerationOriginalFileStore(),
+      photoLibraryAssetStore: _FakePhotoLibraryAssetStore(),
+      imageProcessor: imageProcessor,
+      backgroundR2UploadService: _FakeBackgroundR2UploadService(),
+    );
+    addTearDown(service.dispose);
+
+    await service.resumeActiveRecords();
+
+    final GenerationRecord record = (await repository.findById(
+      'record-interrupted-confirm',
+    ))!;
+    expect(
+      record.generationStartedAt?.millisecondsSinceEpoch,
+      startedAt.millisecondsSinceEpoch,
+    );
+    expect(
+      record.pipelineStatus,
+      GenerationRecordPipelineStatus.pollingTask.name,
+    );
+    expect(imageProcessor.preparedSourcePaths, <String>[
+      '/resolved/originals/record-interrupted-confirm.heic',
+    ]);
+    expect(uploadRepository.events, contains('create:image/jpeg:4'));
   });
 
   test('concurrent resume active records polls a task only once', () async {

@@ -24,6 +24,7 @@ class GenerationRecordStateMachine {
 
   static const Set<GenerationRecordPipelineStatus> activeStatuses =
       <GenerationRecordPipelineStatus>{
+        GenerationRecordPipelineStatus.awaitingRetry,
         GenerationRecordPipelineStatus.preparingUploadImage,
         GenerationRecordPipelineStatus.creatingUpload,
         GenerationRecordPipelineStatus.uploading,
@@ -99,6 +100,26 @@ class GenerationRecordStateMachine {
     return status == GenerationSubmissionStatus.resultSaved ||
         status == GenerationSubmissionStatus.resultProcessingFailed ||
         status == GenerationSubmissionStatus.failed;
+  }
+
+  static bool showsGenerationProgress(GenerationSubmissionStatus status) {
+    return switch (status) {
+      GenerationSubmissionStatus.queued ||
+      GenerationSubmissionStatus.preparingUploadImage ||
+      GenerationSubmissionStatus.readingFile ||
+      GenerationSubmissionStatus.creatingUpload ||
+      GenerationSubmissionStatus.uploading ||
+      GenerationSubmissionStatus.uploadedWaitingTask ||
+      GenerationSubmissionStatus.creatingTask ||
+      GenerationSubmissionStatus.submitted ||
+      GenerationSubmissionStatus.pollingTask ||
+      GenerationSubmissionStatus.completed ||
+      GenerationSubmissionStatus.processingResultImage => true,
+      GenerationSubmissionStatus.awaitingConfirmation ||
+      GenerationSubmissionStatus.resultSaved ||
+      GenerationSubmissionStatus.resultProcessingFailed ||
+      GenerationSubmissionStatus.failed => false,
+    };
   }
 
   static bool isCreditAffectingTerminalStatus(

@@ -42,6 +42,17 @@ class $GenerationRecordsTable extends GenerationRecords
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _generationStartedAtMeta =
+      const VerificationMeta('generationStartedAt');
+  @override
+  late final GeneratedColumn<DateTime> generationStartedAt =
+      GeneratedColumn<DateTime>(
+        'generation_started_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _pipelineStatusMeta = const VerificationMeta(
     'pipelineStatus',
   );
@@ -553,6 +564,7 @@ class $GenerationRecordsTable extends GenerationRecords
     recordId,
     createdAt,
     updatedAt,
+    generationStartedAt,
     pipelineStatus,
     originalSourceType,
     originalAvailability,
@@ -634,6 +646,15 @@ class $GenerationRecordsTable extends GenerationRecords
       );
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('generation_started_at')) {
+      context.handle(
+        _generationStartedAtMeta,
+        generationStartedAt.isAcceptableOrUnknown(
+          data['generation_started_at']!,
+          _generationStartedAtMeta,
+        ),
+      );
     }
     if (data.containsKey('pipeline_status')) {
       context.handle(
@@ -1060,6 +1081,10 @@ class $GenerationRecordsTable extends GenerationRecords
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       )!,
+      generationStartedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}generation_started_at'],
+      ),
       pipelineStatus: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}pipeline_status'],
@@ -1254,6 +1279,7 @@ class GenerationRecord extends DataClass
   final String recordId;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final DateTime? generationStartedAt;
   final String pipelineStatus;
   final String originalSourceType;
   final String originalAvailability;
@@ -1303,6 +1329,7 @@ class GenerationRecord extends DataClass
     required this.recordId,
     required this.createdAt,
     required this.updatedAt,
+    this.generationStartedAt,
     required this.pipelineStatus,
     required this.originalSourceType,
     required this.originalAvailability,
@@ -1355,6 +1382,9 @@ class GenerationRecord extends DataClass
     map['record_id'] = Variable<String>(recordId);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || generationStartedAt != null) {
+      map['generation_started_at'] = Variable<DateTime>(generationStartedAt);
+    }
     map['pipeline_status'] = Variable<String>(pipelineStatus);
     map['original_source_type'] = Variable<String>(originalSourceType);
     map['original_availability'] = Variable<String>(originalAvailability);
@@ -1494,6 +1524,9 @@ class GenerationRecord extends DataClass
       recordId: Value(recordId),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
+      generationStartedAt: generationStartedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(generationStartedAt),
       pipelineStatus: Value(pipelineStatus),
       originalSourceType: Value(originalSourceType),
       originalAvailability: Value(originalAvailability),
@@ -1633,6 +1666,9 @@ class GenerationRecord extends DataClass
       recordId: serializer.fromJson<String>(json['recordId']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      generationStartedAt: serializer.fromJson<DateTime?>(
+        json['generationStartedAt'],
+      ),
       pipelineStatus: serializer.fromJson<String>(json['pipelineStatus']),
       originalSourceType: serializer.fromJson<String>(
         json['originalSourceType'],
@@ -1725,6 +1761,7 @@ class GenerationRecord extends DataClass
       'recordId': serializer.toJson<String>(recordId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'generationStartedAt': serializer.toJson<DateTime?>(generationStartedAt),
       'pipelineStatus': serializer.toJson<String>(pipelineStatus),
       'originalSourceType': serializer.toJson<String>(originalSourceType),
       'originalAvailability': serializer.toJson<String>(originalAvailability),
@@ -1783,6 +1820,7 @@ class GenerationRecord extends DataClass
     String? recordId,
     DateTime? createdAt,
     DateTime? updatedAt,
+    Value<DateTime?> generationStartedAt = const Value.absent(),
     String? pipelineStatus,
     String? originalSourceType,
     String? originalAvailability,
@@ -1832,6 +1870,9 @@ class GenerationRecord extends DataClass
     recordId: recordId ?? this.recordId,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    generationStartedAt: generationStartedAt.present
+        ? generationStartedAt.value
+        : this.generationStartedAt,
     pipelineStatus: pipelineStatus ?? this.pipelineStatus,
     originalSourceType: originalSourceType ?? this.originalSourceType,
     originalAvailability: originalAvailability ?? this.originalAvailability,
@@ -1945,6 +1986,9 @@ class GenerationRecord extends DataClass
       recordId: data.recordId.present ? data.recordId.value : this.recordId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      generationStartedAt: data.generationStartedAt.present
+          ? data.generationStartedAt.value
+          : this.generationStartedAt,
       pipelineStatus: data.pipelineStatus.present
           ? data.pipelineStatus.value
           : this.pipelineStatus,
@@ -2087,6 +2131,7 @@ class GenerationRecord extends DataClass
           ..write('recordId: $recordId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('generationStartedAt: $generationStartedAt, ')
           ..write('pipelineStatus: $pipelineStatus, ')
           ..write('originalSourceType: $originalSourceType, ')
           ..write('originalAvailability: $originalAvailability, ')
@@ -2145,6 +2190,7 @@ class GenerationRecord extends DataClass
     recordId,
     createdAt,
     updatedAt,
+    generationStartedAt,
     pipelineStatus,
     originalSourceType,
     originalAvailability,
@@ -2198,6 +2244,7 @@ class GenerationRecord extends DataClass
           other.recordId == this.recordId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
+          other.generationStartedAt == this.generationStartedAt &&
           other.pipelineStatus == this.pipelineStatus &&
           other.originalSourceType == this.originalSourceType &&
           other.originalAvailability == this.originalAvailability &&
@@ -2251,6 +2298,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
   final Value<String> recordId;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
+  final Value<DateTime?> generationStartedAt;
   final Value<String> pipelineStatus;
   final Value<String> originalSourceType;
   final Value<String> originalAvailability;
@@ -2301,6 +2349,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     this.recordId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.generationStartedAt = const Value.absent(),
     this.pipelineStatus = const Value.absent(),
     this.originalSourceType = const Value.absent(),
     this.originalAvailability = const Value.absent(),
@@ -2352,6 +2401,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     required String recordId,
     required DateTime createdAt,
     required DateTime updatedAt,
+    this.generationStartedAt = const Value.absent(),
     required String pipelineStatus,
     required String originalSourceType,
     required String originalAvailability,
@@ -2409,6 +2459,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     Expression<String>? recordId,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
+    Expression<DateTime>? generationStartedAt,
     Expression<String>? pipelineStatus,
     Expression<String>? originalSourceType,
     Expression<String>? originalAvailability,
@@ -2460,6 +2511,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
       if (recordId != null) 'record_id': recordId,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (generationStartedAt != null)
+        'generation_started_at': generationStartedAt,
       if (pipelineStatus != null) 'pipeline_status': pipelineStatus,
       if (originalSourceType != null)
         'original_source_type': originalSourceType,
@@ -2528,6 +2581,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     Value<String>? recordId,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
+    Value<DateTime?>? generationStartedAt,
     Value<String>? pipelineStatus,
     Value<String>? originalSourceType,
     Value<String>? originalAvailability,
@@ -2579,6 +2633,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
       recordId: recordId ?? this.recordId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      generationStartedAt: generationStartedAt ?? this.generationStartedAt,
       pipelineStatus: pipelineStatus ?? this.pipelineStatus,
       originalSourceType: originalSourceType ?? this.originalSourceType,
       originalAvailability: originalAvailability ?? this.originalAvailability,
@@ -2644,6 +2699,11 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (generationStartedAt.present) {
+      map['generation_started_at'] = Variable<DateTime>(
+        generationStartedAt.value,
+      );
     }
     if (pipelineStatus.present) {
       map['pipeline_status'] = Variable<String>(pipelineStatus.value);
@@ -2810,6 +2870,7 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
           ..write('recordId: $recordId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('generationStartedAt: $generationStartedAt, ')
           ..write('pipelineStatus: $pipelineStatus, ')
           ..write('originalSourceType: $originalSourceType, ')
           ..write('originalAvailability: $originalAvailability, ')
@@ -2883,6 +2944,7 @@ typedef $$GenerationRecordsTableCreateCompanionBuilder =
       required String recordId,
       required DateTime createdAt,
       required DateTime updatedAt,
+      Value<DateTime?> generationStartedAt,
       required String pipelineStatus,
       required String originalSourceType,
       required String originalAvailability,
@@ -2935,6 +2997,7 @@ typedef $$GenerationRecordsTableUpdateCompanionBuilder =
       Value<String> recordId,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
+      Value<DateTime?> generationStartedAt,
       Value<String> pipelineStatus,
       Value<String> originalSourceType,
       Value<String> originalAvailability,
@@ -3004,6 +3067,11 @@ class $$GenerationRecordsTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get generationStartedAt => $composableBuilder(
+    column: $table.generationStartedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3259,6 +3327,11 @@ class $$GenerationRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get generationStartedAt => $composableBuilder(
+    column: $table.generationStartedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get pipelineStatus => $composableBuilder(
     column: $table.pipelineStatus,
     builder: (column) => ColumnOrderings(column),
@@ -3504,6 +3577,11 @@ class $$GenerationRecordsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get generationStartedAt => $composableBuilder(
+    column: $table.generationStartedAt,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get pipelineStatus => $composableBuilder(
     column: $table.pipelineStatus,
@@ -3772,6 +3850,7 @@ class $$GenerationRecordsTableTableManager
                 Value<String> recordId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> generationStartedAt = const Value.absent(),
                 Value<String> pipelineStatus = const Value.absent(),
                 Value<String> originalSourceType = const Value.absent(),
                 Value<String> originalAvailability = const Value.absent(),
@@ -3825,6 +3904,7 @@ class $$GenerationRecordsTableTableManager
                 recordId: recordId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                generationStartedAt: generationStartedAt,
                 pipelineStatus: pipelineStatus,
                 originalSourceType: originalSourceType,
                 originalAvailability: originalAvailability,
@@ -3879,6 +3959,7 @@ class $$GenerationRecordsTableTableManager
                 required String recordId,
                 required DateTime createdAt,
                 required DateTime updatedAt,
+                Value<DateTime?> generationStartedAt = const Value.absent(),
                 required String pipelineStatus,
                 required String originalSourceType,
                 required String originalAvailability,
@@ -3932,6 +4013,7 @@ class $$GenerationRecordsTableTableManager
                 recordId: recordId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                generationStartedAt: generationStartedAt,
                 pipelineStatus: pipelineStatus,
                 originalSourceType: originalSourceType,
                 originalAvailability: originalAvailability,
