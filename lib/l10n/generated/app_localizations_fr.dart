@@ -255,6 +255,14 @@ class AppLocalizationsFr extends AppLocalizations {
       'Chaque optimisation de photo utilise 2 crédits. Après confirmation, il faut environ 1 minute. Tu peux quitter l\'app, nous t\'enverrons une notification à la fin.';
 
   @override
+  String generationSubmissionEstimatedRemainingSeconds(int seconds) {
+    return 'Env. $seconds s';
+  }
+
+  @override
+  String get generationSubmissionEstimatedFinishing => 'Presque fini';
+
+  @override
   String get generationSubmissionConfirmationGuideDismiss => 'Compris';
 
   @override

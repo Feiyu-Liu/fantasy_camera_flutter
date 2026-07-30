@@ -535,6 +535,18 @@ abstract class AppLocalizations {
   /// **'Each photo enhancement uses 2 credits. After confirming, it takes about 1 minute. You can leave the app, and we\'ll notify you when it\'s done.'**
   String get generationSubmissionConfirmationGuideMessage;
 
+  /// No description provided for @generationSubmissionEstimatedRemainingSeconds.
+  ///
+  /// In en, this message translates to:
+  /// **'About {seconds}s'**
+  String generationSubmissionEstimatedRemainingSeconds(int seconds);
+
+  /// No description provided for @generationSubmissionEstimatedFinishing.
+  ///
+  /// In en, this message translates to:
+  /// **'Almost done'**
+  String get generationSubmissionEstimatedFinishing;
+
   /// No description provided for @generationSubmissionConfirmationGuideDismiss.
   ///
   /// In en, this message translates to:

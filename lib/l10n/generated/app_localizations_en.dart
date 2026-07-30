@@ -253,6 +253,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Each photo enhancement uses 2 credits. After confirming, it takes about 1 minute. You can leave the app, and we\'ll notify you when it\'s done.';
 
   @override
+  String generationSubmissionEstimatedRemainingSeconds(int seconds) {
+    return 'About ${seconds}s';
+  }
+
+  @override
+  String get generationSubmissionEstimatedFinishing => 'Almost done';
+
+  @override
   String get generationSubmissionConfirmationGuideDismiss => 'Got it';
 
   @override

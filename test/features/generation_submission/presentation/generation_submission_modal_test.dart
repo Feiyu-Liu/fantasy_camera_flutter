@@ -36,11 +36,13 @@ import 'package:fantasy_camera_flutter/features/generation_submission/presentati
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
 import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
 import 'package:fantasy_camera_flutter/shared/toast/app_toast.dart';
+import 'package:fantasy_camera_flutter/theme/app_colors.dart';
 import 'package:fantasy_camera_flutter/theme/app_theme.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:my_ui/my_ui.dart';
 
 void main() {
@@ -129,13 +131,13 @@ void main() {
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-progress-processing'),
+        const ValueKey<String>('generation-submission-estimate-processing'),
       ),
       findsOneWidget,
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-progress-completed'),
+        const ValueKey<String>('generation-submission-estimate-completed'),
       ),
       findsOneWidget,
     );
@@ -159,11 +161,9 @@ void main() {
     );
   });
 
-  testWidgets('generation progress bar shrinks as the pipeline advances', (
+  testWidgets('generation estimate pill keeps a fixed right-aligned width', (
     WidgetTester tester,
   ) async {
-    // Both jobs have no persisted timestamp in this fixture, so the widgets use
-    // the same mount-time fallback and differ only by their status floors.
     final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
       _job(id: 'early', status: GenerationSubmissionStatus.uploading),
       _job(
@@ -175,59 +175,507 @@ void main() {
     await _pumpModalHost(tester, _ModalHost(jobs: jobs));
     await tester.pump();
 
-    final Size earlyBar = tester.getSize(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey<String>('generation-submission-progress-early'),
-        ),
-        matching: find.byKey(
-          const ValueKey<String>('generation-submission-progress-fill'),
-        ),
+    final Finder earlySlot = find.byKey(
+      const ValueKey<String>('generation-submission-estimate-early'),
+    );
+    final Finder lateSlot = find.byKey(
+      const ValueKey<String>('generation-submission-estimate-late'),
+    );
+    final Finder earlyPill = find.descendant(
+      of: earlySlot,
+      matching: find.byKey(
+        const ValueKey<String>('generation-submission-estimate-pill'),
       ),
     );
-    final Size lateBar = tester.getSize(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey<String>('generation-submission-progress-late'),
-        ),
-        matching: find.byKey(
-          const ValueKey<String>('generation-submission-progress-fill'),
-        ),
+    final Finder latePill = find.descendant(
+      of: lateSlot,
+      matching: find.byKey(
+        const ValueKey<String>('generation-submission-estimate-pill'),
       ),
     );
+    final Size earlySize = tester.getSize(earlyPill);
+    final Size lateSize = tester.getSize(latePill);
 
-    expect(earlyBar.height, 22);
-    expect(lateBar.height, 22);
-    // Later pipeline stage => more progress => shorter remaining bar.
-    expect(lateBar.width, lessThan(earlyBar.width));
-    // Never shrinks past the pill's own height, so it stays a readable dot.
-    expect(lateBar.width, greaterThanOrEqualTo(22));
-
-    // Shrinking is left-to-right: the bar stays pinned to the right edge of
-    // its slot while the left edge sweeps rightward.
-    final Rect lateSlot = tester.getRect(
-      find.byKey(const ValueKey<String>('generation-submission-progress-late')),
+    expect(earlySize.height, 22);
+    expect(lateSize.height, 22);
+    expect(lateSize.width, moreOrLessEquals(earlySize.width, epsilon: 0.01));
+    expect(
+      tester.getRect(earlyPill).right,
+      moreOrLessEquals(tester.getRect(earlySlot).right, epsilon: 0.01),
     );
-    final Rect lateRect = tester.getRect(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey<String>('generation-submission-progress-late'),
-        ),
-        matching: find.byKey(
-          const ValueKey<String>('generation-submission-progress-fill'),
-        ),
-      ),
+    expect(
+      tester.getRect(latePill).right,
+      moreOrLessEquals(tester.getRect(lateSlot).right, epsilon: 0.01),
     );
-    expect(lateRect.right, moreOrLessEquals(lateSlot.right, epsilon: 0.01));
-    expect(lateRect.left, greaterThan(lateSlot.left));
+    expect(
+      find.descendant(of: earlyPill, matching: find.text('约70s')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: latePill, matching: find.text('即将完成')),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('generation progress bar keeps advancing while polling repeats', (
+  testWidgets('confirmation pill smoothly becomes a yellow loading estimate', (
     WidgetTester tester,
   ) async {
-    // Each poll rewrites the record's updatedAt to "now". The bar must time
-    // itself independently, otherwise every poll resets its elapsed-time
-    // origin and it freezes at the polling status floor.
+    final GlobalKey<_GenerationPillTestHostState> hostKey =
+        GlobalKey<_GenerationPillTestHostState>();
+    final DateTime startedAt = DateTime.now();
+    await _pumpGenerationPillHost(
+      tester,
+      _GenerationPillTestHost(
+        key: hostKey,
+        jobId: 'transition',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+        startedAt: startedAt,
+      ),
+    );
+
+    final Finder pillHost = _generationPillHost('transition');
+    final Finder pill = _generationPill('transition');
+    final double fullWidth = tester.getSize(pill).width;
+    expect(fullWidth, tester.getSize(pillHost).width);
+    expect(
+      _generationPillBackgroundColor(tester, 'transition'),
+      AppColors.success.withValues(alpha: 0.8),
+    );
+    final Icon confirmIcon = tester.widget<Icon>(
+      find.descendant(of: pill, matching: find.byIcon(LucideIcons.check)),
+    );
+    expect(confirmIcon.color, AppColors.white);
+    expect(
+      _generationPillContentOpacity(
+        tester,
+        'transition',
+        'generation-submission-confirm-content',
+      ),
+      1,
+    );
+    expect(
+      _generationPillContentOpacity(
+        tester,
+        'transition',
+        'generation-submission-estimate-content',
+      ),
+      0,
+    );
+
+    hostKey.currentState!.setStatus(GenerationSubmissionStatus.uploading);
+    await tester.pump();
+
+    await tester.pump(const Duration(milliseconds: 150));
+
+    final double transitioningWidth = tester.getSize(pill).width;
+    final Color transitioningColor = _generationPillBackgroundColor(
+      tester,
+      'transition',
+    );
+    expect(transitioningWidth, lessThan(fullWidth));
+    expect(transitioningColor, isNot(AppColors.success.withValues(alpha: 0.8)));
+    expect(transitioningColor, isNot(AppColors.accentYellow));
+    expect(
+      _generationPillContentOpacity(
+        tester,
+        'transition',
+        'generation-submission-confirm-content',
+      ),
+      lessThan(1),
+    );
+    expect(
+      _generationPillContentOpacity(
+        tester,
+        'transition',
+        'generation-submission-confirm-content',
+      ),
+      greaterThan(0),
+    );
+    expect(
+      _generationPillContentOpacity(
+        tester,
+        'transition',
+        'generation-submission-estimate-content',
+      ),
+      greaterThan(0),
+    );
+    expect(
+      _generationPillContentOpacity(
+        tester,
+        'transition',
+        'generation-submission-estimate-content',
+      ),
+      lessThan(1),
+    );
+
+    await tester.pump(const Duration(milliseconds: 150));
+
+    final double compactWidth = tester.getSize(pill).width;
+    expect(compactWidth, lessThan(fullWidth));
+    expect(transitioningWidth, greaterThan(compactWidth));
+    expect(
+      tester.getRect(pill).right,
+      moreOrLessEquals(tester.getRect(pillHost).right, epsilon: 0.01),
+    );
+    expect(
+      _generationPillBackgroundColor(tester, 'transition'),
+      AppColors.accentYellow,
+    );
+    final Text estimateText = tester.widget<Text>(
+      find.descendant(of: pill, matching: find.text('约70s')),
+    );
+    expect(estimateText.style?.color, AppColors.black);
+  });
+
+  testWidgets('loading estimate smoothly becomes the completed badge', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_GenerationPillTestHostState> hostKey =
+        GlobalKey<_GenerationPillTestHostState>();
+    await _pumpGenerationPillHost(
+      tester,
+      _GenerationPillTestHost(
+        key: hostKey,
+        jobId: 'completed-transition',
+        status: GenerationSubmissionStatus.processingResultImage,
+        startedAt: DateTime.now().subtract(const Duration(seconds: 60)),
+      ),
+    );
+
+    final Finder pill = _generationPill('completed-transition');
+    final double loadingWidth = tester.getSize(pill).width;
+    expect(
+      find.descendant(of: pill, matching: find.text('即将完成')),
+      findsOneWidget,
+    );
+    expect(
+      _generationPillBackgroundColor(tester, 'completed-transition'),
+      AppColors.accentYellow,
+    );
+
+    hostKey.currentState!.setStatus(GenerationSubmissionStatus.resultSaved);
+    await tester.pump();
+
+    expect(tester.getSize(pill).width, loadingWidth);
+    expect(
+      find.descendant(of: pill, matching: find.text('即将完成')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: pill, matching: find.text('约10s')),
+      findsNothing,
+    );
+    expect(
+      _generationPillContentOpacity(
+        tester,
+        'completed-transition',
+        'generation-submission-terminal-content',
+      ),
+      0,
+    );
+
+    await tester.pump(const Duration(milliseconds: 150));
+
+    final double transitioningWidth = tester.getSize(pill).width;
+    final Color transitioningColor = _generationPillBackgroundColor(
+      tester,
+      'completed-transition',
+    );
+    expect(transitioningWidth, lessThan(loadingWidth));
+    expect(transitioningWidth, greaterThan(22));
+    expect(transitioningColor, isNot(AppColors.accentYellow));
+    expect(transitioningColor, isNot(AppColors.blackOverlay(0.45)));
+    expect(
+      find.descendant(of: pill, matching: find.text('即将完成')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: pill, matching: find.text('约10s')),
+      findsNothing,
+    );
+    expect(
+      _generationPillContentOpacity(
+        tester,
+        'completed-transition',
+        'generation-submission-estimate-content',
+      ),
+      inExclusiveRange(0, 1),
+    );
+    expect(
+      _generationPillContentOpacity(
+        tester,
+        'completed-transition',
+        'generation-submission-terminal-content',
+      ),
+      inExclusiveRange(0, 1),
+    );
+
+    await tester.pump(const Duration(milliseconds: 150));
+
+    expect(tester.getSize(pill), const Size.square(22));
+    expect(
+      _generationPillBackgroundColor(tester, 'completed-transition'),
+      AppColors.blackOverlay(0.45),
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-status-result-saved'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('loading estimate smoothly becomes the retry button', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_GenerationPillTestHostState> hostKey =
+        GlobalKey<_GenerationPillTestHostState>();
+    await _pumpGenerationPillHost(
+      tester,
+      _GenerationPillTestHost(
+        key: hostKey,
+        jobId: 'retry-transition',
+        status: GenerationSubmissionStatus.uploading,
+        startedAt: DateTime.now(),
+        onRetry: () {},
+      ),
+    );
+
+    final Finder pill = _generationPill('retry-transition');
+    final double loadingWidth = tester.getSize(pill).width;
+
+    hostKey.currentState!.setStatus(GenerationSubmissionStatus.failed);
+    await tester.pump();
+
+    expect(tester.getSize(pill).width, loadingWidth);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-retry-retry-transition'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(milliseconds: 150));
+
+    final Size transitioningSize = tester.getSize(pill);
+    expect(transitioningSize.width, lessThan(loadingWidth));
+    expect(transitioningSize.width, greaterThan(24));
+    expect(transitioningSize.height, greaterThan(22));
+    expect(transitioningSize.height, lessThan(24));
+    expect(
+      _generationPillContentOpacity(
+        tester,
+        'retry-transition',
+        'generation-submission-estimate-content',
+      ),
+      inExclusiveRange(0, 1),
+    );
+    expect(
+      _generationPillContentOpacity(
+        tester,
+        'retry-transition',
+        'generation-submission-terminal-content',
+      ),
+      inExclusiveRange(0, 1),
+    );
+
+    await tester.pump(const Duration(milliseconds: 150));
+
+    expect(tester.getSize(pill), const Size.square(24));
+    expect(
+      _generationPillBackgroundColor(tester, 'retry-transition'),
+      AppColors.accentYellow.withValues(alpha: 0.8),
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-retry-icon-retry-transition',
+        ),
+      ),
+      findsOneWidget,
+    );
+
+    hostKey.currentState!.setStatus(GenerationSubmissionStatus.uploading);
+    await tester.pump();
+    expect(tester.getSize(pill), const Size.square(24));
+
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(tester.getSize(pill).width, greaterThan(24));
+    expect(tester.getSize(pill).width, lessThan(loadingWidth));
+
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(tester.getSize(pill).width, loadingWidth);
+  });
+
+  testWidgets('loading estimate slowly breathes without changing its layout', (
+    WidgetTester tester,
+  ) async {
+    await _pumpGenerationPillHost(
+      tester,
+      _GenerationPillTestHost(
+        jobId: 'pulse',
+        status: GenerationSubmissionStatus.pollingTask,
+        startedAt: DateTime.now(),
+      ),
+    );
+
+    final Finder pill = _generationPill('pulse');
+    final double initialWidth = tester.getSize(pill).width;
+    final String initialLabel = tester
+        .widget<Text>(find.descendant(of: pill, matching: find.byType(Text)))
+        .data!;
+    final Color initialColor = _generationPillBackgroundColor(tester, 'pulse');
+    expect(
+      initialWidth,
+      lessThan(tester.getSize(_generationPillHost('pulse')).width),
+    );
+    expect(initialColor, AppColors.accentYellow);
+
+    await tester.pump(const Duration(seconds: 1));
+
+    final Color dimmedColor = _generationPillBackgroundColor(tester, 'pulse');
+    expect(
+      dimmedColor.computeLuminance(),
+      lessThan(initialColor.computeLuminance()),
+    );
+    expect(tester.getSize(pill).width, initialWidth);
+    expect(
+      tester
+          .widget<Text>(find.descendant(of: pill, matching: find.byType(Text)))
+          .data,
+      initialLabel,
+    );
+
+    await tester.pump(const Duration(seconds: 1));
+
+    final Color restoredColor = _generationPillBackgroundColor(tester, 'pulse');
+    expect(restoredColor.r, moreOrLessEquals(initialColor.r, epsilon: 0.002));
+    expect(restoredColor.g, moreOrLessEquals(initialColor.g, epsilon: 0.002));
+    expect(restoredColor.b, moreOrLessEquals(initialColor.b, epsilon: 0.002));
+    expect(tester.getSize(pill).width, initialWidth);
+  });
+
+  testWidgets('reduced motion switches to a static loading pill immediately', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_GenerationPillTestHostState> hostKey =
+        GlobalKey<_GenerationPillTestHostState>();
+    await _pumpGenerationPillHost(
+      tester,
+      _GenerationPillTestHost(
+        key: hostKey,
+        jobId: 'static-transition',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+        disableAnimations: true,
+      ),
+    );
+
+    final Finder pill = _generationPill('static-transition');
+    final double fullWidth = tester.getSize(pill).width;
+
+    hostKey.currentState!.setStatus(GenerationSubmissionStatus.uploading);
+    await tester.pump();
+
+    final double compactWidth = tester.getSize(pill).width;
+    expect(compactWidth, lessThan(fullWidth));
+    expect(
+      _generationPillBackgroundColor(tester, 'static-transition'),
+      AppColors.accentYellow,
+    );
+
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(tester.getSize(pill).width, compactWidth);
+    expect(
+      _generationPillBackgroundColor(tester, 'static-transition'),
+      AppColors.accentYellow,
+    );
+  });
+
+  testWidgets('generation estimate switches bucket labels immediately', (
+    WidgetTester tester,
+  ) async {
+    final DateTime startedAt = DateTime.now().subtract(
+      const Duration(seconds: 5),
+    );
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        jobs: <GenerationSubmissionJob>[
+          _job(
+            id: 'estimate',
+            status: GenerationSubmissionStatus.pollingTask,
+            generationStartedAt: startedAt,
+          ),
+        ],
+      ),
+    );
+    final Finder estimate = find.byKey(
+      const ValueKey<String>('generation-submission-estimate-estimate'),
+    );
+
+    expect(
+      find.descendant(of: estimate, matching: find.text('约70s')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: estimate,
+        matching: find.byType(CupertinoActivityIndicator),
+      ),
+      findsNothing,
+    );
+
+    await tester.pump(const Duration(seconds: 13));
+    expect(
+      find.descendant(of: estimate, matching: find.text('约70s')),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(seconds: 3));
+    expect(
+      find.descendant(of: estimate, matching: find.text('约50s')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: estimate, matching: find.text('约70s')),
+      findsNothing,
+    );
+
+    await tester.pump(const Duration(seconds: 20));
+    expect(
+      find.descendant(of: estimate, matching: find.text('约30s')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: estimate, matching: find.text('约50s')),
+      findsNothing,
+    );
+
+    await tester.pump(const Duration(seconds: 20));
+    expect(
+      find.descendant(of: estimate, matching: find.text('约10s')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: estimate, matching: find.text('约30s')),
+      findsNothing,
+    );
+
+    await tester.pump(const Duration(seconds: 10));
+    expect(
+      find.descendant(of: estimate, matching: find.text('即将完成')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: estimate, matching: find.text('约10s')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('generation estimate advances without resizing during polls', (
+    WidgetTester tester,
+  ) async {
     final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
     final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
       _job(id: 'polling', status: GenerationSubmissionStatus.pollingTask),
@@ -236,17 +684,23 @@ void main() {
     await _pumpModalHost(tester, _ModalHost(key: hostKey, jobs: jobs));
     await tester.pump();
 
-    final Finder barFinder = find.descendant(
-      of: find.byKey(
-        const ValueKey<String>('generation-submission-progress-polling'),
-      ),
+    final Finder estimate = find.byKey(
+      const ValueKey<String>('generation-submission-estimate-polling'),
+    );
+    final Finder pill = find.descendant(
+      of: estimate,
       matching: find.byKey(
-        const ValueKey<String>('generation-submission-progress-fill'),
+        const ValueKey<String>('generation-submission-estimate-pill'),
       ),
     );
-    final double initialWidth = tester.getSize(barFinder).width;
+    final double initialWidth = tester.getSize(pill).width;
+    expect(
+      find.descendant(of: estimate, matching: find.text('约70s')),
+      findsOneWidget,
+    );
 
-    // Advance time while simulating polls that keep bumping updatedAt.
+    // Polls update updatedAt, but the persisted generation attempt start remains
+    // the only clock used by the estimate.
     for (int i = 0; i < 3; i++) {
       await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
         _job(
@@ -256,14 +710,16 @@ void main() {
         ),
       ]);
       await tester.pump(const Duration(seconds: 10));
-      await tester.pump(const Duration(milliseconds: 300));
     }
 
-    final double laterWidth = tester.getSize(barFinder).width;
-    expect(laterWidth, lessThan(initialWidth));
+    expect(tester.getSize(pill).width, initialWidth);
+    expect(
+      find.descendant(of: estimate, matching: find.text('约50s')),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('generation progress survives thumbnail remounts', (
+  testWidgets('generation estimate survives thumbnail remounts', (
     WidgetTester tester,
   ) async {
     final DateTime startedAt = DateTime.now().subtract(
@@ -282,20 +738,22 @@ void main() {
         jobs: <GenerationSubmissionJob>[job],
       ),
     );
-    final Finder firstSlot = find.byKey(
+    final Finder firstEstimate = find.byKey(
       const ValueKey<String>(
-        'generation-submission-progress-persisted-progress',
+        'generation-submission-estimate-persisted-progress',
       ),
     );
-    final Finder firstFill = find.descendant(
-      of: firstSlot,
+    final Finder firstPill = find.descendant(
+      of: firstEstimate,
       matching: find.byKey(
-        const ValueKey<String>('generation-submission-progress-fill'),
+        const ValueKey<String>('generation-submission-estimate-pill'),
       ),
     );
-    final double firstSlotWidth = tester.getSize(firstSlot).width;
-    final double firstWidth = tester.getSize(firstFill).width;
-    expect(firstWidth, lessThan(firstSlotWidth * 0.8));
+    final double firstWidth = tester.getSize(firstPill).width;
+    expect(
+      find.descendant(of: firstPill, matching: find.text('约50s')),
+      findsOneWidget,
+    );
 
     job = _job(
       id: 'persisted-progress',
@@ -309,54 +767,42 @@ void main() {
         jobs: <GenerationSubmissionJob>[job],
       ),
     );
-    final Finder secondFill = find.descendant(
+    final Finder secondPill = find.descendant(
       of: find.byKey(
         const ValueKey<String>(
-          'generation-submission-progress-persisted-progress',
+          'generation-submission-estimate-persisted-progress',
         ),
       ),
       matching: find.byKey(
-        const ValueKey<String>('generation-submission-progress-fill'),
+        const ValueKey<String>('generation-submission-estimate-pill'),
       ),
     );
-    final double secondWidth = tester.getSize(secondFill).width;
-
-    expect(secondWidth, lessThanOrEqualTo(firstWidth + 0.5));
+    expect(tester.getSize(secondPill).width, firstWidth);
+    expect(
+      find.descendant(of: secondPill, matching: find.text('约50s')),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('completed keeps the progress pill visible', (
+  testWidgets('completed keeps the estimate pill visible', (
     WidgetTester tester,
   ) async {
-    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
-    final DateTime startedAt = DateTime.now().subtract(
-      const Duration(seconds: 20),
-    );
     await _pumpModalHost(
       tester,
       _ModalHost(
-        key: hostKey,
         jobs: <GenerationSubmissionJob>[
           _job(
             id: 'completion',
-            status: GenerationSubmissionStatus.pollingTask,
-            generationStartedAt: startedAt,
+            status: GenerationSubmissionStatus.completed,
+            generationStartedAt: DateTime.now(),
           ),
         ],
       ),
     );
 
-    await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
-      _job(
-        id: 'completion',
-        status: GenerationSubmissionStatus.completed,
-        generationStartedAt: startedAt,
-      ),
-    ]);
-    await tester.pump();
-
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-progress-completion'),
+        const ValueKey<String>('generation-submission-estimate-completion'),
       ),
       findsOneWidget,
     );
@@ -366,9 +812,10 @@ void main() {
       ),
       findsNothing,
     );
+    expect(find.text('即将完成'), findsOneWidget);
   });
 
-  testWidgets('reduce motion stops continuous progress resizing', (
+  testWidgets('estimate label changes immediately without animation', (
     WidgetTester tester,
   ) async {
     await _pumpModalHost(
@@ -384,20 +831,72 @@ void main() {
         ],
       ),
     );
-    final Finder fill = find.descendant(
-      of: find.byKey(
-        const ValueKey<String>('generation-submission-progress-reduced-motion'),
-      ),
+    final Finder estimate = find.byKey(
+      const ValueKey<String>('generation-submission-estimate-reduced-motion'),
+    );
+    final Finder pill = find.descendant(
+      of: estimate,
       matching: find.byKey(
-        const ValueKey<String>('generation-submission-progress-fill'),
+        const ValueKey<String>('generation-submission-estimate-pill'),
       ),
     );
-    final double initialWidth = tester.getSize(fill).width;
+    final double initialWidth = tester.getSize(pill).width;
+    expect(
+      find.descendant(of: estimate, matching: find.text('约70s')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: estimate, matching: find.byType(AnimatedSwitcher)),
+      findsNothing,
+    );
 
-    await tester.pump(const Duration(seconds: 10));
+    await tester.pump(const Duration(seconds: 21));
 
-    expect(tester.getSize(fill).width, initialWidth);
+    expect(tester.getSize(pill).width, initialWidth);
+    expect(
+      find.descendant(of: estimate, matching: find.text('约50s')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>(
+            'generation-submission-estimate-reduced-motion',
+          ),
+        ),
+        matching: find.text('约70s'),
+      ),
+      findsNothing,
+    );
   });
+
+  for (final Locale locale in AppLocalizations.supportedLocales) {
+    testWidgets(
+      'generation estimate fits thumbnail in ${locale.toLanguageTag()}',
+      (WidgetTester tester) async {
+        await _pumpModalHost(
+          tester,
+          _ModalHost(
+            locale: locale,
+            jobs: <GenerationSubmissionJob>[
+              _job(
+                id: 'localized-estimate',
+                status: GenerationSubmissionStatus.completed,
+                generationStartedAt: DateTime.now(),
+              ),
+            ],
+          ),
+          locale: locale,
+        );
+
+        final String finishingLabel = appLocalizationsFor(
+          locale,
+        ).generationSubmissionEstimatedFinishing;
+        expect(find.text(finishingLabel), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   test('thumbnail prompt badge reflects capture mode and switches', () {
     expect(
@@ -479,10 +978,182 @@ void main() {
     expect(taskRepository.createTaskCount, 0);
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-progress-awaiting'),
+        const ValueKey<String>('generation-submission-estimate-awaiting'),
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('real confirmation keeps the pill state for its loading motion', (
+    WidgetTester tester,
+  ) async {
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        jobs: <GenerationSubmissionJob>[
+          _job(
+            id: 'animated-confirm',
+            status: GenerationSubmissionStatus.awaitingConfirmation,
+          ),
+        ],
+        guideRepository: _FakeGenerationSubmissionGuideRepository(seen: true),
+        uploadRepository: _FakeUploadRepository(),
+        taskRepository: _FakeGenerationTaskRepository(),
+      ),
+    );
+
+    final Finder pill = _generationPill('animated-confirm');
+    final double fullWidth = tester.getSize(pill).width;
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-confirm-animated-confirm',
+        ),
+      ),
+    );
+    for (int attempt = 0; attempt < 10; attempt += 1) {
+      await tester.pump();
+      if (find
+          .byKey(
+            const ValueKey<String>(
+              'generation-submission-estimate-animated-confirm',
+            ),
+          )
+          .evaluate()
+          .isNotEmpty) {
+        break;
+      }
+    }
+
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-estimate-animated-confirm',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.getSize(pill).width, fullWidth);
+
+    await tester.pump(const Duration(milliseconds: 80));
+
+    final double transitioningWidth = tester.getSize(pill).width;
+    expect(transitioningWidth, lessThan(fullWidth));
+    expect(transitioningWidth, greaterThan(22));
+  });
+
+  testWidgets('guided confirmation also preserves the pill loading motion', (
+    WidgetTester tester,
+  ) async {
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        jobs: <GenerationSubmissionJob>[
+          _job(
+            id: 'guided-animated-confirm',
+            status: GenerationSubmissionStatus.awaitingConfirmation,
+          ),
+        ],
+        guideRepository: _FakeGenerationSubmissionGuideRepository(seen: false),
+        uploadRepository: _FakeUploadRepository(),
+        taskRepository: _FakeGenerationTaskRepository(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 320));
+    await tester.pumpAndSettle();
+
+    final Finder pill = _generationPill('guided-animated-confirm');
+    final double fullWidth = tester.getSize(pill).width;
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-confirm-guided-animated-confirm',
+        ),
+      ),
+    );
+    for (int attempt = 0; attempt < 10; attempt += 1) {
+      await tester.pump();
+      if (find
+          .byKey(
+            const ValueKey<String>(
+              'generation-submission-estimate-guided-animated-confirm',
+            ),
+          )
+          .evaluate()
+          .isNotEmpty) {
+        break;
+      }
+    }
+
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-estimate-guided-animated-confirm',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.getSize(pill).width, fullWidth);
+  });
+
+  testWidgets('real loading job keeps the pill state for its retry motion', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        key: hostKey,
+        jobs: <GenerationSubmissionJob>[
+          _job(
+            id: 'real-retry-transition',
+            status: GenerationSubmissionStatus.pollingTask,
+            generationStartedAt: DateTime.now(),
+          ),
+        ],
+      ),
+    );
+
+    final Finder pill = _generationPill('real-retry-transition');
+    final double loadingWidth = tester.getSize(pill).width;
+
+    await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+      _job(
+        id: 'real-retry-transition',
+        status: GenerationSubmissionStatus.failed,
+        generationStartedAt: DateTime.now(),
+      ),
+    ]);
+    for (int attempt = 0; attempt < 10; attempt += 1) {
+      await tester.pump();
+      if (find
+          .byKey(
+            const ValueKey<String>(
+              'generation-submission-retry-real-retry-transition',
+            ),
+          )
+          .evaluate()
+          .isNotEmpty) {
+        break;
+      }
+    }
+
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-retry-real-retry-transition',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.getSize(pill).width, loadingWidth);
+
+    await tester.pump(const Duration(milliseconds: 80));
+
+    expect(tester.getSize(pill).width, lessThan(loadingWidth));
+    expect(tester.getSize(pill).width, greaterThan(24));
   });
 
   testWidgets('confirmation guide appears above first awaiting thumbnail', (
@@ -754,7 +1425,7 @@ void main() {
     expect(taskRepository.createTaskCount, 0);
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-progress-failed'),
+        const ValueKey<String>('generation-submission-estimate-failed'),
       ),
       findsOneWidget,
     );
@@ -1923,12 +2594,73 @@ void main() {
 Finder _confirmButtonFinder() {
   return find.byWidgetPredicate((Widget widget) {
     final Key? key = widget.key;
-    return key is ValueKey<String> &&
+    return widget is GestureDetector &&
+        key is ValueKey<String> &&
         key.value.startsWith('generation-submission-confirm-');
   });
 }
 
-Future<void> _pumpModalHost(WidgetTester tester, _ModalHost host) async {
+Finder _generationPillHost(String jobId) {
+  return find.byKey(
+    ValueKey<String>('generation-submission-state-pill-$jobId'),
+  );
+}
+
+Finder _generationPill(String jobId) {
+  return find.descendant(
+    of: _generationPillHost(jobId),
+    matching: find.byKey(
+      const ValueKey<String>('generation-submission-estimate-pill'),
+    ),
+  );
+}
+
+Color _generationPillBackgroundColor(WidgetTester tester, String jobId) {
+  final DecoratedBox background = tester.widget<DecoratedBox>(
+    find.descendant(
+      of: _generationPillHost(jobId),
+      matching: find.byKey(
+        const ValueKey<String>('generation-submission-pill-background'),
+      ),
+    ),
+  );
+  return (background.decoration as ShapeDecoration).color!;
+}
+
+double _generationPillContentOpacity(
+  WidgetTester tester,
+  String jobId,
+  String key,
+) {
+  final Opacity opacity = tester.widget<Opacity>(
+    find.descendant(
+      of: _generationPillHost(jobId),
+      matching: find.byKey(ValueKey<String>(key)),
+    ),
+  );
+  return opacity.opacity;
+}
+
+Future<void> _pumpGenerationPillHost(
+  WidgetTester tester,
+  _GenerationPillTestHost host,
+) async {
+  await tester.pumpWidget(
+    CupertinoApp(
+      locale: defaultAppLocale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: CupertinoPageScaffold(child: Center(child: host)),
+    ),
+  );
+  await tester.pump();
+}
+
+Future<void> _pumpModalHost(
+  WidgetTester tester,
+  _ModalHost host, {
+  Locale locale = defaultAppLocale,
+}) async {
   addTearDown(() async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -1958,7 +2690,7 @@ Future<void> _pumpModalHost(WidgetTester tester, _ModalHost host) async {
     addTearDown(router.dispose);
     await tester.pumpWidget(
       CupertinoApp.router(
-        locale: defaultAppLocale,
+        locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         routerConfig: router,
@@ -1967,7 +2699,7 @@ Future<void> _pumpModalHost(WidgetTester tester, _ModalHost host) async {
   } else {
     await tester.pumpWidget(
       CupertinoApp(
-        locale: defaultAppLocale,
+        locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: host,
@@ -2031,6 +2763,64 @@ Future<void> _tapExpandedMoreAction(WidgetTester tester, int index) async {
   await tester.tap(action);
 }
 
+class _GenerationPillTestHost extends StatefulWidget {
+  const _GenerationPillTestHost({
+    super.key,
+    required this.jobId,
+    required this.status,
+    this.startedAt,
+    this.onRetry,
+    this.disableAnimations = false,
+  });
+
+  final String jobId;
+  final GenerationSubmissionStatus status;
+  final DateTime? startedAt;
+  final VoidCallback? onRetry;
+  final bool disableAnimations;
+
+  @override
+  State<_GenerationPillTestHost> createState() =>
+      _GenerationPillTestHostState();
+}
+
+class _GenerationPillTestHostState extends State<_GenerationPillTestHost> {
+  late GenerationSubmissionStatus _status = widget.status;
+  late DateTime? _startedAt = widget.startedAt;
+
+  void setStatus(GenerationSubmissionStatus status) {
+    setState(() {
+      _status = status;
+      _startedAt ??= DateTime.now();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget pill = SizedBox(
+      width: 120,
+      height: 24,
+      child: GenerationStatusPill(
+        key: ValueKey<String>(
+          'generation-submission-state-pill-${widget.jobId}',
+        ),
+        jobId: widget.jobId,
+        status: _status,
+        startedAt: _startedAt,
+        onConfirm: () {},
+        onRetry: widget.onRetry,
+      ),
+    );
+    if (widget.disableAnimations) {
+      pill = MediaQuery(
+        data: MediaQuery.of(context).copyWith(disableAnimations: true),
+        child: pill,
+      );
+    }
+    return AppThemeColorsScope(colors: AppThemeColors.light, child: pill);
+  }
+}
+
 class _ModalHost extends StatefulWidget {
   const _ModalHost({
     super.key,
@@ -2045,6 +2835,7 @@ class _ModalHost extends StatefulWidget {
     this.creditBalanceFailure,
     this.enableRouter = false,
     this.disableAnimations = false,
+    this.locale = defaultAppLocale,
   });
 
   final List<GenerationSubmissionJob> jobs;
@@ -2058,6 +2849,7 @@ class _ModalHost extends StatefulWidget {
   final Object? creditBalanceFailure;
   final bool enableRouter;
   final bool disableAnimations;
+  final Locale locale;
 
   @override
   State<_ModalHost> createState() => _ModalHostState();
@@ -2184,13 +2976,21 @@ class _ModalHostState extends State<_ModalHost> {
         ],
         child: useExplicitTheme
             ? CupertinoApp(
+                locale: widget.locale,
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
                 theme: appCupertinoThemeForPreference(widget.themePreference),
                 home: AppThemeColorsScope(
                   colors: appThemeColorsForPreference(widget.themePreference),
                   child: page,
                 ),
               )
-            : CupertinoApp(home: page),
+            : CupertinoApp(
+                locale: widget.locale,
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                home: page,
+              ),
       ),
     );
   }

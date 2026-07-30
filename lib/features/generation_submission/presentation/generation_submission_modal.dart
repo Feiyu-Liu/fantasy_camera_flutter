@@ -32,6 +32,7 @@ import '../domain/generation_record.dart';
 import '../domain/generation_record_state_machine.dart';
 import '../domain/generation_submission_job.dart';
 import 'generation_hero_photo_view_page_options.dart';
+import 'generation_remaining_time_estimate.dart';
 import 'generation_submission_providers.dart';
 
 Future<void> showGenerationSubmissionDebugModal(BuildContext context) {
@@ -1545,11 +1546,19 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
   bool _hasSyncedInitialJobs = false;
   bool _confirmationGuideSyncScheduled = false;
   String? _pendingConfirmationGuideJobId;
+  String? _confirmationGuideAnchorJobId;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncConfirmationGuideAnchor();
+  }
 
   @override
   void didUpdateWidget(covariant _RelatedMomentsStrip oldWidget) {
     super.didUpdateWidget(oldWidget);
     _syncDisplayJobs(widget.jobs);
+    _syncConfirmationGuideAnchor();
   }
 
   @override
@@ -1605,7 +1614,7 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
           onCancel: null,
           onRetry: null,
           onRemove: null,
-          showConfirmationGuide: false,
+          hasConfirmationGuideAnchor: false,
           confirmationGuideTooltipController:
               _confirmationGuideTooltipController,
           onDismissConfirmationGuide: widget.onDismissConfirmationGuide,
@@ -1715,9 +1724,13 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
                         280.0,
                       );
                   final double tileWidth = tileHeight * 0.72;
-                  final String? confirmationGuideJobId =
-                      _confirmationGuideJobId();
-                  _scheduleConfirmationGuideSync(confirmationGuideJobId);
+                  final String? confirmationGuideAnchorJobId =
+                      _confirmationGuideAnchorJobId;
+                  _scheduleConfirmationGuideSync(
+                    widget.showConfirmationGuide
+                        ? confirmationGuideAnchorJobId
+                        : null,
+                  );
                   return KeyedSubtree(
                     key: const ValueKey<String>(
                       'generation-submission-photo-list',
@@ -1764,8 +1777,8 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
                             }
                             final GenerationSubmissionJob job =
                                 _displayJobs[jobIndex];
-                            final bool showConfirmationGuide =
-                                confirmationGuideJobId == job.id;
+                            final bool hasConfirmationGuideAnchor =
+                                confirmationGuideAnchorJobId == job.id;
                             return _AnimatedGalleryJobListItem(
                               key: ValueKey<String>(
                                 'generation-submission-photo-list-item-${job.id}',
@@ -1792,7 +1805,8 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
                               onRemove: _canRemoveFailedJob(job)
                                   ? () => widget.onRemoveJob(job)
                                   : null,
-                              showConfirmationGuide: showConfirmationGuide,
+                              hasConfirmationGuideAnchor:
+                                  hasConfirmationGuideAnchor,
                               confirmationGuideTooltipController:
                                   _confirmationGuideTooltipController,
                               onDismissConfirmationGuide:
@@ -1810,16 +1824,24 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
     );
   }
 
-  String? _confirmationGuideJobId() {
+  void _syncConfirmationGuideAnchor() {
+    final String? anchorJobId = _confirmationGuideAnchorJobId;
+    if (anchorJobId != null &&
+        _displayJobs.any(
+          (GenerationSubmissionJob job) => job.id == anchorJobId,
+        )) {
+      return;
+    }
+    _confirmationGuideAnchorJobId = null;
     if (!widget.showConfirmationGuide) {
-      return null;
+      return;
     }
     for (final GenerationSubmissionJob job in _displayJobs) {
       if (job.status == GenerationSubmissionStatus.awaitingConfirmation) {
-        return job.id;
+        _confirmationGuideAnchorJobId = job.id;
+        return;
       }
     }
-    return null;
   }
 
   void _scheduleConfirmationGuideSync(String? jobId) {
@@ -1948,7 +1970,7 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
     required this.onCancel,
     required this.onRetry,
     required this.onRemove,
-    required this.showConfirmationGuide,
+    required this.hasConfirmationGuideAnchor,
     required this.confirmationGuideTooltipController,
     required this.onDismissConfirmationGuide,
     super.key,
@@ -1963,7 +1985,7 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
   final VoidCallback? onCancel;
   final VoidCallback? onRetry;
   final VoidCallback? onRemove;
-  final bool showConfirmationGuide;
+  final bool hasConfirmationGuideAnchor;
   final JustTheController confirmationGuideTooltipController;
   final VoidCallback onDismissConfirmationGuide;
   final bool removing;
@@ -2017,7 +2039,7 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
                     onRetry: onRetry,
                     onRemove: onRemove,
                   );
-                  if (showConfirmationGuide) {
+                  if (hasConfirmationGuideAnchor) {
                     thumbnail = _ConfirmationGuideTooltip(
                       controller: confirmationGuideTooltipController,
                       onDismiss: onDismissConfirmationGuide,
@@ -2260,32 +2282,11 @@ class _JobThumbnail extends StatelessWidget {
               key: ValueKey<String>('generation-thumbnail-image-${job.id}'),
               path: thumbnailImagePath,
             ),
-            if (onRetry == null &&
-                job.status != GenerationSubmissionStatus.awaitingConfirmation &&
-                !GenerationRecordStateMachine.showsGenerationProgress(
-                  job.status,
-                ))
-              Positioned(
-                right: 6,
-                bottom: 6,
-                child: _StatusBadge(status: job.status),
-              ),
-            if (onRetry != null)
-              Positioned(
-                right: 6,
-                bottom: 6,
-                child: _ThumbnailActionButton(
-                  key: ValueKey<String>(
-                    'generation-submission-retry-${job.id}',
-                  ),
-                  color: accentYellow,
-                  icon: LucideIcons.refreshCcw,
-                  iconColor: colors.inverseText,
-                  onPressed: onRetry,
-                ),
-              ),
             if (onRemove != null)
               Positioned(
+                key: ValueKey<String>(
+                  'generation-submission-remove-slot-${job.id}',
+                ),
                 left: 6,
                 bottom: 6,
                 child: _ThumbnailActionButton(
@@ -2299,6 +2300,9 @@ class _JobThumbnail extends StatelessWidget {
               ),
             if (job.status == GenerationSubmissionStatus.awaitingConfirmation)
               Positioned(
+                key: ValueKey<String>(
+                  'generation-submission-cancel-slot-${job.id}',
+                ),
                 left: 6,
                 top: 6,
                 child: _ThumbnailActionButton(
@@ -2310,39 +2314,29 @@ class _JobThumbnail extends StatelessWidget {
                   onPressed: onCancel,
                 ),
               ),
-            if (job.status == GenerationSubmissionStatus.awaitingConfirmation)
-              Positioned(
-                left: 10,
-                right: 10,
-                bottom: 6,
-                child: _ThumbnailActionButton(
-                  key: ValueKey<String>(
-                    'generation-submission-confirm-${job.id}',
-                  ),
-                  height: 22,
-                  fillAvailableWidth: true,
-                  color: AppColors.success,
-                  icon: LucideIcons.check,
-                  onPressed: onConfirm,
-                ),
-              ),
-            if (GenerationRecordStateMachine.showsGenerationProgress(
-              job.status,
-            ))
-              Positioned(
-                left: 10,
-                right: 10,
-                bottom: 6,
-                child: _GenerationProgressBar(
-                  key: ValueKey<String>(
-                    'generation-submission-progress-${job.id}',
-                  ),
-                  status: job.status,
-                  startedAt: job.generationStartedAt,
-                  height: 22,
-                ),
-              ),
             Positioned(
+              key: ValueKey<String>(
+                'generation-submission-state-pill-slot-${job.id}',
+              ),
+              left: 10,
+              right: 10,
+              bottom: 6,
+              child: GenerationStatusPill(
+                key: ValueKey<String>(
+                  'generation-submission-state-pill-${job.id}',
+                ),
+                jobId: job.id,
+                status: job.status,
+                startedAt: job.generationStartedAt,
+                onConfirm: onConfirm,
+                onRetry: onRetry,
+                height: 22,
+              ),
+            ),
+            Positioned(
+              key: ValueKey<String>(
+                'generation-submission-prompt-slot-${job.id}',
+              ),
               left: 6,
               right: 6,
               top: 6,
@@ -2463,102 +2457,17 @@ String? generationThumbnailPromptBadgeLabel({
   return null;
 }
 
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
-
-  final GenerationSubmissionStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: AppCorners.controlDecoration(
-        color: AppColors.blackOverlay(0.45),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: SizedBox.square(
-        dimension: 22,
-        child: Center(child: _statusIcon()),
-      ),
-    );
-  }
-
-  Widget _statusIcon() {
-    return switch (status) {
-      GenerationSubmissionStatus.awaitingConfirmation => Icon(
-        LucideIcons.circleHelp,
-        key: const ValueKey<String>('generation-submission-status-awaiting'),
-        color: AppColors.white,
-        size: 16,
-      ),
-      GenerationSubmissionStatus.resultSaved => Icon(
-        LucideIcons.circleCheck,
-        key: const ValueKey<String>(
-          'generation-submission-status-result-saved',
-        ),
-        color: AppColors.success,
-        size: 16,
-      ),
-      GenerationSubmissionStatus.resultProcessingFailed => Icon(
-        LucideIcons.circleAlert,
-        key: const ValueKey<String>(
-          'generation-submission-status-result-processing-failed',
-        ),
-        color: AppColors.danger,
-        size: 16,
-      ),
-      GenerationSubmissionStatus.completed => Icon(
-        LucideIcons.download,
-        key: const ValueKey<String>('generation-submission-status-completed'),
-        color: AppColors.white,
-        size: 16,
-      ),
-      GenerationSubmissionStatus.failed => Icon(
-        LucideIcons.circleAlert,
-        key: const ValueKey<String>('generation-submission-status-failed'),
-        color: AppColors.danger,
-        size: 16,
-      ),
-      GenerationSubmissionStatus.queued ||
-      GenerationSubmissionStatus.preparingUploadImage ||
-      GenerationSubmissionStatus.readingFile ||
-      GenerationSubmissionStatus.creatingUpload ||
-      GenerationSubmissionStatus.uploading ||
-      GenerationSubmissionStatus.creatingTask ||
-      GenerationSubmissionStatus.submitted => Icon(
-        LucideIcons.cloudUpload,
-        key: const ValueKey<String>('generation-submission-status-uploading'),
-        color: AppColors.white,
-        size: 15,
-      ),
-      GenerationSubmissionStatus.uploadedWaitingTask ||
-      GenerationSubmissionStatus.pollingTask ||
-      GenerationSubmissionStatus
-          .processingResultImage => CupertinoActivityIndicator(
-        key: const ValueKey<String>('generation-submission-status-processing'),
-        color: AppColors.white,
-        radius: 6,
-      ),
-    };
-  }
-}
-
 class _ThumbnailActionButton extends StatelessWidget {
   const _ThumbnailActionButton({
     super.key,
     required this.color,
     required this.icon,
     required this.onPressed,
-    this.iconColor = AppColors.white,
-    this.height = 24,
-    this.fillAvailableWidth = false,
   });
 
   final Color color;
   final IconData icon;
   final VoidCallback? onPressed;
-  final Color iconColor;
-  final double height;
-  final bool fillAvailableWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -2570,98 +2479,121 @@ class _ThumbnailActionButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
         ),
         child: SizedBox(
-          width: fillAvailableWidth ? double.infinity : height,
-          height: height,
-          child: Icon(icon, color: iconColor, size: 14),
+          width: 24,
+          height: 24,
+          child: Icon(icon, color: AppColors.white, size: 14),
         ),
       ),
     );
   }
 }
 
-/// The confirm pill turned into a generation indicator: after the user
-/// confirms, the bar keeps its position and shrinks from the left toward the
-/// right as generation advances, ending as a small dot at the right edge.
-///
-/// The backend exposes no completion percentage, only the discrete statuses
-/// above, so progress is driven by elapsed time and floored by the status the
-/// job has actually reached. Time supplies smooth motion; the status floor
-/// keeps the bar honest when generation is slower or faster than typical.
-///
-/// Elapsed time is measured from the persisted generation attempt start.
-class _GenerationProgressBar extends StatefulWidget {
-  const _GenerationProgressBar({
+enum _GenerationPillMode { confirmation, loading, completed, retry, failure }
+
+@visibleForTesting
+class GenerationStatusPill extends StatefulWidget {
+  const GenerationStatusPill({
     super.key,
+    required this.jobId,
     required this.status,
     required this.startedAt,
+    required this.onConfirm,
+    required this.onRetry,
     this.height = 22,
   });
 
+  final String jobId;
   final GenerationSubmissionStatus status;
   final DateTime? startedAt;
+  final VoidCallback? onConfirm;
+  final VoidCallback? onRetry;
   final double height;
 
-  /// Typical end-to-end generation duration. Time-driven progress eases toward
-  /// [_timeCeiling] over this window rather than reaching 1.0, so the bar never
-  /// claims completion the backend has not reported.
-  static const Duration _typicalDuration = Duration(seconds: 70);
-
-  /// Upper bound for the purely time-driven component.
-  static const double _timeCeiling = 0.9;
-
   @override
-  State<_GenerationProgressBar> createState() => _GenerationProgressBarState();
+  State<GenerationStatusPill> createState() => _GenerationStatusPillState();
 }
 
-class _GenerationProgressBarState extends State<_GenerationProgressBar>
+class _GenerationStatusPillState extends State<GenerationStatusPill>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  late final AnimationController _timeController;
-  late final AnimationController _stageController;
-  late final Listenable _progressListenable;
-  late Animation<double> _stageProgress;
+  static const Duration _transitionDuration = Duration(milliseconds: 300);
+  static const Duration _pulseDuration = Duration(seconds: 2);
+  static const double _confirmationStage = 0;
+  static const double _loadingStage = 1;
+  static const double _terminalStage = 2;
+
+  late final AnimationController _transitionController;
+  late final AnimationController _pulseController;
+  late final Listenable _visualListenable;
+  late _GenerationPillMode _targetMode;
+  _GenerationPillMode _terminalMode = _GenerationPillMode.completed;
   late DateTime _effectiveStartedAt;
-  late double _stageFloor;
+  late DateTime _estimateReferenceNow;
+  late GenerationRemainingTimeEstimate _timeEstimate;
+  Timer? _estimateTimer;
   bool _reduceMotion = false;
   bool _tickerModeEnabled = true;
+
+  bool get _isLoading => _targetMode == _GenerationPillMode.loading;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _effectiveStartedAt = widget.startedAt ?? DateTime.now();
-    _stageFloor = _statusFloor(widget.status);
-    _stageProgress = AlwaysStoppedAnimation<double>(_stageFloor);
-    _timeController = AnimationController(
+    _targetMode = _modeForWidget();
+    if (_isTerminalMode(_targetMode)) {
+      _terminalMode = _targetMode;
+    }
+    _transitionController = AnimationController(
       vsync: this,
-      duration: _GenerationProgressBar._typicalDuration,
+      duration: _transitionDuration,
+      upperBound: _terminalStage,
+      value: _stageForMode(_targetMode),
     );
-    _stageController = AnimationController(
+    _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 240),
+      duration: _pulseDuration,
     );
-    _progressListenable = Listenable.merge(<Listenable>[
-      _timeController,
-      _stageController,
+    _visualListenable = Listenable.merge(<Listenable>[
+      _transitionController,
+      _pulseController,
     ]);
+    _effectiveStartedAt = widget.startedAt ?? DateTime.now();
+    _estimateReferenceNow = DateTime.now();
+    _timeEstimate = GenerationRemainingTimeEstimator.estimate(
+      startedAt: _effectiveStartedAt,
+      now: _estimateReferenceNow,
+      status: widget.status,
+    );
   }
 
   @override
-  void didUpdateWidget(_GenerationProgressBar oldWidget) {
+  void didUpdateWidget(GenerationStatusPill oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final _GenerationPillMode previousMode = _targetMode;
+    bool estimateInputsChanged = false;
     final DateTime? startedAt = widget.startedAt;
     final DateTime? oldStartedAt = oldWidget.startedAt;
-    if (startedAt != null && startedAt != oldStartedAt) {
-      final bool isNewAttempt = oldStartedAt != null;
-      _effectiveStartedAt = startedAt;
-      if (isNewAttempt) {
-        _resetStageProgress();
-      }
-      _syncTimeProgress(reset: isNewAttempt);
+    if (startedAt != oldStartedAt) {
+      _effectiveStartedAt = startedAt ?? DateTime.now();
+      estimateInputsChanged = true;
     }
     if (widget.status != oldWidget.status) {
-      _advanceStageProgress();
-      if (_reduceMotion) {
-        _syncTimeProgress();
+      estimateInputsChanged = true;
+    }
+    final _GenerationPillMode nextMode = _modeForWidget();
+    if (nextMode != _targetMode) {
+      _targetMode = nextMode;
+      if (_isTerminalMode(nextMode)) {
+        _terminalMode = nextMode;
+      }
+      _animateToCurrentState();
+    }
+    if (estimateInputsChanged) {
+      if (previousMode == _GenerationPillMode.loading &&
+          _isTerminalMode(nextMode)) {
+        _cancelEstimateTimer();
+      } else {
+        _syncTimeEstimate();
       }
     }
   }
@@ -2671,184 +2603,470 @@ class _GenerationProgressBarState extends State<_GenerationProgressBar>
     super.didChangeDependencies();
     final bool reduceMotion =
         MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    final bool tickerModeEnabled = TickerMode.valuesOf(context).enabled;
-    final bool policyChanged =
-        reduceMotion != _reduceMotion ||
-        tickerModeEnabled != _tickerModeEnabled;
+    final bool motionPolicyChanged = reduceMotion != _reduceMotion;
     _reduceMotion = reduceMotion;
-    _tickerModeEnabled = tickerModeEnabled;
-    if (policyChanged || !_timeController.isAnimating) {
-      _applyMotionPolicy();
+    _tickerModeEnabled = TickerMode.valuesOf(context).enabled;
+    if (motionPolicyChanged && _reduceMotion) {
+      _transitionController.value = _stageForMode(_targetMode);
     }
+    _syncTimeEstimate();
+    _syncPulseAnimation();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _syncTimeProgress();
+      _syncTimeEstimate(rebuild: true);
+      _syncPulseAnimation();
       return;
     }
-    _timeController.stop();
+    _cancelEstimateTimer();
+    _pulseController.stop();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _stageController.dispose();
-    _timeController.dispose();
+    _cancelEstimateTimer();
+    _transitionController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
-  void _applyMotionPolicy() {
+  void _animateToCurrentState() {
+    _pulseController.stop();
+    final double targetStage = _stageForMode(_targetMode);
     if (_reduceMotion) {
-      _stageController.stop();
-      _stageProgress = AlwaysStoppedAnimation<double>(_stageFloor);
-      _syncTimeProgress();
+      _transitionController.value = targetStage;
+      _pulseController.value = 0;
+      _syncPulseAnimation();
       return;
     }
-    _syncTimeProgress();
+    final double distance = (_transitionController.value - targetStage).abs();
+    final Duration duration = Duration(
+      milliseconds: math.max(
+        1,
+        (_transitionDuration.inMilliseconds * distance).round(),
+      ),
+    );
+    unawaited(
+      _transitionController
+          .animateTo(targetStage, duration: duration)
+          .whenComplete(_syncPulseAnimation),
+    );
   }
 
-  void _syncTimeProgress({bool reset = false}) {
-    final double measuredFraction = _elapsedFraction();
-    final double elapsedFraction = reset
-        ? measuredFraction
-        : math.max(_timeController.value, measuredFraction);
-    _timeController.value = elapsedFraction;
-    if (_canAnimate && elapsedFraction < 1) {
-      _timeController.forward();
-    } else {
-      _timeController.stop();
-    }
-  }
-
-  bool get _canAnimate {
-    final AppLifecycleState? lifecycleState =
-        WidgetsBinding.instance.lifecycleState;
-    return !_reduceMotion &&
-        _tickerModeEnabled &&
-        (lifecycleState == null || lifecycleState == AppLifecycleState.resumed);
-  }
-
-  double _elapsedFraction() {
-    final int elapsedMilliseconds = DateTime.now()
-        .difference(_effectiveStartedAt)
-        .inMilliseconds;
-    if (elapsedMilliseconds <= 0) {
-      return 0;
-    }
-    return (elapsedMilliseconds /
-            _GenerationProgressBar._typicalDuration.inMilliseconds)
-        .clamp(0.0, 1.0);
-  }
-
-  double _elapsedProgress(double fraction) {
-    // Gentle ease-out: still decelerates toward the ceiling, but without the
-    // steep opening of a cubic, which read as the bar "snapping" shut.
-    final double eased = 1 - math.pow(1 - fraction, 1.6).toDouble();
-    return eased * _GenerationProgressBar._timeCeiling;
-  }
-
-  void _resetStageProgress() {
-    _stageController.stop();
-    _stageFloor = _statusFloor(widget.status);
-    _stageProgress = AlwaysStoppedAnimation<double>(_stageFloor);
-  }
-
-  void _advanceStageProgress() {
-    final double nextFloor = math.max(_stageFloor, _statusFloor(widget.status));
-    if ((nextFloor - _stageFloor).abs() < 0.001) {
+  void _syncPulseAnimation() {
+    final bool shouldPulse =
+        _isLoading &&
+        !_transitionController.isAnimating &&
+        (_transitionController.value - _loadingStage).abs() < 0.001 &&
+        _canRunMotion &&
+        !_reduceMotion;
+    if (shouldPulse) {
+      if (!_pulseController.isAnimating) {
+        _pulseController.repeat();
+      }
       return;
     }
-    final double currentFloor = _stageProgress.value;
-    _stageFloor = nextFloor;
-    _stageController.stop();
-    if (_reduceMotion) {
-      _stageProgress = AlwaysStoppedAnimation<double>(_stageFloor);
-      return;
+    _pulseController.stop();
+    if (_reduceMotion || (!_isLoading && !_transitionController.isAnimating)) {
+      _pulseController.value = 0;
     }
-    _stageController.value = 0;
-    _stageProgress = Tween<double>(begin: currentFloor, end: _stageFloor)
-        .animate(
-          CurvedAnimation(parent: _stageController, curve: Curves.easeOutCubic),
-        );
-    _stageController.forward();
   }
 
-  /// Minimum progress guaranteed by each pipeline stage. These stay low for
-  /// the long-running stages so elapsed time, not the floor, drives the motion —
-  /// a high floor made the bar jump and then sit still. Only the stages that
-  /// genuinely mean "almost done" push the bar far along.
-  double _statusFloor(GenerationSubmissionStatus status) {
-    return switch (status) {
-      GenerationSubmissionStatus.queued ||
-      GenerationSubmissionStatus.preparingUploadImage ||
-      GenerationSubmissionStatus.readingFile => 0.02,
-      GenerationSubmissionStatus.creatingUpload ||
-      GenerationSubmissionStatus.uploading => 0.05,
-      GenerationSubmissionStatus.uploadedWaitingTask ||
-      GenerationSubmissionStatus.creatingTask ||
-      GenerationSubmissionStatus.submitted => 0.1,
-      // The bulk of generation happens here and can run well past the typical
-      // duration, so let time drive it rather than pinning it high.
-      GenerationSubmissionStatus.pollingTask => 0.15,
-      GenerationSubmissionStatus.completed => 0.9,
-      GenerationSubmissionStatus.processingResultImage => 0.95,
-      GenerationSubmissionStatus.awaitingConfirmation ||
-      GenerationSubmissionStatus.resultSaved ||
-      GenerationSubmissionStatus.resultProcessingFailed ||
-      GenerationSubmissionStatus.failed => 0,
+  _GenerationPillMode _modeForWidget() {
+    if (widget.status == GenerationSubmissionStatus.awaitingConfirmation) {
+      return _GenerationPillMode.confirmation;
+    }
+    if (GenerationRecordStateMachine.showsGenerationProgress(widget.status)) {
+      return _GenerationPillMode.loading;
+    }
+    if (widget.onRetry != null) {
+      return _GenerationPillMode.retry;
+    }
+    if (widget.status == GenerationSubmissionStatus.resultSaved) {
+      return _GenerationPillMode.completed;
+    }
+    return _GenerationPillMode.failure;
+  }
+
+  bool _isTerminalMode(_GenerationPillMode mode) {
+    return mode == _GenerationPillMode.completed ||
+        mode == _GenerationPillMode.retry ||
+        mode == _GenerationPillMode.failure;
+  }
+
+  double _stageForMode(_GenerationPillMode mode) {
+    return switch (mode) {
+      _GenerationPillMode.confirmation => _confirmationStage,
+      _GenerationPillMode.loading => _loadingStage,
+      _GenerationPillMode.completed ||
+      _GenerationPillMode.retry ||
+      _GenerationPillMode.failure => _terminalStage,
     };
   }
 
+  void _syncTimeEstimate({bool rebuild = false, DateTime? now}) {
+    _cancelEstimateTimer();
+    _estimateReferenceNow = now ?? DateTime.now();
+    final GenerationRemainingTimeEstimate nextEstimate =
+        GenerationRemainingTimeEstimator.estimate(
+          startedAt: _effectiveStartedAt,
+          now: _estimateReferenceNow,
+          status: widget.status,
+        );
+    final bool labelChanged = !_timeEstimate.hasSameLabelAs(nextEstimate);
+    if (labelChanged && rebuild && mounted) {
+      setState(() {
+        _timeEstimate = nextEstimate;
+      });
+    } else {
+      _timeEstimate = nextEstimate;
+    }
+    _scheduleEstimateTimer();
+  }
+
+  void _scheduleEstimateTimer() {
+    final Duration? untilNextChange = _timeEstimate.untilNextChange;
+    if (!_isLoading ||
+        !_canScheduleEstimate ||
+        untilNextChange == null ||
+        untilNextChange <= Duration.zero) {
+      return;
+    }
+    final DateTime scheduledTransitionAt = _estimateReferenceNow.add(
+      untilNextChange,
+    );
+    _estimateTimer = Timer(untilNextChange, () {
+      if (!mounted) {
+        return;
+      }
+      final DateTime actualNow = DateTime.now();
+      _syncTimeEstimate(
+        rebuild: true,
+        now: actualNow.isAfter(scheduledTransitionAt)
+            ? actualNow
+            : scheduledTransitionAt,
+      );
+    });
+  }
+
+  void _cancelEstimateTimer() {
+    _estimateTimer?.cancel();
+    _estimateTimer = null;
+  }
+
+  bool get _canScheduleEstimate {
+    final AppLifecycleState? lifecycleState =
+        WidgetsBinding.instance.lifecycleState;
+    return _tickerModeEnabled &&
+        (lifecycleState == null || lifecycleState == AppLifecycleState.resumed);
+  }
+
+  bool get _canRunMotion => _canScheduleEstimate;
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: widget.height,
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: LayoutBuilder(
-          builder: (BuildContext context, BoxConstraints constraints) {
-            final double fullWidth = constraints.maxWidth;
-            final double minWidth = widget.height;
-            return AnimatedBuilder(
-              animation: _progressListenable,
-              child: DecoratedBox(
-                decoration: AppCorners.controlDecoration(
-                  color: AppColors.success.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: const Center(
-                  child: CupertinoActivityIndicator(
-                    color: AppColors.white,
-                    radius: 6,
+    final AppThemeColors colors = AppThemeColors.of(context);
+    final int? estimatedSeconds = _timeEstimate.seconds;
+    final String estimateLabel = estimatedSeconds == null
+        ? context.l10n.generationSubmissionEstimatedFinishing
+        : context.l10n.generationSubmissionEstimatedRemainingSeconds(
+            estimatedSeconds,
+          );
+    const TextStyle estimateTextStyle = TextStyle(
+      color: AppColors.black,
+      fontSize: 10,
+      fontWeight: FontWeight.w600,
+      height: 1,
+      letterSpacing: 0,
+      fontFeatures: <FontFeature>[FontFeature.tabularFigures()],
+    );
+    final double terminalSize = _terminalMode == _GenerationPillMode.retry
+        ? 24
+        : widget.height;
+    final Color terminalColor = switch (_terminalMode) {
+      _GenerationPillMode.retry => colors.accentYellow.withValues(alpha: 0.8),
+      _GenerationPillMode.completed ||
+      _GenerationPillMode.failure => AppColors.blackOverlay(0.45),
+      _GenerationPillMode.confirmation ||
+      _GenerationPillMode.loading => colors.accentYellow,
+    };
+    final IconData terminalIcon = switch (_terminalMode) {
+      _GenerationPillMode.retry => LucideIcons.refreshCcw,
+      _GenerationPillMode.completed => LucideIcons.circleCheck,
+      _GenerationPillMode.failure => LucideIcons.circleAlert,
+      _GenerationPillMode.confirmation ||
+      _GenerationPillMode.loading => LucideIcons.circleHelp,
+    };
+    final Color terminalIconColor = switch (_terminalMode) {
+      _GenerationPillMode.retry => colors.inverseText,
+      _GenerationPillMode.completed => AppColors.success,
+      _GenerationPillMode.failure => AppColors.danger,
+      _GenerationPillMode.confirmation ||
+      _GenerationPillMode.loading => AppColors.white,
+    };
+    final Key terminalIconKey = switch (_terminalMode) {
+      _GenerationPillMode.retry => ValueKey<String>(
+        'generation-submission-retry-icon-${widget.jobId}',
+      ),
+      _GenerationPillMode.completed => const ValueKey<String>(
+        'generation-submission-status-result-saved',
+      ),
+      _GenerationPillMode.failure
+          when widget.status ==
+              GenerationSubmissionStatus.resultProcessingFailed =>
+        const ValueKey<String>(
+          'generation-submission-status-result-processing-failed',
+        ),
+      _GenerationPillMode.failure => const ValueKey<String>(
+        'generation-submission-status-failed',
+      ),
+      _GenerationPillMode.confirmation || _GenerationPillMode.loading =>
+        const ValueKey<String>('generation-submission-status-processing'),
+    };
+    final Key modeKey = switch (_targetMode) {
+      _GenerationPillMode.confirmation => ValueKey<String>(
+        'generation-submission-confirm-${widget.jobId}',
+      ),
+      _GenerationPillMode.loading => ValueKey<String>(
+        'generation-submission-estimate-${widget.jobId}',
+      ),
+      _GenerationPillMode.retry => ValueKey<String>(
+        'generation-submission-retry-${widget.jobId}',
+      ),
+      _GenerationPillMode.completed => ValueKey<String>(
+        'generation-submission-completed-${widget.jobId}',
+      ),
+      _GenerationPillMode.failure => ValueKey<String>(
+        'generation-submission-failed-${widget.jobId}',
+      ),
+    };
+    final String semanticLabel = switch (_targetMode) {
+      _GenerationPillMode.confirmation =>
+        context.l10n.generationSubmissionStatusWaitingForConfirmation,
+      _GenerationPillMode.loading => estimateLabel,
+      _GenerationPillMode.retry => context.l10n.generationSubmissionActionRetry,
+      _GenerationPillMode.completed =>
+        context.l10n.generationSubmissionStatusResultSaved,
+      _GenerationPillMode.failure
+          when widget.status ==
+              GenerationSubmissionStatus.resultProcessingFailed =>
+        context.l10n.generationSubmissionStatusResultProcessingFailed,
+      _GenerationPillMode.failure =>
+        context.l10n.generationSubmissionStatusGenerationFailed,
+    };
+    final VoidCallback? onTap = switch (_targetMode) {
+      _GenerationPillMode.confirmation => widget.onConfirm,
+      _GenerationPillMode.retry => widget.onRetry,
+      _GenerationPillMode.loading ||
+      _GenerationPillMode.completed ||
+      _GenerationPillMode.failure => null,
+    };
+    final bool isButton =
+        _targetMode == _GenerationPillMode.confirmation ||
+        _targetMode == _GenerationPillMode.retry;
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double compactWidth = _estimatePillWidth(
+          context,
+          availableWidth: constraints.maxWidth,
+          textStyle: estimateTextStyle,
+        );
+        return AnimatedBuilder(
+          animation: _visualListenable,
+          builder: (BuildContext context, Widget? child) {
+            final double confirmationToLoading = Curves.easeInOutCubic
+                .transform(
+                  _transitionController.value.clamp(
+                    _confirmationStage,
+                    _loadingStage,
+                  ),
+                );
+            final double loadingToTerminal = Curves.easeInOutCubic.transform(
+              (_transitionController.value - _loadingStage).clamp(0, 1),
+            );
+            final double loadingWidth =
+                lerpDouble(
+                  constraints.maxWidth,
+                  compactWidth,
+                  confirmationToLoading,
+                ) ??
+                compactWidth;
+            final double width =
+                lerpDouble(loadingWidth, terminalSize, loadingToTerminal) ??
+                terminalSize;
+            final double height =
+                lerpDouble(widget.height, terminalSize, loadingToTerminal) ??
+                widget.height;
+            final double pulseAmount =
+                (1 - math.cos(2 * math.pi * _pulseController.value)) / 2;
+            final Color dimYellow =
+                Color.lerp(colors.accentYellow, AppColors.black, 0.1) ??
+                colors.accentYellow;
+            final Color loadingColor =
+                Color.lerp(colors.accentYellow, dimYellow, pulseAmount) ??
+                colors.accentYellow;
+            final Color loadingBackgroundColor =
+                Color.lerp(
+                  AppColors.success.withValues(alpha: 0.8),
+                  loadingColor,
+                  confirmationToLoading,
+                ) ??
+                loadingColor;
+            final Color backgroundColor =
+                Color.lerp(
+                  loadingBackgroundColor,
+                  terminalColor,
+                  loadingToTerminal,
+                ) ??
+                terminalColor;
+            final double confirmOpacity =
+                1 -
+                const Interval(
+                  0,
+                  0.55,
+                  curve: Curves.easeOut,
+                ).transform(confirmationToLoading);
+            final double estimateOpacity =
+                const Interval(
+                  0.35,
+                  1,
+                  curve: Curves.easeIn,
+                ).transform(confirmationToLoading) *
+                (1 -
+                    const Interval(
+                      0,
+                      0.65,
+                      curve: Curves.easeOut,
+                    ).transform(loadingToTerminal));
+            final double terminalOpacity = const Interval(
+              0.35,
+              1,
+              curve: Curves.easeIn,
+            ).transform(loadingToTerminal);
+            return Align(
+              alignment: Alignment.centerRight,
+              child: Semantics(
+                button: isButton,
+                enabled: isButton && onTap != null,
+                label: semanticLabel,
+                child: GestureDetector(
+                  key: modeKey,
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onTap,
+                  child: SizedBox(
+                    key: const ValueKey<String>(
+                      'generation-submission-estimate-pill',
+                    ),
+                    width: width,
+                    height: height,
+                    child: DecoratedBox(
+                      key: const ValueKey<String>(
+                        'generation-submission-pill-background',
+                      ),
+                      decoration: AppCorners.controlDecoration(
+                        color: backgroundColor,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: ExcludeSemantics(
+                        child: ClipRect(
+                          child: Stack(
+                            alignment: Alignment.center,
+                            fit: StackFit.expand,
+                            children: <Widget>[
+                              Opacity(
+                                key: const ValueKey<String>(
+                                  'generation-submission-confirm-content',
+                                ),
+                                opacity: confirmOpacity,
+                                child: const Icon(
+                                  LucideIcons.check,
+                                  color: AppColors.white,
+                                  size: 14,
+                                ),
+                              ),
+                              Opacity(
+                                key: const ValueKey<String>(
+                                  'generation-submission-estimate-content',
+                                ),
+                                opacity: estimateOpacity,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                  ),
+                                  child: FittedBox(
+                                    key: ValueKey<String>(
+                                      'generation-submission-estimate-label-'
+                                      '${_timeEstimate.seconds ?? 'finishing'}',
+                                    ),
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      estimateLabel,
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      style: estimateTextStyle,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (_isTerminalMode(_targetMode) ||
+                                  _transitionController.value > _loadingStage)
+                                Opacity(
+                                  key: const ValueKey<String>(
+                                    'generation-submission-terminal-content',
+                                  ),
+                                  opacity: terminalOpacity,
+                                  child: Icon(
+                                    terminalIcon,
+                                    key: terminalIconKey,
+                                    color: terminalIconColor,
+                                    size: 14,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
-              builder: (BuildContext context, Widget? child) {
-                final double progress = math.max(
-                  _stageProgress.value,
-                  _elapsedProgress(_timeController.value),
-                );
-                // Remaining width: full pill at 0% shrinking to a dot at 100%.
-                // The right edge remains fixed while the left edge moves.
-                final double remaining = (1 - progress).clamp(0.0, 1.0);
-                final double width =
-                    minWidth + (fullWidth - minWidth) * remaining;
-                return SizedBox(
-                  key: const ValueKey<String>(
-                    'generation-submission-progress-fill',
-                  ),
-                  width: width,
-                  height: widget.height,
-                  child: child,
-                );
-              },
             );
           },
-        ),
-      ),
+        );
+      },
     );
+  }
+
+  double _estimatePillWidth(
+    BuildContext context, {
+    required double availableWidth,
+    required TextStyle textStyle,
+  }) {
+    final List<String> labels = <String>[
+      context.l10n.generationSubmissionEstimatedRemainingSeconds(
+        GenerationRemainingTimeEstimator.maximumSeconds,
+      ),
+      for (final int seconds
+          in GenerationRemainingTimeEstimator.lowerBucketSeconds)
+        context.l10n.generationSubmissionEstimatedRemainingSeconds(seconds),
+      context.l10n.generationSubmissionEstimatedFinishing,
+    ];
+    final TextScaler textScaler = MediaQuery.textScalerOf(context);
+    final TextDirection textDirection = Directionality.of(context);
+    double widestLabel = 0;
+    for (final String label in labels) {
+      final TextPainter painter = TextPainter(
+        text: TextSpan(text: label, style: textStyle),
+        maxLines: 1,
+        textDirection: textDirection,
+        textScaler: textScaler,
+      )..layout();
+      widestLabel = math.max(widestLabel, painter.width);
+    }
+    return math.min(availableWidth, math.max(widget.height, widestLabel + 12));
   }
 }
 
