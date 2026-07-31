@@ -2598,6 +2598,49 @@ class _GenerationPillContent extends StatelessWidget {
   }
 }
 
+/// How long one pill state transition takes, end to end.
+///
+/// The perceived motion is shorter: colour settles in the first ~15% and the
+/// cross-fade by ~55%, with the remainder spent on sub-pixel elastic settling.
+@visibleForTesting
+const Duration generationPillTransitionDuration = Duration(milliseconds: 680);
+
+/// Picks an [ElasticOutCurve] period so the rebound overshoots by roughly the
+/// same number of logical pixels regardless of how far the pill travels.
+///
+/// `ElasticOutCurve` overshoots by a fixed *fraction* of the distance covered,
+/// so reusing one period made the long confirmation -> loading edge visibly
+/// bounce (~2.4pt over 74pt of travel) while the much shorter terminal edges
+/// rebounded under a pixel and read as a plain ease-out. Shortening the period
+/// on short edges restores a comparable, still-restrained bounce.
+@visibleForTesting
+Curve generationPillReboundCurve(double travel) {
+  const double targetOvershoot = 2.2;
+  const double longestPeriod = 1.2;
+  // Below ~0.7 the curve starts to look springy rather than restrained.
+  const double shortestPeriod = 0.75;
+
+  if (travel <= 0.01) {
+    return const ElasticOutCurve(longestPeriod);
+  }
+  // Overshoot fraction as a function of period, fitted over [0.75, 1.2]; the
+  // exact peak of ElasticOutCurve has no closed form worth inlining here.
+  final double desiredFraction = targetOvershoot / travel;
+  if (desiredFraction <= 0.032) {
+    return const ElasticOutCurve(longestPeriod);
+  }
+  if (desiredFraction >= 0.099) {
+    return const ElasticOutCurve(shortestPeriod);
+  }
+  // log-linear interpolation between the two calibrated endpoints
+  final double t =
+      (math.log(desiredFraction) - math.log(0.032)) /
+      (math.log(0.099) - math.log(0.032));
+  return ElasticOutCurve(
+    longestPeriod + (shortestPeriod - longestPeriod) * t.clamp(0.0, 1.0),
+  );
+}
+
 @visibleForTesting
 class GenerationStatusPill extends StatefulWidget {
   const GenerationStatusPill({
@@ -2623,9 +2666,8 @@ class GenerationStatusPill extends StatefulWidget {
 
 class _GenerationStatusPillState extends State<GenerationStatusPill>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  static const Duration _transitionDuration = Duration(milliseconds: 520);
+  static const Duration _transitionDuration = generationPillTransitionDuration;
   static const Duration _pulseDuration = Duration(seconds: 2);
-  static const Curve _geometryCurve = ElasticOutCurve(1.2);
   static const Curve _contentCurve = Curves.easeOutCubic;
 
   /// Colour and cross-fade settle well before the elastic rebound stops, so the
@@ -2649,6 +2691,10 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
 
   /// The frame the pill was showing when the current transition started.
   _GenerationPillVisual? _transitionFrom;
+
+  /// Rebound curve chosen for the current transition, scaled so short edges
+  /// bounce as visibly as long ones.
+  Curve _geometryCurve = const ElasticOutCurve(1.2);
 
   /// Label frozen at the moment a transition starts, so leaving `loading`
   /// never flashes a newer estimate on the way out.
@@ -2790,6 +2836,19 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
       return;
     }
     _transitionFrom = currentFrame;
+    // Scale the rebound to this edge's travel, using whichever axis moves most
+    // so a mostly-horizontal edge is not judged by its tiny height delta.
+    final _GenerationPillVisual target = _restingVisual(
+      _mode,
+      AppThemeColors.of(context),
+      pulseAmount: 0,
+    );
+    _geometryCurve = generationPillReboundCurve(
+      math.max(
+        (target.width - currentFrame.width).abs(),
+        (target.height - currentFrame.height).abs(),
+      ),
+    );
     _transitionController
       ..stop()
       ..value = 0;

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:background_downloader/background_downloader.dart';
@@ -306,7 +307,7 @@ void main() {
 
     // The loading pulse repeats forever, so settle by running out the
     // transition explicitly rather than with pumpAndSettle.
-    await tester.pump(const Duration(milliseconds: 520));
+    await tester.pump(generationPillTransitionDuration);
 
     final double compactWidth = tester.getSize(pill).width;
     expect(compactWidth, lessThan(fullWidth));
@@ -455,8 +456,9 @@ void main() {
       findsNothing,
     );
 
-    // ...then rebounds back up towards it.
-    await tester.pump(const Duration(milliseconds: 120));
+    // ...then rebounds back up towards it. By now the cross-fade has finished
+    // while the geometry is still settling.
+    await tester.pump(const Duration(milliseconds: 210));
 
     final double reboundWidth = tester.getSize(pill).width;
     expect(reboundWidth, greaterThan(overshootWidth));
@@ -587,7 +589,7 @@ void main() {
 
     // Back in loading the pulse repeats forever, so run the transition out
     // explicitly instead of settling.
-    await tester.pump(const Duration(milliseconds: 520));
+    await tester.pump(generationPillTransitionDuration);
     expect(tester.getSize(pill).width, loadingWidth);
   });
 
@@ -639,6 +641,37 @@ void main() {
     expect(tester.getSize(pill).width, initialWidth);
   });
 
+  test('rebound overshoot stays comparable across short and long edges', () {
+    // Peak overshoot in logical pixels for a given travel distance.
+    double overshootFor(double travel) {
+      final Curve curve = generationPillReboundCurve(travel);
+      double peak = 0;
+      for (int i = 0; i <= 2000; i++) {
+        peak = math.max(peak, curve.transform(i / 2000) * travel - travel);
+      }
+      return peak;
+    }
+
+    // The long confirmation -> loading edge keeps the tuning that was signed
+    // off on visually.
+    expect(generationPillReboundCurve(73.6), const ElasticOutCurve(1.2));
+    expect(overshootFor(73.6), closeTo(2.35, 0.2));
+
+    // Short terminal edges previously rebounded well under a pixel, which read
+    // as no bounce at all. They must now be in the same ballpark.
+    expect(overshootFor(24.4), closeTo(2.2, 0.3));
+    expect(overshootFor(22.4), closeTo(2.2, 0.3));
+
+    // ...but the bounce must stay restrained, never spring-like.
+    for (final double travel in <double>[22.4, 24.4, 73.6]) {
+      expect(overshootFor(travel) / travel, lessThan(0.12));
+    }
+
+    // Degenerate edges must not divide by zero or produce a wild period.
+    expect(generationPillReboundCurve(0), isA<ElasticOutCurve>());
+    expect(overshootFor(2), lessThan(0.5));
+  });
+
   testWidgets('interrupted transition continues from the rendered frame', (
     WidgetTester tester,
   ) async {
@@ -681,7 +714,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 60));
     expect(tester.getSize(pill).width, lessThan(interruptedSize.width));
 
-    await tester.pump(const Duration(milliseconds: 520));
+    await tester.pump(generationPillTransitionDuration);
     expect(tester.getSize(pill), const Size.square(24));
     expect(
       find.byKey(
@@ -718,7 +751,11 @@ void main() {
 
     // The bucket boundary lands mid-transition; the frozen label must win so
     // the pill never flashes one last countdown on its way out.
-    for (int elapsed = 0; elapsed < 520; elapsed += 65) {
+    for (
+      int elapsed = 0;
+      elapsed < generationPillTransitionDuration.inMilliseconds;
+      elapsed += 65
+    ) {
       await tester.pump(const Duration(milliseconds: 65));
       expect(
         find.descendant(of: pill, matching: find.text('约50s')),
