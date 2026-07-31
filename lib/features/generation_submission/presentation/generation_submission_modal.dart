@@ -2490,6 +2490,114 @@ class _ThumbnailActionButton extends StatelessWidget {
 
 enum _GenerationPillMode { confirmation, loading, completed, retry, failure }
 
+/// Everything the pill paints for a single frame.
+///
+/// A transition is described as a lerp between the frame the pill was showing
+/// when the state changed and the resting frame of the new state, so geometry,
+/// colour and cross-fade can never drift apart.
+@immutable
+class _GenerationPillVisual {
+  const _GenerationPillVisual({
+    required this.width,
+    required this.height,
+    required this.background,
+    required this.confirmOpacity,
+    required this.estimateOpacity,
+    required this.terminalOpacity,
+  });
+
+  final double width;
+  final double height;
+  final Color background;
+  final double confirmOpacity;
+  final double estimateOpacity;
+  final double terminalOpacity;
+
+  /// [geometry] carries the elastic rebound, [content] the colour and
+  /// cross-fade ramp. Both come from the same controller.
+  ///
+  /// The outgoing layer clears out before the incoming one is fully in, so the
+  /// two never sit on top of each other at half opacity, but the windows still
+  /// overlap enough to read as one cross-fade rather than a swap.
+  static _GenerationPillVisual lerp(
+    _GenerationPillVisual from,
+    _GenerationPillVisual to, {
+    required double geometry,
+    required double content,
+  }) {
+    // Colour lands slightly before the cross-fade so the pill has already
+    // "become" the new state while the icons are still swapping.
+    final double colorT = const Interval(0, 0.6).transform(content);
+    final double fadeOut = const Interval(0, 0.7).transform(content);
+    final double fadeIn = const Interval(0.3, 1).transform(content);
+    return _GenerationPillVisual(
+      width: _lerpSize(from.width, to.width, geometry),
+      height: _lerpSize(from.height, to.height, geometry),
+      background: colorT >= 1
+          ? to.background
+          : colorT <= 0
+          ? from.background
+          : Color.lerp(from.background, to.background, colorT) ?? to.background,
+      confirmOpacity: _lerpOpacity(
+        from.confirmOpacity,
+        to.confirmOpacity,
+        fadeOut: fadeOut,
+        fadeIn: fadeIn,
+      ),
+      estimateOpacity: _lerpOpacity(
+        from.estimateOpacity,
+        to.estimateOpacity,
+        fadeOut: fadeOut,
+        fadeIn: fadeIn,
+      ),
+      terminalOpacity: _lerpOpacity(
+        from.terminalOpacity,
+        to.terminalOpacity,
+        fadeOut: fadeOut,
+        fadeIn: fadeIn,
+      ),
+    );
+  }
+
+  /// The elastic curve overshoots past 1, so sizes are only guarded against
+  /// going negative on very short pills.
+  static double _lerpSize(double from, double to, double t) {
+    return math.max(0, from + (to - from) * t);
+  }
+
+  static double _lerpOpacity(
+    double from,
+    double to, {
+    required double fadeOut,
+    required double fadeIn,
+  }) {
+    final double t = to < from ? fadeOut : fadeIn;
+    return (from + (to - from) * t).clamp(0.0, 1.0);
+  }
+}
+
+/// Squeezes a single content layer into whatever the pill currently measures.
+///
+/// Each layer scales independently, so the icon and the label never fight over
+/// one shared intrinsic size while the pill is mid-rebound.
+class _GenerationPillContent extends StatelessWidget {
+  const _GenerationPillContent({required this.child, this.padding});
+
+  final Widget child;
+  final EdgeInsets? padding;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget content = child;
+    if (padding != null) {
+      content = Padding(padding: padding!, child: content);
+    }
+    return Center(
+      child: FittedBox(fit: BoxFit.contain, child: content),
+    );
+  }
+}
+
 @visibleForTesting
 class GenerationStatusPill extends StatefulWidget {
   const GenerationStatusPill({
@@ -2515,19 +2623,37 @@ class GenerationStatusPill extends StatefulWidget {
 
 class _GenerationStatusPillState extends State<GenerationStatusPill>
     with TickerProviderStateMixin, WidgetsBindingObserver {
-  static const Duration _transitionDuration = Duration(milliseconds: 300);
+  static const Duration _transitionDuration = Duration(milliseconds: 520);
   static const Duration _pulseDuration = Duration(seconds: 2);
-  static const Curve _transitionCurve = ElasticOutCurve(1.2);
-  static const double _confirmationStage = 0;
-  static const double _loadingStage = 1;
-  static const double _terminalStage = 2;
+  static const Curve _geometryCurve = ElasticOutCurve(1.2);
+  static const Curve _contentCurve = Curves.easeOutCubic;
+
+  /// Colour and cross-fade settle well before the elastic rebound stops, so the
+  /// pill reads as "already the new state, still bouncing" instead of three
+  /// animations racing each other.
+  static const Interval _contentInterval = Interval(0, 0.6);
 
   late final AnimationController _transitionController;
   late final AnimationController _pulseController;
   late final Listenable _visualListenable;
-  late _GenerationPillMode _targetMode;
+
+  late _GenerationPillMode _mode;
+
+  /// The mode the pill is animating away from; drives the outgoing content
+  /// while the transition runs.
+  late _GenerationPillMode _previousMode;
+
+  /// Last terminal mode seen, kept so the terminal icon/colour stays stable
+  /// while animating away from a terminal state.
   _GenerationPillMode _terminalMode = _GenerationPillMode.completed;
-  bool _transitionForward = true;
+
+  /// The frame the pill was showing when the current transition started.
+  _GenerationPillVisual? _transitionFrom;
+
+  /// Label frozen at the moment a transition starts, so leaving `loading`
+  /// never flashes a newer estimate on the way out.
+  String? _frozenEstimateLabel;
+
   late DateTime _effectiveStartedAt;
   late DateTime _estimateReferenceNow;
   late GenerationRemainingTimeEstimate _timeEstimate;
@@ -2535,21 +2661,29 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
   bool _reduceMotion = false;
   bool _tickerModeEnabled = true;
 
-  bool get _isLoading => _targetMode == _GenerationPillMode.loading;
+  /// Layout numbers captured during `build`, needed to resolve a resting
+  /// visual outside of the builder (e.g. when a transition is interrupted).
+  double _maxWidth = 0;
+  double _compactWidth = 0;
+
+  bool get _isLoading => _mode == _GenerationPillMode.loading;
+
+  bool get _isTransitioning =>
+      _transitionFrom != null && _transitionController.value < 1;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _targetMode = _modeForWidget();
-    if (_isTerminalMode(_targetMode)) {
-      _terminalMode = _targetMode;
+    _mode = _modeForWidget();
+    _previousMode = _mode;
+    if (_isTerminalMode(_mode)) {
+      _terminalMode = _mode;
     }
     _transitionController = AnimationController(
       vsync: this,
       duration: _transitionDuration,
-      upperBound: _terminalStage,
-      value: _stageForMode(_targetMode),
+      value: 1,
     );
     _pulseController = AnimationController(
       vsync: this,
@@ -2571,7 +2705,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
   @override
   void didUpdateWidget(GenerationStatusPill oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final _GenerationPillMode previousMode = _targetMode;
+    final _GenerationPillMode previousMode = _mode;
     bool estimateInputsChanged = false;
     final DateTime? startedAt = widget.startedAt;
     final DateTime? oldStartedAt = oldWidget.startedAt;
@@ -2583,16 +2717,14 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
       estimateInputsChanged = true;
     }
     final _GenerationPillMode nextMode = _modeForWidget();
-    if (nextMode != _targetMode) {
-      _targetMode = nextMode;
-      if (_isTerminalMode(nextMode)) {
-        _terminalMode = nextMode;
-      }
-      _animateToCurrentState();
+    if (nextMode != _mode) {
+      _startTransition(nextMode);
     }
     if (estimateInputsChanged) {
       if (previousMode == _GenerationPillMode.loading &&
           _isTerminalMode(nextMode)) {
+        // Leaving loading: the label is already frozen, re-syncing here would
+        // resurrect one last tick of the countdown mid-animation.
         _cancelEstimateTimer();
       } else {
         _syncTimeEstimate();
@@ -2609,7 +2741,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
     _reduceMotion = reduceMotion;
     _tickerModeEnabled = TickerMode.valuesOf(context).enabled;
     if (motionPolicyChanged && _reduceMotion) {
-      _transitionController.value = _stageForMode(_targetMode);
+      _settleTransition();
     }
     _syncTimeEstimate();
     _syncPulseAnimation();
@@ -2635,37 +2767,59 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
     super.dispose();
   }
 
-  void _animateToCurrentState() {
+  /// Snapshots the currently rendered frame and restarts the controller at 0,
+  /// so an interrupted transition continues from what the user can see rather
+  /// than snapping back to a logical stage.
+  void _startTransition(_GenerationPillMode nextMode) {
+    final _GenerationPillVisual? currentFrame = _hasResolvedLayout
+        ? _currentVisual()
+        : null;
+    _frozenEstimateLabel = _isLoading ? _resolvedEstimateLabel() : null;
+    _previousMode = _mode;
+    _mode = nextMode;
+    if (_isTerminalMode(nextMode)) {
+      _terminalMode = nextMode;
+    }
     _pulseController.stop();
-    final double targetStage = _stageForMode(_targetMode);
-    if (_reduceMotion) {
-      _transitionController.value = targetStage;
-      _pulseController.value = 0;
-      _syncPulseAnimation();
+
+    // No layout yet, or nothing can tick (reduced motion, off-screen ticker,
+    // backgrounded app): land on the new state rather than freezing on a
+    // from-frame that would never animate away.
+    if (_reduceMotion || !_canRunMotion || currentFrame == null) {
+      _settleTransition();
       return;
     }
-    _transitionForward = targetStage >= _transitionController.value;
-    final double distance = (_transitionController.value - targetStage).abs();
-    final Duration duration = Duration(
-      milliseconds: math.max(
-        1,
-        (_transitionDuration.inMilliseconds * distance).round(),
-      ),
-    );
+    _transitionFrom = currentFrame;
+    _transitionController
+      ..stop()
+      ..value = 0;
     unawaited(
-      _transitionController
-          .animateTo(targetStage, duration: duration)
-          .whenComplete(_syncPulseAnimation),
+      _transitionController.forward().whenComplete(() {
+        if (!mounted) {
+          return;
+        }
+        _transitionFrom = null;
+        _frozenEstimateLabel = null;
+        _previousMode = _mode;
+        _syncPulseAnimation();
+      }),
     );
+  }
+
+  void _settleTransition() {
+    _transitionController
+      ..stop()
+      ..value = 1;
+    _transitionFrom = null;
+    _frozenEstimateLabel = null;
+    _previousMode = _mode;
+    _pulseController.value = 0;
+    _syncPulseAnimation();
   }
 
   void _syncPulseAnimation() {
     final bool shouldPulse =
-        _isLoading &&
-        !_transitionController.isAnimating &&
-        (_transitionController.value - _loadingStage).abs() < 0.001 &&
-        _canRunMotion &&
-        !_reduceMotion;
+        _isLoading && !_isTransitioning && _canRunMotion && !_reduceMotion;
     if (shouldPulse) {
       if (!_pulseController.isAnimating) {
         _pulseController.repeat();
@@ -2673,7 +2827,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
       return;
     }
     _pulseController.stop();
-    if (_reduceMotion || (!_isLoading && !_transitionController.isAnimating)) {
+    if (_reduceMotion || !_isLoading) {
       _pulseController.value = 0;
     }
   }
@@ -2698,22 +2852,6 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
     return mode == _GenerationPillMode.completed ||
         mode == _GenerationPillMode.retry ||
         mode == _GenerationPillMode.failure;
-  }
-
-  double _stageForMode(_GenerationPillMode mode) {
-    return switch (mode) {
-      _GenerationPillMode.confirmation => _confirmationStage,
-      _GenerationPillMode.loading => _loadingStage,
-      _GenerationPillMode.completed ||
-      _GenerationPillMode.retry ||
-      _GenerationPillMode.failure => _terminalStage,
-    };
-  }
-
-  double _elasticSegmentValue(double value) {
-    final double progress = _transitionForward ? value : 1 - value;
-    final double transformed = _transitionCurve.transform(progress);
-    return _transitionForward ? transformed : 1 - transformed;
   }
 
   void _syncTimeEstimate({bool rebuild = false, DateTime? now}) {
@@ -2775,15 +2913,101 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
 
   bool get _canRunMotion => _canScheduleEstimate;
 
-  @override
-  Widget build(BuildContext context) {
-    final AppThemeColors colors = AppThemeColors.of(context);
+  bool get _hasResolvedLayout => _maxWidth > 0;
+
+  String _resolvedEstimateLabel() {
     final int? estimatedSeconds = _timeEstimate.seconds;
-    final String estimateLabel = estimatedSeconds == null
+    return estimatedSeconds == null
         ? context.l10n.generationSubmissionEstimatedFinishing
         : context.l10n.generationSubmissionEstimatedRemainingSeconds(
             estimatedSeconds,
           );
+  }
+
+  double _terminalSize() {
+    return _terminalMode == _GenerationPillMode.retry ? 24 : widget.height;
+  }
+
+  /// The frame a mode rests on with no transition in flight.
+  _GenerationPillVisual _restingVisual(
+    _GenerationPillMode mode,
+    AppThemeColors colors, {
+    required double pulseAmount,
+  }) {
+    final double terminalSize = _terminalSize();
+    switch (mode) {
+      case _GenerationPillMode.confirmation:
+        return _GenerationPillVisual(
+          width: _maxWidth,
+          height: widget.height,
+          background: AppColors.success.withValues(alpha: 0.8),
+          confirmOpacity: 1,
+          estimateOpacity: 0,
+          terminalOpacity: 0,
+        );
+      case _GenerationPillMode.loading:
+        final Color dimYellow =
+            Color.lerp(colors.accentYellow, AppColors.black, 0.1) ??
+            colors.accentYellow;
+        return _GenerationPillVisual(
+          width: _compactWidth,
+          height: widget.height,
+          background:
+              Color.lerp(colors.accentYellow, dimYellow, pulseAmount) ??
+              colors.accentYellow,
+          confirmOpacity: 0,
+          estimateOpacity: 1,
+          terminalOpacity: 0,
+        );
+      case _GenerationPillMode.retry:
+      case _GenerationPillMode.completed:
+      case _GenerationPillMode.failure:
+        return _GenerationPillVisual(
+          width: terminalSize,
+          height: terminalSize,
+          background: switch (mode) {
+            _GenerationPillMode.retry => colors.accentYellow.withValues(
+              alpha: 0.8,
+            ),
+            _ => AppColors.blackOverlay(0.45),
+          },
+          confirmOpacity: 0,
+          estimateOpacity: 0,
+          terminalOpacity: 1,
+        );
+    }
+  }
+
+  /// Resolves the frame for right now, blending from/to when a transition is
+  /// in flight. Used both by `build` and by `_startTransition` to snapshot an
+  /// interrupted animation.
+  _GenerationPillVisual _currentVisual({AppThemeColors? themeColors}) {
+    final AppThemeColors colors = themeColors ?? AppThemeColors.of(context);
+    final double pulseAmount =
+        (1 - math.cos(2 * math.pi * _pulseController.value)) / 2;
+    final _GenerationPillVisual target = _restingVisual(
+      _mode,
+      colors,
+      pulseAmount: pulseAmount,
+    );
+    final _GenerationPillVisual? from = _transitionFrom;
+    if (from == null || _transitionController.value >= 1) {
+      return target;
+    }
+    final double raw = _transitionController.value;
+    return _GenerationPillVisual.lerp(
+      from,
+      target,
+      geometry: _geometryCurve.transform(raw),
+      content: _contentCurve.transform(_contentInterval.transform(raw)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
+    final String estimateLabel =
+        _frozenEstimateLabel ?? _resolvedEstimateLabel();
     const TextStyle estimateTextStyle = TextStyle(
       color: AppColors.black,
       fontSize: 10,
@@ -2792,16 +3016,6 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
       letterSpacing: 0,
       fontFeatures: <FontFeature>[FontFeature.tabularFigures()],
     );
-    final double terminalSize = _terminalMode == _GenerationPillMode.retry
-        ? 24
-        : widget.height;
-    final Color terminalColor = switch (_terminalMode) {
-      _GenerationPillMode.retry => colors.accentYellow.withValues(alpha: 0.8),
-      _GenerationPillMode.completed ||
-      _GenerationPillMode.failure => AppColors.blackOverlay(0.45),
-      _GenerationPillMode.confirmation ||
-      _GenerationPillMode.loading => colors.accentYellow,
-    };
     final IconData terminalIcon = switch (_terminalMode) {
       _GenerationPillMode.retry => LucideIcons.refreshCcw,
       _GenerationPillMode.completed => LucideIcons.circleCheck,
@@ -2835,7 +3049,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
       _GenerationPillMode.confirmation || _GenerationPillMode.loading =>
         const ValueKey<String>('generation-submission-status-processing'),
     };
-    final Key modeKey = switch (_targetMode) {
+    final Key modeKey = switch (_mode) {
       _GenerationPillMode.confirmation => ValueKey<String>(
         'generation-submission-confirm-${widget.jobId}',
       ),
@@ -2852,7 +3066,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
         'generation-submission-failed-${widget.jobId}',
       ),
     };
-    final String semanticLabel = switch (_targetMode) {
+    final String semanticLabel = switch (_mode) {
       _GenerationPillMode.confirmation =>
         context.l10n.generationSubmissionStatusWaitingForConfirmation,
       _GenerationPillMode.loading => estimateLabel,
@@ -2866,7 +3080,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
       _GenerationPillMode.failure =>
         context.l10n.generationSubmissionStatusGenerationFailed,
     };
-    final VoidCallback? onTap = switch (_targetMode) {
+    final VoidCallback? onTap = switch (_mode) {
       _GenerationPillMode.confirmation => widget.onConfirm,
       _GenerationPillMode.retry => widget.onRetry,
       _GenerationPillMode.loading ||
@@ -2874,93 +3088,27 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
       _GenerationPillMode.failure => null,
     };
     final bool isButton =
-        _targetMode == _GenerationPillMode.confirmation ||
-        _targetMode == _GenerationPillMode.retry;
+        _mode == _GenerationPillMode.confirmation ||
+        _mode == _GenerationPillMode.retry;
+
+    // The terminal layer is mounted for the whole transition (at opacity 0)
+    // so the icon never pops in partway through.
+    final bool showTerminalLayer =
+        _isTerminalMode(_mode) || _isTerminalMode(_previousMode);
+
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final double compactWidth = _estimatePillWidth(
-          context,
-          availableWidth: constraints.maxWidth,
-          textStyle: estimateTextStyle,
+        _maxWidth = constraints.maxWidth;
+        _compactWidth = math.min(
+          constraints.maxWidth,
+          _estimatePillContentWidth(context, textStyle: estimateTextStyle),
         );
         return AnimatedBuilder(
           animation: _visualListenable,
           builder: (BuildContext context, Widget? child) {
-            final double confirmationProgress = _transitionController.value
-                .clamp(_confirmationStage, _loadingStage);
-            final double terminalProgress =
-                (_transitionController.value - _loadingStage).clamp(0, 1);
-            final double confirmationGeometry = _elasticSegmentValue(
-              confirmationProgress,
+            final _GenerationPillVisual visual = _currentVisual(
+              themeColors: colors,
             );
-            final double terminalGeometry = _elasticSegmentValue(
-              terminalProgress,
-            );
-            final double confirmationVisual = Curves.easeInOutCubic.transform(
-              confirmationProgress,
-            );
-            final double terminalVisual = Curves.easeInOutCubic.transform(
-              terminalProgress,
-            );
-            final double loadingWidth =
-                lerpDouble(
-                  constraints.maxWidth,
-                  compactWidth,
-                  confirmationGeometry,
-                ) ??
-                compactWidth;
-            final double height =
-                lerpDouble(widget.height, terminalSize, terminalGeometry) ??
-                widget.height;
-            final double width =
-                lerpDouble(loadingWidth, terminalSize, terminalGeometry) ??
-                terminalSize;
-            final double pulseAmount =
-                (1 - math.cos(2 * math.pi * _pulseController.value)) / 2;
-            final Color dimYellow =
-                Color.lerp(colors.accentYellow, AppColors.black, 0.1) ??
-                colors.accentYellow;
-            final Color loadingColor =
-                Color.lerp(colors.accentYellow, dimYellow, pulseAmount) ??
-                colors.accentYellow;
-            final Color loadingBackgroundColor =
-                Color.lerp(
-                  AppColors.success.withValues(alpha: 0.8),
-                  loadingColor,
-                  confirmationVisual,
-                ) ??
-                loadingColor;
-            final Color backgroundColor =
-                Color.lerp(
-                  loadingBackgroundColor,
-                  terminalColor,
-                  terminalVisual,
-                ) ??
-                terminalColor;
-            final double confirmOpacity =
-                1 -
-                const Interval(
-                  0,
-                  0.55,
-                  curve: Curves.easeOut,
-                ).transform(confirmationVisual);
-            final double estimateOpacity =
-                const Interval(
-                  0.35,
-                  1,
-                  curve: Curves.easeIn,
-                ).transform(confirmationVisual) *
-                (1 -
-                    const Interval(
-                      0,
-                      0.65,
-                      curve: Curves.easeOut,
-                    ).transform(terminalVisual));
-            final double terminalOpacity = const Interval(
-              0.35,
-              1,
-              curve: Curves.easeIn,
-            ).transform(terminalVisual);
             return Align(
               alignment: Alignment.centerRight,
               child: Semantics(
@@ -2975,64 +3123,62 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
                     key: const ValueKey<String>(
                       'generation-submission-estimate-pill',
                     ),
-                    width: width,
-                    height: height,
+                    width: visual.width,
+                    height: visual.height,
                     child: DecoratedBox(
                       key: const ValueKey<String>(
                         'generation-submission-pill-background',
                       ),
                       decoration: AppCorners.controlDecoration(
-                        color: backgroundColor,
+                        color: visual.background,
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: ExcludeSemantics(
-                        child: ClipRect(
-                          child: Stack(
-                            alignment: Alignment.center,
-                            fit: StackFit.expand,
-                            children: <Widget>[
-                              Opacity(
-                                key: const ValueKey<String>(
-                                  'generation-submission-confirm-content',
-                                ),
-                                opacity: confirmOpacity,
-                                child: const Icon(
+                        child: Stack(
+                          alignment: Alignment.center,
+                          fit: StackFit.expand,
+                          children: <Widget>[
+                            Opacity(
+                              key: const ValueKey<String>(
+                                'generation-submission-confirm-content',
+                              ),
+                              opacity: visual.confirmOpacity,
+                              child: const _GenerationPillContent(
+                                child: Icon(
                                   LucideIcons.check,
                                   color: AppColors.white,
                                   size: 14,
                                 ),
                               ),
-                              Opacity(
-                                key: const ValueKey<String>(
-                                  'generation-submission-estimate-content',
+                            ),
+                            Opacity(
+                              key: const ValueKey<String>(
+                                'generation-submission-estimate-content',
+                              ),
+                              opacity: visual.estimateOpacity,
+                              child: _GenerationPillContent(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
                                 ),
-                                opacity: estimateOpacity,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
+                                child: Text(
+                                  estimateLabel,
+                                  key: ValueKey<String>(
+                                    'generation-submission-estimate-label-'
+                                    '${_timeEstimate.seconds ?? 'finishing'}',
                                   ),
-                                  child: FittedBox(
-                                    key: ValueKey<String>(
-                                      'generation-submission-estimate-label-'
-                                      '${_timeEstimate.seconds ?? 'finishing'}',
-                                    ),
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      estimateLabel,
-                                      maxLines: 1,
-                                      softWrap: false,
-                                      style: estimateTextStyle,
-                                    ),
-                                  ),
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  style: estimateTextStyle,
                                 ),
                               ),
-                              if (_isTerminalMode(_targetMode) ||
-                                  _transitionController.value > _loadingStage)
-                                Opacity(
-                                  key: const ValueKey<String>(
-                                    'generation-submission-terminal-content',
-                                  ),
-                                  opacity: terminalOpacity,
+                            ),
+                            if (showTerminalLayer)
+                              Opacity(
+                                key: const ValueKey<String>(
+                                  'generation-submission-terminal-content',
+                                ),
+                                opacity: visual.terminalOpacity,
+                                child: _GenerationPillContent(
                                   child: Icon(
                                     terminalIcon,
                                     key: terminalIconKey,
@@ -3040,8 +3186,8 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
                                     size: 14,
                                   ),
                                 ),
-                            ],
-                          ),
+                              ),
+                          ],
                         ),
                       ),
                     ),
@@ -3055,9 +3201,8 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
     );
   }
 
-  double _estimatePillWidth(
+  double _estimatePillContentWidth(
     BuildContext context, {
-    required double availableWidth,
     required TextStyle textStyle,
   }) {
     final List<String> labels = <String>[
@@ -3081,7 +3226,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
       )..layout();
       widestLabel = math.max(widestLabel, painter.width);
     }
-    return math.min(availableWidth, math.max(widget.height, widestLabel + 12));
+    return math.max(widget.height, widestLabel + 12);
   }
 }
 

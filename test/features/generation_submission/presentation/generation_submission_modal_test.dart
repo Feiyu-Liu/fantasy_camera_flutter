@@ -265,7 +265,11 @@ void main() {
     hostKey.currentState!.setStatus(GenerationSubmissionStatus.uploading);
     await tester.pump();
 
-    await tester.pump(const Duration(milliseconds: 150));
+    // The pill holds the confirmation frame until the first animated tick, so
+    // the transition always starts from what was on screen.
+    expect(tester.getSize(pill).width, fullWidth);
+
+    await tester.pump(const Duration(milliseconds: 60));
 
     final double transitioningWidth = tester.getSize(pill).width;
     final Color transitioningColor = _generationPillBackgroundColor(
@@ -275,21 +279,15 @@ void main() {
     expect(transitioningWidth, lessThan(fullWidth));
     expect(transitioningColor, isNot(AppColors.success.withValues(alpha: 0.8)));
     expect(transitioningColor, isNot(AppColors.accentYellow));
+
+    // Both content layers are partially visible: a real cross-fade, not a swap.
     expect(
       _generationPillContentOpacity(
         tester,
         'transition',
         'generation-submission-confirm-content',
       ),
-      lessThan(1),
-    );
-    expect(
-      _generationPillContentOpacity(
-        tester,
-        'transition',
-        'generation-submission-confirm-content',
-      ),
-      greaterThan(0),
+      inExclusiveRange(0, 1),
     );
     expect(
       _generationPillContentOpacity(
@@ -297,22 +295,22 @@ void main() {
         'transition',
         'generation-submission-estimate-content',
       ),
-      greaterThan(0),
-    );
-    expect(
-      _generationPillContentOpacity(
-        tester,
-        'transition',
-        'generation-submission-estimate-content',
-      ),
-      lessThan(1),
+      inExclusiveRange(0, 1),
     );
 
+    // Elastic geometry overshoots past the resting width before settling back.
     await tester.pump(const Duration(milliseconds: 150));
+
+    final double overshootWidth = tester.getSize(pill).width;
+    expect(overshootWidth, lessThan(transitioningWidth));
+
+    // The loading pulse repeats forever, so settle by running out the
+    // transition explicitly rather than with pumpAndSettle.
+    await tester.pump(const Duration(milliseconds: 520));
 
     final double compactWidth = tester.getSize(pill).width;
     expect(compactWidth, lessThan(fullWidth));
-    expect(transitioningWidth, lessThan(compactWidth));
+    expect(overshootWidth, lessThan(compactWidth));
     expect(
       tester.getRect(pill).right,
       moreOrLessEquals(tester.getRect(pillHost).right, epsilon: 0.01),
@@ -320,6 +318,22 @@ void main() {
     expect(
       _generationPillBackgroundColor(tester, 'transition'),
       AppColors.accentYellow,
+    );
+    expect(
+      _generationPillContentOpacity(
+        tester,
+        'transition',
+        'generation-submission-confirm-content',
+      ),
+      0,
+    );
+    expect(
+      _generationPillContentOpacity(
+        tester,
+        'transition',
+        'generation-submission-estimate-content',
+      ),
+      1,
     );
     final Text estimateText = tester.widget<Text>(
       find.descendant(of: pill, matching: find.text('约70s')),
@@ -344,6 +358,11 @@ void main() {
 
     final Finder pill = _generationPill('completed-transition');
     final double loadingWidth = tester.getSize(pill).width;
+    final Rect loadingPaintedRect = _generationPillPaintedBackgroundRect(
+      tester,
+      'completed-transition',
+    );
+    expect(loadingPaintedRect.size, Size(loadingWidth, 22));
     expect(
       find.descendant(of: pill, matching: find.text('即将完成')),
       findsOneWidget,
@@ -356,6 +375,8 @@ void main() {
     hostKey.currentState!.setStatus(GenerationSubmissionStatus.resultSaved);
     await tester.pump();
 
+    // The frozen label must survive the whole transition: no flash back to a
+    // fresher countdown on the way out.
     expect(tester.getSize(pill).width, loadingWidth);
     expect(
       find.descendant(of: pill, matching: find.text('即将完成')),
@@ -365,6 +386,8 @@ void main() {
       find.descendant(of: pill, matching: find.text('约10s')),
       findsNothing,
     );
+    // The terminal icon is mounted from frame one, fully transparent, so it can
+    // never pop in partway through.
     expect(
       _generationPillContentOpacity(
         tester,
@@ -376,29 +399,18 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 60));
 
-    final double approachingWidth = tester.getSize(pill).width;
-    expect(approachingWidth, lessThan(loadingWidth));
-    expect(approachingWidth, greaterThan(22));
-
-    await tester.pump(const Duration(milliseconds: 90));
-
-    final double transitioningWidth = tester.getSize(pill).width;
-    final Color transitioningColor = _generationPillBackgroundColor(
+    final double contractingWidth = tester.getSize(pill).width;
+    final Rect contractingPaintedRect = _generationPillPaintedBackgroundRect(
       tester,
       'completed-transition',
     );
-    expect(transitioningWidth, lessThan(loadingWidth));
-    expect(transitioningWidth, lessThan(22));
-    expect(tester.getSize(pill).height, 22);
-    expect(transitioningColor, isNot(AppColors.accentYellow));
-    expect(transitioningColor, isNot(AppColors.blackOverlay(0.45)));
+    expect(contractingWidth, lessThan(loadingWidth));
+    expect(contractingWidth, greaterThan(22));
+    // The painted background tracks the layout rect exactly — the pill really
+    // shrinks rather than letterboxing inside a stale box.
     expect(
-      find.descendant(of: pill, matching: find.text('即将完成')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: pill, matching: find.text('约10s')),
-      findsNothing,
+      contractingPaintedRect.size,
+      within(distance: 0.01, from: Size(contractingWidth, 22)),
     );
     expect(
       _generationPillContentOpacity(
@@ -417,9 +429,62 @@ void main() {
       inExclusiveRange(0, 1),
     );
 
+    // Elastic overshoot dips under the 22pt resting size...
     await tester.pump(const Duration(milliseconds: 150));
 
+    final double overshootWidth = tester.getSize(pill).width;
+    expect(overshootWidth, lessThan(contractingWidth));
+    expect(overshootWidth, lessThan(22));
+    expect(
+      _generationPillPaintedBackgroundRect(
+        tester,
+        'completed-transition',
+      ).width,
+      lessThan(22),
+    );
+    expect(
+      _generationPillBackgroundColor(tester, 'completed-transition'),
+      AppColors.blackOverlay(0.45),
+    );
+    expect(
+      find.descendant(of: pill, matching: find.text('即将完成')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: pill, matching: find.text('约10s')),
+      findsNothing,
+    );
+
+    // ...then rebounds back up towards it.
+    await tester.pump(const Duration(milliseconds: 120));
+
+    final double reboundWidth = tester.getSize(pill).width;
+    expect(reboundWidth, greaterThan(overshootWidth));
+    expect(reboundWidth, lessThan(22));
+    expect(
+      _generationPillContentOpacity(
+        tester,
+        'completed-transition',
+        'generation-submission-estimate-content',
+      ),
+      0,
+    );
+    expect(
+      _generationPillContentOpacity(
+        tester,
+        'completed-transition',
+        'generation-submission-terminal-content',
+      ),
+      1,
+    );
+
+    await tester.pumpAndSettle();
+
     expect(tester.getSize(pill), const Size.square(22));
+    expect(
+      _generationPillPaintedBackgroundRect(tester, 'completed-transition').size,
+      const Size.square(22),
+    );
     expect(
       _generationPillBackgroundColor(tester, 'completed-transition'),
       AppColors.blackOverlay(0.45),
@@ -464,18 +529,13 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 60));
 
-    final Size approachingSize = tester.getSize(pill);
-    expect(approachingSize.width, lessThan(loadingWidth));
-    expect(approachingSize.width, greaterThan(24));
-    expect(approachingSize.height, greaterThan(22));
-    expect(approachingSize.height, lessThan(24));
-
-    await tester.pump(const Duration(milliseconds: 90));
-
-    final Size transitioningSize = tester.getSize(pill);
-    expect(transitioningSize.width, lessThan(loadingWidth));
-    expect(transitioningSize.width, lessThan(24));
-    expect(transitioningSize.height, 24);
+    final Size contractingSize = tester.getSize(pill);
+    expect(contractingSize.width, lessThan(loadingWidth));
+    expect(contractingSize.width, greaterThan(24));
+    // Width and height ride the same elastic curve, so the pill grows taller
+    // while it narrows instead of the two settling at different times.
+    expect(contractingSize.height, greaterThan(22));
+    expect(contractingSize.height, lessThan(24));
     expect(
       _generationPillContentOpacity(
         tester,
@@ -494,6 +554,15 @@ void main() {
     );
 
     await tester.pump(const Duration(milliseconds: 150));
+
+    final Size overshootSize = tester.getSize(pill);
+    expect(overshootSize.width, lessThan(contractingSize.width));
+    expect(overshootSize.width, lessThan(24));
+    // Height has already reached its 24pt target and is capped by the host box,
+    // so only width can show the overshoot here.
+    expect(overshootSize.height, 24);
+
+    await tester.pumpAndSettle();
 
     expect(tester.getSize(pill), const Size.square(24));
     expect(
@@ -514,9 +583,11 @@ void main() {
     expect(tester.getSize(pill), const Size.square(24));
 
     await tester.pump(const Duration(milliseconds: 150));
-    expect(tester.getSize(pill).width, greaterThan(loadingWidth));
+    expect(tester.getSize(pill).width, greaterThan(24));
 
-    await tester.pump(const Duration(milliseconds: 150));
+    // Back in loading the pulse repeats forever, so run the transition out
+    // explicitly instead of settling.
+    await tester.pump(const Duration(milliseconds: 520));
     expect(tester.getSize(pill).width, loadingWidth);
   });
 
@@ -566,6 +637,139 @@ void main() {
     expect(restoredColor.g, moreOrLessEquals(initialColor.g, epsilon: 0.002));
     expect(restoredColor.b, moreOrLessEquals(initialColor.b, epsilon: 0.002));
     expect(tester.getSize(pill).width, initialWidth);
+  });
+
+  testWidgets('interrupted transition continues from the rendered frame', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_GenerationPillTestHostState> hostKey =
+        GlobalKey<_GenerationPillTestHostState>();
+    await _pumpGenerationPillHost(
+      tester,
+      _GenerationPillTestHost(
+        key: hostKey,
+        jobId: 'interrupted',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+        onRetry: () {},
+      ),
+    );
+
+    final Finder pill = _generationPill('interrupted');
+    final double fullWidth = tester.getSize(pill).width;
+
+    hostKey.currentState!.setStatus(GenerationSubmissionStatus.uploading);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+
+    final Size interruptedSize = tester.getSize(pill);
+    expect(interruptedSize.width, lessThan(fullWidth));
+
+    // Redirect to a terminal state mid-flight. The pill must pick up from the
+    // frame currently on screen, never jump back to a logical stage.
+    hostKey.currentState!.setStatus(GenerationSubmissionStatus.failed);
+    await tester.pump();
+
+    expect(
+      tester.getSize(pill).width,
+      moreOrLessEquals(interruptedSize.width, epsilon: 0.01),
+    );
+    expect(
+      tester.getSize(pill).height,
+      moreOrLessEquals(interruptedSize.height, epsilon: 0.01),
+    );
+
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(tester.getSize(pill).width, lessThan(interruptedSize.width));
+
+    await tester.pump(const Duration(milliseconds: 520));
+    expect(tester.getSize(pill), const Size.square(24));
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-retry-icon-interrupted'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('estimate label freezes for the whole terminal transition', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_GenerationPillTestHostState> hostKey =
+        GlobalKey<_GenerationPillTestHostState>();
+    // 19s in: the 约70s bucket is one second away from flipping to 约50s.
+    await _pumpGenerationPillHost(
+      tester,
+      _GenerationPillTestHost(
+        key: hostKey,
+        jobId: 'frozen-label',
+        status: GenerationSubmissionStatus.pollingTask,
+        startedAt: DateTime.now().subtract(const Duration(seconds: 19)),
+      ),
+    );
+
+    final Finder pill = _generationPill('frozen-label');
+    expect(
+      find.descendant(of: pill, matching: find.text('约70s')),
+      findsOneWidget,
+    );
+
+    hostKey.currentState!.setStatus(GenerationSubmissionStatus.resultSaved);
+    await tester.pump();
+
+    // The bucket boundary lands mid-transition; the frozen label must win so
+    // the pill never flashes one last countdown on its way out.
+    for (int elapsed = 0; elapsed < 520; elapsed += 65) {
+      await tester.pump(const Duration(milliseconds: 65));
+      expect(
+        find.descendant(of: pill, matching: find.text('约50s')),
+        findsNothing,
+      );
+    }
+
+    expect(tester.getSize(pill), const Size.square(22));
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-status-result-saved'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('offscreen ticker lands on the new state without animating', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_GenerationPillTestHostState> hostKey =
+        GlobalKey<_GenerationPillTestHostState>();
+    await _pumpGenerationPillHost(
+      tester,
+      _GenerationPillTestHost(
+        key: hostKey,
+        jobId: 'offscreen',
+        status: GenerationSubmissionStatus.pollingTask,
+        startedAt: DateTime.now(),
+        muteTicker: true,
+      ),
+    );
+
+    final Finder pill = _generationPill('offscreen');
+    expect(tester.getSize(pill).width, greaterThan(22));
+
+    // With TickerMode disabled the controller cannot tick, so the pill must
+    // settle immediately rather than freezing on the loading frame.
+    hostKey.currentState!.setStatus(GenerationSubmissionStatus.resultSaved);
+    await tester.pump();
+
+    expect(tester.getSize(pill), const Size.square(22));
+    expect(
+      _generationPillBackgroundColor(tester, 'offscreen'),
+      AppColors.blackOverlay(0.45),
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-status-result-saved'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('reduced motion switches to a static loading pill immediately', (
@@ -1163,10 +1367,14 @@ void main() {
     );
     expect(tester.getSize(pill).width, loadingWidth);
 
-    await tester.pump(const Duration(milliseconds: 80));
+    await tester.pump(const Duration(milliseconds: 60));
 
     expect(tester.getSize(pill).width, lessThan(loadingWidth));
     expect(tester.getSize(pill).width, greaterThan(24));
+
+    await tester.pump(const Duration(milliseconds: 150));
+
+    expect(tester.getSize(pill).width, lessThan(24));
   });
 
   testWidgets('confirmation guide appears above first awaiting thumbnail', (
@@ -2640,6 +2848,17 @@ Color _generationPillBackgroundColor(WidgetTester tester, String jobId) {
   return (background.decoration as ShapeDecoration).color!;
 }
 
+Rect _generationPillPaintedBackgroundRect(WidgetTester tester, String jobId) {
+  return tester.getRect(
+    find.descendant(
+      of: _generationPillHost(jobId),
+      matching: find.byKey(
+        const ValueKey<String>('generation-submission-pill-background'),
+      ),
+    ),
+  );
+}
+
 double _generationPillContentOpacity(
   WidgetTester tester,
   String jobId,
@@ -2784,6 +3003,7 @@ class _GenerationPillTestHost extends StatefulWidget {
     this.startedAt,
     this.onRetry,
     this.disableAnimations = false,
+    this.muteTicker = false,
   });
 
   final String jobId;
@@ -2791,6 +3011,7 @@ class _GenerationPillTestHost extends StatefulWidget {
   final DateTime? startedAt;
   final VoidCallback? onRetry;
   final bool disableAnimations;
+  final bool muteTicker;
 
   @override
   State<_GenerationPillTestHost> createState() =>
@@ -2824,6 +3045,9 @@ class _GenerationPillTestHostState extends State<_GenerationPillTestHost> {
         onRetry: widget.onRetry,
       ),
     );
+    if (widget.muteTicker) {
+      pill = TickerMode(enabled: false, child: pill);
+    }
     if (widget.disableAnimations) {
       pill = MediaQuery(
         data: MediaQuery.of(context).copyWith(disableAnimations: true),
