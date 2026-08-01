@@ -2641,6 +2641,118 @@ Curve generationPillReboundCurve(double travel) {
   );
 }
 
+/// Palettes the loading sheen cycles through, one per generation.
+///
+/// Hand-tuned rather than sampled from the capture: real photos cluster their
+/// dominant hue in a narrow warm-green band (measured 34°–86° across a device
+/// library), so extracted colours would look alike from one job to the next,
+/// and two shots of the same scene would land on the same colour exactly when
+/// they sit side by side in the strip.
+///
+/// Every entry stays above 9.5:1 against the black estimate label, so the pill
+/// keeps the contrast the flat brand yellow had.
+const List<List<Color>> generationPillSheenPalettes = <List<Color>>[
+  <Color>[Color(0xFFF2C070), Color(0xFFEF9A72), Color(0xFFE8B4CC), Color(0xFFF4E4BC)],
+  <Color>[Color(0xFFB6D998), Color(0xFFD8E8A8), Color(0xFF9ED8BC), Color(0xFFEDF0D2)],
+  <Color>[Color(0xFF9EDCC8), Color(0xFF9AC2E8), Color(0xFFCFE8AE), Color(0xFFE6F0DC)],
+  <Color>[Color(0xFFAEB8EC), Color(0xFFE0AEDC), Color(0xFF9ECBE0), Color(0xFFF0D8C6)],
+  <Color>[Color(0xFFC9B8F2), Color(0xFF9FD8E8), Color(0xFFF2B8D2), Color(0xFFEFE6BE)],
+  <Color>[Color(0xFFF2AEC4), Color(0xFFE8B0D8), Color(0xFFF4CDBC), Color(0xFFF0E2D0)],
+];
+
+/// Picks a stable palette for [jobId].
+///
+/// Deterministic so the colour survives rebuilds, scrolls and relaunches, and
+/// spread by id rather than by image content so neighbouring thumbnails differ
+/// even when they show the same scene.
+@visibleForTesting
+List<Color> generationPillSheenPalette(String jobId) {
+  // FNV-1a: the trailing counter in a record id lands in the low bits, which
+  // hashCode does not reliably mix across ids that share a prefix.
+  int hash = 0x811c9dc5;
+  for (int i = 0; i < jobId.length; i++) {
+    hash = (hash ^ jobId.codeUnitAt(i)) * 0x01000193 & 0x7fffffff;
+  }
+  return generationPillSheenPalettes[hash % generationPillSheenPalettes.length];
+}
+
+/// Loads the sheen shader once for the whole app.
+///
+/// Held as a plain future rather than kicked off per widget: the pill mounts
+/// and unmounts with the strip, and an un-held future would outlive the tree it
+/// was started from.
+class _GenerationPillSheenShader {
+  _GenerationPillSheenShader._();
+
+  static FragmentProgram? _program;
+  static Future<FragmentProgram>? _pending;
+
+  static FragmentProgram? get programOrNull => _program;
+
+  /// Returns the loaded program, starting the load on first call. Callers
+  /// repaint when it resolves; until then the pill just shows its flat colour.
+  static Future<FragmentProgram> load() {
+    final FragmentProgram? loaded = _program;
+    if (loaded != null) {
+      return Future<FragmentProgram>.value(loaded);
+    }
+    return _pending ??= FragmentProgram.fromAsset(
+      'shaders/generation_pill_sheen.frag',
+    ).then((FragmentProgram program) {
+      _program = program;
+      return program;
+    });
+  }
+}
+
+/// Paints the drifting multi-colour sheen behind the loading label.
+///
+/// Repaints are driven straight off [phase] via `CustomPainter.repaint`, so an
+/// animating sheen never rebuilds the pill's widget subtree.
+@visibleForTesting
+class GenerationPillSheenPainter extends CustomPainter {
+  GenerationPillSheenPainter({
+    required this.program,
+    required this.phase,
+    required this.colors,
+  }) : super(repaint: phase);
+
+  final FragmentProgram program;
+
+  /// Wrapped to [0,1); the shader is periodic in it.
+  final Animation<double> phase;
+  final List<Color> colors;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) {
+      return;
+    }
+    final FragmentShader shader = program.fragmentShader();
+    shader
+      ..setFloat(0, size.width)
+      ..setFloat(1, size.height)
+      ..setFloat(2, phase.value)
+      ..setFloat(3, 0.05);
+    int slot = 4;
+    for (final Color color in colors) {
+      shader
+        ..setFloat(slot++, color.r)
+        ..setFloat(slot++, color.g)
+        ..setFloat(slot++, color.b);
+    }
+    canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
+    shader.dispose();
+  }
+
+  @override
+  bool shouldRepaint(GenerationPillSheenPainter oldDelegate) {
+    return oldDelegate.phase != phase ||
+        oldDelegate.program != program ||
+        !listEquals(oldDelegate.colors, colors);
+  }
+}
+
 @visibleForTesting
 class GenerationStatusPill extends StatefulWidget {
   const GenerationStatusPill({
@@ -2667,7 +2779,10 @@ class GenerationStatusPill extends StatefulWidget {
 class _GenerationStatusPillState extends State<GenerationStatusPill>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   static const Duration _transitionDuration = generationPillTransitionDuration;
-  static const Duration _pulseDuration = Duration(seconds: 2);
+
+  /// One full drift of the sheen. Fast enough to read as alive, slow enough
+  /// that the colour field still resolves instead of smearing.
+  static const Duration _sheenPeriod = Duration(milliseconds: 4000);
   static const Curve _contentCurve = Curves.easeOutCubic;
 
   /// Colour and cross-fade settle well before the elastic rebound stops, so the
@@ -2676,7 +2791,10 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
   static const Interval _contentInterval = Interval(0, 0.6);
 
   late final AnimationController _transitionController;
-  late final AnimationController _pulseController;
+
+  /// Drives the loading sheen's phase. Wraps 0→1 over [_sheenPeriod]; the
+  /// shader is periodic in that value so the loop closes seamlessly.
+  late final AnimationController _sheenController;
   late final Listenable _visualListenable;
 
   late _GenerationPillMode _mode;
@@ -2721,6 +2839,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _ensureSheenShader();
     _mode = _modeForWidget();
     _previousMode = _mode;
     if (_isTerminalMode(_mode)) {
@@ -2731,14 +2850,14 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
       duration: _transitionDuration,
       value: 1,
     );
-    _pulseController = AnimationController(
+    _sheenController = AnimationController(
       vsync: this,
-      duration: _pulseDuration,
+      duration: _sheenPeriod,
     );
-    _visualListenable = Listenable.merge(<Listenable>[
-      _transitionController,
-      _pulseController,
-    ]);
+    // The sheen deliberately stays out of this: it drives a repaint through
+    // the painter's own `repaint` hook instead, so a loading pill does not
+    // rebuild its whole subtree every frame just to advance one double.
+    _visualListenable = _transitionController;
     _effectiveStartedAt = widget.startedAt ?? DateTime.now();
     _estimateReferenceNow = DateTime.now();
     _timeEstimate = GenerationRemainingTimeEstimator.estimate(
@@ -2790,18 +2909,18 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
       _settleTransition();
     }
     _syncTimeEstimate();
-    _syncPulseAnimation();
+    _syncSheenAnimation();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _syncTimeEstimate(rebuild: true);
-      _syncPulseAnimation();
+      _syncSheenAnimation();
       return;
     }
     _cancelEstimateTimer();
-    _pulseController.stop();
+    _sheenController.stop();
   }
 
   @override
@@ -2809,7 +2928,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
     WidgetsBinding.instance.removeObserver(this);
     _cancelEstimateTimer();
     _transitionController.dispose();
-    _pulseController.dispose();
+    _sheenController.dispose();
     super.dispose();
   }
 
@@ -2826,7 +2945,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
     if (_isTerminalMode(nextMode)) {
       _terminalMode = nextMode;
     }
-    _pulseController.stop();
+    _sheenController.stop();
 
     // No layout yet, or nothing can tick (reduced motion, off-screen ticker,
     // backgrounded app): land on the new state rather than freezing on a
@@ -2841,7 +2960,6 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
     final _GenerationPillVisual target = _restingVisual(
       _mode,
       AppThemeColors.of(context),
-      pulseAmount: 0,
     );
     _geometryCurve = generationPillReboundCurve(
       math.max(
@@ -2860,7 +2978,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
         _transitionFrom = null;
         _frozenEstimateLabel = null;
         _previousMode = _mode;
-        _syncPulseAnimation();
+        _syncSheenAnimation();
       }),
     );
   }
@@ -2872,22 +2990,49 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
     _transitionFrom = null;
     _frozenEstimateLabel = null;
     _previousMode = _mode;
-    _pulseController.value = 0;
-    _syncPulseAnimation();
+    _syncSheenAnimation();
   }
 
-  void _syncPulseAnimation() {
-    final bool shouldPulse =
+  /// Repaints once the shared shader is ready. Guarded on `mounted` so a pill
+  /// scrolled out of the strip mid-load leaves nothing behind.
+  void _ensureSheenShader() {
+    if (_GenerationPillSheenShader.programOrNull != null) {
+      return;
+    }
+    unawaited(
+      _GenerationPillSheenShader.load().then(
+        (_) {
+          if (mounted) {
+            setState(() {});
+          }
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          // A missing or invalid shader must not take the pill down: it simply
+          // stays on its flat brand colour.
+          logAppError(
+            'generation_pill_sheen_shader',
+            error,
+            stackTrace,
+          );
+        },
+      ),
+    );
+  }
+
+  /// Runs the sheen only while the pill is genuinely loading and motion is
+  /// allowed, so a backgrounded or reduced-motion pill costs nothing.
+  void _syncSheenAnimation() {
+    final bool shouldRunSheen =
         _isLoading && !_isTransitioning && _canRunMotion && !_reduceMotion;
-    if (shouldPulse) {
-      if (!_pulseController.isAnimating) {
-        _pulseController.repeat();
+    if (shouldRunSheen) {
+      if (!_sheenController.isAnimating) {
+        _sheenController.repeat();
       }
       return;
     }
-    _pulseController.stop();
+    _sheenController.stop();
     if (_reduceMotion || !_isLoading) {
-      _pulseController.value = 0;
+      _sheenController.value = 0;
     }
   }
 
@@ -2990,9 +3135,8 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
   /// The frame a mode rests on with no transition in flight.
   _GenerationPillVisual _restingVisual(
     _GenerationPillMode mode,
-    AppThemeColors colors, {
-    required double pulseAmount,
-  }) {
+    AppThemeColors colors,
+  ) {
     final double terminalSize = _terminalSize();
     switch (mode) {
       case _GenerationPillMode.confirmation:
@@ -3005,15 +3149,10 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
           terminalOpacity: 0,
         );
       case _GenerationPillMode.loading:
-        final Color dimYellow =
-            Color.lerp(colors.accentYellow, AppColors.black, 0.1) ??
-            colors.accentYellow;
         return _GenerationPillVisual(
           width: _compactWidth,
           height: widget.height,
-          background:
-              Color.lerp(colors.accentYellow, dimYellow, pulseAmount) ??
-              colors.accentYellow,
+          background: colors.accentYellow,
           confirmOpacity: 0,
           estimateOpacity: 1,
           terminalOpacity: 0,
@@ -3042,13 +3181,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
   /// interrupted animation.
   _GenerationPillVisual _currentVisual({AppThemeColors? themeColors}) {
     final AppThemeColors colors = themeColors ?? AppThemeColors.of(context);
-    final double pulseAmount =
-        (1 - math.cos(2 * math.pi * _pulseController.value)) / 2;
-    final _GenerationPillVisual target = _restingVisual(
-      _mode,
-      colors,
-      pulseAmount: pulseAmount,
-    );
+    final _GenerationPillVisual target = _restingVisual(_mode, colors);
     final _GenerationPillVisual? from = _transitionFrom;
     if (from == null || _transitionController.value >= 1) {
       return target;
@@ -3168,6 +3301,8 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
             final _GenerationPillVisual visual = _currentVisual(
               themeColors: colors,
             );
+            final FragmentProgram? sheenProgram =
+                _GenerationPillSheenShader.programOrNull;
             return Align(
               alignment: Alignment.centerRight,
               child: Semantics(
@@ -3197,6 +3332,38 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
                           alignment: Alignment.center,
                           fit: StackFit.expand,
                           children: <Widget>[
+                            // Below the content layers so the sheen tints the
+                            // pill without ever washing out the black label.
+                            // `estimateOpacity` already means "how loading is
+                            // this frame"; squaring it clears the sheen inside
+                            // ~120ms so it is gone before the mesh, which keeps
+                            // its own ticker, can be seen frozen mid-drift.
+                            Opacity(
+                              key: const ValueKey<String>(
+                                'generation-submission-pill-sheen',
+                              ),
+                              opacity:
+                                  visual.estimateOpacity *
+                                  visual.estimateOpacity,
+                              child: ClipPath(
+                                clipper: ShapeBorderClipper(
+                                  shape: AppCorners.controlShape(
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                ),
+                                child: sheenProgram == null
+                                    ? const SizedBox.shrink()
+                                    : CustomPaint(
+                                        painter: GenerationPillSheenPainter(
+                                          program: sheenProgram,
+                                          phase: _sheenController,
+                                          colors: generationPillSheenPalette(
+                                            widget.jobId,
+                                          ),
+                                        ),
+                                      ),
+                              ),
+                            ),
                             Opacity(
                               key: const ValueKey<String>(
                                 'generation-submission-confirm-content',

@@ -593,7 +593,7 @@ void main() {
     expect(tester.getSize(pill).width, loadingWidth);
   });
 
-  testWidgets('loading estimate slowly breathes without changing its layout', (
+  testWidgets('loading sheen drifts without touching the colour or layout', (
     WidgetTester tester,
   ) async {
     await _pumpGenerationPillHost(
@@ -615,15 +615,20 @@ void main() {
       initialWidth,
       lessThan(tester.getSize(_generationPillHost('pulse')).width),
     );
+    // The sheen is its own layer now, so the pill's own colour must stay the
+    // flat brand yellow instead of being dimmed by the animation.
     expect(initialColor, AppColors.accentYellow);
+
+    final double initialPhase = _generationPillSheenPhase(tester, 'pulse');
 
     await tester.pump(const Duration(seconds: 1));
 
-    final Color dimmedColor = _generationPillBackgroundColor(tester, 'pulse');
     expect(
-      dimmedColor.computeLuminance(),
-      lessThan(initialColor.computeLuminance()),
+      _generationPillSheenPhase(tester, 'pulse'),
+      isNot(closeTo(initialPhase, 1e-6)),
+      reason: 'the sheen should keep drifting while loading',
     );
+    expect(_generationPillBackgroundColor(tester, 'pulse'), initialColor);
     expect(tester.getSize(pill).width, initialWidth);
     expect(
       tester
@@ -634,11 +639,135 @@ void main() {
 
     await tester.pump(const Duration(seconds: 1));
 
-    final Color restoredColor = _generationPillBackgroundColor(tester, 'pulse');
-    expect(restoredColor.r, moreOrLessEquals(initialColor.r, epsilon: 0.002));
-    expect(restoredColor.g, moreOrLessEquals(initialColor.g, epsilon: 0.002));
-    expect(restoredColor.b, moreOrLessEquals(initialColor.b, epsilon: 0.002));
+    expect(_generationPillBackgroundColor(tester, 'pulse'), initialColor);
     expect(tester.getSize(pill).width, initialWidth);
+  });
+
+  testWidgets('the sheen layer is fully clear once loading ends', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_GenerationPillTestHostState> hostKey =
+        GlobalKey<_GenerationPillTestHostState>();
+    await _pumpGenerationPillHost(
+      tester,
+      _GenerationPillTestHost(
+        key: hostKey,
+        jobId: 'sheen-exit',
+        status: GenerationSubmissionStatus.pollingTask,
+        startedAt: DateTime.now(),
+      ),
+    );
+
+    expect(_generationPillSheenOpacity(tester, 'sheen-exit'), 1);
+
+    hostKey.currentState!.setStatus(GenerationSubmissionStatus.resultSaved);
+    await tester.pump();
+
+    // The sheen keeps its own drift phase, so a slow fade would let it be seen
+    // frozen mid-drift while the pill shrinks away. Squaring the ramp clears it
+    // early: by 120ms it must be perceptually gone, well ahead of the estimate
+    // label it sits behind.
+    await tester.pump(const Duration(milliseconds: 120));
+    final double sheenMidExit = _generationPillSheenOpacity(
+      tester,
+      'sheen-exit',
+    );
+    final double labelMidExit = _generationPillContentOpacity(
+      tester,
+      'sheen-exit',
+      'generation-submission-estimate-content',
+    );
+    expect(
+      sheenMidExit,
+      lessThan(0.02),
+      reason: 'the sheen must clear within ~120ms of leaving loading',
+    );
+    expect(
+      sheenMidExit,
+      lessThan(labelMidExit),
+      reason: 'the sheen must never outlast the label it sits behind',
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(_generationPillSheenOpacity(tester, 'sheen-exit'), 0);
+  });
+
+  testWidgets('the sheen repaints without rebuilding the pill subtree', (
+    WidgetTester tester,
+  ) async {
+    await _pumpGenerationPillHost(
+      tester,
+      _GenerationPillTestHost(
+        jobId: 'sheen-repaint',
+        status: GenerationSubmissionStatus.pollingTask,
+        startedAt: DateTime.now(),
+      ),
+    );
+
+    // Identity is what proves the point: if the sheen drove rebuilds, the
+    // builder would run again and hand CustomPaint a brand new painter.
+    final GenerationPillSheenPainter first = _generationPillSheenPainter(
+      tester,
+      'sheen-repaint',
+    );
+
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final GenerationPillSheenPainter second = _generationPillSheenPainter(
+      tester,
+      'sheen-repaint',
+    );
+    expect(
+      identical(first, second),
+      isTrue,
+      reason: 'the sheen must not rebuild the pill subtree to animate',
+    );
+
+    // Since the painter instance never changes, the only thing that can drive
+    // a repaint is its `repaint` listenable. Adding a listener to the painter
+    // itself proves it is wired to something that actually ticks.
+    int notifications = 0;
+    void onRepaint() => notifications++;
+    second.addListener(onRepaint);
+    addTearDown(() => second.removeListener(onRepaint));
+
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 16));
+
+    expect(
+      notifications,
+      greaterThan(0),
+      reason: 'the painter must notify its listeners as the sheen advances',
+    );
+  });
+
+  test('sheen palettes stay readable and distinct', () {
+    // Every palette sits behind the black estimate label.
+    for (final List<Color> palette in generationPillSheenPalettes) {
+      expect(palette, hasLength(4));
+      for (final Color color in palette) {
+        expect(
+          (color.computeLuminance() + 0.05) / 0.05,
+          greaterThan(4.5),
+          reason: '$color must clear WCAG AA against the black label',
+        );
+      }
+    }
+
+    // Ids that differ only in their trailing counter must not collide, which
+    // is exactly the shape real record ids take.
+    final Set<int> chosen = <int>{
+      for (int i = 0; i < generationPillSheenPalettes.length; i++)
+        generationPillSheenPalettes.indexOf(
+          generationPillSheenPalette('local-1700000000000000-$i'),
+        ),
+    };
+    expect(
+      chosen.length,
+      greaterThan(1),
+      reason: 'sequential job ids must not all map to one palette',
+    );
   });
 
   test('rebound overshoot stays comparable across short and long edges', () {
@@ -2908,6 +3037,38 @@ double _generationPillContentOpacity(
     ),
   );
   return opacity.opacity;
+}
+
+double _generationPillSheenOpacity(WidgetTester tester, String jobId) {
+  return _generationPillContentOpacity(
+    tester,
+    jobId,
+    'generation-submission-pill-sheen',
+  );
+}
+
+GenerationPillSheenPainter _generationPillSheenPainter(
+  WidgetTester tester,
+  String jobId,
+) {
+  final CustomPaint paint = tester.widget<CustomPaint>(
+    find.descendant(
+      of: find.descendant(
+        of: _generationPillHost(jobId),
+        matching: find.byKey(
+          const ValueKey<String>('generation-submission-pill-sheen'),
+        ),
+      ),
+      matching: find.byType(CustomPaint),
+    ),
+  );
+  return paint.painter! as GenerationPillSheenPainter;
+}
+
+/// Reads the phase the sheen shader is actually being painted with, so the test
+/// tracks the production painter rather than re-deriving the animation itself.
+double _generationPillSheenPhase(WidgetTester tester, String jobId) {
+  return _generationPillSheenPainter(tester, jobId).phase.value;
 }
 
 Future<void> _pumpGenerationPillHost(

@@ -100,6 +100,9 @@ flutter:
     - test/fixtures/image_pipeline/raw.HEIC
     - test/fixtures/image_pipeline/res.png
 
+  shaders:
+    - shaders/generation_pill_sheen.frag
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
