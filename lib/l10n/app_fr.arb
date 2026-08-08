@@ -106,6 +106,7 @@
   "generationSubmissionDislikeFeedbackPlaceholder": "Laisse un commentaire (facultatif)",
   "generationSubmissionDislikeFeedbackSubmit": "Envoyer",
   "generationSubmissionActionRemove": "Supprimer",
+  "generationSubmissionActionDelete": "Supprimer",
   "generationSubmissionActionConfirm": "Confirmer",
   "promptSwitchRecomposeTitle": "Recadrer",
   "promptSwitchBeautifyFaceTitle": "Beauté",

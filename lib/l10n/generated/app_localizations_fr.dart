@@ -297,6 +297,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get generationSubmissionActionRemove => 'Supprimer';
 
   @override
+  String get generationSubmissionActionDelete => 'Supprimer';
+
+  @override
   String get generationSubmissionActionConfirm => 'Confirmer';
 
   @override

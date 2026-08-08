@@ -106,6 +106,7 @@
   "generationSubmissionDislikeFeedbackPlaceholder": "フィードバックをお聞かせください（任意）",
   "generationSubmissionDislikeFeedbackSubmit": "送信",
   "generationSubmissionActionRemove": "削除",
+  "generationSubmissionActionDelete": "削除",
   "generationSubmissionActionConfirm": "確認",
   "promptSwitchRecomposeTitle": "再構成",
   "promptSwitchBeautifyFaceTitle": "ビューティー",

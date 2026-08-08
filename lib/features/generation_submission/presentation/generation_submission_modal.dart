@@ -2243,6 +2243,8 @@ class _JobThumbnail extends StatelessWidget {
         job.status == GenerationSubmissionStatus.resultSaved
         ? job.processedResultPath ?? ''
         : job.imagePath;
+    final bool awaitingConfirmation =
+        job.status == GenerationSubmissionStatus.awaitingConfirmation;
     return GestureDetector(
       key: ValueKey<String>(
         thumbnailKey ?? 'generation-submission-photo-${job.id}',
@@ -2282,36 +2284,60 @@ class _JobThumbnail extends StatelessWidget {
               key: ValueKey<String>('generation-thumbnail-image-${job.id}'),
               path: thumbnailImagePath,
             ),
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: !awaitingConfirmation,
+                child: AnimatedSwitcher(
+                  duration: reduceMotion
+                      ? Duration.zero
+                      : const Duration(milliseconds: 180),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  layoutBuilder:
+                      (Widget? currentChild, List<Widget> previousChildren) {
+                        return Stack(
+                          fit: StackFit.expand,
+                          children: <Widget>[
+                            ...previousChildren,
+                            ?currentChild,
+                          ],
+                        );
+                      },
+                  child: awaitingConfirmation
+                      ? _AwaitingConfirmationOverlay(
+                          key: ValueKey<String>(
+                            'generation-submission-awaiting-overlay-${job.id}',
+                          ),
+                          jobId: job.id,
+                          deleteLabel:
+                              context.l10n.generationSubmissionActionDelete,
+                          onDelete: onCancel,
+                        )
+                      : SizedBox.expand(
+                          key: ValueKey<String>(
+                            'generation-submission-awaiting-overlay-empty-'
+                            '${job.id}',
+                          ),
+                        ),
+                ),
+              ),
+            ),
             if (onRemove != null)
               Positioned(
                 key: ValueKey<String>(
                   'generation-submission-remove-slot-${job.id}',
                 ),
-                left: 6,
-                bottom: 6,
-                child: _ThumbnailActionButton(
-                  key: ValueKey<String>(
+                left: 0,
+                top: 0,
+                child: _ThumbnailDeleteAction(
+                  actionKey: ValueKey<String>(
                     'generation-submission-remove-${job.id}',
                   ),
-                  color: AppColors.danger,
-                  icon: LucideIcons.x,
-                  onPressed: onRemove,
-                ),
-              ),
-            if (job.status == GenerationSubmissionStatus.awaitingConfirmation)
-              Positioned(
-                key: ValueKey<String>(
-                  'generation-submission-cancel-slot-${job.id}',
-                ),
-                left: 6,
-                top: 6,
-                child: _ThumbnailActionButton(
-                  key: ValueKey<String>(
-                    'generation-submission-cancel-${job.id}',
+                  visualKey: ValueKey<String>(
+                    'generation-submission-remove-visual-${job.id}',
                   ),
-                  color: AppColors.danger,
-                  icon: LucideIcons.trash2,
-                  onPressed: onCancel,
+                  semanticsLabel: context.l10n.generationSubmissionActionDelete,
+                  onPressed: onRemove,
                 ),
               ),
             Positioned(
@@ -2321,6 +2347,7 @@ class _JobThumbnail extends StatelessWidget {
               left: 6,
               right: 6,
               bottom: 6,
+              height: 44,
               child: GenerationStatusPill(
                 key: ValueKey<String>(
                   'generation-submission-state-pill-${job.id}',
@@ -2333,22 +2360,16 @@ class _JobThumbnail extends StatelessWidget {
                 height: 22,
               ),
             ),
-            Positioned(
-              key: ValueKey<String>(
-                'generation-submission-prompt-slot-${job.id}',
+            if (!awaitingConfirmation)
+              Positioned(
+                key: ValueKey<String>(
+                  'generation-submission-prompt-slot-${job.id}',
+                ),
+                left: 6,
+                right: 6,
+                top: 6,
+                child: _PromptSnapshotBadge(job: job),
               ),
-              left: 6,
-              right: 6,
-              top: 6,
-              child: _PromptSnapshotBadge(
-                job: job,
-                alignment:
-                    job.status ==
-                        GenerationSubmissionStatus.awaitingConfirmation
-                    ? Alignment.topRight
-                    : Alignment.topLeft,
-              ),
-            ),
           ],
         ),
       ),
@@ -2396,13 +2417,9 @@ class _MissingOriginalImagePlaceholder extends StatelessWidget {
 }
 
 class _PromptSnapshotBadge extends StatelessWidget {
-  const _PromptSnapshotBadge({
-    required this.job,
-    this.alignment = Alignment.topLeft,
-  });
+  const _PromptSnapshotBadge({required this.job});
 
   final GenerationSubmissionJob job;
-  final Alignment alignment;
 
   @override
   Widget build(BuildContext context) {
@@ -2418,7 +2435,7 @@ class _PromptSnapshotBadge extends StatelessWidget {
     }
 
     return Align(
-      alignment: alignment,
+      alignment: Alignment.topLeft,
       child: DecoratedBox(
         decoration: AppCorners.controlDecoration(color: colors.accentYellow),
         child: Padding(
@@ -2457,31 +2474,104 @@ String? generationThumbnailPromptBadgeLabel({
   return null;
 }
 
-class _ThumbnailActionButton extends StatelessWidget {
-  const _ThumbnailActionButton({
+class _AwaitingConfirmationOverlay extends StatelessWidget {
+  const _AwaitingConfirmationOverlay({
     super.key,
-    required this.color,
-    required this.icon,
+    required this.jobId,
+    required this.deleteLabel,
+    required this.onDelete,
+  });
+
+  final String jobId;
+  final String deleteLabel;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: FractionallySizedBox(
+            widthFactor: 1,
+            heightFactor: 0.45,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                key: ValueKey<String>(
+                  'generation-submission-bottom-gradient-$jobId',
+                ),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: <Color>[Color(0x00000000), Color(0xD9000000)],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Align(
+          alignment: Alignment.topLeft,
+          child: _ThumbnailDeleteAction(
+            actionKey: ValueKey<String>('generation-submission-cancel-$jobId'),
+            visualKey: ValueKey<String>(
+              'generation-submission-cancel-visual-$jobId',
+            ),
+            semanticsLabel: deleteLabel,
+            onPressed: onDelete,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ThumbnailDeleteAction extends StatelessWidget {
+  const _ThumbnailDeleteAction({
+    required this.actionKey,
+    required this.visualKey,
+    required this.semanticsLabel,
     required this.onPressed,
   });
 
-  final Color color;
-  final IconData icon;
+  final Key actionKey;
+  final Key visualKey;
+  final String semanticsLabel;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: DecoratedBox(
-        decoration: AppCorners.controlDecoration(
-          color: color.withValues(alpha: 0.8),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: Icon(icon, color: AppColors.white, size: 14),
+    return SizedBox.square(
+      dimension: 44,
+      child: Semantics(
+        button: true,
+        enabled: onPressed != null,
+        label: semanticsLabel,
+        child: GestureDetector(
+          key: actionKey,
+          behavior: HitTestBehavior.opaque,
+          onTap: onPressed,
+          child: ExcludeSemantics(
+            child: Center(
+              child: DecoratedBox(
+                key: visualKey,
+                decoration: AppCorners.controlDecoration(
+                  color: AppColors.blackOverlay(0.45),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const SizedBox.square(
+                  dimension: 24,
+                  child: Icon(
+                    LucideIcons.trash2,
+                    color: AppColors.danger,
+                    size: 14,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -3233,7 +3323,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
         return _GenerationPillVisual(
           width: _maxWidth,
           height: widget.height,
-          background: AppColors.confirmGreen,
+          background: const Color(0x00000000),
           sheenColors: _generationPillConfirmSheenPalette,
           confirmOpacity: 1,
           estimateOpacity: 0,
@@ -3420,136 +3510,163 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
                   behavior: HitTestBehavior.opaque,
                   onTap: onTap,
                   child: SizedBox(
-                    key: const ValueKey<String>(
-                      'generation-submission-estimate-pill',
-                    ),
                     width: visual.width,
-                    height: visual.height,
-                    child: DecoratedBox(
-                      key: const ValueKey<String>(
-                        'generation-submission-pill-background',
-                      ),
-                      decoration: AppCorners.controlDecoration(
-                        color: visual.background,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: ExcludeSemantics(
-                        child: Stack(
-                          alignment: Alignment.center,
-                          fit: StackFit.expand,
-                          children: <Widget>[
-                            // Below the content layers so the sheen tints the
-                            // pill without ever washing out the black label.
-                            // The palette is part of the rendered-frame model,
-                            // so it grows from four copies of confirmGreen into
-                            // the selected colours and survives interruptions
-                            // without snapping. `estimateOpacity` already means
-                            // "how loading is this frame"; squaring it clears
-                            // the sheen inside ~120ms on the way out.
-                            Opacity(
-                              key: const ValueKey<String>(
-                                'generation-submission-pill-sheen',
-                              ),
-                              opacity:
-                                  visual.estimateOpacity *
-                                  visual.estimateOpacity,
-                              child: ClipPath(
-                                clipper: ShapeBorderClipper(
-                                  shape: AppCorners.controlShape(
-                                    borderRadius: BorderRadius.circular(999),
+                    height: _mode == _GenerationPillMode.confirmation
+                        ? constraints.maxHeight
+                        : visual.height,
+                    child: Align(
+                      alignment: Alignment.bottomRight,
+                      child: SizedBox(
+                        key: const ValueKey<String>(
+                          'generation-submission-estimate-pill',
+                        ),
+                        width: visual.width,
+                        height: visual.height,
+                        child: DecoratedBox(
+                          key: const ValueKey<String>(
+                            'generation-submission-pill-background',
+                          ),
+                          decoration: AppCorners.controlDecoration(
+                            color: visual.background,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: ExcludeSemantics(
+                            child: Stack(
+                              alignment: Alignment.center,
+                              fit: StackFit.expand,
+                              children: <Widget>[
+                                // Below the content layers so the sheen tints the
+                                // pill without ever washing out the black label.
+                                // The palette is part of the rendered-frame model,
+                                // so it grows from four copies of confirmGreen into
+                                // the selected colours and survives interruptions
+                                // without snapping. `estimateOpacity` already means
+                                // "how loading is this frame"; squaring it clears
+                                // the sheen inside ~120ms on the way out.
+                                Opacity(
+                                  key: const ValueKey<String>(
+                                    'generation-submission-pill-sheen',
                                   ),
-                                ),
-                                child: sheenProgram == null
-                                    ? const SizedBox.shrink()
-                                    : CustomPaint(
-                                        painter: GenerationPillSheenPainter(
-                                          program: sheenProgram,
-                                          phase: _sheenController,
-                                          colors: visual.sheenColors,
+                                  opacity:
+                                      visual.estimateOpacity *
+                                      visual.estimateOpacity,
+                                  child: ClipPath(
+                                    clipper: ShapeBorderClipper(
+                                      shape: AppCorners.controlShape(
+                                        borderRadius: BorderRadius.circular(
+                                          999,
                                         ),
                                       ),
-                              ),
-                            ),
-                            if (showConfirmLayer)
-                              Opacity(
-                                key: const ValueKey<String>(
-                                  'generation-submission-confirm-content',
-                                ),
-                                opacity: visual.confirmOpacity,
-                                child: _GenerationPillContent(
-                                  // The row is shorter than the pill, and
-                                  // BoxFit.contain would scale it *up* to fill
-                                  // the height — 1.57x here, which would make
-                                  // this label far larger than the estimate one
-                                  // it cross-fades with. The vertical padding
-                                  // brings the content box up to the pill's own
-                                  // height so nothing is scaled at all.
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 4,
-                                    horizontal: 6,
+                                    ),
+                                    child: sheenProgram == null
+                                        ? const SizedBox.shrink()
+                                        : CustomPaint(
+                                            painter: GenerationPillSheenPainter(
+                                              program: sheenProgram,
+                                              phase: _sheenController,
+                                              colors: visual.sheenColors,
+                                            ),
+                                          ),
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: <Widget>[
-                                      const Icon(
-                                        LucideIcons.check,
-                                        color: AppColors.white,
+                                ),
+                                if (showConfirmLayer)
+                                  Opacity(
+                                    key: const ValueKey<String>(
+                                      'generation-submission-confirm-content',
+                                    ),
+                                    opacity: visual.confirmOpacity,
+                                    child: _GenerationPillContent(
+                                      // The row is shorter than the pill, and
+                                      // BoxFit.contain would scale it *up* to fill
+                                      // the height — 1.57x here, which would make
+                                      // this label far larger than the estimate one
+                                      // it cross-fades with. The vertical padding
+                                      // brings the content box up to the pill's own
+                                      // height so nothing is scaled at all.
+                                      padding: const EdgeInsets.fromLTRB(
+                                        6,
+                                        5,
+                                        6,
+                                        3,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: <Widget>[
+                                          const Icon(
+                                            LucideIcons.check600,
+                                            color: AppColors.success,
+                                            size: 14,
+                                            shadows: <Shadow>[
+                                              Shadow(
+                                                color: Color(0xB3000000),
+                                                offset: Offset(0, 1),
+                                                blurRadius: 2,
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            context
+                                                .l10n
+                                                .generationSubmissionActionConfirm,
+                                            maxLines: 1,
+                                            softWrap: false,
+                                            style: const TextStyle(
+                                              color: AppColors.success,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                              shadows: <Shadow>[
+                                                Shadow(
+                                                  color: Color(0xB3000000),
+                                                  offset: Offset(0, 1),
+                                                  blurRadius: 2,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                Opacity(
+                                  key: const ValueKey<String>(
+                                    'generation-submission-estimate-content',
+                                  ),
+                                  opacity: visual.estimateOpacity,
+                                  child: _GenerationPillContent(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                    ),
+                                    child: Text(
+                                      estimateLabel,
+                                      key: ValueKey<String>(
+                                        'generation-submission-estimate-label-'
+                                        '${_timeEstimate.seconds ?? 'finishing'}',
+                                      ),
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      style: estimateTextStyle,
+                                    ),
+                                  ),
+                                ),
+                                if (showTerminalLayer)
+                                  Opacity(
+                                    key: const ValueKey<String>(
+                                      'generation-submission-terminal-content',
+                                    ),
+                                    opacity: visual.terminalOpacity,
+                                    child: _GenerationPillContent(
+                                      child: Icon(
+                                        terminalIcon,
+                                        key: terminalIconKey,
+                                        color: terminalIconColor,
                                         size: 14,
                                       ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        context
-                                            .l10n
-                                            .generationSubmissionActionConfirm,
-                                        maxLines: 1,
-                                        softWrap: false,
-                                        style: const TextStyle(
-                                          color: AppColors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
+                                    ),
                                   ),
-                                ),
-                              ),
-                            Opacity(
-                              key: const ValueKey<String>(
-                                'generation-submission-estimate-content',
-                              ),
-                              opacity: visual.estimateOpacity,
-                              child: _GenerationPillContent(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                ),
-                                child: Text(
-                                  estimateLabel,
-                                  key: ValueKey<String>(
-                                    'generation-submission-estimate-label-'
-                                    '${_timeEstimate.seconds ?? 'finishing'}',
-                                  ),
-                                  maxLines: 1,
-                                  softWrap: false,
-                                  style: estimateTextStyle,
-                                ),
-                              ),
+                              ],
                             ),
-                            if (showTerminalLayer)
-                              Opacity(
-                                key: const ValueKey<String>(
-                                  'generation-submission-terminal-content',
-                                ),
-                                opacity: visual.terminalOpacity,
-                                child: _GenerationPillContent(
-                                  child: Icon(
-                                    terminalIcon,
-                                    key: terminalIconKey,
-                                    color: terminalIconColor,
-                                    size: 14,
-                                  ),
-                                ),
-                              ),
-                          ],
+                          ),
                         ),
                       ),
                     ),

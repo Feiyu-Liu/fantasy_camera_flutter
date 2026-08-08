@@ -607,6 +607,12 @@ abstract class AppLocalizations {
   /// **'Remove'**
   String get generationSubmissionActionRemove;
 
+  /// No description provided for @generationSubmissionActionDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get generationSubmissionActionDelete;
+
   /// No description provided for @generationSubmissionActionConfirm.
   ///
   /// In en, this message translates to:

@@ -272,6 +272,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get generationSubmissionActionRemove => '移除';
 
   @override
+  String get generationSubmissionActionDelete => '删除';
+
+  @override
   String get generationSubmissionActionConfirm => '确认';
 
   @override
@@ -942,6 +945,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get generationSubmissionActionRemove => '移除';
+
+  @override
+  String get generationSubmissionActionDelete => '刪除';
 
   @override
   String get generationSubmissionActionConfirm => '確認';

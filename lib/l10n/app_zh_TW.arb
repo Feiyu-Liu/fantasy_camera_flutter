@@ -106,6 +106,7 @@
   "generationSubmissionDislikeFeedbackPlaceholder": "請留下寶貴意見（選填）",
   "generationSubmissionDislikeFeedbackSubmit": "送出",
   "generationSubmissionActionRemove": "移除",
+  "generationSubmissionActionDelete": "刪除",
   "generationSubmissionActionConfirm": "確認",
   "promptSwitchRecomposeTitle": "重新構圖",
   "promptSwitchBeautifyFaceTitle": "人物美化",

@@ -106,6 +106,7 @@
   "generationSubmissionDislikeFeedbackPlaceholder": "请留下宝贵建议（可选）",
   "generationSubmissionDislikeFeedbackSubmit": "提交",
   "generationSubmissionActionRemove": "移除",
+  "generationSubmissionActionDelete": "删除",
   "generationSubmissionActionConfirm": "确认",
   "promptSwitchRecomposeTitle": "重构图",
   "promptSwitchBeautifyFaceTitle": "人物优化",

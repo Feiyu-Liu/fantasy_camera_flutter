@@ -90,6 +90,26 @@ void main() {
       find.byKey(
         const ValueKey<String>('generation-submission-prompt-awaiting'),
       ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-prompt-processing'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-top-gradient-awaiting'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-bottom-gradient-awaiting',
+        ),
+      ),
       findsOneWidget,
     );
     expect(
@@ -114,9 +134,85 @@ void main() {
         const ValueKey<String>('generation-submission-confirm-awaiting'),
       ),
     );
-    expect(cancelButtonSize, const Size.square(24));
-    expect(confirmButtonSize.height, 22);
-    expect(confirmButtonSize.width, greaterThan(cancelButtonSize.width));
+    final Finder cancelVisual = find.byKey(
+      const ValueKey<String>('generation-submission-cancel-visual-awaiting'),
+    );
+    final Finder removeButton = find.byKey(
+      const ValueKey<String>('generation-submission-remove-failed'),
+    );
+    final Finder removeVisual = find.byKey(
+      const ValueKey<String>('generation-submission-remove-visual-failed'),
+    );
+    expect(cancelButtonSize.height, 44);
+    expect(tester.getSize(removeButton), const Size.square(44));
+    expect(confirmButtonSize.height, 44);
+    expect(tester.getSize(cancelVisual), const Size.square(24));
+    expect(tester.getSize(removeVisual), const Size.square(24));
+    final DecoratedBox cancelDecoration = tester.widget<DecoratedBox>(
+      cancelVisual,
+    );
+    final DecoratedBox removeDecoration = tester.widget<DecoratedBox>(
+      removeVisual,
+    );
+    final ShapeDecoration cancelShape =
+        cancelDecoration.decoration as ShapeDecoration;
+    final ShapeDecoration removeShape =
+        removeDecoration.decoration as ShapeDecoration;
+    expect(cancelShape.color, AppColors.blackOverlay(0.45));
+    expect(removeShape.color, cancelShape.color);
+    final Icon deleteIcon = tester.widget<Icon>(
+      find.descendant(
+        of: cancelVisual,
+        matching: find.byIcon(LucideIcons.trash2),
+      ),
+    );
+    final Icon removeIcon = tester.widget<Icon>(
+      find.descendant(
+        of: removeVisual,
+        matching: find.byIcon(LucideIcons.trash2),
+      ),
+    );
+    expect(deleteIcon.color, AppColors.danger);
+    expect(removeIcon.color, deleteIcon.color);
+    expect(
+      find.descendant(of: removeVisual, matching: find.byIcon(LucideIcons.x)),
+      findsNothing,
+    );
+    expect(find.text('删除'), findsNothing);
+    final Rect thumbnailRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-photo-awaiting'),
+      ),
+    );
+    final Rect cancelButtonRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-cancel-awaiting'),
+      ),
+    );
+    final Rect awaitingOverlayRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-awaiting-overlay-awaiting',
+        ),
+      ),
+    );
+    final Rect confirmButtonRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-confirm-awaiting'),
+      ),
+    );
+    final Rect removeButtonRect = tester.getRect(removeButton);
+    final Rect failedImageRect = tester.getRect(
+      find.byKey(const ValueKey<String>('generation-thumbnail-image-failed')),
+    );
+    expect(cancelButtonRect.left, awaitingOverlayRect.left);
+    expect(cancelButtonRect.top, awaitingOverlayRect.top);
+    expect(removeButtonRect.left, failedImageRect.left);
+    expect(removeButtonRect.top, failedImageRect.top);
+    expect(
+      confirmButtonRect.center.dx,
+      moreOrLessEquals(thumbnailRect.center.dx, epsilon: 0.01),
+    );
     expect(
       tester
           .getTopLeft(
@@ -225,7 +321,7 @@ void main() {
     );
   });
 
-  testWidgets('confirmation green grows into the loading sheen palette', (
+  testWidgets('transparent confirmation grows into the loading sheen palette', (
     WidgetTester tester,
   ) async {
     final GlobalKey<_GenerationPillTestHostState> hostKey =
@@ -248,12 +344,19 @@ void main() {
     expect(fullWidth, tester.getSize(pillHost).width);
     expect(
       _generationPillBackgroundColor(tester, 'transition'),
-      AppColors.confirmGreen,
+      const Color(0x00000000),
     );
     final Icon confirmIcon = tester.widget<Icon>(
-      find.descendant(of: pill, matching: find.byIcon(LucideIcons.check)),
+      find.descendant(of: pill, matching: find.byIcon(LucideIcons.check600)),
     );
-    expect(confirmIcon.color, AppColors.white);
+    expect(confirmIcon.color, AppColors.success);
+    expect(confirmIcon.shadows, isNotEmpty);
+    final Text confirmLabel = tester.widget<Text>(
+      find.descendant(of: pill, matching: find.text('确认')),
+    );
+    expect(confirmLabel.style?.color, AppColors.success);
+    expect(confirmLabel.style?.fontWeight, FontWeight.w800);
+    expect(confirmLabel.style?.shadows, isNotEmpty);
     expect(
       _generationPillContentOpacity(
         tester,
@@ -290,7 +393,7 @@ void main() {
       'transition',
     );
     expect(transitioningWidth, lessThan(fullWidth));
-    expect(transitioningColor, isNot(AppColors.confirmGreen));
+    expect(transitioningColor, isNot(const Color(0x00000000)));
     expect(transitioningColor, isNot(loadingPalette.first));
     final List<Color> transitioningPalette = _generationPillSheenPainter(
       tester,
@@ -731,11 +834,11 @@ void main() {
       const Locale('zh'),
     ).generationSubmissionActionConfirm;
 
-    // A darker, less saturated green than AppColors.success: the pill sits on
-    // a photo, and activeGreen never cleared AA against its own white label.
+    // The confirmation action is inline over the thumbnail gradient rather
+    // than painted on a separate pill surface.
     expect(
       _generationPillBackgroundColor(tester, 'confirm-label'),
-      AppColors.confirmGreen,
+      const Color(0x00000000),
     );
     expect(
       find.descendant(of: pill, matching: find.text(confirmLabel)),
@@ -2147,10 +2250,10 @@ void main() {
       find.byKey(
         const ValueKey<String>('generation-submission-prompt-awaiting-prompt'),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     await tester.pump(const Duration(milliseconds: 80));
-    expect(find.text('+4'), findsOneWidget);
+    expect(find.text('+4'), findsNothing);
 
     await tester.tap(
       find.byKey(const ValueKey<String>('generation-prompt-option-recompose')),
@@ -2158,7 +2261,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 80));
 
-    expect(find.text('+3'), findsOneWidget);
+    expect(find.text('+3'), findsNothing);
   });
 
   testWidgets('prompt settings collapse when tapping hero outside toolbar', (
