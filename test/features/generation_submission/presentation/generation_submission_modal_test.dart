@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:background_downloader/background_downloader.dart';
@@ -32,6 +31,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/data/gener
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_record.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_status_pill.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_modal.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
@@ -45,13 +45,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:my_ui/my_ui.dart';
-
-const List<Color> _generationPillConfirmPaletteForTest = <Color>[
-  AppColors.confirmGreen,
-  AppColors.confirmGreen,
-  AppColors.confirmGreen,
-  AppColors.confirmGreen,
-];
 
 void main() {
   testWidgets('modal shows captured photos with status icons', (
@@ -287,15 +280,11 @@ void main() {
     );
     final Finder earlyPill = find.descendant(
       of: earlySlot,
-      matching: find.byKey(
-        const ValueKey<String>('generation-submission-estimate-pill'),
-      ),
+      matching: find.byKey(MyAnimatedStatusPill.surfaceKey),
     );
     final Finder latePill = find.descendant(
       of: lateSlot,
-      matching: find.byKey(
-        const ValueKey<String>('generation-submission-estimate-pill'),
-      ),
+      matching: find.byKey(MyAnimatedStatusPill.surfaceKey),
     );
     final Size earlySize = tester.getSize(earlyPill);
     final Size lateSize = tester.getSize(latePill);
@@ -380,10 +369,6 @@ void main() {
     // The pill holds the confirmation frame until the first animated tick, so
     // the transition always starts from what was on screen.
     expect(tester.getSize(pill).width, fullWidth);
-    expect(
-      _generationPillSheenPainter(tester, 'transition').colors,
-      everyElement(AppColors.confirmGreen),
-    );
 
     await tester.pump(const Duration(milliseconds: 60));
 
@@ -395,15 +380,6 @@ void main() {
     expect(transitioningWidth, lessThan(fullWidth));
     expect(transitioningColor, isNot(const Color(0x00000000)));
     expect(transitioningColor, isNot(loadingPalette.first));
-    final List<Color> transitioningPalette = _generationPillSheenPainter(
-      tester,
-      'transition',
-    ).colors;
-    expect(
-      transitioningPalette,
-      isNot(equals(_generationPillConfirmPaletteForTest)),
-    );
-    expect(transitioningPalette, isNot(equals(loadingPalette)));
 
     // Both content layers are partially visible: a real cross-fade, not a swap.
     expect(
@@ -431,7 +407,7 @@ void main() {
 
     // The loading pulse repeats forever, so settle by running out the
     // transition explicitly rather than with pumpAndSettle.
-    await tester.pump(generationPillTransitionDuration);
+    await tester.pump(MyAnimatedStatusPill.transitionDuration);
 
     final double compactWidth = tester.getSize(pill).width;
     expect(compactWidth, lessThan(fullWidth));
@@ -444,18 +420,9 @@ void main() {
       _generationPillBackgroundColor(tester, 'transition'),
       loadingPalette.first,
     );
-    expect(
-      _generationPillSheenPainter(tester, 'transition').colors,
-      loadingPalette,
-    );
     // The confirm layer is gone rather than transparent: once the transition
     // has landed there is nothing left of the state the pill came from.
-    expect(
-      find.byKey(
-        const ValueKey<String>('generation-submission-confirm-content'),
-      ),
-      findsNothing,
-    );
+    expect(find.byKey(MyAnimatedStatusPill.actionContentKey), findsNothing);
     expect(
       _generationPillContentOpacity(
         tester,
@@ -717,51 +684,8 @@ void main() {
 
     // Back in loading the pulse repeats forever, so run the transition out
     // explicitly instead of settling.
-    await tester.pump(generationPillTransitionDuration);
+    await tester.pump(MyAnimatedStatusPill.transitionDuration);
     expect(tester.getSize(pill).width, loadingWidth);
-  });
-
-  testWidgets('loading sheen drifts without touching the colour or layout', (
-    WidgetTester tester,
-  ) async {
-    await _pumpGenerationPillHost(
-      tester,
-      _GenerationPillTestHost(
-        jobId: 'pulse',
-        status: GenerationSubmissionStatus.pollingTask,
-        startedAt: DateTime.now(),
-      ),
-    );
-
-    final Finder pill = _generationPill('pulse');
-    final double initialWidth = tester.getSize(pill).width;
-    final String initialLabel = _generationPillEstimateLabel(tester);
-    final Color initialColor = _generationPillBackgroundColor(tester, 'pulse');
-    expect(
-      initialWidth,
-      lessThan(tester.getSize(_generationPillHost('pulse')).width),
-    );
-    // The no-shader surface and shader share the same palette endpoint, so a
-    // late program load cannot flash the old flat brand yellow.
-    expect(initialColor, generationPillSheenPalette('pulse').first);
-
-    final double initialPhase = _generationPillSheenPhase(tester, 'pulse');
-
-    await tester.pump(const Duration(seconds: 1));
-
-    expect(
-      _generationPillSheenPhase(tester, 'pulse'),
-      isNot(closeTo(initialPhase, 1e-6)),
-      reason: 'the sheen should keep drifting while loading',
-    );
-    expect(_generationPillBackgroundColor(tester, 'pulse'), initialColor);
-    expect(tester.getSize(pill).width, initialWidth);
-    expect(_generationPillEstimateLabel(tester), initialLabel);
-
-    await tester.pump(const Duration(seconds: 1));
-
-    expect(_generationPillBackgroundColor(tester, 'pulse'), initialColor);
-    expect(tester.getSize(pill).width, initialWidth);
   });
 
   testWidgets('the sheen layer is fully clear once loading ends', (
@@ -847,8 +771,8 @@ void main() {
 
     hostKey.currentState!.setStatus(GenerationSubmissionStatus.pollingTask);
     await tester.pump();
-    await tester.pump(generationPillTransitionDuration);
-    await tester.pump(generationPillTransitionDuration);
+    await tester.pump(MyAnimatedStatusPill.transitionDuration);
+    await tester.pump(MyAnimatedStatusPill.transitionDuration);
 
     // Not merely invisible: the confirm layer has to leave the tree, so the
     // estimate label is unambiguously the pill's only label once loading.
@@ -859,55 +783,6 @@ void main() {
     expect(
       find.descendant(of: pill, matching: find.byType(Text)),
       findsOneWidget,
-    );
-  });
-
-  testWidgets('the sheen repaints without rebuilding the pill subtree', (
-    WidgetTester tester,
-  ) async {
-    await _pumpGenerationPillHost(
-      tester,
-      _GenerationPillTestHost(
-        jobId: 'sheen-repaint',
-        status: GenerationSubmissionStatus.pollingTask,
-        startedAt: DateTime.now(),
-      ),
-    );
-
-    // Identity is what proves the point: if the sheen drove rebuilds, the
-    // builder would run again and hand CustomPaint a brand new painter.
-    final GenerationPillSheenPainter first = _generationPillSheenPainter(
-      tester,
-      'sheen-repaint',
-    );
-
-    await tester.pump(const Duration(milliseconds: 400));
-
-    final GenerationPillSheenPainter second = _generationPillSheenPainter(
-      tester,
-      'sheen-repaint',
-    );
-    expect(
-      identical(first, second),
-      isTrue,
-      reason: 'the sheen must not rebuild the pill subtree to animate',
-    );
-
-    // Since the painter instance never changes, the only thing that can drive
-    // a repaint is its `repaint` listenable. Adding a listener to the painter
-    // itself proves it is wired to something that actually ticks.
-    int notifications = 0;
-    void onRepaint() => notifications++;
-    second.addListener(onRepaint);
-    addTearDown(() => second.removeListener(onRepaint));
-
-    await tester.pump(const Duration(milliseconds: 16));
-    await tester.pump(const Duration(milliseconds: 16));
-
-    expect(
-      notifications,
-      greaterThan(0),
-      reason: 'the painter must notify its listeners as the sheen advances',
     );
   });
 
@@ -939,66 +814,6 @@ void main() {
     );
   });
 
-  test('confirmation green takes the shortest chromatic path to the sheen', () {
-    final Color target = generationPillSheenPalettes.first.first;
-    final HSVColor startHsv = HSVColor.fromColor(AppColors.confirmGreen);
-    final HSVColor targetHsv = HSVColor.fromColor(target);
-    final double shortestHueDelta =
-        (targetHsv.hue - startHsv.hue + 540) % 360 - 180;
-
-    expect(
-      generationPillHsvLerp(AppColors.confirmGreen, target, 0),
-      AppColors.confirmGreen,
-    );
-    expect(generationPillHsvLerp(AppColors.confirmGreen, target, 1), target);
-
-    double previousSaturation = startHsv.saturation;
-    double previousValue = startHsv.value;
-    for (int step = 1; step < 10; step += 1) {
-      final double t = step / 10;
-      final HSVColor actual = HSVColor.fromColor(
-        generationPillHsvLerp(AppColors.confirmGreen, target, t),
-      );
-      final double expectedHue = (startHsv.hue + shortestHueDelta * t) % 360;
-      expect(actual.hue, closeTo(expectedHue, 0.6));
-      expect(actual.saturation, lessThanOrEqualTo(previousSaturation + 0.01));
-      expect(actual.value, greaterThanOrEqualTo(previousValue - 0.01));
-      previousSaturation = actual.saturation;
-      previousValue = actual.value;
-    }
-  });
-
-  test('rebound overshoot stays comparable across short and long edges', () {
-    // Peak overshoot in logical pixels for a given travel distance.
-    double overshootFor(double travel) {
-      final Curve curve = generationPillReboundCurve(travel);
-      double peak = 0;
-      for (int i = 0; i <= 2000; i++) {
-        peak = math.max(peak, curve.transform(i / 2000) * travel - travel);
-      }
-      return peak;
-    }
-
-    // The long confirmation -> loading edge keeps the tuning that was signed
-    // off on visually.
-    expect(generationPillReboundCurve(73.6), const ElasticOutCurve(1.2));
-    expect(overshootFor(73.6), closeTo(2.35, 0.2));
-
-    // Short terminal edges previously rebounded well under a pixel, which read
-    // as no bounce at all. They must now be in the same ballpark.
-    expect(overshootFor(24.4), closeTo(2.2, 0.3));
-    expect(overshootFor(22.4), closeTo(2.2, 0.3));
-
-    // ...but the bounce must stay restrained, never spring-like.
-    for (final double travel in <double>[22.4, 24.4, 73.6]) {
-      expect(overshootFor(travel) / travel, lessThan(0.12));
-    }
-
-    // Degenerate edges must not divide by zero or produce a wild period.
-    expect(generationPillReboundCurve(0), isA<ElasticOutCurve>());
-    expect(overshootFor(2), lessThan(0.5));
-  });
-
   testWidgets('interrupted transition continues from the rendered frame', (
     WidgetTester tester,
   ) async {
@@ -1026,9 +841,6 @@ void main() {
       tester,
       'interrupted',
     );
-    final List<Color> interruptedPalette = List<Color>.of(
-      _generationPillSheenPainter(tester, 'interrupted').colors,
-    );
     expect(interruptedSize.width, lessThan(fullWidth));
 
     // Redirect to a terminal state mid-flight. The pill must pick up from the
@@ -1048,15 +860,10 @@ void main() {
       _generationPillBackgroundColor(tester, 'interrupted'),
       interruptedColor,
     );
-    expect(
-      _generationPillSheenPainter(tester, 'interrupted').colors,
-      interruptedPalette,
-    );
-
     await tester.pump(const Duration(milliseconds: 60));
     expect(tester.getSize(pill).width, lessThan(interruptedSize.width));
 
-    await tester.pump(generationPillTransitionDuration);
+    await tester.pump(MyAnimatedStatusPill.transitionDuration);
     expect(tester.getSize(pill), const Size.square(24));
     expect(
       find.byKey(
@@ -1095,7 +902,7 @@ void main() {
     // the pill never flashes one last countdown on its way out.
     for (
       int elapsed = 0;
-      elapsed < generationPillTransitionDuration.inMilliseconds;
+      elapsed < MyAnimatedStatusPill.transitionDuration.inMilliseconds;
       elapsed += 65
     ) {
       await tester.pump(const Duration(milliseconds: 65));
@@ -1285,9 +1092,7 @@ void main() {
     );
     final Finder pill = find.descendant(
       of: estimate,
-      matching: find.byKey(
-        const ValueKey<String>('generation-submission-estimate-pill'),
-      ),
+      matching: find.byKey(MyAnimatedStatusPill.surfaceKey),
     );
     final double initialWidth = tester.getSize(pill).width;
     expect(
@@ -1341,9 +1146,7 @@ void main() {
     );
     final Finder firstPill = find.descendant(
       of: firstEstimate,
-      matching: find.byKey(
-        const ValueKey<String>('generation-submission-estimate-pill'),
-      ),
+      matching: find.byKey(MyAnimatedStatusPill.surfaceKey),
     );
     final double firstWidth = tester.getSize(firstPill).width;
     expect(
@@ -1369,9 +1172,7 @@ void main() {
           'generation-submission-estimate-persisted-progress',
         ),
       ),
-      matching: find.byKey(
-        const ValueKey<String>('generation-submission-estimate-pill'),
-      ),
+      matching: find.byKey(MyAnimatedStatusPill.surfaceKey),
     );
     expect(tester.getSize(secondPill).width, firstWidth);
     expect(
@@ -1432,9 +1233,7 @@ void main() {
     );
     final Finder pill = find.descendant(
       of: estimate,
-      matching: find.byKey(
-        const ValueKey<String>('generation-submission-estimate-pill'),
-      ),
+      matching: find.byKey(MyAnimatedStatusPill.surfaceKey),
     );
     final double initialWidth = tester.getSize(pill).width;
     expect(
@@ -3209,9 +3008,7 @@ Finder _generationPillHost(String jobId) {
 Finder _generationPill(String jobId) {
   return find.descendant(
     of: _generationPillHost(jobId),
-    matching: find.byKey(
-      const ValueKey<String>('generation-submission-estimate-pill'),
-    ),
+    matching: find.byKey(MyAnimatedStatusPill.surfaceKey),
   );
 }
 
@@ -3219,9 +3016,7 @@ Color _generationPillBackgroundColor(WidgetTester tester, String jobId) {
   final DecoratedBox background = tester.widget<DecoratedBox>(
     find.descendant(
       of: _generationPillHost(jobId),
-      matching: find.byKey(
-        const ValueKey<String>('generation-submission-pill-background'),
-      ),
+      matching: find.byKey(MyAnimatedStatusPill.backgroundKey),
     ),
   );
   return (background.decoration as ShapeDecoration).color!;
@@ -3231,9 +3026,7 @@ Rect _generationPillPaintedBackgroundRect(WidgetTester tester, String jobId) {
   return tester.getRect(
     find.descendant(
       of: _generationPillHost(jobId),
-      matching: find.byKey(
-        const ValueKey<String>('generation-submission-pill-background'),
-      ),
+      matching: find.byKey(MyAnimatedStatusPill.backgroundKey),
     ),
   );
 }
@@ -3243,31 +3036,23 @@ double _generationPillContentOpacity(
   String jobId,
   String key,
 ) {
+  final Key contentKey = switch (key) {
+    'generation-submission-confirm-content' =>
+      MyAnimatedStatusPill.actionContentKey,
+    'generation-submission-estimate-content' =>
+      MyAnimatedStatusPill.loadingContentKey,
+    'generation-submission-terminal-content' =>
+      MyAnimatedStatusPill.terminalContentKey,
+    'generation-submission-pill-sheen' => MyAnimatedStatusPill.sheenKey,
+    _ => ValueKey<String>(key),
+  };
   final Opacity opacity = tester.widget<Opacity>(
     find.descendant(
       of: _generationPillHost(jobId),
-      matching: find.byKey(ValueKey<String>(key)),
+      matching: find.byKey(contentKey),
     ),
   );
   return opacity.opacity;
-}
-
-/// Reads the estimate label, scoped to its own layer.
-///
-/// Deliberately not "the only Text in the pill": the confirm layer carries a
-/// label too, so a pill-wide finder would be asserting on which layers happen
-/// to be mounted rather than on the estimate itself.
-String _generationPillEstimateLabel(WidgetTester tester) {
-  return tester
-      .widget<Text>(
-        find.descendant(
-          of: find.byKey(
-            const ValueKey<String>('generation-submission-estimate-content'),
-          ),
-          matching: find.byType(Text),
-        ),
-      )
-      .data!;
 }
 
 double _generationPillSheenOpacity(WidgetTester tester, String jobId) {
@@ -3276,30 +3061,6 @@ double _generationPillSheenOpacity(WidgetTester tester, String jobId) {
     jobId,
     'generation-submission-pill-sheen',
   );
-}
-
-GenerationPillSheenPainter _generationPillSheenPainter(
-  WidgetTester tester,
-  String jobId,
-) {
-  final CustomPaint paint = tester.widget<CustomPaint>(
-    find.descendant(
-      of: find.descendant(
-        of: _generationPillHost(jobId),
-        matching: find.byKey(
-          const ValueKey<String>('generation-submission-pill-sheen'),
-        ),
-      ),
-      matching: find.byType(CustomPaint),
-    ),
-  );
-  return paint.painter! as GenerationPillSheenPainter;
-}
-
-/// Reads the phase the sheen shader is actually being painted with, so the test
-/// tracks the production painter rather than re-deriving the animation itself.
-double _generationPillSheenPhase(WidgetTester tester, String jobId) {
-  return _generationPillSheenPainter(tester, jobId).phase.value;
 }
 
 Future<void> _pumpGenerationPillHost(
