@@ -106,6 +106,7 @@
   "generationSubmissionDislikeFeedbackPlaceholder": "Leave your feedback (optional)",
   "generationSubmissionDislikeFeedbackSubmit": "Submit",
   "generationSubmissionActionRemove": "Remove",
+  "generationSubmissionActionConfirm": "Confirm",
   "promptSwitchRecomposeTitle": "Recompose",
   "promptSwitchBeautifyFaceTitle": "Beautify",
   "promptSwitchCleanFrameTitle": "Declutter",

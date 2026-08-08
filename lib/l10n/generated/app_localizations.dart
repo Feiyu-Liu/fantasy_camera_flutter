@@ -607,6 +607,12 @@ abstract class AppLocalizations {
   /// **'Remove'**
   String get generationSubmissionActionRemove;
 
+  /// No description provided for @generationSubmissionActionConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get generationSubmissionActionConfirm;
+
   /// No description provided for @promptSwitchRecomposeTitle.
   ///
   /// In en, this message translates to:

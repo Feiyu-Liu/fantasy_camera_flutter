@@ -2501,14 +2501,16 @@ class _GenerationPillVisual {
     required this.width,
     required this.height,
     required this.background,
+    required this.sheenColors,
     required this.confirmOpacity,
     required this.estimateOpacity,
     required this.terminalOpacity,
-  });
+  }) : assert(sheenColors.length == 4);
 
   final double width;
   final double height;
   final Color background;
+  final List<Color> sheenColors;
   final double confirmOpacity;
   final double estimateOpacity;
   final double terminalOpacity;
@@ -2538,6 +2540,7 @@ class _GenerationPillVisual {
           : colorT <= 0
           ? from.background
           : Color.lerp(from.background, to.background, colorT) ?? to.background,
+      sheenColors: _lerpSheenColors(from.sheenColors, to.sheenColors, colorT),
       confirmOpacity: _lerpOpacity(
         from.confirmOpacity,
         to.confirmOpacity,
@@ -2573,6 +2576,25 @@ class _GenerationPillVisual {
   }) {
     final double t = to < from ? fadeOut : fadeIn;
     return (from + (to - from) * t).clamp(0.0, 1.0);
+  }
+
+  static List<Color> _lerpSheenColors(
+    List<Color> from,
+    List<Color> to,
+    double t,
+  ) {
+    assert(from.length == to.length);
+    if (t <= 0) {
+      return from;
+    }
+    if (t >= 1) {
+      return to;
+    }
+    return List<Color>.generate(
+      from.length,
+      (int index) => generationPillHsvLerp(from[index], to[index], t),
+      growable: false,
+    );
   }
 }
 
@@ -2652,13 +2674,77 @@ Curve generationPillReboundCurve(double travel) {
 /// Every entry stays above 9.5:1 against the black estimate label, so the pill
 /// keeps the contrast the flat brand yellow had.
 const List<List<Color>> generationPillSheenPalettes = <List<Color>>[
-  <Color>[Color(0xFFF2C070), Color(0xFFEF9A72), Color(0xFFE8B4CC), Color(0xFFF4E4BC)],
-  <Color>[Color(0xFFB6D998), Color(0xFFD8E8A8), Color(0xFF9ED8BC), Color(0xFFEDF0D2)],
-  <Color>[Color(0xFF9EDCC8), Color(0xFF9AC2E8), Color(0xFFCFE8AE), Color(0xFFE6F0DC)],
-  <Color>[Color(0xFFAEB8EC), Color(0xFFE0AEDC), Color(0xFF9ECBE0), Color(0xFFF0D8C6)],
-  <Color>[Color(0xFFC9B8F2), Color(0xFF9FD8E8), Color(0xFFF2B8D2), Color(0xFFEFE6BE)],
-  <Color>[Color(0xFFF2AEC4), Color(0xFFE8B0D8), Color(0xFFF4CDBC), Color(0xFFF0E2D0)],
+  <Color>[
+    Color(0xFFF2C070),
+    Color(0xFFEF9A72),
+    Color(0xFFE8B4CC),
+    Color(0xFFF4E4BC),
+  ],
+  <Color>[
+    Color(0xFFB6D998),
+    Color(0xFFD8E8A8),
+    Color(0xFF9ED8BC),
+    Color(0xFFEDF0D2),
+  ],
+  <Color>[
+    Color(0xFF9EDCC8),
+    Color(0xFF9AC2E8),
+    Color(0xFFCFE8AE),
+    Color(0xFFE6F0DC),
+  ],
+  <Color>[
+    Color(0xFFAEB8EC),
+    Color(0xFFE0AEDC),
+    Color(0xFF9ECBE0),
+    Color(0xFFF0D8C6),
+  ],
+  <Color>[
+    Color(0xFFC9B8F2),
+    Color(0xFF9FD8E8),
+    Color(0xFFF2B8D2),
+    Color(0xFFEFE6BE),
+  ],
+  <Color>[
+    Color(0xFFF2AEC4),
+    Color(0xFFE8B0D8),
+    Color(0xFFF4CDBC),
+    Color(0xFFF0E2D0),
+  ],
 ];
+
+const List<Color> _generationPillConfirmSheenPalette = <Color>[
+  AppColors.confirmGreen,
+  AppColors.confirmGreen,
+  AppColors.confirmGreen,
+  AppColors.confirmGreen,
+];
+
+/// Interpolates hue over the shortest arc while preserving saturation.
+///
+/// RGB interpolation between the confirmation green and the warm loading
+/// palettes crosses a low-saturation grey/olive band. HSV keeps the transition
+/// chromatic, so the loading colour field appears to grow out of the green
+/// confirmation surface instead of fading through a muddy intermediate.
+@visibleForTesting
+Color generationPillHsvLerp(Color from, Color to, double t) {
+  final double progress = t.clamp(0.0, 1.0);
+  if (progress <= 0) {
+    return from;
+  }
+  if (progress >= 1) {
+    return to;
+  }
+  final HSVColor fromHsv = HSVColor.fromColor(from);
+  final HSVColor toHsv = HSVColor.fromColor(to);
+  final double hueDelta = (toHsv.hue - fromHsv.hue + 540) % 360 - 180;
+  final double hue = (fromHsv.hue + hueDelta * progress) % 360;
+  return HSVColor.fromAHSV(
+    lerpDouble(fromHsv.alpha, toHsv.alpha, progress)!,
+    hue,
+    lerpDouble(fromHsv.saturation, toHsv.saturation, progress)!,
+    lerpDouble(fromHsv.value, toHsv.value, progress)!,
+  ).toColor();
+}
 
 /// Picks a stable palette for [jobId].
 ///
@@ -2696,12 +2782,13 @@ class _GenerationPillSheenShader {
     if (loaded != null) {
       return Future<FragmentProgram>.value(loaded);
     }
-    return _pending ??= FragmentProgram.fromAsset(
-      'shaders/generation_pill_sheen.frag',
-    ).then((FragmentProgram program) {
-      _program = program;
-      return program;
-    });
+    return _pending ??=
+        FragmentProgram.fromAsset('shaders/generation_pill_sheen.frag').then((
+          FragmentProgram program,
+        ) {
+          _program = program;
+          return program;
+        });
   }
 }
 
@@ -2782,7 +2869,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
 
   /// One full drift of the sheen. Fast enough to read as alive, slow enough
   /// that the colour field still resolves instead of smearing.
-  static const Duration _sheenPeriod = Duration(milliseconds: 4000);
+  static const Duration _sheenPeriod = Duration(milliseconds: 6500);
   static const Curve _contentCurve = Curves.easeOutCubic;
 
   /// Colour and cross-fade settle well before the elastic rebound stops, so the
@@ -2850,10 +2937,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
       duration: _transitionDuration,
       value: 1,
     );
-    _sheenController = AnimationController(
-      vsync: this,
-      duration: _sheenPeriod,
-    );
+    _sheenController = AnimationController(vsync: this, duration: _sheenPeriod);
     // The sheen deliberately stays out of this: it drives a repaint through
     // the painter's own `repaint` hook instead, so a loading pill does not
     // rebuild its whole subtree every frame just to advance one double.
@@ -2975,14 +3059,23 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
         if (!mounted) {
           return;
         }
-        _transitionFrom = null;
-        _frozenEstimateLabel = null;
-        _previousMode = _mode;
+        // setState, not a bare assignment: `_previousMode` decides which
+        // content layers stay mounted, so the layer the pill just animated
+        // away from only leaves the tree if this schedules a rebuild.
+        setState(() {
+          _transitionFrom = null;
+          _frozenEstimateLabel = null;
+          _previousMode = _mode;
+        });
         _syncSheenAnimation();
       }),
     );
   }
 
+  /// Lands on the resting frame immediately.
+  ///
+  /// No `setState` here, unlike the async completion above: both callers run
+  /// inside a build-triggering path already.
   void _settleTransition() {
     _transitionController
       ..stop()
@@ -3009,11 +3102,7 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
         onError: (Object error, StackTrace stackTrace) {
           // A missing or invalid shader must not take the pill down: it simply
           // stays on its flat brand colour.
-          logAppError(
-            'generation_pill_sheen_shader',
-            error,
-            stackTrace,
-          );
+          logAppError('generation_pill_sheen_shader', error, stackTrace);
         },
       ),
     );
@@ -3138,12 +3227,14 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
     AppThemeColors colors,
   ) {
     final double terminalSize = _terminalSize();
+    final List<Color> loadingPalette = generationPillSheenPalette(widget.jobId);
     switch (mode) {
       case _GenerationPillMode.confirmation:
         return _GenerationPillVisual(
           width: _maxWidth,
           height: widget.height,
-          background: AppColors.success.withValues(alpha: 0.8),
+          background: AppColors.confirmGreen,
+          sheenColors: _generationPillConfirmSheenPalette,
           confirmOpacity: 1,
           estimateOpacity: 0,
           terminalOpacity: 0,
@@ -3152,7 +3243,10 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
         return _GenerationPillVisual(
           width: _compactWidth,
           height: widget.height,
-          background: colors.accentYellow,
+          // This is also the no-shader fallback. Matching the first shader
+          // colour avoids a brand-yellow flash while the program loads.
+          background: loadingPalette.first,
+          sheenColors: loadingPalette,
           confirmOpacity: 0,
           estimateOpacity: 1,
           terminalOpacity: 0,
@@ -3169,6 +3263,10 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
             ),
             _ => AppColors.blackOverlay(0.45),
           },
+          // Keep the last loading palette stable while its layer fades out.
+          // Changing the palette and opacity together would make terminal
+          // transitions appear to flicker before the sheen disappears.
+          sheenColors: loadingPalette,
           confirmOpacity: 0,
           estimateOpacity: 0,
           terminalOpacity: 1,
@@ -3288,6 +3386,14 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
     final bool showTerminalLayer =
         _isTerminalMode(_mode) || _isTerminalMode(_previousMode);
 
+    // Same reasoning for the confirm layer, which also has to stay out of the
+    // tree entirely once it is done: it carries a label, and leaving a second
+    // Text mounted at opacity 0 would make "the one label in the pill" stop
+    // being a single widget for anything walking the subtree.
+    final bool showConfirmLayer =
+        _mode == _GenerationPillMode.confirmation ||
+        _previousMode == _GenerationPillMode.confirmation;
+
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         _maxWidth = constraints.maxWidth;
@@ -3334,10 +3440,12 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
                           children: <Widget>[
                             // Below the content layers so the sheen tints the
                             // pill without ever washing out the black label.
-                            // `estimateOpacity` already means "how loading is
-                            // this frame"; squaring it clears the sheen inside
-                            // ~120ms so it is gone before the mesh, which keeps
-                            // its own ticker, can be seen frozen mid-drift.
+                            // The palette is part of the rendered-frame model,
+                            // so it grows from four copies of confirmGreen into
+                            // the selected colours and survives interruptions
+                            // without snapping. `estimateOpacity` already means
+                            // "how loading is this frame"; squaring it clears
+                            // the sheen inside ~120ms on the way out.
                             Opacity(
                               key: const ValueKey<String>(
                                 'generation-submission-pill-sheen',
@@ -3357,26 +3465,54 @@ class _GenerationStatusPillState extends State<GenerationStatusPill>
                                         painter: GenerationPillSheenPainter(
                                           program: sheenProgram,
                                           phase: _sheenController,
-                                          colors: generationPillSheenPalette(
-                                            widget.jobId,
-                                          ),
+                                          colors: visual.sheenColors,
                                         ),
                                       ),
                               ),
                             ),
-                            Opacity(
-                              key: const ValueKey<String>(
-                                'generation-submission-confirm-content',
-                              ),
-                              opacity: visual.confirmOpacity,
-                              child: const _GenerationPillContent(
-                                child: Icon(
-                                  LucideIcons.check,
-                                  color: AppColors.white,
-                                  size: 14,
+                            if (showConfirmLayer)
+                              Opacity(
+                                key: const ValueKey<String>(
+                                  'generation-submission-confirm-content',
+                                ),
+                                opacity: visual.confirmOpacity,
+                                child: _GenerationPillContent(
+                                  // The row is shorter than the pill, and
+                                  // BoxFit.contain would scale it *up* to fill
+                                  // the height — 1.57x here, which would make
+                                  // this label far larger than the estimate one
+                                  // it cross-fades with. The vertical padding
+                                  // brings the content box up to the pill's own
+                                  // height so nothing is scaled at all.
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                    horizontal: 6,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: <Widget>[
+                                      const Icon(
+                                        LucideIcons.check,
+                                        color: AppColors.white,
+                                        size: 14,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        context
+                                            .l10n
+                                            .generationSubmissionActionConfirm,
+                                        maxLines: 1,
+                                        softWrap: false,
+                                        style: const TextStyle(
+                                          color: AppColors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
                             Opacity(
                               key: const ValueKey<String>(
                                 'generation-submission-estimate-content',

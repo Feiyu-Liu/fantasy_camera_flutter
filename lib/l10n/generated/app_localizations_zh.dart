@@ -272,6 +272,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get generationSubmissionActionRemove => '移除';
 
   @override
+  String get generationSubmissionActionConfirm => '确认';
+
+  @override
   String get promptSwitchRecomposeTitle => '重构图';
 
   @override
@@ -939,6 +942,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get generationSubmissionActionRemove => '移除';
+
+  @override
+  String get generationSubmissionActionConfirm => '確認';
 
   @override
   String get promptSwitchRecomposeTitle => '重新構圖';

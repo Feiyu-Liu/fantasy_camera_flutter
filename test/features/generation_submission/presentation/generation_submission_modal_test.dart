@@ -46,6 +46,13 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:my_ui/my_ui.dart';
 
+const List<Color> _generationPillConfirmPaletteForTest = <Color>[
+  AppColors.confirmGreen,
+  AppColors.confirmGreen,
+  AppColors.confirmGreen,
+  AppColors.confirmGreen,
+];
+
 void main() {
   testWidgets('modal shows captured photos with status icons', (
     WidgetTester tester,
@@ -218,7 +225,7 @@ void main() {
     );
   });
 
-  testWidgets('confirmation pill smoothly becomes a yellow loading estimate', (
+  testWidgets('confirmation green grows into the loading sheen palette', (
     WidgetTester tester,
   ) async {
     final GlobalKey<_GenerationPillTestHostState> hostKey =
@@ -236,11 +243,12 @@ void main() {
 
     final Finder pillHost = _generationPillHost('transition');
     final Finder pill = _generationPill('transition');
+    final List<Color> loadingPalette = generationPillSheenPalette('transition');
     final double fullWidth = tester.getSize(pill).width;
     expect(fullWidth, tester.getSize(pillHost).width);
     expect(
       _generationPillBackgroundColor(tester, 'transition'),
-      AppColors.success.withValues(alpha: 0.8),
+      AppColors.confirmGreen,
     );
     final Icon confirmIcon = tester.widget<Icon>(
       find.descendant(of: pill, matching: find.byIcon(LucideIcons.check)),
@@ -269,6 +277,10 @@ void main() {
     // The pill holds the confirmation frame until the first animated tick, so
     // the transition always starts from what was on screen.
     expect(tester.getSize(pill).width, fullWidth);
+    expect(
+      _generationPillSheenPainter(tester, 'transition').colors,
+      everyElement(AppColors.confirmGreen),
+    );
 
     await tester.pump(const Duration(milliseconds: 60));
 
@@ -278,8 +290,17 @@ void main() {
       'transition',
     );
     expect(transitioningWidth, lessThan(fullWidth));
-    expect(transitioningColor, isNot(AppColors.success.withValues(alpha: 0.8)));
-    expect(transitioningColor, isNot(AppColors.accentYellow));
+    expect(transitioningColor, isNot(AppColors.confirmGreen));
+    expect(transitioningColor, isNot(loadingPalette.first));
+    final List<Color> transitioningPalette = _generationPillSheenPainter(
+      tester,
+      'transition',
+    ).colors;
+    expect(
+      transitioningPalette,
+      isNot(equals(_generationPillConfirmPaletteForTest)),
+    );
+    expect(transitioningPalette, isNot(equals(loadingPalette)));
 
     // Both content layers are partially visible: a real cross-fade, not a swap.
     expect(
@@ -318,15 +339,19 @@ void main() {
     );
     expect(
       _generationPillBackgroundColor(tester, 'transition'),
-      AppColors.accentYellow,
+      loadingPalette.first,
     );
     expect(
-      _generationPillContentOpacity(
-        tester,
-        'transition',
-        'generation-submission-confirm-content',
+      _generationPillSheenPainter(tester, 'transition').colors,
+      loadingPalette,
+    );
+    // The confirm layer is gone rather than transparent: once the transition
+    // has landed there is nothing left of the state the pill came from.
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-confirm-content'),
       ),
-      0,
+      findsNothing,
     );
     expect(
       _generationPillContentOpacity(
@@ -370,7 +395,7 @@ void main() {
     );
     expect(
       _generationPillBackgroundColor(tester, 'completed-transition'),
-      AppColors.accentYellow,
+      generationPillSheenPalette('completed-transition').first,
     );
 
     hostKey.currentState!.setStatus(GenerationSubmissionStatus.resultSaved);
@@ -607,17 +632,15 @@ void main() {
 
     final Finder pill = _generationPill('pulse');
     final double initialWidth = tester.getSize(pill).width;
-    final String initialLabel = tester
-        .widget<Text>(find.descendant(of: pill, matching: find.byType(Text)))
-        .data!;
+    final String initialLabel = _generationPillEstimateLabel(tester);
     final Color initialColor = _generationPillBackgroundColor(tester, 'pulse');
     expect(
       initialWidth,
       lessThan(tester.getSize(_generationPillHost('pulse')).width),
     );
-    // The sheen is its own layer now, so the pill's own colour must stay the
-    // flat brand yellow instead of being dimmed by the animation.
-    expect(initialColor, AppColors.accentYellow);
+    // The no-shader surface and shader share the same palette endpoint, so a
+    // late program load cannot flash the old flat brand yellow.
+    expect(initialColor, generationPillSheenPalette('pulse').first);
 
     final double initialPhase = _generationPillSheenPhase(tester, 'pulse');
 
@@ -630,12 +653,7 @@ void main() {
     );
     expect(_generationPillBackgroundColor(tester, 'pulse'), initialColor);
     expect(tester.getSize(pill).width, initialWidth);
-    expect(
-      tester
-          .widget<Text>(find.descendant(of: pill, matching: find.byType(Text)))
-          .data,
-      initialLabel,
-    );
+    expect(_generationPillEstimateLabel(tester), initialLabel);
 
     await tester.pump(const Duration(seconds: 1));
 
@@ -691,6 +709,54 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_generationPillSheenOpacity(tester, 'sheen-exit'), 0);
+  });
+
+  testWidgets('the confirm pill names its action and leaves with it', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_GenerationPillTestHostState> hostKey =
+        GlobalKey<_GenerationPillTestHostState>();
+    await _pumpGenerationPillHost(
+      tester,
+      _GenerationPillTestHost(
+        key: hostKey,
+        jobId: 'confirm-label',
+        status: GenerationSubmissionStatus.awaitingConfirmation,
+        startedAt: DateTime.now(),
+      ),
+    );
+
+    final Finder pill = _generationPill('confirm-label');
+    final String confirmLabel = appLocalizationsFor(
+      const Locale('zh'),
+    ).generationSubmissionActionConfirm;
+
+    // A darker, less saturated green than AppColors.success: the pill sits on
+    // a photo, and activeGreen never cleared AA against its own white label.
+    expect(
+      _generationPillBackgroundColor(tester, 'confirm-label'),
+      AppColors.confirmGreen,
+    );
+    expect(
+      find.descendant(of: pill, matching: find.text(confirmLabel)),
+      findsOneWidget,
+    );
+
+    hostKey.currentState!.setStatus(GenerationSubmissionStatus.pollingTask);
+    await tester.pump();
+    await tester.pump(generationPillTransitionDuration);
+    await tester.pump(generationPillTransitionDuration);
+
+    // Not merely invisible: the confirm layer has to leave the tree, so the
+    // estimate label is unambiguously the pill's only label once loading.
+    expect(
+      find.descendant(of: pill, matching: find.text(confirmLabel)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: pill, matching: find.byType(Text)),
+      findsOneWidget,
+    );
   });
 
   testWidgets('the sheen repaints without rebuilding the pill subtree', (
@@ -770,6 +836,35 @@ void main() {
     );
   });
 
+  test('confirmation green takes the shortest chromatic path to the sheen', () {
+    final Color target = generationPillSheenPalettes.first.first;
+    final HSVColor startHsv = HSVColor.fromColor(AppColors.confirmGreen);
+    final HSVColor targetHsv = HSVColor.fromColor(target);
+    final double shortestHueDelta =
+        (targetHsv.hue - startHsv.hue + 540) % 360 - 180;
+
+    expect(
+      generationPillHsvLerp(AppColors.confirmGreen, target, 0),
+      AppColors.confirmGreen,
+    );
+    expect(generationPillHsvLerp(AppColors.confirmGreen, target, 1), target);
+
+    double previousSaturation = startHsv.saturation;
+    double previousValue = startHsv.value;
+    for (int step = 1; step < 10; step += 1) {
+      final double t = step / 10;
+      final HSVColor actual = HSVColor.fromColor(
+        generationPillHsvLerp(AppColors.confirmGreen, target, t),
+      );
+      final double expectedHue = (startHsv.hue + shortestHueDelta * t) % 360;
+      expect(actual.hue, closeTo(expectedHue, 0.6));
+      expect(actual.saturation, lessThanOrEqualTo(previousSaturation + 0.01));
+      expect(actual.value, greaterThanOrEqualTo(previousValue - 0.01));
+      previousSaturation = actual.saturation;
+      previousValue = actual.value;
+    }
+  });
+
   test('rebound overshoot stays comparable across short and long edges', () {
     // Peak overshoot in logical pixels for a given travel distance.
     double overshootFor(double travel) {
@@ -824,6 +919,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 60));
 
     final Size interruptedSize = tester.getSize(pill);
+    final Color interruptedColor = _generationPillBackgroundColor(
+      tester,
+      'interrupted',
+    );
+    final List<Color> interruptedPalette = List<Color>.of(
+      _generationPillSheenPainter(tester, 'interrupted').colors,
+    );
     expect(interruptedSize.width, lessThan(fullWidth));
 
     // Redirect to a terminal state mid-flight. The pill must pick up from the
@@ -838,6 +940,14 @@ void main() {
     expect(
       tester.getSize(pill).height,
       moreOrLessEquals(interruptedSize.height, epsilon: 0.01),
+    );
+    expect(
+      _generationPillBackgroundColor(tester, 'interrupted'),
+      interruptedColor,
+    );
+    expect(
+      _generationPillSheenPainter(tester, 'interrupted').colors,
+      interruptedPalette,
     );
 
     await tester.pump(const Duration(milliseconds: 60));
@@ -963,7 +1073,7 @@ void main() {
     expect(compactWidth, lessThan(fullWidth));
     expect(
       _generationPillBackgroundColor(tester, 'static-transition'),
-      AppColors.accentYellow,
+      generationPillSheenPalette('static-transition').first,
     );
 
     await tester.pump(const Duration(seconds: 1));
@@ -971,7 +1081,7 @@ void main() {
     expect(tester.getSize(pill).width, compactWidth);
     expect(
       _generationPillBackgroundColor(tester, 'static-transition'),
-      AppColors.accentYellow,
+      generationPillSheenPalette('static-transition').first,
     );
   });
 
@@ -3037,6 +3147,24 @@ double _generationPillContentOpacity(
     ),
   );
   return opacity.opacity;
+}
+
+/// Reads the estimate label, scoped to its own layer.
+///
+/// Deliberately not "the only Text in the pill": the confirm layer carries a
+/// label too, so a pill-wide finder would be asserting on which layers happen
+/// to be mounted rather than on the estimate itself.
+String _generationPillEstimateLabel(WidgetTester tester) {
+  return tester
+      .widget<Text>(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey<String>('generation-submission-estimate-content'),
+          ),
+          matching: find.byType(Text),
+        ),
+      )
+      .data!;
 }
 
 double _generationPillSheenOpacity(WidgetTester tester, String jobId) {

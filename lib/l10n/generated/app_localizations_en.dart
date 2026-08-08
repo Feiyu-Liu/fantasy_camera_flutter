@@ -292,6 +292,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get generationSubmissionActionRemove => 'Remove';
 
   @override
+  String get generationSubmissionActionConfirm => 'Confirm';
+
+  @override
   String get promptSwitchRecomposeTitle => 'Recompose';
 
   @override

@@ -277,6 +277,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get generationSubmissionActionRemove => '削除';
 
   @override
+  String get generationSubmissionActionConfirm => '確認';
+
+  @override
   String get promptSwitchRecomposeTitle => '再構成';
 
   @override

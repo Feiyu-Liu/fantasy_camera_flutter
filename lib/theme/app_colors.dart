@@ -7,6 +7,14 @@ abstract final class AppColors {
   static const Color accentYellow = Color(0xFFFFDE55);
 
   static const Color success = CupertinoColors.activeGreen;
+
+  /// Surface for a confirm action sitting on top of a photo.
+  ///
+  /// Deliberately darker and less saturated than [success]: activeGreen only
+  /// reaches 2.22:1 against its own white label, below AA, and its saturation
+  /// competes with the photo underneath. This is 6.35:1.
+  static const Color confirmGreen = Color(0xFF2E6B45);
+
   static const Color purchaseSuccessGreen = Color(0xFF0F7A34);
   static const Color danger = CupertinoColors.systemRed;
   static const Color link = CupertinoColors.activeBlue;
