@@ -4,6 +4,8 @@ import 'dart:ui';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_bits/flutter_bits.dart';
+import 'package:flutter_flip_card/flutter_flip_card.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -28,8 +30,10 @@ import '../../camera/presentation/camera_ui/camera_ui_models.dart';
 import '../../camera/presentation/camera_ui/camera_ui_tokens.dart';
 import '../data/generation_submission_adapters.dart';
 import '../domain/generation_record.dart';
+import '../domain/generation_record_state_machine.dart';
 import '../domain/generation_submission_job.dart';
 import 'generation_hero_photo_view_page_options.dart';
+import 'generation_remaining_time_estimate.dart';
 import 'generation_status_pill.dart';
 import 'generation_submission_providers.dart';
 
@@ -2206,7 +2210,7 @@ class _GalleryPickerTile extends StatelessWidget {
   }
 }
 
-class _JobThumbnail extends StatelessWidget {
+class _JobThumbnail extends StatefulWidget {
   const _JobThumbnail({
     required this.width,
     required this.height,
@@ -2232,144 +2236,419 @@ class _JobThumbnail extends StatelessWidget {
   final String? thumbnailKey;
 
   @override
+  State<_JobThumbnail> createState() => _JobThumbnailState();
+}
+
+class _JobThumbnailState extends State<_JobThumbnail> {
+  static const Duration _flipDuration = Duration(milliseconds: 800);
+  static const Duration _plasmaRevealDelay = Duration(seconds: 1);
+  static const Duration _plasmaFadeDuration = Duration(milliseconds: 240);
+
+  late final FlipCardController _flipController;
+  late GenerationSubmissionStatus _backStatus;
+  late GenerationSubmissionStatus _frontStatus;
+  late VoidCallback? _frontOnConfirm;
+  late VoidCallback? _frontOnCancel;
+  late VoidCallback? _frontOnRetry;
+  late VoidCallback? _frontOnRemove;
+  Timer? _plasmaRevealTimer;
+  late bool _showPlasma;
+
+  @override
+  void initState() {
+    super.initState();
+    _flipController = FlipCardController();
+    _backStatus = _isLoading(widget.job.status)
+        ? widget.job.status
+        : GenerationSubmissionStatus.queued;
+    _showPlasma = _isLoading(widget.job.status);
+    _captureFrontState();
+  }
+
+  @override
+  void didUpdateWidget(covariant _JobThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final bool wasLoading = _isLoading(oldWidget.job.status);
+    final bool loading = _isLoading(widget.job.status);
+    if (loading) {
+      _backStatus = widget.job.status;
+      if (!wasLoading) {
+        _cancelPlasmaReveal();
+        _showPlasma = false;
+      }
+    } else {
+      _cancelPlasmaReveal();
+      _showPlasma = false;
+      _captureFrontState();
+    }
+  }
+
+  @override
+  void dispose() {
+    _cancelPlasmaReveal();
+    super.dispose();
+  }
+
+  void _captureFrontState() {
+    _frontStatus = widget.job.status;
+    _frontOnConfirm = widget.onConfirm;
+    _frontOnCancel = widget.onCancel;
+    _frontOnRetry = widget.onRetry;
+    _frontOnRemove = widget.onRemove;
+  }
+
+  void _handleFlipCompleted(FlipCardSide side) {
+    if (side != FlipCardSide.back || !_isLoading(widget.job.status)) {
+      _cancelPlasmaReveal();
+      return;
+    }
+    if (_showPlasma) {
+      return;
+    }
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      setState(() => _showPlasma = true);
+      return;
+    }
+    _cancelPlasmaReveal();
+    _plasmaRevealTimer = Timer(_plasmaRevealDelay, () {
+      if (!mounted || !_isLoading(widget.job.status)) {
+        return;
+      }
+      setState(() => _showPlasma = true);
+    });
+  }
+
+  void _cancelPlasmaReveal() {
+    _plasmaRevealTimer?.cancel();
+    _plasmaRevealTimer = null;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final AppThemeColors colors = AppThemeColors.of(context);
-    final Color accentYellow = colors.accentYellow;
-    final bool reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final String thumbnailImagePath =
-        job.status == GenerationSubmissionStatus.resultSaved
-        ? job.processedResultPath ?? ''
-        : job.imagePath;
+        widget.job.status == GenerationSubmissionStatus.resultSaved
+        ? widget.job.processedResultPath ?? ''
+        : widget.job.imagePath;
     final bool awaitingConfirmation =
-        job.status == GenerationSubmissionStatus.awaitingConfirmation;
-    return GestureDetector(
-      key: ValueKey<String>(
-        thumbnailKey ?? 'generation-submission-photo-${job.id}',
-      ),
-      onTap: onTap,
-      child: TweenAnimationBuilder<double>(
-        tween: Tween<double>(end: selected ? 1 : 0),
-        duration: reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        builder: (BuildContext context, double selectionValue, Widget? child) {
-          final double borderWidth = lerpDouble(1, 3, selectionValue)!;
-          final Color borderColor =
-              Color.lerp(colors.border, accentYellow, selectionValue) ??
-              colors.border;
-          return SmoothContainer(
-            width: width,
-            height: height,
-            borderRadius: AppCorners.controlBorderRadius,
-            smoothness: AppCorners.smoothness,
-            side: BorderSide(color: borderColor, width: borderWidth),
-            padding: EdgeInsets.all(borderWidth),
-            child: SmoothClipRRect(
-              borderRadius: BorderRadius.circular(
-                (AppCorners.controlRadius - borderWidth).clamp(0.0, 999.0),
-              ),
-              smoothness: AppCorners.smoothness,
-              child: child ?? const SizedBox.shrink(),
+        _frontStatus == GenerationSubmissionStatus.awaitingConfirmation;
+    final bool loading = _isLoading(widget.job.status);
+    final Widget front = _ThumbnailCardFace(
+      width: widget.width,
+      height: widget.height,
+      selected: widget.selected,
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          _ThumbnailImage(
+            key: ValueKey<String>(
+              'generation-thumbnail-image-${widget.job.id}',
             ),
-          );
-        },
-        child: Stack(
-          fit: StackFit.expand,
-          children: <Widget>[
-            _ThumbnailImage(
-              key: ValueKey<String>('generation-thumbnail-image-${job.id}'),
-              path: thumbnailImagePath,
-            ),
-            Positioned.fill(
-              child: IgnorePointer(
-                ignoring: !awaitingConfirmation,
-                child: AnimatedSwitcher(
-                  duration: reduceMotion
-                      ? Duration.zero
-                      : const Duration(milliseconds: 180),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  layoutBuilder:
-                      (Widget? currentChild, List<Widget> previousChildren) {
-                        return Stack(
-                          fit: StackFit.expand,
-                          children: <Widget>[
-                            ...previousChildren,
-                            ?currentChild,
-                          ],
-                        );
-                      },
-                  child: awaitingConfirmation
-                      ? _AwaitingConfirmationOverlay(
-                          key: ValueKey<String>(
-                            'generation-submission-awaiting-overlay-${job.id}',
-                          ),
-                          jobId: job.id,
-                          deleteLabel:
-                              context.l10n.generationSubmissionActionDelete,
-                          onDelete: onCancel,
-                        )
-                      : SizedBox.expand(
-                          key: ValueKey<String>(
-                            'generation-submission-awaiting-overlay-empty-'
-                            '${job.id}',
-                          ),
+            path: thumbnailImagePath,
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: !awaitingConfirmation,
+              child: AnimatedSwitcher(
+                duration: MediaQuery.maybeDisableAnimationsOf(context) ?? false
+                    ? Duration.zero
+                    : const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                layoutBuilder:
+                    (Widget? currentChild, List<Widget> previousChildren) {
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: <Widget>[...previousChildren, ?currentChild],
+                      );
+                    },
+                child: awaitingConfirmation
+                    ? _AwaitingConfirmationOverlay(
+                        key: ValueKey<String>(
+                          'generation-submission-awaiting-overlay-'
+                          '${widget.job.id}',
                         ),
-                ),
+                        jobId: widget.job.id,
+                        deleteLabel:
+                            context.l10n.generationSubmissionActionDelete,
+                        onDelete: _frontOnCancel,
+                      )
+                    : SizedBox.expand(
+                        key: ValueKey<String>(
+                          'generation-submission-awaiting-overlay-empty-'
+                          '${widget.job.id}',
+                        ),
+                      ),
               ),
             ),
-            if (onRemove != null)
-              Positioned(
-                key: ValueKey<String>(
-                  'generation-submission-remove-slot-${job.id}',
-                ),
-                left: 0,
-                top: 0,
-                child: _ThumbnailDeleteAction(
-                  actionKey: ValueKey<String>(
-                    'generation-submission-remove-${job.id}',
-                  ),
-                  visualKey: ValueKey<String>(
-                    'generation-submission-remove-visual-${job.id}',
-                  ),
-                  semanticsLabel: context.l10n.generationSubmissionActionDelete,
-                  onPressed: onRemove,
-                ),
-              ),
+          ),
+          if (_frontOnRemove != null)
             Positioned(
               key: ValueKey<String>(
-                'generation-submission-state-pill-slot-${job.id}',
+                'generation-submission-remove-slot-${widget.job.id}',
+              ),
+              left: 0,
+              top: 0,
+              child: _ThumbnailDeleteAction(
+                actionKey: ValueKey<String>(
+                  'generation-submission-remove-${widget.job.id}',
+                ),
+                visualKey: ValueKey<String>(
+                  'generation-submission-remove-visual-${widget.job.id}',
+                ),
+                semanticsLabel: context.l10n.generationSubmissionActionDelete,
+                onPressed: _frontOnRemove,
+              ),
+            ),
+          Positioned(
+            key: ValueKey<String>(
+              'generation-submission-state-pill-slot-${widget.job.id}',
+            ),
+            left: 6,
+            right: 6,
+            bottom: 6,
+            height: 44,
+            child: GenerationStatusPill(
+              key: ValueKey<String>(
+                'generation-submission-state-pill-${widget.job.id}',
+              ),
+              jobId: widget.job.id,
+              status: _frontStatus,
+              onConfirm: _frontOnConfirm,
+              onRetry: _frontOnRetry,
+              height: 22,
+            ),
+          ),
+          if (!awaitingConfirmation)
+            Positioned(
+              key: ValueKey<String>(
+                'generation-submission-prompt-slot-${widget.job.id}',
               ),
               left: 6,
               right: 6,
-              bottom: 6,
-              height: 44,
-              child: GenerationStatusPill(
+              top: 6,
+              child: _PromptSnapshotBadge(job: widget.job),
+            ),
+        ],
+      ),
+    );
+    final Widget back = _ThumbnailCardFace(
+      width: widget.width,
+      height: widget.height,
+      selected: widget.selected,
+      child: AnimatedSwitcher(
+        duration: MediaQuery.maybeDisableAnimationsOf(context) ?? false
+            ? Duration.zero
+            : _plasmaFadeDuration,
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeOutCubic,
+        layoutBuilder: (Widget? currentChild, List<Widget> previousChildren) {
+          return Stack(
+            fit: StackFit.expand,
+            children: <Widget>[...previousChildren, ?currentChild],
+          );
+        },
+        child: _showPlasma
+            ? _GenerationLoadingCardBack(
                 key: ValueKey<String>(
-                  'generation-submission-state-pill-${job.id}',
+                  'generation-submission-plasma-back-${widget.job.id}',
                 ),
-                jobId: job.id,
-                status: job.status,
-                startedAt: job.generationStartedAt,
-                onConfirm: onConfirm,
-                onRetry: onRetry,
-                height: 22,
+                jobId: widget.job.id,
+                startedAt: widget.job.generationStartedAt,
+                status: _backStatus,
+              )
+            : ColoredBox(
+                key: ValueKey<String>(
+                  'generation-submission-plasma-waiting-${widget.job.id}',
+                ),
+                color: const Color(0xFF101010),
+              ),
+      ),
+    );
+
+    return GestureDetector(
+      key: ValueKey<String>(
+        widget.thumbnailKey ?? 'generation-submission-photo-${widget.job.id}',
+      ),
+      onTap: widget.onTap,
+      child: FlipCard(
+        key: ValueKey<String>('generation-submission-flip-${widget.job.id}'),
+        controller: _flipController,
+        side: loading ? FlipCardSide.back : FlipCardSide.front,
+        initialSide: loading ? FlipCardSide.back : FlipCardSide.front,
+        rotateSide: RotateSide.bottom,
+        axis: FlipAxis.horizontal,
+        animationDuration: _flipDuration,
+        curve: Curves.easeInOutCubic,
+        frontWidget: IgnorePointer(ignoring: loading, child: front),
+        backWidget: back,
+        onFlipCompleted: _handleFlipCompleted,
+      ),
+    );
+  }
+
+  bool _isLoading(GenerationSubmissionStatus status) {
+    return GenerationRecordStateMachine.showsGenerationProgress(status);
+  }
+}
+
+class _ThumbnailCardFace extends StatelessWidget {
+  const _ThumbnailCardFace({
+    required this.width,
+    required this.height,
+    required this.selected,
+    required this.child,
+  });
+
+  final double width;
+  final double height;
+  final bool selected;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
+    final double selectedValue = selected ? 1 : 0;
+    final bool reduceMotion =
+        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: selectedValue, end: selectedValue),
+      duration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      builder: (BuildContext context, double value, Widget? child) {
+        final double borderWidth = lerpDouble(1, 3, value)!;
+        final Color borderColor =
+            Color.lerp(colors.border, colors.accentYellow, value) ??
+            colors.border;
+        return SmoothContainer(
+          width: width,
+          height: height,
+          borderRadius: AppCorners.controlBorderRadius,
+          smoothness: AppCorners.smoothness,
+          side: BorderSide(color: borderColor, width: borderWidth),
+          padding: EdgeInsets.all(borderWidth),
+          child: SmoothClipRRect(
+            borderRadius: BorderRadius.circular(
+              (AppCorners.controlRadius - borderWidth).clamp(0.0, 999.0),
+            ),
+            smoothness: AppCorners.smoothness,
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+}
+
+class _GenerationLoadingCardBack extends StatefulWidget {
+  const _GenerationLoadingCardBack({
+    super.key,
+    required this.jobId,
+    required this.startedAt,
+    required this.status,
+  });
+
+  final String jobId;
+  final DateTime? startedAt;
+  final GenerationSubmissionStatus status;
+
+  @override
+  State<_GenerationLoadingCardBack> createState() =>
+      _GenerationLoadingCardBackState();
+}
+
+class _GenerationLoadingCardBackState
+    extends State<_GenerationLoadingCardBack> {
+  late final GenerationRemainingTimeTicker _estimateTicker;
+
+  @override
+  void initState() {
+    super.initState();
+    _estimateTicker = GenerationRemainingTimeTicker(
+      startedAt: widget.startedAt,
+      status: widget.status,
+      active: true,
+    )..addListener(_handleEstimateChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _GenerationLoadingCardBack oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _estimateTicker.update(
+      startedAt: widget.startedAt,
+      status: widget.status,
+      active: true,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _estimateTicker.setTickerModeEnabled(TickerMode.valuesOf(context).enabled);
+  }
+
+  @override
+  void dispose() {
+    _estimateTicker
+      ..removeListener(_handleEstimateChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleEstimateChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final int? seconds = _estimateTicker.estimate.seconds;
+    final String label = seconds == null
+        ? context.l10n.generationSubmissionEstimatedFinishing
+        : context.l10n.generationSubmissionEstimatedRemainingSeconds(seconds);
+    return Semantics(
+      label: label,
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          const ColoredBox(color: Color(0xFF101010)),
+          ExcludeSemantics(
+            child: PlasmaEffect(
+              key: ValueKey<String>(
+                'generation-submission-plasma-${widget.jobId}',
+              ),
+              interactive: false,
+              quality: PlasmaQuality.low,
+            ),
+          ),
+          Center(
+            child: Text(
+              label,
+              key: ValueKey<String>(
+                'generation-submission-plasma-estimate-${widget.jobId}',
+              ),
+              maxLines: 1,
+              softWrap: false,
+              style: const TextStyle(
+                color: AppColors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
+                shadows: <Shadow>[
+                  Shadow(color: Color(0xCC000000), blurRadius: 4),
+                  Shadow(
+                    color: Color(0x99000000),
+                    offset: Offset(0, 1),
+                    blurRadius: 2,
+                  ),
+                ],
               ),
             ),
-            if (!awaitingConfirmation)
-              Positioned(
-                key: ValueKey<String>(
-                  'generation-submission-prompt-slot-${job.id}',
-                ),
-                left: 6,
-                right: 6,
-                top: 6,
-                child: _PromptSnapshotBadge(job: job),
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

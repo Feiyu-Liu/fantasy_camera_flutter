@@ -372,11 +372,25 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_bits:
+    dependency: "direct main"
+    description:
+      path: "/Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter_bits"
+      relative: false
+    source: path
+    version: "0.0.1"
   flutter_driver:
     dependency: transitive
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_flip_card:
+    dependency: "direct main"
+    description:
+      path: "/Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter_flip_card/flutter_flip_card"
+      relative: false
+    source: path
+    version: "0.0.6"
   flutter_image_compress:
     dependency: "direct main"
     description:
@@ -1557,5 +1571,5 @@ packages:
     source: hosted
     version: "2.1.0"
 sdks:
-  dart: ">=3.11.0 <4.0.0"
-  flutter: ">=3.41.0"
+  dart: ">=3.11.5 <4.0.0"
+  flutter: ">=3.41.9"

@@ -31,7 +31,6 @@ import 'package:fantasy_camera_flutter/features/generation_submission/data/gener
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_record.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
-import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_status_pill.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_modal.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
@@ -40,6 +39,8 @@ import 'package:fantasy_camera_flutter/shared/toast/app_toast.dart';
 import 'package:fantasy_camera_flutter/theme/app_colors.dart';
 import 'package:fantasy_camera_flutter/theme/app_theme.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_bits/flutter_bits.dart';
+import 'package:flutter_flip_card/flutter_flip_card.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -89,7 +90,7 @@ void main() {
       find.byKey(
         const ValueKey<String>('generation-submission-prompt-processing'),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byKey(
@@ -228,13 +229,13 @@ void main() {
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-estimate-processing'),
+        const ValueKey<String>('generation-submission-plasma-processing'),
       ),
       findsOneWidget,
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-estimate-completed'),
+        const ValueKey<String>('generation-submission-plasma-completed'),
       ),
       findsOneWidget,
     );
@@ -258,7 +259,7 @@ void main() {
     );
   });
 
-  testWidgets('generation estimate pill keeps a fixed right-aligned width', (
+  testWidgets('loading cards show plasma with bucketed estimates', (
     WidgetTester tester,
   ) async {
     final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
@@ -272,727 +273,32 @@ void main() {
     await _pumpModalHost(tester, _ModalHost(jobs: jobs));
     await tester.pump();
 
-    final Finder earlySlot = find.byKey(
-      const ValueKey<String>('generation-submission-estimate-early'),
+    final Finder earlyPlasma = find.byKey(
+      const ValueKey<String>('generation-submission-plasma-early'),
     );
-    final Finder lateSlot = find.byKey(
-      const ValueKey<String>('generation-submission-estimate-late'),
-    );
-    final Finder earlyPill = find.descendant(
-      of: earlySlot,
-      matching: find.byKey(MyAnimatedStatusPill.surfaceKey),
-    );
-    final Finder latePill = find.descendant(
-      of: lateSlot,
-      matching: find.byKey(MyAnimatedStatusPill.surfaceKey),
-    );
-    final Size earlySize = tester.getSize(earlyPill);
-    final Size lateSize = tester.getSize(latePill);
-
-    expect(earlySize.height, 22);
-    expect(lateSize.height, 22);
-    expect(lateSize.width, moreOrLessEquals(earlySize.width, epsilon: 0.01));
-    expect(
-      tester.getRect(earlyPill).right,
-      moreOrLessEquals(tester.getRect(earlySlot).right, epsilon: 0.01),
-    );
-    expect(
-      tester.getRect(latePill).right,
-      moreOrLessEquals(tester.getRect(lateSlot).right, epsilon: 0.01),
-    );
-    expect(
-      find.descendant(of: earlyPill, matching: find.text('约70s')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: latePill, matching: find.text('即将完成')),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('transparent confirmation grows into the loading sheen palette', (
-    WidgetTester tester,
-  ) async {
-    final GlobalKey<_GenerationPillTestHostState> hostKey =
-        GlobalKey<_GenerationPillTestHostState>();
-    final DateTime startedAt = DateTime.now();
-    await _pumpGenerationPillHost(
-      tester,
-      _GenerationPillTestHost(
-        key: hostKey,
-        jobId: 'transition',
-        status: GenerationSubmissionStatus.awaitingConfirmation,
-        startedAt: startedAt,
-      ),
+    final Finder latePlasma = find.byKey(
+      const ValueKey<String>('generation-submission-plasma-late'),
     );
 
-    final Finder pillHost = _generationPillHost('transition');
-    final Finder pill = _generationPill('transition');
-    final List<Color> loadingPalette = generationPillSheenPalette('transition');
-    final double fullWidth = tester.getSize(pill).width;
-    expect(fullWidth, tester.getSize(pillHost).width);
-    expect(
-      _generationPillBackgroundColor(tester, 'transition'),
-      const Color(0x00000000),
-    );
-    final Icon confirmIcon = tester.widget<Icon>(
-      find.descendant(of: pill, matching: find.byIcon(LucideIcons.check600)),
-    );
-    expect(confirmIcon.color, AppColors.success);
-    expect(confirmIcon.shadows, isNotEmpty);
-    final Text confirmLabel = tester.widget<Text>(
-      find.descendant(of: pill, matching: find.text('确认')),
-    );
-    expect(confirmLabel.style?.color, AppColors.success);
-    expect(confirmLabel.style?.fontWeight, FontWeight.w800);
-    expect(confirmLabel.style?.shadows, isNotEmpty);
-    expect(
-      _generationPillContentOpacity(
-        tester,
-        'transition',
-        'generation-submission-confirm-content',
-      ),
-      1,
-    );
-    expect(
-      _generationPillContentOpacity(
-        tester,
-        'transition',
-        'generation-submission-estimate-content',
-      ),
-      0,
-    );
-
-    hostKey.currentState!.setStatus(GenerationSubmissionStatus.uploading);
-    await tester.pump();
-
-    // The pill holds the confirmation frame until the first animated tick, so
-    // the transition always starts from what was on screen.
-    expect(tester.getSize(pill).width, fullWidth);
-
-    await tester.pump(const Duration(milliseconds: 60));
-
-    final double transitioningWidth = tester.getSize(pill).width;
-    final Color transitioningColor = _generationPillBackgroundColor(
-      tester,
-      'transition',
-    );
-    expect(transitioningWidth, lessThan(fullWidth));
-    expect(transitioningColor, isNot(const Color(0x00000000)));
-    expect(transitioningColor, isNot(loadingPalette.first));
-
-    // Both content layers are partially visible: a real cross-fade, not a swap.
-    expect(
-      _generationPillContentOpacity(
-        tester,
-        'transition',
-        'generation-submission-confirm-content',
-      ),
-      inExclusiveRange(0, 1),
-    );
-    expect(
-      _generationPillContentOpacity(
-        tester,
-        'transition',
-        'generation-submission-estimate-content',
-      ),
-      inExclusiveRange(0, 1),
-    );
-
-    // Elastic geometry overshoots past the resting width before settling back.
-    await tester.pump(const Duration(milliseconds: 150));
-
-    final double overshootWidth = tester.getSize(pill).width;
-    expect(overshootWidth, lessThan(transitioningWidth));
-
-    // The loading pulse repeats forever, so settle by running out the
-    // transition explicitly rather than with pumpAndSettle.
-    await tester.pump(MyAnimatedStatusPill.transitionDuration);
-
-    final double compactWidth = tester.getSize(pill).width;
-    expect(compactWidth, lessThan(fullWidth));
-    expect(overshootWidth, lessThan(compactWidth));
-    expect(
-      tester.getRect(pill).right,
-      moreOrLessEquals(tester.getRect(pillHost).right, epsilon: 0.01),
-    );
-    expect(
-      _generationPillBackgroundColor(tester, 'transition'),
-      loadingPalette.first,
-    );
-    // The confirm layer is gone rather than transparent: once the transition
-    // has landed there is nothing left of the state the pill came from.
-    expect(find.byKey(MyAnimatedStatusPill.actionContentKey), findsNothing);
-    expect(
-      _generationPillContentOpacity(
-        tester,
-        'transition',
-        'generation-submission-estimate-content',
-      ),
-      1,
-    );
-    final Text estimateText = tester.widget<Text>(
-      find.descendant(of: pill, matching: find.text('约70s')),
-    );
-    expect(estimateText.style?.color, AppColors.black);
-  });
-
-  testWidgets('loading estimate smoothly becomes the completed badge', (
-    WidgetTester tester,
-  ) async {
-    final GlobalKey<_GenerationPillTestHostState> hostKey =
-        GlobalKey<_GenerationPillTestHostState>();
-    await _pumpGenerationPillHost(
-      tester,
-      _GenerationPillTestHost(
-        key: hostKey,
-        jobId: 'completed-transition',
-        status: GenerationSubmissionStatus.processingResultImage,
-        startedAt: DateTime.now().subtract(const Duration(seconds: 60)),
-      ),
-    );
-
-    final Finder pill = _generationPill('completed-transition');
-    final double loadingWidth = tester.getSize(pill).width;
-    final Rect loadingPaintedRect = _generationPillPaintedBackgroundRect(
-      tester,
-      'completed-transition',
-    );
-    expect(loadingPaintedRect.size, Size(loadingWidth, 22));
-    expect(
-      find.descendant(of: pill, matching: find.text('即将完成')),
-      findsOneWidget,
-    );
-    expect(
-      _generationPillBackgroundColor(tester, 'completed-transition'),
-      generationPillSheenPalette('completed-transition').first,
-    );
-
-    hostKey.currentState!.setStatus(GenerationSubmissionStatus.resultSaved);
-    await tester.pump();
-
-    // The frozen label must survive the whole transition: no flash back to a
-    // fresher countdown on the way out.
-    expect(tester.getSize(pill).width, loadingWidth);
-    expect(
-      find.descendant(of: pill, matching: find.text('即将完成')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: pill, matching: find.text('约10s')),
-      findsNothing,
-    );
-    // The terminal icon is mounted from frame one, fully transparent, so it can
-    // never pop in partway through.
-    expect(
-      _generationPillContentOpacity(
-        tester,
-        'completed-transition',
-        'generation-submission-terminal-content',
-      ),
-      0,
-    );
-
-    await tester.pump(const Duration(milliseconds: 60));
-
-    final double contractingWidth = tester.getSize(pill).width;
-    final Rect contractingPaintedRect = _generationPillPaintedBackgroundRect(
-      tester,
-      'completed-transition',
-    );
-    expect(contractingWidth, lessThan(loadingWidth));
-    expect(contractingWidth, greaterThan(22));
-    // The painted background tracks the layout rect exactly — the pill really
-    // shrinks rather than letterboxing inside a stale box.
-    expect(
-      contractingPaintedRect.size,
-      within(distance: 0.01, from: Size(contractingWidth, 22)),
-    );
-    expect(
-      _generationPillContentOpacity(
-        tester,
-        'completed-transition',
-        'generation-submission-estimate-content',
-      ),
-      inExclusiveRange(0, 1),
-    );
-    expect(
-      _generationPillContentOpacity(
-        tester,
-        'completed-transition',
-        'generation-submission-terminal-content',
-      ),
-      inExclusiveRange(0, 1),
-    );
-
-    // Elastic overshoot dips under the 22pt resting size...
-    await tester.pump(const Duration(milliseconds: 150));
-
-    final double overshootWidth = tester.getSize(pill).width;
-    expect(overshootWidth, lessThan(contractingWidth));
-    expect(overshootWidth, lessThan(22));
-    expect(
-      _generationPillPaintedBackgroundRect(
-        tester,
-        'completed-transition',
-      ).width,
-      lessThan(22),
-    );
-    expect(
-      _generationPillBackgroundColor(tester, 'completed-transition'),
-      AppColors.blackOverlay(0.45),
-    );
-    expect(
-      find.descendant(of: pill, matching: find.text('即将完成')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: pill, matching: find.text('约10s')),
-      findsNothing,
-    );
-
-    // ...then rebounds back up towards it. By now the cross-fade has finished
-    // while the geometry is still settling.
-    await tester.pump(const Duration(milliseconds: 210));
-
-    final double reboundWidth = tester.getSize(pill).width;
-    expect(reboundWidth, greaterThan(overshootWidth));
-    expect(reboundWidth, lessThan(22));
-    expect(
-      _generationPillContentOpacity(
-        tester,
-        'completed-transition',
-        'generation-submission-estimate-content',
-      ),
-      0,
-    );
-    expect(
-      _generationPillContentOpacity(
-        tester,
-        'completed-transition',
-        'generation-submission-terminal-content',
-      ),
-      1,
-    );
-
-    await tester.pumpAndSettle();
-
-    expect(tester.getSize(pill), const Size.square(22));
-    expect(
-      _generationPillPaintedBackgroundRect(tester, 'completed-transition').size,
-      const Size.square(22),
-    );
-    expect(
-      _generationPillBackgroundColor(tester, 'completed-transition'),
-      AppColors.blackOverlay(0.45),
-    );
+    expect(earlyPlasma, findsOneWidget);
+    expect(latePlasma, findsOneWidget);
+    final PlasmaEffect effect = tester.widget<PlasmaEffect>(earlyPlasma);
+    expect(effect.speed, 1.0);
+    expect(effect.direction, PlasmaDirection.forward);
+    expect(effect.scale, 1.0);
+    expect(effect.opacity, 1.0);
+    expect(effect.tint, isNull);
+    expect(effect.animate, isTrue);
+    expect(effect.quality, PlasmaQuality.low);
+    expect(effect.interactive, isFalse);
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-status-result-saved'),
+        const ValueKey<String>('generation-submission-plasma-estimate-early'),
       ),
       findsOneWidget,
     );
-  });
-
-  testWidgets('loading estimate smoothly becomes the retry button', (
-    WidgetTester tester,
-  ) async {
-    final GlobalKey<_GenerationPillTestHostState> hostKey =
-        GlobalKey<_GenerationPillTestHostState>();
-    await _pumpGenerationPillHost(
-      tester,
-      _GenerationPillTestHost(
-        key: hostKey,
-        jobId: 'retry-transition',
-        status: GenerationSubmissionStatus.uploading,
-        startedAt: DateTime.now(),
-        onRetry: () {},
-      ),
-    );
-
-    final Finder pill = _generationPill('retry-transition');
-    final double loadingWidth = tester.getSize(pill).width;
-
-    hostKey.currentState!.setStatus(GenerationSubmissionStatus.failed);
-    await tester.pump();
-
-    expect(tester.getSize(pill).width, loadingWidth);
-    expect(
-      find.byKey(
-        const ValueKey<String>('generation-submission-retry-retry-transition'),
-      ),
-      findsOneWidget,
-    );
-
-    await tester.pump(const Duration(milliseconds: 60));
-
-    final Size contractingSize = tester.getSize(pill);
-    expect(contractingSize.width, lessThan(loadingWidth));
-    expect(contractingSize.width, greaterThan(24));
-    // Width and height ride the same elastic curve, so the pill grows taller
-    // while it narrows instead of the two settling at different times.
-    expect(contractingSize.height, greaterThan(22));
-    expect(contractingSize.height, lessThan(24));
-    expect(
-      _generationPillContentOpacity(
-        tester,
-        'retry-transition',
-        'generation-submission-estimate-content',
-      ),
-      inExclusiveRange(0, 1),
-    );
-    expect(
-      _generationPillContentOpacity(
-        tester,
-        'retry-transition',
-        'generation-submission-terminal-content',
-      ),
-      inExclusiveRange(0, 1),
-    );
-
-    await tester.pump(const Duration(milliseconds: 150));
-
-    final Size overshootSize = tester.getSize(pill);
-    expect(overshootSize.width, lessThan(contractingSize.width));
-    expect(overshootSize.width, lessThan(24));
-    // Height has already reached its 24pt target and is capped by the host box,
-    // so only width can show the overshoot here.
-    expect(overshootSize.height, 24);
-
-    await tester.pumpAndSettle();
-
-    expect(tester.getSize(pill), const Size.square(24));
-    expect(
-      _generationPillBackgroundColor(tester, 'retry-transition'),
-      AppColors.accentYellow.withValues(alpha: 0.8),
-    );
-    expect(
-      find.byKey(
-        const ValueKey<String>(
-          'generation-submission-retry-icon-retry-transition',
-        ),
-      ),
-      findsOneWidget,
-    );
-
-    hostKey.currentState!.setStatus(GenerationSubmissionStatus.uploading);
-    await tester.pump();
-    expect(tester.getSize(pill), const Size.square(24));
-
-    await tester.pump(const Duration(milliseconds: 150));
-    expect(tester.getSize(pill).width, greaterThan(24));
-
-    // Back in loading the pulse repeats forever, so run the transition out
-    // explicitly instead of settling.
-    await tester.pump(MyAnimatedStatusPill.transitionDuration);
-    expect(tester.getSize(pill).width, loadingWidth);
-  });
-
-  testWidgets('the sheen layer is fully clear once loading ends', (
-    WidgetTester tester,
-  ) async {
-    final GlobalKey<_GenerationPillTestHostState> hostKey =
-        GlobalKey<_GenerationPillTestHostState>();
-    await _pumpGenerationPillHost(
-      tester,
-      _GenerationPillTestHost(
-        key: hostKey,
-        jobId: 'sheen-exit',
-        status: GenerationSubmissionStatus.pollingTask,
-        startedAt: DateTime.now(),
-      ),
-    );
-
-    expect(_generationPillSheenOpacity(tester, 'sheen-exit'), 1);
-
-    hostKey.currentState!.setStatus(GenerationSubmissionStatus.resultSaved);
-    await tester.pump();
-
-    // The sheen keeps its own drift phase, so a slow fade would let it be seen
-    // frozen mid-drift while the pill shrinks away. Squaring the ramp clears it
-    // early: by 120ms it must be perceptually gone, well ahead of the estimate
-    // label it sits behind.
-    await tester.pump(const Duration(milliseconds: 120));
-    final double sheenMidExit = _generationPillSheenOpacity(
-      tester,
-      'sheen-exit',
-    );
-    final double labelMidExit = _generationPillContentOpacity(
-      tester,
-      'sheen-exit',
-      'generation-submission-estimate-content',
-    );
-    expect(
-      sheenMidExit,
-      lessThan(0.02),
-      reason: 'the sheen must clear within ~120ms of leaving loading',
-    );
-    expect(
-      sheenMidExit,
-      lessThan(labelMidExit),
-      reason: 'the sheen must never outlast the label it sits behind',
-    );
-
-    await tester.pumpAndSettle();
-
-    expect(_generationPillSheenOpacity(tester, 'sheen-exit'), 0);
-  });
-
-  testWidgets('the confirm pill names its action and leaves with it', (
-    WidgetTester tester,
-  ) async {
-    final GlobalKey<_GenerationPillTestHostState> hostKey =
-        GlobalKey<_GenerationPillTestHostState>();
-    await _pumpGenerationPillHost(
-      tester,
-      _GenerationPillTestHost(
-        key: hostKey,
-        jobId: 'confirm-label',
-        status: GenerationSubmissionStatus.awaitingConfirmation,
-        startedAt: DateTime.now(),
-      ),
-    );
-
-    final Finder pill = _generationPill('confirm-label');
-    final String confirmLabel = appLocalizationsFor(
-      const Locale('zh'),
-    ).generationSubmissionActionConfirm;
-
-    // The confirmation action is inline over the thumbnail gradient rather
-    // than painted on a separate pill surface.
-    expect(
-      _generationPillBackgroundColor(tester, 'confirm-label'),
-      const Color(0x00000000),
-    );
-    expect(
-      find.descendant(of: pill, matching: find.text(confirmLabel)),
-      findsOneWidget,
-    );
-
-    hostKey.currentState!.setStatus(GenerationSubmissionStatus.pollingTask);
-    await tester.pump();
-    await tester.pump(MyAnimatedStatusPill.transitionDuration);
-    await tester.pump(MyAnimatedStatusPill.transitionDuration);
-
-    // Not merely invisible: the confirm layer has to leave the tree, so the
-    // estimate label is unambiguously the pill's only label once loading.
-    expect(
-      find.descendant(of: pill, matching: find.text(confirmLabel)),
-      findsNothing,
-    );
-    expect(
-      find.descendant(of: pill, matching: find.byType(Text)),
-      findsOneWidget,
-    );
-  });
-
-  test('sheen palettes stay readable and distinct', () {
-    // Every palette sits behind the black estimate label.
-    for (final List<Color> palette in generationPillSheenPalettes) {
-      expect(palette, hasLength(4));
-      for (final Color color in palette) {
-        expect(
-          (color.computeLuminance() + 0.05) / 0.05,
-          greaterThan(4.5),
-          reason: '$color must clear WCAG AA against the black label',
-        );
-      }
-    }
-
-    // Ids that differ only in their trailing counter must not collide, which
-    // is exactly the shape real record ids take.
-    final Set<int> chosen = <int>{
-      for (int i = 0; i < generationPillSheenPalettes.length; i++)
-        generationPillSheenPalettes.indexOf(
-          generationPillSheenPalette('local-1700000000000000-$i'),
-        ),
-    };
-    expect(
-      chosen.length,
-      greaterThan(1),
-      reason: 'sequential job ids must not all map to one palette',
-    );
-  });
-
-  testWidgets('interrupted transition continues from the rendered frame', (
-    WidgetTester tester,
-  ) async {
-    final GlobalKey<_GenerationPillTestHostState> hostKey =
-        GlobalKey<_GenerationPillTestHostState>();
-    await _pumpGenerationPillHost(
-      tester,
-      _GenerationPillTestHost(
-        key: hostKey,
-        jobId: 'interrupted',
-        status: GenerationSubmissionStatus.awaitingConfirmation,
-        onRetry: () {},
-      ),
-    );
-
-    final Finder pill = _generationPill('interrupted');
-    final double fullWidth = tester.getSize(pill).width;
-
-    hostKey.currentState!.setStatus(GenerationSubmissionStatus.uploading);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 60));
-
-    final Size interruptedSize = tester.getSize(pill);
-    final Color interruptedColor = _generationPillBackgroundColor(
-      tester,
-      'interrupted',
-    );
-    expect(interruptedSize.width, lessThan(fullWidth));
-
-    // Redirect to a terminal state mid-flight. The pill must pick up from the
-    // frame currently on screen, never jump back to a logical stage.
-    hostKey.currentState!.setStatus(GenerationSubmissionStatus.failed);
-    await tester.pump();
-
-    expect(
-      tester.getSize(pill).width,
-      moreOrLessEquals(interruptedSize.width, epsilon: 0.01),
-    );
-    expect(
-      tester.getSize(pill).height,
-      moreOrLessEquals(interruptedSize.height, epsilon: 0.01),
-    );
-    expect(
-      _generationPillBackgroundColor(tester, 'interrupted'),
-      interruptedColor,
-    );
-    await tester.pump(const Duration(milliseconds: 60));
-    expect(tester.getSize(pill).width, lessThan(interruptedSize.width));
-
-    await tester.pump(MyAnimatedStatusPill.transitionDuration);
-    expect(tester.getSize(pill), const Size.square(24));
-    expect(
-      find.byKey(
-        const ValueKey<String>('generation-submission-retry-icon-interrupted'),
-      ),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('estimate label freezes for the whole terminal transition', (
-    WidgetTester tester,
-  ) async {
-    final GlobalKey<_GenerationPillTestHostState> hostKey =
-        GlobalKey<_GenerationPillTestHostState>();
-    // 19s in: the 约70s bucket is one second away from flipping to 约50s.
-    await _pumpGenerationPillHost(
-      tester,
-      _GenerationPillTestHost(
-        key: hostKey,
-        jobId: 'frozen-label',
-        status: GenerationSubmissionStatus.pollingTask,
-        startedAt: DateTime.now().subtract(const Duration(seconds: 19)),
-      ),
-    );
-
-    final Finder pill = _generationPill('frozen-label');
-    expect(
-      find.descendant(of: pill, matching: find.text('约70s')),
-      findsOneWidget,
-    );
-
-    hostKey.currentState!.setStatus(GenerationSubmissionStatus.resultSaved);
-    await tester.pump();
-
-    // The bucket boundary lands mid-transition; the frozen label must win so
-    // the pill never flashes one last countdown on its way out.
-    for (
-      int elapsed = 0;
-      elapsed < MyAnimatedStatusPill.transitionDuration.inMilliseconds;
-      elapsed += 65
-    ) {
-      await tester.pump(const Duration(milliseconds: 65));
-      expect(
-        find.descendant(of: pill, matching: find.text('约50s')),
-        findsNothing,
-      );
-    }
-
-    expect(tester.getSize(pill), const Size.square(22));
-    expect(
-      find.byKey(
-        const ValueKey<String>('generation-submission-status-result-saved'),
-      ),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('offscreen ticker lands on the new state without animating', (
-    WidgetTester tester,
-  ) async {
-    final GlobalKey<_GenerationPillTestHostState> hostKey =
-        GlobalKey<_GenerationPillTestHostState>();
-    await _pumpGenerationPillHost(
-      tester,
-      _GenerationPillTestHost(
-        key: hostKey,
-        jobId: 'offscreen',
-        status: GenerationSubmissionStatus.pollingTask,
-        startedAt: DateTime.now(),
-        muteTicker: true,
-      ),
-    );
-
-    final Finder pill = _generationPill('offscreen');
-    expect(tester.getSize(pill).width, greaterThan(22));
-
-    // With TickerMode disabled the controller cannot tick, so the pill must
-    // settle immediately rather than freezing on the loading frame.
-    hostKey.currentState!.setStatus(GenerationSubmissionStatus.resultSaved);
-    await tester.pump();
-
-    expect(tester.getSize(pill), const Size.square(22));
-    expect(
-      _generationPillBackgroundColor(tester, 'offscreen'),
-      AppColors.blackOverlay(0.45),
-    );
-    expect(
-      find.byKey(
-        const ValueKey<String>('generation-submission-status-result-saved'),
-      ),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('reduced motion switches to a static loading pill immediately', (
-    WidgetTester tester,
-  ) async {
-    final GlobalKey<_GenerationPillTestHostState> hostKey =
-        GlobalKey<_GenerationPillTestHostState>();
-    await _pumpGenerationPillHost(
-      tester,
-      _GenerationPillTestHost(
-        key: hostKey,
-        jobId: 'static-transition',
-        status: GenerationSubmissionStatus.awaitingConfirmation,
-        disableAnimations: true,
-      ),
-    );
-
-    final Finder pill = _generationPill('static-transition');
-    final double fullWidth = tester.getSize(pill).width;
-
-    hostKey.currentState!.setStatus(GenerationSubmissionStatus.uploading);
-    await tester.pump();
-
-    final double compactWidth = tester.getSize(pill).width;
-    expect(compactWidth, lessThan(fullWidth));
-    expect(
-      _generationPillBackgroundColor(tester, 'static-transition'),
-      generationPillSheenPalette('static-transition').first,
-    );
-
-    await tester.pump(const Duration(seconds: 1));
-
-    expect(tester.getSize(pill).width, compactWidth);
-    expect(
-      _generationPillBackgroundColor(tester, 'static-transition'),
-      generationPillSheenPalette('static-transition').first,
-    );
+    expect(find.text('约70s'), findsOneWidget);
+    expect(find.text('即将完成'), findsOneWidget);
   });
 
   testWidgets('generation estimate switches bucket labels immediately', (
@@ -1014,69 +320,33 @@ void main() {
       ),
     );
     final Finder estimate = find.byKey(
-      const ValueKey<String>('generation-submission-estimate-estimate'),
+      const ValueKey<String>('generation-submission-plasma-estimate-estimate'),
     );
 
-    expect(
-      find.descendant(of: estimate, matching: find.text('约70s')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: estimate,
-        matching: find.byType(CupertinoActivityIndicator),
-      ),
-      findsNothing,
-    );
+    expect(estimate, findsOneWidget);
+    expect(find.text('约70s'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 13));
-    expect(
-      find.descendant(of: estimate, matching: find.text('约70s')),
-      findsOneWidget,
-    );
+    expect(find.text('约70s'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 3));
-    expect(
-      find.descendant(of: estimate, matching: find.text('约50s')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: estimate, matching: find.text('约70s')),
-      findsNothing,
-    );
+    expect(find.text('约50s'), findsOneWidget);
+    expect(find.text('约70s'), findsNothing);
 
     await tester.pump(const Duration(seconds: 20));
-    expect(
-      find.descendant(of: estimate, matching: find.text('约30s')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: estimate, matching: find.text('约50s')),
-      findsNothing,
-    );
+    expect(find.text('约30s'), findsOneWidget);
+    expect(find.text('约50s'), findsNothing);
 
     await tester.pump(const Duration(seconds: 20));
-    expect(
-      find.descendant(of: estimate, matching: find.text('约10s')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: estimate, matching: find.text('约30s')),
-      findsNothing,
-    );
+    expect(find.text('约10s'), findsOneWidget);
+    expect(find.text('约30s'), findsNothing);
 
     await tester.pump(const Duration(seconds: 10));
-    expect(
-      find.descendant(of: estimate, matching: find.text('即将完成')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: estimate, matching: find.text('约10s')),
-      findsNothing,
-    );
+    expect(find.text('即将完成'), findsOneWidget);
+    expect(find.text('约10s'), findsNothing);
   });
 
-  testWidgets('generation estimate advances without resizing during polls', (
+  testWidgets('generation estimate advances without resizing its card', (
     WidgetTester tester,
   ) async {
     final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
@@ -1087,18 +357,11 @@ void main() {
     await _pumpModalHost(tester, _ModalHost(key: hostKey, jobs: jobs));
     await tester.pump();
 
-    final Finder estimate = find.byKey(
-      const ValueKey<String>('generation-submission-estimate-polling'),
+    final Finder card = find.byKey(
+      const ValueKey<String>('generation-submission-flip-polling'),
     );
-    final Finder pill = find.descendant(
-      of: estimate,
-      matching: find.byKey(MyAnimatedStatusPill.surfaceKey),
-    );
-    final double initialWidth = tester.getSize(pill).width;
-    expect(
-      find.descendant(of: estimate, matching: find.text('约70s')),
-      findsOneWidget,
-    );
+    final Size initialSize = tester.getSize(card);
+    expect(find.text('约70s'), findsOneWidget);
 
     // Polls update updatedAt, but the persisted generation attempt start remains
     // the only clock used by the estimate.
@@ -1113,11 +376,8 @@ void main() {
       await tester.pump(const Duration(seconds: 10));
     }
 
-    expect(tester.getSize(pill).width, initialWidth);
-    expect(
-      find.descendant(of: estimate, matching: find.text('约50s')),
-      findsOneWidget,
-    );
+    expect(tester.getSize(card), initialSize);
+    expect(find.text('约50s'), findsOneWidget);
   });
 
   testWidgets('generation estimate survives thumbnail remounts', (
@@ -1141,18 +401,15 @@ void main() {
     );
     final Finder firstEstimate = find.byKey(
       const ValueKey<String>(
-        'generation-submission-estimate-persisted-progress',
+        'generation-submission-plasma-estimate-persisted-progress',
       ),
     );
-    final Finder firstPill = find.descendant(
-      of: firstEstimate,
-      matching: find.byKey(MyAnimatedStatusPill.surfaceKey),
+    final Finder firstCard = find.byKey(
+      const ValueKey<String>('generation-submission-flip-persisted-progress'),
     );
-    final double firstWidth = tester.getSize(firstPill).width;
-    expect(
-      find.descendant(of: firstPill, matching: find.text('约50s')),
-      findsOneWidget,
-    );
+    final Size firstSize = tester.getSize(firstCard);
+    expect(firstEstimate, findsOneWidget);
+    expect(find.text('约50s'), findsOneWidget);
 
     job = _job(
       id: 'persisted-progress',
@@ -1166,22 +423,14 @@ void main() {
         jobs: <GenerationSubmissionJob>[job],
       ),
     );
-    final Finder secondPill = find.descendant(
-      of: find.byKey(
-        const ValueKey<String>(
-          'generation-submission-estimate-persisted-progress',
-        ),
-      ),
-      matching: find.byKey(MyAnimatedStatusPill.surfaceKey),
+    final Finder secondCard = find.byKey(
+      const ValueKey<String>('generation-submission-flip-persisted-progress'),
     );
-    expect(tester.getSize(secondPill).width, firstWidth);
-    expect(
-      find.descendant(of: secondPill, matching: find.text('约50s')),
-      findsOneWidget,
-    );
+    expect(tester.getSize(secondCard), firstSize);
+    expect(find.text('约50s'), findsOneWidget);
   });
 
-  testWidgets('completed keeps the estimate pill visible', (
+  testWidgets('completed keeps the plasma estimate visible', (
     WidgetTester tester,
   ) async {
     await _pumpModalHost(
@@ -1201,6 +450,12 @@ void main() {
       find.byKey(
         const ValueKey<String>('generation-submission-estimate-completion'),
       ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-plasma-completion'),
+      ),
       findsOneWidget,
     );
     expect(
@@ -1212,7 +467,7 @@ void main() {
     expect(find.text('即将完成'), findsOneWidget);
   });
 
-  testWidgets('estimate label changes immediately without animation', (
+  testWidgets('reduced motion shows a static plasma estimate immediately', (
     WidgetTester tester,
   ) async {
     await _pumpModalHost(
@@ -1229,40 +484,18 @@ void main() {
       ),
     );
     final Finder estimate = find.byKey(
-      const ValueKey<String>('generation-submission-estimate-reduced-motion'),
+      const ValueKey<String>(
+        'generation-submission-plasma-estimate-reduced-motion',
+      ),
     );
-    final Finder pill = find.descendant(
-      of: estimate,
-      matching: find.byKey(MyAnimatedStatusPill.surfaceKey),
-    );
-    final double initialWidth = tester.getSize(pill).width;
-    expect(
-      find.descendant(of: estimate, matching: find.text('约70s')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: estimate, matching: find.byType(AnimatedSwitcher)),
-      findsNothing,
-    );
+    expect(estimate, findsOneWidget);
+    expect(find.text('约70s'), findsOneWidget);
+    expect(find.byType(PlasmaEffect), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 21));
 
-    expect(tester.getSize(pill).width, initialWidth);
-    expect(
-      find.descendant(of: estimate, matching: find.text('约50s')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey<String>(
-            'generation-submission-estimate-reduced-motion',
-          ),
-        ),
-        matching: find.text('约70s'),
-      ),
-      findsNothing,
-    );
+    expect(find.text('约50s'), findsOneWidget);
+    expect(find.text('约70s'), findsNothing);
   });
 
   for (final Locale locale in AppLocalizations.supportedLocales) {
@@ -1372,14 +605,16 @@ void main() {
     expect(uploadRepository.createUploadCount, 1);
     expect(taskRepository.createTaskCount, 0);
     expect(
-      find.byKey(
-        const ValueKey<String>('generation-submission-estimate-awaiting'),
-      ),
+      find.byKey(const ValueKey<String>('generation-submission-flip-awaiting')),
       findsOneWidget,
     );
+    final FlipCard card = tester.widget<FlipCard>(
+      find.byKey(const ValueKey<String>('generation-submission-flip-awaiting')),
+    );
+    expect(card.side, FlipCardSide.back);
   });
 
-  testWidgets('real confirmation keeps the pill state for its loading motion', (
+  testWidgets('real confirmation flips the card toward plasma', (
     WidgetTester tester,
   ) async {
     await _pumpModalHost(
@@ -1397,8 +632,17 @@ void main() {
       ),
     );
 
-    final Finder pill = _generationPill('animated-confirm');
-    final double fullWidth = tester.getSize(pill).width;
+    final Finder cardFinder = find.byKey(
+      const ValueKey<String>('generation-submission-flip-animated-confirm'),
+    );
+    final FlipCardController cardController = tester
+        .widget<FlipCard>(cardFinder)
+        .controller;
+    expect(
+      tester.widget<FlipCard>(cardFinder).animationDuration,
+      const Duration(milliseconds: 800),
+    );
+    expect(cardController.state!.animationController.value, 0);
 
     await tester.tap(
       find.byKey(
@@ -1409,36 +653,71 @@ void main() {
     );
     for (int attempt = 0; attempt < 10; attempt += 1) {
       await tester.pump();
-      if (find
-          .byKey(
-            const ValueKey<String>(
-              'generation-submission-estimate-animated-confirm',
-            ),
-          )
-          .evaluate()
-          .isNotEmpty) {
+      if (tester.widget<FlipCard>(cardFinder).side == FlipCardSide.back) {
         break;
       }
     }
 
+    expect(tester.widget<FlipCard>(cardFinder).side, FlipCardSide.back);
+    expect(cardController.state!.animationController.value, 0);
+
+    await tester.pump(const Duration(milliseconds: 80));
+
+    expect(
+      cardController.state!.animationController.value,
+      inExclusiveRange(0, 0.5),
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-confirm-animated-confirm',
+        ),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.byKey(
         const ValueKey<String>(
           'generation-submission-estimate-animated-confirm',
         ),
       ),
+      findsNothing,
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-plasma-waiting-animated-confirm',
+        ),
+      ),
       findsOneWidget,
     );
-    expect(tester.getSize(pill).width, fullWidth);
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-plasma-animated-confirm'),
+      ),
+      findsNothing,
+    );
 
-    await tester.pump(const Duration(milliseconds: 80));
+    await tester.pump(const Duration(milliseconds: 380));
+    await tester.pump(const Duration(milliseconds: 999));
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-plasma-animated-confirm'),
+      ),
+      findsNothing,
+    );
 
-    final double transitioningWidth = tester.getSize(pill).width;
-    expect(transitioningWidth, lessThan(fullWidth));
-    expect(transitioningWidth, greaterThan(22));
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-plasma-animated-confirm'),
+      ),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('guided confirmation also preserves the pill loading motion', (
+  testWidgets('guided confirmation also flips toward plasma', (
     WidgetTester tester,
   ) async {
     await _pumpModalHost(
@@ -1458,8 +737,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 320));
     await tester.pumpAndSettle();
 
-    final Finder pill = _generationPill('guided-animated-confirm');
-    final double fullWidth = tester.getSize(pill).width;
+    final Finder cardFinder = find.byKey(
+      const ValueKey<String>(
+        'generation-submission-flip-guided-animated-confirm',
+      ),
+    );
 
     await tester.tap(
       find.byKey(
@@ -1470,30 +752,34 @@ void main() {
     );
     for (int attempt = 0; attempt < 10; attempt += 1) {
       await tester.pump();
-      if (find
-          .byKey(
-            const ValueKey<String>(
-              'generation-submission-estimate-guided-animated-confirm',
-            ),
-          )
-          .evaluate()
-          .isNotEmpty) {
+      if (tester.widget<FlipCard>(cardFinder).side == FlipCardSide.back) {
         break;
       }
     }
 
+    expect(tester.widget<FlipCard>(cardFinder).side, FlipCardSide.back);
+    await tester.pump(const Duration(milliseconds: 860));
+    await tester.pump();
     expect(
       find.byKey(
         const ValueKey<String>(
-          'generation-submission-estimate-guided-animated-confirm',
+          'generation-submission-plasma-guided-animated-confirm',
+        ),
+      ),
+      findsNothing,
+    );
+    await tester.pump(const Duration(seconds: 1));
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-plasma-guided-animated-confirm',
         ),
       ),
       findsOneWidget,
     );
-    expect(tester.getSize(pill).width, fullWidth);
   });
 
-  testWidgets('real loading job keeps the pill state for its retry motion', (
+  testWidgets('real loading job flips back to its retry controls', (
     WidgetTester tester,
   ) async {
     final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
@@ -1511,8 +797,23 @@ void main() {
       ),
     );
 
-    final Finder pill = _generationPill('real-retry-transition');
-    final double loadingWidth = tester.getSize(pill).width;
+    final Finder cardFinder = find.byKey(
+      const ValueKey<String>(
+        'generation-submission-flip-real-retry-transition',
+      ),
+    );
+    final FlipCardController cardController = tester
+        .widget<FlipCard>(cardFinder)
+        .controller;
+    expect(cardController.state!.animationController.value, 1);
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-plasma-real-retry-transition',
+        ),
+      ),
+      findsOneWidget,
+    );
 
     await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
       _job(
@@ -1523,17 +824,22 @@ void main() {
     ]);
     for (int attempt = 0; attempt < 10; attempt += 1) {
       await tester.pump();
-      if (find
-          .byKey(
-            const ValueKey<String>(
-              'generation-submission-retry-real-retry-transition',
-            ),
-          )
-          .evaluate()
-          .isNotEmpty) {
+      if (tester.widget<FlipCard>(cardFinder).side == FlipCardSide.front) {
         break;
       }
     }
+
+    expect(tester.widget<FlipCard>(cardFinder).side, FlipCardSide.front);
+    expect(cardController.state!.animationController.value, 1);
+
+    await tester.pump(const Duration(milliseconds: 60));
+
+    expect(
+      cardController.state!.animationController.value,
+      inExclusiveRange(0.5, 1),
+    );
+
+    await tester.pump(const Duration(milliseconds: 400));
 
     expect(
       find.byKey(
@@ -1543,16 +849,6 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(tester.getSize(pill).width, loadingWidth);
-
-    await tester.pump(const Duration(milliseconds: 60));
-
-    expect(tester.getSize(pill).width, lessThan(loadingWidth));
-    expect(tester.getSize(pill).width, greaterThan(24));
-
-    await tester.pump(const Duration(milliseconds: 150));
-
-    expect(tester.getSize(pill).width, lessThan(24));
   });
 
   testWidgets('confirmation guide appears above first awaiting thumbnail', (
@@ -1826,7 +1122,17 @@ void main() {
       find.byKey(
         const ValueKey<String>('generation-submission-estimate-failed'),
       ),
-      findsOneWidget,
+      findsNothing,
+    );
+    expect(
+      tester
+          .widget<FlipCard>(
+            find.byKey(
+              const ValueKey<String>('generation-submission-flip-failed'),
+            ),
+          )
+          .side,
+      FlipCardSide.back,
     );
   });
 
@@ -2404,6 +1710,12 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey<String>('generation-thumbnail-image-precache')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-plasma-precache'),
+      ),
       findsOneWidget,
     );
     expect(precachedImages, hasLength(2));
@@ -2416,6 +1728,11 @@ void main() {
       find.byKey(
         const ValueKey<String>('generation-submission-original-image'),
       ),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(milliseconds: 720));
+    expect(
+      find.byKey(const ValueKey<String>('generation-thumbnail-image-precache')),
       findsOneWidget,
     );
   });
@@ -2999,85 +2316,6 @@ Finder _confirmButtonFinder() {
   });
 }
 
-Finder _generationPillHost(String jobId) {
-  return find.byKey(
-    ValueKey<String>('generation-submission-state-pill-$jobId'),
-  );
-}
-
-Finder _generationPill(String jobId) {
-  return find.descendant(
-    of: _generationPillHost(jobId),
-    matching: find.byKey(MyAnimatedStatusPill.surfaceKey),
-  );
-}
-
-Color _generationPillBackgroundColor(WidgetTester tester, String jobId) {
-  final DecoratedBox background = tester.widget<DecoratedBox>(
-    find.descendant(
-      of: _generationPillHost(jobId),
-      matching: find.byKey(MyAnimatedStatusPill.backgroundKey),
-    ),
-  );
-  return (background.decoration as ShapeDecoration).color!;
-}
-
-Rect _generationPillPaintedBackgroundRect(WidgetTester tester, String jobId) {
-  return tester.getRect(
-    find.descendant(
-      of: _generationPillHost(jobId),
-      matching: find.byKey(MyAnimatedStatusPill.backgroundKey),
-    ),
-  );
-}
-
-double _generationPillContentOpacity(
-  WidgetTester tester,
-  String jobId,
-  String key,
-) {
-  final Key contentKey = switch (key) {
-    'generation-submission-confirm-content' =>
-      MyAnimatedStatusPill.actionContentKey,
-    'generation-submission-estimate-content' =>
-      MyAnimatedStatusPill.loadingContentKey,
-    'generation-submission-terminal-content' =>
-      MyAnimatedStatusPill.terminalContentKey,
-    'generation-submission-pill-sheen' => MyAnimatedStatusPill.sheenKey,
-    _ => ValueKey<String>(key),
-  };
-  final Opacity opacity = tester.widget<Opacity>(
-    find.descendant(
-      of: _generationPillHost(jobId),
-      matching: find.byKey(contentKey),
-    ),
-  );
-  return opacity.opacity;
-}
-
-double _generationPillSheenOpacity(WidgetTester tester, String jobId) {
-  return _generationPillContentOpacity(
-    tester,
-    jobId,
-    'generation-submission-pill-sheen',
-  );
-}
-
-Future<void> _pumpGenerationPillHost(
-  WidgetTester tester,
-  _GenerationPillTestHost host,
-) async {
-  await tester.pumpWidget(
-    CupertinoApp(
-      locale: defaultAppLocale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      home: CupertinoPageScaffold(child: Center(child: host)),
-    ),
-  );
-  await tester.pump();
-}
-
 Future<void> _pumpModalHost(
   WidgetTester tester,
   _ModalHost host, {
@@ -3183,69 +2421,6 @@ Future<void> _tapExpandedMoreAction(WidgetTester tester, int index) async {
     greaterThanOrEqualTo(requiredHeight),
   );
   await tester.tap(action);
-}
-
-class _GenerationPillTestHost extends StatefulWidget {
-  const _GenerationPillTestHost({
-    super.key,
-    required this.jobId,
-    required this.status,
-    this.startedAt,
-    this.onRetry,
-    this.disableAnimations = false,
-    this.muteTicker = false,
-  });
-
-  final String jobId;
-  final GenerationSubmissionStatus status;
-  final DateTime? startedAt;
-  final VoidCallback? onRetry;
-  final bool disableAnimations;
-  final bool muteTicker;
-
-  @override
-  State<_GenerationPillTestHost> createState() =>
-      _GenerationPillTestHostState();
-}
-
-class _GenerationPillTestHostState extends State<_GenerationPillTestHost> {
-  late GenerationSubmissionStatus _status = widget.status;
-  late DateTime? _startedAt = widget.startedAt;
-
-  void setStatus(GenerationSubmissionStatus status) {
-    setState(() {
-      _status = status;
-      _startedAt ??= DateTime.now();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    Widget pill = SizedBox(
-      width: 120,
-      height: 24,
-      child: GenerationStatusPill(
-        key: ValueKey<String>(
-          'generation-submission-state-pill-${widget.jobId}',
-        ),
-        jobId: widget.jobId,
-        status: _status,
-        startedAt: _startedAt,
-        onConfirm: () {},
-        onRetry: widget.onRetry,
-      ),
-    );
-    if (widget.muteTicker) {
-      pill = TickerMode(enabled: false, child: pill);
-    }
-    if (widget.disableAnimations) {
-      pill = MediaQuery(
-        data: MediaQuery.of(context).copyWith(disableAnimations: true),
-        child: pill,
-      );
-    }
-    return AppThemeColorsScope(colors: AppThemeColors.light, child: pill);
-  }
 }
 
 class _ModalHost extends StatefulWidget {

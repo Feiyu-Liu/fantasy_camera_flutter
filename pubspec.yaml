@@ -39,6 +39,10 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_image_compress: ^2.4.0
+  flutter_bits:
+    path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter_bits
+  flutter_flip_card:
+    path: /Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter_flip_card/flutter_flip_card
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^2.6.1

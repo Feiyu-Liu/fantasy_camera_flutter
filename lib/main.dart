@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_bits/flutter_bits.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -38,5 +41,16 @@ Future<void> main() async {
     }
   }
 
+  unawaited(_precacheVisualEffects());
   runApp(FantasyCameraApp(initialSettings: initialSettings));
+}
+
+Future<void> _precacheVisualEffects() async {
+  try {
+    await precachePlasmaShaders(
+      qualities: const <PlasmaQuality>[PlasmaQuality.low],
+    );
+  } on Object catch (error, stackTrace) {
+    logAppError('plasma_shader_precache_failed', error, stackTrace);
+  }
 }
