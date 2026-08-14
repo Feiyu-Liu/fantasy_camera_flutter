@@ -32,6 +32,7 @@ void main() {
         .prepareCanonicalOriginal(
           source: XFile('/tmp/source.heic'),
           aspectRatio: CameraCaptureAspectRatio.fourThree,
+          compressionQuality: 0.85,
         );
 
     expect(result.file.path, '/tmp/source.heic');
@@ -53,6 +54,7 @@ void main() {
           final Map<Object?, Object?> arguments =
               call.arguments! as Map<Object?, Object?>;
           expect(arguments['sourcePath'], sourceFile.path);
+          expect(arguments['compressionQuality'], 0.85);
           outputPath = arguments['outputPath']! as String;
           await File(outputPath!).writeAsBytes(<int>[4, 5, 6]);
           return <String, Object>{
@@ -70,6 +72,7 @@ void main() {
         .prepareCanonicalOriginal(
           source: XFile(sourceFile.path),
           aspectRatio: CameraCaptureAspectRatio.square,
+          compressionQuality: 0.85,
         );
 
     expect(result.file.path, outputPath);

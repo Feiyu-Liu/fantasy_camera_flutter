@@ -65,6 +65,9 @@ class AppConfig {
   static ImageFileFormat get cameraImageFileFormat =>
       cameraPhotoDynamicRange.imageFileFormat;
 
+  // 相机原图进行有损重编码时使用的质量，范围为 0.0–1.0。
+  static const double cameraImageCompressionQuality = 0.85;
+
   // iOS AVFoundation 切换变焦档位时的动画变焦速度。
   static const double cameraZoomRampRate = 10.0;
 

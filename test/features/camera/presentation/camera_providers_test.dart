@@ -220,6 +220,50 @@ void main() {
     );
   });
 
+  test('AppConfig exposes the camera image compression quality', () {
+    expect(AppConfig.cameraImageCompressionQuality, 0.85);
+    expect(AppConfig.cameraImageCompressionQuality, inInclusiveRange(0.0, 1.0));
+  });
+
+  test(
+    'camera initialization applies the configured compression quality',
+    () async {
+      final _FakeAVFoundationCamera camera = _FakeAVFoundationCamera();
+      CameraPlatform.instance = camera;
+      final _TestContainer testContainer = _container(
+        choices: const <CameraChoice>[
+          CameraChoice(
+            description: CameraDescription(
+              name: 'back',
+              lensDirection: CameraLensDirection.back,
+              sensorOrientation: 0,
+            ),
+            label: 'Back Camera',
+            isVirtualDevice: false,
+            deviceType: AVFoundationCaptureDeviceType.builtInWideAngleCamera,
+          ),
+        ],
+      );
+      final ProviderContainer container = testContainer.container;
+      addTearDown(() async {
+        await testContainer.dispose();
+        await Future<void>.delayed(Duration.zero);
+      });
+      final ProviderSubscription<CameraState> subscription = container.listen(
+        cameraStateProvider,
+        (_, _) {},
+      );
+      addTearDown(subscription.close);
+
+      await container.read(cameraStateProvider.notifier).openDefaultCamera();
+
+      expect(
+        camera.imageFileCompressionQuality,
+        AppConfig.cameraImageCompressionQuality,
+      );
+    },
+  );
+
   test(
     'AVFoundation photo capture event triggers overlay after native will-capture',
     () async {
@@ -987,6 +1031,7 @@ class _FakeAVFoundationCamera extends AVFoundationCamera {
   int createCameraCount = 0;
   int disposeCount = 0;
   final List<bool> photoCaptureMirroredEvents = <bool>[];
+  double? imageFileCompressionQuality;
 
   static const int _cameraId = 0;
 
@@ -1037,6 +1082,11 @@ class _FakeAVFoundationCamera extends AVFoundationCamera {
 
   @override
   Future<void> setImageFileFormat(int cameraId, ImageFileFormat format) async {}
+
+  @override
+  Future<void> setImageFileCompressionQuality(double quality) async {
+    imageFileCompressionQuality = quality;
+  }
 
   @override
   Future<double> getMinZoomLevel(int cameraId) async => 1.0;
@@ -1157,6 +1207,7 @@ class _FakeCapturedPhotoProcessor implements CapturedPhotoProcessor {
   Future<PreparedCapturedPhoto> prepareCanonicalOriginal({
     required XFile source,
     required CameraCaptureAspectRatio aspectRatio,
+    required double compressionQuality,
   }) async {
     aspectRatios.add(aspectRatio);
     final Object? processingError = error;

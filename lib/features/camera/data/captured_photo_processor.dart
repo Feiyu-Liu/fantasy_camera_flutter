@@ -31,6 +31,7 @@ abstract interface class CapturedPhotoProcessor {
   Future<PreparedCapturedPhoto> prepareCanonicalOriginal({
     required XFile source,
     required CameraCaptureAspectRatio aspectRatio,
+    required double compressionQuality,
   });
 }
 
@@ -49,7 +50,17 @@ class MethodChannelCapturedPhotoProcessor implements CapturedPhotoProcessor {
   Future<PreparedCapturedPhoto> prepareCanonicalOriginal({
     required XFile source,
     required CameraCaptureAspectRatio aspectRatio,
+    required double compressionQuality,
   }) async {
+    if (!compressionQuality.isFinite ||
+        compressionQuality < 0.0 ||
+        compressionQuality > 1.0) {
+      throw ArgumentError.value(
+        compressionQuality,
+        'compressionQuality',
+        'Must be a finite value between 0.0 and 1.0.',
+      );
+    }
     if (aspectRatio == CameraCaptureAspectRatio.fourThree) {
       return PreparedCapturedPhoto(file: source);
     }
@@ -69,6 +80,7 @@ class MethodChannelCapturedPhotoProcessor implements CapturedPhotoProcessor {
         .invokeMethod<Map<Object?, Object?>>('cropSquare', <String, Object>{
           'sourcePath': source.path,
           'outputPath': outputPath,
+          'compressionQuality': compressionQuality,
         });
     final String? processedPath = result?['path'] as String?;
     final int? width = result?['width'] as int?;

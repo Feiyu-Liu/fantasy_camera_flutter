@@ -345,6 +345,7 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
         preparedPhoto = await _capturedPhotoProcessor.prepareCanonicalOriginal(
           source: capturedFile,
           aspectRatio: captureAspectRatio,
+          compressionQuality: AppConfig.cameraImageCompressionQuality,
         );
       } on Object catch (error, stackTrace) {
         logAppError('camera_capture_processing_failed', error, stackTrace);
@@ -516,6 +517,15 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       await cameraController.setImageFileFormat(
         AppConfig.cameraImageFileFormat,
       );
+      if (!_isCurrentController(cameraController, generation)) {
+        return;
+      }
+      final CameraPlatform cameraPlatform = CameraPlatform.instance;
+      if (cameraPlatform is AVFoundationCamera) {
+        await cameraPlatform.setImageFileCompressionQuality(
+          AppConfig.cameraImageCompressionQuality,
+        );
+      }
       if (!_isCurrentController(cameraController, generation)) {
         return;
       }

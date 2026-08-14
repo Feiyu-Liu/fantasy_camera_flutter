@@ -25,7 +25,8 @@ final class CapturedPhotoProcessingChannel {
     guard
       let arguments = call.arguments as? [String: Any],
       let sourcePath = arguments["sourcePath"] as? String,
-      let outputPath = arguments["outputPath"] as? String
+      let outputPath = arguments["outputPath"] as? String,
+      let compressionQualityNumber = arguments["compressionQuality"] as? NSNumber
     else {
       result(
         FlutterError(
@@ -36,13 +37,25 @@ final class CapturedPhotoProcessingChannel {
       )
       return
     }
+    let compressionQuality = compressionQualityNumber.doubleValue
+    guard compressionQuality.isFinite, (0.0...1.0).contains(compressionQuality) else {
+      result(
+        FlutterError(
+          code: "bad_args",
+          message: "Compression quality must be between 0.0 and 1.0.",
+          details: compressionQuality
+        )
+      )
+      return
+    }
 
     processingQueue.async {
       let response: Result<CapturedPhotoCropResult, Error> = Result {
         try autoreleasepool {
           try CapturedPhotoSquareCropper().crop(
             sourceURL: URL(fileURLWithPath: sourcePath),
-            outputURL: URL(fileURLWithPath: outputPath)
+            outputURL: URL(fileURLWithPath: outputPath),
+            compressionQuality: compressionQuality
           )
         }
       }
@@ -75,7 +88,14 @@ struct CapturedPhotoCropResult {
 }
 
 struct CapturedPhotoSquareCropper {
-  func crop(sourceURL: URL, outputURL: URL) throws -> CapturedPhotoCropResult {
+  func crop(
+    sourceURL: URL,
+    outputURL: URL,
+    compressionQuality: Double
+  ) throws -> CapturedPhotoCropResult {
+    guard compressionQuality.isFinite, (0.0...1.0).contains(compressionQuality) else {
+      throw CapturedPhotoProcessingError.invalidCompressionQuality
+    }
     guard FileManager.default.fileExists(atPath: sourceURL.path) else {
       throw CapturedPhotoProcessingError.sourceMissing
     }
@@ -120,7 +140,8 @@ struct CapturedPhotoSquareCropper {
       at: destinationURL.deletingLastPathComponent(),
       withIntermediateDirectories: true
     )
-    let partialURL = destinationURL
+    let partialURL =
+      destinationURL
       .deletingPathExtension()
       .appendingPathExtension("partial-\(UUID().uuidString)")
       .appendingPathExtension(destinationURL.pathExtension)
@@ -141,11 +162,10 @@ struct CapturedPhotoSquareCropper {
     }
 
     var properties =
-      CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] ??
-      [:]
+      CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any] ?? [:]
     properties[kCGImagePropertyPixelWidth] = side
     properties[kCGImagePropertyPixelHeight] = side
-    properties[kCGImageDestinationLossyCompressionQuality] = 1.0
+    properties[kCGImageDestinationLossyCompressionQuality] = compressionQuality
     if var exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any] {
       exif[kCGImagePropertyExifPixelXDimension] = side
       exif[kCGImagePropertyExifPixelYDimension] = side
@@ -172,9 +192,11 @@ struct CapturedPhotoDestinationFormat {
     writableTypeIdentifiers: Set<String>? = nil
   ) -> CapturedPhotoDestinationFormat? {
     let systemWritableTypes = CGImageDestinationCopyTypeIdentifiers() as NSArray
-    let writableTypes = writableTypeIdentifiers ?? Set(
-      systemWritableTypes.compactMap { $0 as? String }
-    )
+    let writableTypes =
+      writableTypeIdentifiers
+      ?? Set(
+        systemWritableTypes.compactMap { $0 as? String }
+      )
     let sourceIdentifier = sourceTypeIdentifier as String
     let sourceType = UTType(sourceIdentifier)
 
@@ -212,7 +234,8 @@ struct CapturedPhotoDestinationFormat {
       let requestedType = UTType(filenameExtension: requestedURL.pathExtension),
       requestedType.identifier == typeIdentifier
     else {
-      return requestedURL
+      return
+        requestedURL
         .deletingPathExtension()
         .appendingPathExtension(fileExtension)
     }
@@ -234,6 +257,7 @@ struct CapturedPhotoDestinationFormat {
 private enum CapturedPhotoProcessingError: LocalizedError {
   case sourceMissing
   case sourceUnreadable
+  case invalidCompressionQuality
   case invalidDimensions
   case cropUnavailable
   case destinationUnavailable(sourceTypeIdentifier: String)
@@ -245,6 +269,8 @@ private enum CapturedPhotoProcessingError: LocalizedError {
       return "The captured photo no longer exists."
     case .sourceUnreadable:
       return "The captured photo could not be decoded."
+    case .invalidCompressionQuality:
+      return "The captured photo compression quality is invalid."
     case .invalidDimensions:
       return "The captured photo has invalid dimensions."
     case .cropUnavailable:

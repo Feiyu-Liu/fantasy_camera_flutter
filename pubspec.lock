@@ -143,7 +143,7 @@ packages:
       path: "/Users/tilapia/TilapiaFiles/Projects/FlutterPackage/flutter-camera/camera/packages/camera/camera_avfoundation"
       relative: false
     source: path
-    version: "0.10.1"
+    version: "0.11.0"
   camera_platform_interface:
     dependency: "direct main"
     description:
