@@ -4,68 +4,64 @@ import 'package:flutter/widgets.dart';
 
 import '../domain/generation_submission_job.dart';
 
-class GenerationRemainingTimeEstimate {
-  const GenerationRemainingTimeEstimate.seconds({
-    required int this.seconds,
+class GenerationProgressEstimate {
+  const GenerationProgressEstimate.percentage({
+    required int this.percentage,
     required this.untilNextChange,
   });
 
-  const GenerationRemainingTimeEstimate.finishing()
-    : seconds = null,
+  const GenerationProgressEstimate.finishing()
+    : percentage = null,
       untilNextChange = null;
 
-  final int? seconds;
+  final int? percentage;
   final Duration? untilNextChange;
 
-  bool get isFinishing => seconds == null;
+  bool get isFinishing => percentage == null;
 
-  bool hasSameLabelAs(GenerationRemainingTimeEstimate other) {
-    return seconds == other.seconds;
+  bool hasSameLabelAs(GenerationProgressEstimate other) {
+    return percentage == other.percentage;
   }
 }
 
-class GenerationRemainingTimeEstimator {
-  const GenerationRemainingTimeEstimator._();
+class GenerationProgressEstimator {
+  const GenerationProgressEstimator._();
 
-  static const int maximumSeconds = 70;
-  static const Duration estimatedDuration = Duration(seconds: maximumSeconds);
-  static const List<int> lowerBucketSeconds = <int>[50, 30, 10];
+  static const Duration estimatedDuration = Duration(seconds: 70);
+  static const int maximumDisplayedPercentage = 99;
+  static const int _percentageScale = 100;
 
-  static GenerationRemainingTimeEstimate estimate({
+  static GenerationProgressEstimate estimate({
     required DateTime startedAt,
     required DateTime now,
     required GenerationSubmissionStatus status,
   }) {
     if (_isFinishingStatus(status)) {
-      return const GenerationRemainingTimeEstimate.finishing();
+      return const GenerationProgressEstimate.finishing();
     }
 
-    final int elapsedMicroseconds = now.difference(startedAt).inMicroseconds;
-    final int remainingMicroseconds =
-        estimatedDuration.inMicroseconds - elapsedMicroseconds;
-    if (remainingMicroseconds <= 0) {
-      return const GenerationRemainingTimeEstimate.finishing();
+    final int estimatedMicroseconds = estimatedDuration.inMicroseconds;
+    final int elapsedMicroseconds = now
+        .difference(startedAt)
+        .inMicroseconds
+        .clamp(0, estimatedMicroseconds);
+    if (elapsedMicroseconds >= estimatedMicroseconds) {
+      return const GenerationProgressEstimate.finishing();
     }
 
-    int displayedSeconds = maximumSeconds;
-    for (final int bucketSeconds in lowerBucketSeconds) {
-      final int bucketMicroseconds = Duration(
-        seconds: bucketSeconds,
-      ).inMicroseconds;
-      if (remainingMicroseconds > bucketMicroseconds) {
-        return GenerationRemainingTimeEstimate.seconds(
-          seconds: displayedSeconds,
-          untilNextChange: Duration(
-            microseconds: remainingMicroseconds - bucketMicroseconds,
-          ),
-        );
-      }
-      displayedSeconds = bucketSeconds;
-    }
+    final int percentage =
+        ((elapsedMicroseconds * _percentageScale) ~/ estimatedMicroseconds)
+            .clamp(0, maximumDisplayedPercentage);
+    final int nextPercentage = percentage + 1;
+    final int nextBoundaryMicroseconds =
+        (estimatedMicroseconds * nextPercentage + _percentageScale - 1) ~/
+        _percentageScale;
 
-    return GenerationRemainingTimeEstimate.seconds(
-      seconds: displayedSeconds,
-      untilNextChange: Duration(microseconds: remainingMicroseconds),
+    return GenerationProgressEstimate.percentage(
+      percentage: percentage,
+      untilNextChange: Duration(
+        microseconds: nextBoundaryMicroseconds - elapsedMicroseconds,
+      ),
     );
   }
 
@@ -75,10 +71,10 @@ class GenerationRemainingTimeEstimator {
   }
 }
 
-/// Keeps a bucketed remaining-time estimate synchronized with app lifecycle.
-class GenerationRemainingTimeTicker extends ChangeNotifier
+/// Keeps an estimated generation percentage synchronized with app lifecycle.
+class GenerationProgressTicker extends ChangeNotifier
     with WidgetsBindingObserver {
-  GenerationRemainingTimeTicker({
+  GenerationProgressTicker({
     required DateTime? startedAt,
     required GenerationSubmissionStatus status,
     required bool active,
@@ -89,7 +85,7 @@ class GenerationRemainingTimeTicker extends ChangeNotifier
     _status = status;
     _active = active;
     _referenceNow = now;
-    _estimate = GenerationRemainingTimeEstimator.estimate(
+    _estimate = GenerationProgressEstimator.estimate(
       startedAt: _startedAt,
       now: now,
       status: status,
@@ -103,11 +99,11 @@ class GenerationRemainingTimeTicker extends ChangeNotifier
   late GenerationSubmissionStatus _status;
   late bool _active;
   late DateTime _referenceNow;
-  late GenerationRemainingTimeEstimate _estimate;
+  late GenerationProgressEstimate _estimate;
   Timer? _timer;
   bool _tickerModeEnabled = true;
 
-  GenerationRemainingTimeEstimate get estimate => _estimate;
+  GenerationProgressEstimate get estimate => _estimate;
 
   void update({
     required DateTime? startedAt,
@@ -154,8 +150,8 @@ class GenerationRemainingTimeTicker extends ChangeNotifier
   void _sync({bool notify = true, DateTime? now}) {
     _cancelTimer();
     _referenceNow = now ?? DateTime.now();
-    final GenerationRemainingTimeEstimate nextEstimate =
-        GenerationRemainingTimeEstimator.estimate(
+    final GenerationProgressEstimate nextEstimate =
+        GenerationProgressEstimator.estimate(
           startedAt: _startedAt,
           now: _referenceNow,
           status: _status,

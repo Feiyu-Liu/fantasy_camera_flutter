@@ -1,61 +1,61 @@
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
-import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_remaining_time_estimate.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_progress_estimate.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   final DateTime startedAt = DateTime.utc(2026, 7, 30, 12);
 
-  test('uses max, 50, 30, and 10 second buckets at exact boundaries', () {
+  test('advances at exact integer percentage boundaries', () {
     _expectEstimate(
       startedAt: startedAt,
       elapsed: Duration.zero,
-      seconds: 70,
-      untilNextChange: const Duration(seconds: 20),
+      percentage: 0,
+      untilNextChange: const Duration(milliseconds: 700),
     );
     _expectEstimate(
       startedAt: startedAt,
-      elapsed: const Duration(seconds: 19, milliseconds: 999),
-      seconds: 70,
-      untilNextChange: const Duration(milliseconds: 1),
+      elapsed: const Duration(milliseconds: 699, microseconds: 999),
+      percentage: 0,
+      untilNextChange: const Duration(microseconds: 1),
     );
     _expectEstimate(
       startedAt: startedAt,
-      elapsed: const Duration(seconds: 20),
-      seconds: 50,
-      untilNextChange: const Duration(seconds: 20),
+      elapsed: const Duration(milliseconds: 700),
+      percentage: 1,
+      untilNextChange: const Duration(milliseconds: 700),
     );
     _expectEstimate(
       startedAt: startedAt,
-      elapsed: const Duration(seconds: 40),
-      seconds: 30,
-      untilNextChange: const Duration(seconds: 20),
+      elapsed: const Duration(seconds: 35),
+      percentage: 50,
+      untilNextChange: const Duration(milliseconds: 700),
     );
     _expectEstimate(
       startedAt: startedAt,
-      elapsed: const Duration(seconds: 60),
-      seconds: 10,
-      untilNextChange: const Duration(seconds: 10),
+      elapsed: const Duration(seconds: 69, milliseconds: 300),
+      percentage: 99,
+      untilNextChange: const Duration(milliseconds: 700),
     );
   });
 
-  test('clamps future start times to the maximum estimate', () {
+  test('clamps future start times to zero percent', () {
     _expectEstimate(
       startedAt: startedAt,
       elapsed: const Duration(seconds: -5),
-      seconds: 70,
-      untilNextChange: const Duration(seconds: 25),
+      percentage: 0,
+      untilNextChange: const Duration(milliseconds: 700),
     );
   });
 
   test('switches to finishing after the estimated duration', () {
-    final GenerationRemainingTimeEstimate atBoundary =
-        GenerationRemainingTimeEstimator.estimate(
+    final GenerationProgressEstimate atBoundary =
+        GenerationProgressEstimator.estimate(
           startedAt: startedAt,
           now: startedAt.add(const Duration(seconds: 70)),
           status: GenerationSubmissionStatus.pollingTask,
         );
-    final GenerationRemainingTimeEstimate overdue =
-        GenerationRemainingTimeEstimator.estimate(
+    final GenerationProgressEstimate overdue =
+        GenerationProgressEstimator.estimate(
           startedAt: startedAt,
           now: startedAt.add(const Duration(seconds: 90)),
           status: GenerationSubmissionStatus.pollingTask,
@@ -73,8 +73,8 @@ void main() {
           GenerationSubmissionStatus.completed,
           GenerationSubmissionStatus.processingResultImage,
         ]) {
-      final GenerationRemainingTimeEstimate estimate =
-          GenerationRemainingTimeEstimator.estimate(
+      final GenerationProgressEstimate estimate =
+          GenerationProgressEstimator.estimate(
             startedAt: startedAt,
             now: startedAt.add(const Duration(seconds: 5)),
             status: status,
@@ -89,17 +89,17 @@ void main() {
 void _expectEstimate({
   required DateTime startedAt,
   required Duration elapsed,
-  required int seconds,
+  required int percentage,
   required Duration untilNextChange,
 }) {
-  final GenerationRemainingTimeEstimate estimate =
-      GenerationRemainingTimeEstimator.estimate(
+  final GenerationProgressEstimate estimate =
+      GenerationProgressEstimator.estimate(
         startedAt: startedAt,
         now: startedAt.add(elapsed),
         status: GenerationSubmissionStatus.pollingTask,
       );
 
-  expect(estimate.seconds, seconds);
+  expect(estimate.percentage, percentage);
   expect(estimate.untilNextChange, untilNextChange);
   expect(estimate.isFinishing, isFalse);
 }

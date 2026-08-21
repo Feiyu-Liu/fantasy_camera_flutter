@@ -39,7 +39,6 @@ import 'package:fantasy_camera_flutter/shared/toast/app_toast.dart';
 import 'package:fantasy_camera_flutter/theme/app_colors.dart';
 import 'package:fantasy_camera_flutter/theme/app_theme.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_bits/flutter_bits.dart';
 import 'package:flutter_flip_card/flutter_flip_card.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -229,13 +228,13 @@ void main() {
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-plasma-processing'),
+        const ValueKey<String>('generation-submission-fractal-processing'),
       ),
       findsOneWidget,
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-plasma-completed'),
+        const ValueKey<String>('generation-submission-fractal-completed'),
       ),
       findsOneWidget,
     );
@@ -259,94 +258,148 @@ void main() {
     );
   });
 
-  testWidgets('loading cards show plasma with bucketed estimates', (
+  testWidgets(
+    'loading cards show stable branded fractals with estimated progress',
+    (WidgetTester tester) async {
+      final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+        _job(id: 'early', status: GenerationSubmissionStatus.uploading),
+        _job(
+          id: 'late',
+          status: GenerationSubmissionStatus.processingResultImage,
+        ),
+      ];
+
+      await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+      await tester.pump();
+
+      final Finder earlyFractal = find.byKey(
+        const ValueKey<String>('generation-submission-fractal-early'),
+      );
+      final Finder lateFractal = find.byKey(
+        const ValueKey<String>('generation-submission-fractal-late'),
+      );
+
+      expect(earlyFractal, findsOneWidget);
+      expect(lateFractal, findsOneWidget);
+      final FractalFloor earlyEffect = tester.widget<FractalFloor>(
+        earlyFractal,
+      );
+      final FractalFloor lateEffect = tester.widget<FractalFloor>(lateFractal);
+      expect(earlyEffect.kind, FractalFloorKind.celtic);
+      expect(lateEffect.kind, FractalFloorKind.tricorn);
+      expect(earlyEffect.edge, FractalFloorEdge.bottom);
+      expect(lateEffect.edge, FractalFloorEdge.bottom);
+      expect(earlyEffect.color, AppColors.accentYellow);
+      expect(lateEffect.color, AppColors.accentYellow);
+      expect(earlyEffect.density, 1.75);
+      expect(lateEffect.density, 1.75);
+      final ColoredBox earlyBackground = tester.widget<ColoredBox>(
+        find.byKey(
+          const ValueKey<String>(
+            'generation-submission-fractal-background-early',
+          ),
+        ),
+      );
+      expect(earlyBackground.color, AppColors.white);
+      expect(
+        tester.getSize(earlyFractal),
+        tester.getSize(
+          find.byKey(
+            const ValueKey<String>('generation-submission-fractal-back-early'),
+          ),
+        ),
+      );
+      expect(
+        find.byKey(
+          const ValueKey<String>(
+            'generation-submission-fractal-progress-early',
+          ),
+        ),
+        findsOneWidget,
+      );
+      final Text progressText = tester.widget<Text>(
+        find.byKey(
+          const ValueKey<String>(
+            'generation-submission-fractal-progress-early',
+          ),
+        ),
+      );
+      expect(progressText.style?.color, AppColors.black);
+      expect(find.text('0%'), findsOneWidget);
+      expect(find.text('即将完成'), findsOneWidget);
+    },
+  );
+
+  testWidgets('job ids map across the configured fractal families', (
     WidgetTester tester,
   ) async {
-    final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
-      _job(id: 'early', status: GenerationSubmissionStatus.uploading),
-      _job(
-        id: 'late',
-        status: GenerationSubmissionStatus.processingResultImage,
-      ),
-    ];
-
-    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
-    await tester.pump();
-
-    final Finder earlyPlasma = find.byKey(
-      const ValueKey<String>('generation-submission-plasma-early'),
-    );
-    final Finder latePlasma = find.byKey(
-      const ValueKey<String>('generation-submission-plasma-late'),
-    );
-
-    expect(earlyPlasma, findsOneWidget);
-    expect(latePlasma, findsOneWidget);
-    final PlasmaEffect effect = tester.widget<PlasmaEffect>(earlyPlasma);
-    expect(effect.speed, 1.0);
-    expect(effect.direction, PlasmaDirection.forward);
-    expect(effect.scale, 1.0);
-    expect(effect.opacity, 1.0);
-    expect(effect.tint, isNull);
-    expect(effect.animate, isTrue);
-    expect(effect.quality, PlasmaQuality.low);
-    expect(effect.interactive, isFalse);
-    expect(
-      find.byKey(
-        const ValueKey<String>('generation-submission-plasma-estimate-early'),
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('约70s'), findsOneWidget);
-    expect(find.text('即将完成'), findsOneWidget);
-  });
-
-  testWidgets('generation estimate switches bucket labels immediately', (
-    WidgetTester tester,
-  ) async {
-    final DateTime startedAt = DateTime.now().subtract(
-      const Duration(seconds: 5),
-    );
+    const List<({String id, FractalFloorKind kind})> cases =
+        <({String id, FractalFloorKind kind})>[
+          (id: 'reduced-motion', kind: FractalFloorKind.mandelbrot),
+          (id: 'animated-confirm', kind: FractalFloorKind.newton4),
+          (id: 'processing', kind: FractalFloorKind.newton3),
+          (id: 'early', kind: FractalFloorKind.celtic),
+          (id: 'late', kind: FractalFloorKind.tricorn),
+        ];
     await _pumpModalHost(
       tester,
       _ModalHost(
         jobs: <GenerationSubmissionJob>[
-          _job(
-            id: 'estimate',
-            status: GenerationSubmissionStatus.pollingTask,
-            generationStartedAt: startedAt,
-          ),
+          for (final ({String id, FractalFloorKind kind}) item in cases)
+            _job(id: item.id, status: GenerationSubmissionStatus.uploading),
         ],
       ),
     );
-    final Finder estimate = find.byKey(
-      const ValueKey<String>('generation-submission-plasma-estimate-estimate'),
-    );
 
-    expect(estimate, findsOneWidget);
-    expect(find.text('约70s'), findsOneWidget);
-
-    await tester.pump(const Duration(seconds: 13));
-    expect(find.text('约70s'), findsOneWidget);
-
-    await tester.pump(const Duration(seconds: 3));
-    expect(find.text('约50s'), findsOneWidget);
-    expect(find.text('约70s'), findsNothing);
-
-    await tester.pump(const Duration(seconds: 20));
-    expect(find.text('约30s'), findsOneWidget);
-    expect(find.text('约50s'), findsNothing);
-
-    await tester.pump(const Duration(seconds: 20));
-    expect(find.text('约10s'), findsOneWidget);
-    expect(find.text('约30s'), findsNothing);
-
-    await tester.pump(const Duration(seconds: 10));
-    expect(find.text('即将完成'), findsOneWidget);
-    expect(find.text('约10s'), findsNothing);
+    for (final ({String id, FractalFloorKind kind}) item in cases) {
+      final FractalFloor floor = tester.widget<FractalFloor>(
+        find.byKey(
+          ValueKey<String>('generation-submission-fractal-${item.id}'),
+        ),
+      );
+      expect(floor.kind, item.kind);
+      expect(floor.edge, FractalFloorEdge.bottom);
+      expect(floor.color, AppColors.accentYellow);
+      expect(floor.density, 1.75);
+    }
   });
 
-  testWidgets('generation estimate advances without resizing its card', (
+  testWidgets('generation progress advances at integer boundaries', (
+    WidgetTester tester,
+  ) async {
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        jobs: <GenerationSubmissionJob>[
+          _job(id: 'estimate', status: GenerationSubmissionStatus.pollingTask),
+        ],
+      ),
+    );
+    final Finder progress = find.byKey(
+      const ValueKey<String>('generation-submission-fractal-progress-estimate'),
+    );
+
+    expect(progress, findsOneWidget);
+    expect(find.text('0%'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('1%'), findsOneWidget);
+    expect(find.text('0%'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 34, milliseconds: 300));
+    expect(find.text('50%'), findsOneWidget);
+    expect(find.text('1%'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 34, milliseconds: 300));
+    expect(find.text('99%'), findsOneWidget);
+    expect(find.text('50%'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('即将完成'), findsOneWidget);
+    expect(find.text('99%'), findsNothing);
+  });
+
+  testWidgets('generation progress advances without resizing its card', (
     WidgetTester tester,
   ) async {
     final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
@@ -361,7 +414,7 @@ void main() {
       const ValueKey<String>('generation-submission-flip-polling'),
     );
     final Size initialSize = tester.getSize(card);
-    expect(find.text('约70s'), findsOneWidget);
+    expect(find.text('0%'), findsOneWidget);
 
     // Polls update updatedAt, but the persisted generation attempt start remains
     // the only clock used by the estimate.
@@ -377,10 +430,10 @@ void main() {
     }
 
     expect(tester.getSize(card), initialSize);
-    expect(find.text('约50s'), findsOneWidget);
+    expect(find.text('42%'), findsOneWidget);
   });
 
-  testWidgets('generation estimate survives thumbnail remounts', (
+  testWidgets('generation progress survives thumbnail remounts', (
     WidgetTester tester,
   ) async {
     final DateTime startedAt = DateTime.now().subtract(
@@ -399,17 +452,29 @@ void main() {
         jobs: <GenerationSubmissionJob>[job],
       ),
     );
-    final Finder firstEstimate = find.byKey(
+    final Finder firstProgress = find.byKey(
       const ValueKey<String>(
-        'generation-submission-plasma-estimate-persisted-progress',
+        'generation-submission-fractal-progress-persisted-progress',
       ),
     );
     final Finder firstCard = find.byKey(
       const ValueKey<String>('generation-submission-flip-persisted-progress'),
     );
+    final FractalFloorKind firstKind = tester
+        .widget<FractalFloor>(
+          find.byKey(
+            const ValueKey<String>(
+              'generation-submission-fractal-persisted-progress',
+            ),
+          ),
+        )
+        .kind;
     final Size firstSize = tester.getSize(firstCard);
-    expect(firstEstimate, findsOneWidget);
-    expect(find.text('约50s'), findsOneWidget);
+    expect(firstProgress, findsOneWidget);
+    final int firstPercentage = _percentageFromText(
+      tester.widget<Text>(firstProgress).data!,
+    );
+    expect(firstPercentage, greaterThanOrEqualTo(50));
 
     job = _job(
       id: 'persisted-progress',
@@ -426,11 +491,31 @@ void main() {
     final Finder secondCard = find.byKey(
       const ValueKey<String>('generation-submission-flip-persisted-progress'),
     );
+    final Finder secondProgress = find.byKey(
+      const ValueKey<String>(
+        'generation-submission-fractal-progress-persisted-progress',
+      ),
+    );
+    final FractalFloorKind secondKind = tester
+        .widget<FractalFloor>(
+          find.byKey(
+            const ValueKey<String>(
+              'generation-submission-fractal-persisted-progress',
+            ),
+          ),
+        )
+        .kind;
+    final int secondPercentage = _percentageFromText(
+      tester.widget<Text>(secondProgress).data!,
+    );
     expect(tester.getSize(secondCard), firstSize);
-    expect(find.text('约50s'), findsOneWidget);
+    expect(firstKind, FractalFloorKind.tricorn);
+    expect(secondKind, firstKind);
+    expect(secondPercentage, greaterThanOrEqualTo(firstPercentage));
+    expect(secondPercentage, lessThanOrEqualTo(99));
   });
 
-  testWidgets('completed keeps the plasma estimate visible', (
+  testWidgets('completed keeps the fractal finishing label visible', (
     WidgetTester tester,
   ) async {
     await _pumpModalHost(
@@ -448,13 +533,13 @@ void main() {
 
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-estimate-completion'),
+        const ValueKey<String>('generation-submission-progress-completion'),
       ),
       findsNothing,
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-plasma-completion'),
+        const ValueKey<String>('generation-submission-fractal-completion'),
       ),
       findsOneWidget,
     );
@@ -467,7 +552,7 @@ void main() {
     expect(find.text('即将完成'), findsOneWidget);
   });
 
-  testWidgets('reduced motion shows a static plasma estimate immediately', (
+  testWidgets('reduced motion shows static fractal progress immediately', (
     WidgetTester tester,
   ) async {
     await _pumpModalHost(
@@ -478,29 +563,34 @@ void main() {
           _job(
             id: 'reduced-motion',
             status: GenerationSubmissionStatus.pollingTask,
-            generationStartedAt: DateTime.now(),
           ),
         ],
       ),
     );
-    final Finder estimate = find.byKey(
+    final Finder progress = find.byKey(
       const ValueKey<String>(
-        'generation-submission-plasma-estimate-reduced-motion',
+        'generation-submission-fractal-progress-reduced-motion',
       ),
     );
-    expect(estimate, findsOneWidget);
-    expect(find.text('约70s'), findsOneWidget);
-    expect(find.byType(PlasmaEffect), findsOneWidget);
+    expect(progress, findsOneWidget);
+    expect(find.text('0%'), findsOneWidget);
+    final FractalFloor floor = tester.widget<FractalFloor>(
+      find.byKey(
+        const ValueKey<String>('generation-submission-fractal-reduced-motion'),
+      ),
+    );
+    expect(floor.kind, FractalFloorKind.mandelbrot);
+    expect(floor.color, AppColors.accentYellow);
 
     await tester.pump(const Duration(seconds: 21));
 
-    expect(find.text('约50s'), findsOneWidget);
-    expect(find.text('约70s'), findsNothing);
+    expect(find.text('30%'), findsOneWidget);
+    expect(find.text('0%'), findsNothing);
   });
 
   for (final Locale locale in AppLocalizations.supportedLocales) {
     testWidgets(
-      'generation estimate fits thumbnail in ${locale.toLanguageTag()}',
+      'generation progress fits thumbnail in ${locale.toLanguageTag()}',
       (WidgetTester tester) async {
         await _pumpModalHost(
           tester,
@@ -614,7 +704,7 @@ void main() {
     expect(card.side, FlipCardSide.back);
   });
 
-  testWidgets('real confirmation flips the card toward plasma', (
+  testWidgets('real confirmation flips the card toward fractal', (
     WidgetTester tester,
   ) async {
     await _pumpModalHost(
@@ -687,37 +777,63 @@ void main() {
     expect(
       find.byKey(
         const ValueKey<String>(
-          'generation-submission-plasma-waiting-animated-confirm',
+          'generation-submission-fractal-reveal-animated-confirm',
         ),
       ),
       findsOneWidget,
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-plasma-animated-confirm'),
+        const ValueKey<String>(
+          'generation-submission-fractal-animated-confirm',
+        ),
       ),
-      findsNothing,
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<AnimatedOpacity>(
+            find.byKey(
+              const ValueKey<String>(
+                'generation-submission-fractal-reveal-animated-confirm',
+              ),
+            ),
+          )
+          .opacity,
+      0,
     );
 
     await tester.pump(const Duration(milliseconds: 380));
     await tester.pump(const Duration(milliseconds: 999));
     expect(
-      find.byKey(
-        const ValueKey<String>('generation-submission-plasma-animated-confirm'),
-      ),
-      findsNothing,
+      tester
+          .widget<AnimatedOpacity>(
+            find.byKey(
+              const ValueKey<String>(
+                'generation-submission-fractal-reveal-animated-confirm',
+              ),
+            ),
+          )
+          .opacity,
+      0,
     );
 
     await tester.pump(const Duration(milliseconds: 1));
     expect(
-      find.byKey(
-        const ValueKey<String>('generation-submission-plasma-animated-confirm'),
-      ),
-      findsOneWidget,
+      tester
+          .widget<AnimatedOpacity>(
+            find.byKey(
+              const ValueKey<String>(
+                'generation-submission-fractal-reveal-animated-confirm',
+              ),
+            ),
+          )
+          .opacity,
+      1,
     );
   });
 
-  testWidgets('guided confirmation also flips toward plasma', (
+  testWidgets('guided confirmation also flips toward fractal', (
     WidgetTester tester,
   ) async {
     await _pumpModalHost(
@@ -761,21 +877,29 @@ void main() {
     await tester.pump(const Duration(milliseconds: 860));
     await tester.pump();
     expect(
-      find.byKey(
-        const ValueKey<String>(
-          'generation-submission-plasma-guided-animated-confirm',
-        ),
-      ),
-      findsNothing,
+      tester
+          .widget<AnimatedOpacity>(
+            find.byKey(
+              const ValueKey<String>(
+                'generation-submission-fractal-reveal-guided-animated-confirm',
+              ),
+            ),
+          )
+          .opacity,
+      0,
     );
     await tester.pump(const Duration(seconds: 1));
     expect(
-      find.byKey(
-        const ValueKey<String>(
-          'generation-submission-plasma-guided-animated-confirm',
-        ),
-      ),
-      findsOneWidget,
+      tester
+          .widget<AnimatedOpacity>(
+            find.byKey(
+              const ValueKey<String>(
+                'generation-submission-fractal-reveal-guided-animated-confirm',
+              ),
+            ),
+          )
+          .opacity,
+      1,
     );
   });
 
@@ -809,7 +933,7 @@ void main() {
     expect(
       find.byKey(
         const ValueKey<String>(
-          'generation-submission-plasma-real-retry-transition',
+          'generation-submission-fractal-real-retry-transition',
         ),
       ),
       findsOneWidget,
@@ -1714,7 +1838,7 @@ void main() {
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-plasma-precache'),
+        const ValueKey<String>('generation-submission-fractal-precache'),
       ),
       findsOneWidget,
     );
@@ -3454,6 +3578,10 @@ GenerationSubmissionJob _job({
     updatedAt: updatedAt ?? now,
     generationStartedAt: generationStartedAt,
   );
+}
+
+int _percentageFromText(String text) {
+  return int.parse(text.substring(0, text.length - 1));
 }
 
 File _writeImageFile(String id) {

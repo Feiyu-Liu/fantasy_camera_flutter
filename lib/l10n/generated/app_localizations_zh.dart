@@ -234,8 +234,8 @@ class AppLocalizationsZh extends AppLocalizations {
       '每张照片优化将消耗2积分，确认后需要等待约1分钟。期间你可以退出app，完成后会通过通知提醒';
 
   @override
-  String generationSubmissionEstimatedRemainingSeconds(int seconds) {
-    return '约${seconds}s';
+  String generationSubmissionEstimatedProgressPercent(int percent) {
+    return '$percent%';
   }
 
   @override
@@ -909,8 +909,8 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
       '每張照片最佳化將消耗 2 點數，確認後需要等待約 1 分鐘。期間你可以退出 App，完成後會透過通知提醒';
 
   @override
-  String generationSubmissionEstimatedRemainingSeconds(int seconds) {
-    return '約${seconds}s';
+  String generationSubmissionEstimatedProgressPercent(int percent) {
+    return '$percent%';
   }
 
   @override

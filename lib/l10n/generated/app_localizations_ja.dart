@@ -238,8 +238,8 @@ class AppLocalizationsJa extends AppLocalizations {
       '写真の最適化には1枚につき2クレジットを使用します。確認後、完了まで約1分かかります。アプリを閉じても、完了時に通知でお知らせします。';
 
   @override
-  String generationSubmissionEstimatedRemainingSeconds(int seconds) {
-    return '約$seconds秒';
+  String generationSubmissionEstimatedProgressPercent(int percent) {
+    return '$percent%';
   }
 
   @override

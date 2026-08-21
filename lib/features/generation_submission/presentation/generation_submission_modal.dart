@@ -4,13 +4,14 @@ import 'dart:ui';
 
 import 'package:camera_platform_interface/camera_platform_interface.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_bits/flutter_bits.dart';
 import 'package:flutter_flip_card/flutter_flip_card.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_the_tooltip/just_the_tooltip.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:my_ui/my_ui.dart'
+    show FractalFloor, FractalFloorEdge, FractalFloorKind;
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:progressive_blur/progressive_blur.dart';
@@ -33,7 +34,7 @@ import '../domain/generation_record.dart';
 import '../domain/generation_record_state_machine.dart';
 import '../domain/generation_submission_job.dart';
 import 'generation_hero_photo_view_page_options.dart';
-import 'generation_remaining_time_estimate.dart';
+import 'generation_progress_estimate.dart';
 import 'generation_status_pill.dart';
 import 'generation_submission_providers.dart';
 
@@ -2241,8 +2242,8 @@ class _JobThumbnail extends StatefulWidget {
 
 class _JobThumbnailState extends State<_JobThumbnail> {
   static const Duration _flipDuration = Duration(milliseconds: 800);
-  static const Duration _plasmaRevealDelay = Duration(seconds: 1);
-  static const Duration _plasmaFadeDuration = Duration(milliseconds: 240);
+  static const Duration _fractalRevealDelay = Duration(seconds: 1);
+  static const Duration _fractalFadeDuration = Duration(milliseconds: 240);
 
   late final FlipCardController _flipController;
   late GenerationSubmissionStatus _backStatus;
@@ -2251,8 +2252,8 @@ class _JobThumbnailState extends State<_JobThumbnail> {
   late VoidCallback? _frontOnCancel;
   late VoidCallback? _frontOnRetry;
   late VoidCallback? _frontOnRemove;
-  Timer? _plasmaRevealTimer;
-  late bool _showPlasma;
+  Timer? _fractalRevealTimer;
+  late bool _showFractal;
 
   @override
   void initState() {
@@ -2261,7 +2262,7 @@ class _JobThumbnailState extends State<_JobThumbnail> {
     _backStatus = _isLoading(widget.job.status)
         ? widget.job.status
         : GenerationSubmissionStatus.queued;
-    _showPlasma = _isLoading(widget.job.status);
+    _showFractal = _isLoading(widget.job.status);
     _captureFrontState();
   }
 
@@ -2273,19 +2274,19 @@ class _JobThumbnailState extends State<_JobThumbnail> {
     if (loading) {
       _backStatus = widget.job.status;
       if (!wasLoading) {
-        _cancelPlasmaReveal();
-        _showPlasma = false;
+        _cancelFractalReveal();
+        _showFractal = false;
       }
     } else {
-      _cancelPlasmaReveal();
-      _showPlasma = false;
+      _cancelFractalReveal();
+      _showFractal = false;
       _captureFrontState();
     }
   }
 
   @override
   void dispose() {
-    _cancelPlasmaReveal();
+    _cancelFractalReveal();
     super.dispose();
   }
 
@@ -2299,28 +2300,28 @@ class _JobThumbnailState extends State<_JobThumbnail> {
 
   void _handleFlipCompleted(FlipCardSide side) {
     if (side != FlipCardSide.back || !_isLoading(widget.job.status)) {
-      _cancelPlasmaReveal();
+      _cancelFractalReveal();
       return;
     }
-    if (_showPlasma) {
+    if (_showFractal) {
       return;
     }
     if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
-      setState(() => _showPlasma = true);
+      setState(() => _showFractal = true);
       return;
     }
-    _cancelPlasmaReveal();
-    _plasmaRevealTimer = Timer(_plasmaRevealDelay, () {
+    _cancelFractalReveal();
+    _fractalRevealTimer = Timer(_fractalRevealDelay, () {
       if (!mounted || !_isLoading(widget.job.status)) {
         return;
       }
-      setState(() => _showPlasma = true);
+      setState(() => _showFractal = true);
     });
   }
 
-  void _cancelPlasmaReveal() {
-    _plasmaRevealTimer?.cancel();
-    _plasmaRevealTimer = null;
+  void _cancelFractalReveal() {
+    _fractalRevealTimer?.cancel();
+    _fractalRevealTimer = null;
   }
 
   @override
@@ -2332,6 +2333,8 @@ class _JobThumbnailState extends State<_JobThumbnail> {
     final bool awaitingConfirmation =
         _frontStatus == GenerationSubmissionStatus.awaitingConfirmation;
     final bool loading = _isLoading(widget.job.status);
+    final bool reduceMotion =
+        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final Widget front = _ThumbnailCardFace(
       width: widget.width,
       height: widget.height,
@@ -2436,9 +2439,7 @@ class _JobThumbnailState extends State<_JobThumbnail> {
       height: widget.height,
       selected: widget.selected,
       child: AnimatedSwitcher(
-        duration: MediaQuery.maybeDisableAnimationsOf(context) ?? false
-            ? Duration.zero
-            : _plasmaFadeDuration,
+        duration: reduceMotion ? Duration.zero : _fractalFadeDuration,
         switchInCurve: Curves.easeOutCubic,
         switchOutCurve: Curves.easeOutCubic,
         layoutBuilder: (Widget? currentChild, List<Widget> previousChildren) {
@@ -2447,20 +2448,45 @@ class _JobThumbnailState extends State<_JobThumbnail> {
             children: <Widget>[...previousChildren, ?currentChild],
           );
         },
-        child: _showPlasma
-            ? _GenerationLoadingCardBack(
+        child: loading
+            ? Stack(
                 key: ValueKey<String>(
-                  'generation-submission-plasma-back-${widget.job.id}',
+                  'generation-submission-fractal-loading-${widget.job.id}',
                 ),
-                jobId: widget.job.id,
-                startedAt: widget.job.generationStartedAt,
-                status: _backStatus,
+                fit: StackFit.expand,
+                children: <Widget>[
+                  const ColoredBox(color: AppColors.white),
+                  ExcludeSemantics(
+                    excluding: !_showFractal,
+                    child: AnimatedOpacity(
+                      key: ValueKey<String>(
+                        'generation-submission-fractal-reveal-${widget.job.id}',
+                      ),
+                      opacity: _showFractal ? 1 : 0,
+                      duration: reduceMotion
+                          ? Duration.zero
+                          : _fractalFadeDuration,
+                      curve: Curves.easeOutCubic,
+                      child: TickerMode(
+                        enabled: _showFractal,
+                        child: _GenerationLoadingCardBack(
+                          key: ValueKey<String>(
+                            'generation-submission-fractal-back-${widget.job.id}',
+                          ),
+                          jobId: widget.job.id,
+                          startedAt: widget.job.generationStartedAt,
+                          status: _backStatus,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               )
             : ColoredBox(
                 key: ValueKey<String>(
-                  'generation-submission-plasma-waiting-${widget.job.id}',
+                  'generation-submission-fractal-inactive-${widget.job.id}',
                 ),
-                color: const Color(0xFF101010),
+                color: AppColors.white,
               ),
       ),
     );
@@ -2561,22 +2587,22 @@ class _GenerationLoadingCardBack extends StatefulWidget {
 
 class _GenerationLoadingCardBackState
     extends State<_GenerationLoadingCardBack> {
-  late final GenerationRemainingTimeTicker _estimateTicker;
+  late final GenerationProgressTicker _progressTicker;
 
   @override
   void initState() {
     super.initState();
-    _estimateTicker = GenerationRemainingTimeTicker(
+    _progressTicker = GenerationProgressTicker(
       startedAt: widget.startedAt,
       status: widget.status,
       active: true,
-    )..addListener(_handleEstimateChanged);
+    )..addListener(_handleProgressChanged);
   }
 
   @override
   void didUpdateWidget(covariant _GenerationLoadingCardBack oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _estimateTicker.update(
+    _progressTicker.update(
       startedAt: widget.startedAt,
       status: widget.status,
       active: true,
@@ -2586,18 +2612,18 @@ class _GenerationLoadingCardBackState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _estimateTicker.setTickerModeEnabled(TickerMode.valuesOf(context).enabled);
+    _progressTicker.setTickerModeEnabled(TickerMode.valuesOf(context).enabled);
   }
 
   @override
   void dispose() {
-    _estimateTicker
-      ..removeListener(_handleEstimateChanged)
+    _progressTicker
+      ..removeListener(_handleProgressChanged)
       ..dispose();
     super.dispose();
   }
 
-  void _handleEstimateChanged() {
+  void _handleProgressChanged() {
     if (mounted) {
       setState(() {});
     }
@@ -2605,46 +2631,50 @@ class _GenerationLoadingCardBackState
 
   @override
   Widget build(BuildContext context) {
-    final int? seconds = _estimateTicker.estimate.seconds;
-    final String label = seconds == null
+    final int? percentage = _progressTicker.estimate.percentage;
+    final String label = percentage == null
         ? context.l10n.generationSubmissionEstimatedFinishing
-        : context.l10n.generationSubmissionEstimatedRemainingSeconds(seconds);
+        : context.l10n.generationSubmissionEstimatedProgressPercent(percentage);
     return Semantics(
       label: label,
       child: Stack(
         fit: StackFit.expand,
         children: <Widget>[
-          const ColoredBox(color: Color(0xFF101010)),
+          ColoredBox(
+            key: ValueKey<String>(
+              'generation-submission-fractal-background-${widget.jobId}',
+            ),
+            color: AppColors.white,
+          ),
           ExcludeSemantics(
-            child: PlasmaEffect(
-              key: ValueKey<String>(
-                'generation-submission-plasma-${widget.jobId}',
-              ),
-              interactive: false,
-              quality: PlasmaQuality.low,
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                return FractalFloor(
+                  key: ValueKey<String>(
+                    'generation-submission-fractal-${widget.jobId}',
+                  ),
+                  edge: FractalFloorEdge.bottom,
+                  height: constraints.maxHeight,
+                  kind: _fractalFloorKindForJobId(widget.jobId),
+                  color: AppColors.accentYellow,
+                  density: 1.75,
+                );
+              },
             ),
           ),
           Center(
             child: Text(
               label,
               key: ValueKey<String>(
-                'generation-submission-plasma-estimate-${widget.jobId}',
+                'generation-submission-fractal-progress-${widget.jobId}',
               ),
               maxLines: 1,
               softWrap: false,
               style: const TextStyle(
-                color: AppColors.white,
+                color: AppColors.black,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0,
-                shadows: <Shadow>[
-                  Shadow(color: Color(0xCC000000), blurRadius: 4),
-                  Shadow(
-                    color: Color(0x99000000),
-                    offset: Offset(0, 1),
-                    blurRadius: 2,
-                  ),
-                ],
               ),
             ),
           ),
@@ -2652,6 +2682,24 @@ class _GenerationLoadingCardBackState
       ),
     );
   }
+}
+
+const List<FractalFloorKind> _generationFractalFloorKinds = <FractalFloorKind>[
+  FractalFloorKind.mandelbrot,
+  FractalFloorKind.newton4,
+  FractalFloorKind.newton3,
+  FractalFloorKind.celtic,
+  FractalFloorKind.tricorn,
+];
+
+FractalFloorKind _fractalFloorKindForJobId(String jobId) {
+  var hash = 0x811C9DC5;
+  for (final codeUnit in jobId.codeUnits) {
+    hash ^= codeUnit;
+    hash = (hash * 0x01000193) & 0xFFFFFFFF;
+  }
+  return _generationFractalFloorKinds[hash %
+      _generationFractalFloorKinds.length];
 }
 
 class _ThumbnailImage extends StatelessWidget {

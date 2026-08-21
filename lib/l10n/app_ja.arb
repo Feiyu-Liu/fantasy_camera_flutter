@@ -87,10 +87,10 @@
   "generationSubmissionStatusWaitingForGenerationResult": "生成結果を待機中",
   "generationSubmissionStatusPreparingGenerationTask": "生成タスクを準備中",
   "generationSubmissionConfirmationGuideMessage": "写真の最適化には1枚につき2クレジットを使用します。確認後、完了まで約1分かかります。アプリを閉じても、完了時に通知でお知らせします。",
-  "generationSubmissionEstimatedRemainingSeconds": "約{seconds}秒",
-  "@generationSubmissionEstimatedRemainingSeconds": {
+  "generationSubmissionEstimatedProgressPercent": "{percent}%",
+  "@generationSubmissionEstimatedProgressPercent": {
     "placeholders": {
-      "seconds": {
+      "percent": {
         "type": "int"
       }
     }

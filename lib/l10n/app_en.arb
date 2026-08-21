@@ -87,10 +87,10 @@
   "generationSubmissionStatusWaitingForGenerationResult": "Waiting for generation result",
   "generationSubmissionStatusPreparingGenerationTask": "Preparing generation task",
   "generationSubmissionConfirmationGuideMessage": "Each photo enhancement uses 2 credits. After confirming, it takes about 1 minute. You can leave the app, and we'll notify you when it's done.",
-  "generationSubmissionEstimatedRemainingSeconds": "About {seconds}s",
-  "@generationSubmissionEstimatedRemainingSeconds": {
+  "generationSubmissionEstimatedProgressPercent": "{percent}%",
+  "@generationSubmissionEstimatedProgressPercent": {
     "placeholders": {
-      "seconds": {
+      "percent": {
         "type": "int"
       }
     }
