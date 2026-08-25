@@ -31,6 +31,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/data/gener
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_record.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_image_mosaic_repository.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_modal.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
@@ -228,13 +229,13 @@ void main() {
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-fractal-processing'),
+        const ValueKey<String>('generation-submission-grid-square-processing'),
       ),
       findsOneWidget,
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-fractal-completed'),
+        const ValueKey<String>('generation-submission-grid-square-completed'),
       ),
       findsOneWidget,
     );
@@ -259,8 +260,16 @@ void main() {
   });
 
   testWidgets(
-    'loading cards show stable branded fractals with estimated progress',
+    'loading cards show branded grid square sweeps with estimated progress',
     (WidgetTester tester) async {
+      final _FakeGenerationImageMosaicRepository mosaicRepository =
+          _FakeGenerationImageMosaicRepository(
+            _testMosaic(const <Color>[
+              Color(0xFFF4A6A6),
+              Color(0xFFA6D8F4),
+              Color(0xFFB9E6B3),
+            ]),
+          );
       final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
         _job(id: 'early', status: GenerationSubmissionStatus.uploading),
         _job(
@@ -269,50 +278,113 @@ void main() {
         ),
       ];
 
-      await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+      await _pumpModalHost(
+        tester,
+        _ModalHost(jobs: jobs, imageMosaicRepository: mosaicRepository),
+      );
       await tester.pump();
 
-      final Finder earlyFractal = find.byKey(
-        const ValueKey<String>('generation-submission-fractal-early'),
+      final Finder earlyGrid = find.byKey(
+        const ValueKey<String>('generation-submission-grid-square-early'),
       );
-      final Finder lateFractal = find.byKey(
-        const ValueKey<String>('generation-submission-fractal-late'),
+      final Finder lateGrid = find.byKey(
+        const ValueKey<String>('generation-submission-grid-square-late'),
       );
 
-      expect(earlyFractal, findsOneWidget);
-      expect(lateFractal, findsOneWidget);
-      final FractalFloor earlyEffect = tester.widget<FractalFloor>(
-        earlyFractal,
+      expect(earlyGrid, findsOneWidget);
+      expect(lateGrid, findsOneWidget);
+      final GridSquareAnimation earlyEffect = tester
+          .widget<GridSquareAnimation>(earlyGrid);
+      final GridSquareAnimation lateEffect = tester.widget<GridSquareAnimation>(
+        lateGrid,
       );
-      final FractalFloor lateEffect = tester.widget<FractalFloor>(lateFractal);
-      expect(earlyEffect.kind, FractalFloorKind.celtic);
-      expect(lateEffect.kind, FractalFloorKind.tricorn);
-      expect(earlyEffect.edge, FractalFloorEdge.bottom);
-      expect(lateEffect.edge, FractalFloorEdge.bottom);
-      expect(earlyEffect.color, AppColors.accentYellow);
-      expect(lateEffect.color, AppColors.accentYellow);
-      expect(earlyEffect.density, 1.75);
-      expect(lateEffect.density, 1.75);
+      expect(earlyEffect.rows, 8);
+      expect(lateEffect.rows, 8);
+      expect(earlyEffect.columns, 6);
+      expect(lateEffect.columns, 6);
+      expect(earlyEffect.rows, greaterThan(earlyEffect.columns));
+      expect(lateEffect.rows, greaterThan(lateEffect.columns));
+      expect(earlyEffect.groupedSequence, hasLength(48));
+      expect(lateEffect.groupedSequence, hasLength(48));
+      expect(earlyEffect.groupedSequence, <List<int>>[
+        for (int index = 0; index < 48; index += 1) <int>[index],
+      ]);
+      expect(lateEffect.groupedSequence, earlyEffect.groupedSequence);
+      expect(earlyEffect.lightUpDuration, const Duration(milliseconds: 300));
+      expect(lateEffect.lightUpDuration, earlyEffect.lightUpDuration);
+      expect(earlyEffect.dimDuration, const Duration(milliseconds: 750));
+      expect(lateEffect.dimDuration, earlyEffect.dimDuration);
+      expect(earlyEffect.staggerInterval, const Duration(milliseconds: 90));
+      expect(lateEffect.staggerInterval, earlyEffect.staggerInterval);
+      expect(earlyEffect.spacing, 2);
+      expect(lateEffect.spacing, 2);
+      expect(earlyEffect.borderRadius, 4);
+      expect(lateEffect.borderRadius, 4);
+      expect(
+        earlyEffect.baseColor,
+        AppColors.accentYellow.withValues(
+          alpha: generationImageMosaicBaseAlpha,
+        ),
+      );
+      expect(lateEffect.baseColor, earlyEffect.baseColor);
+      expect(earlyEffect.lightUpColor, AppColors.accentYellow);
+      expect(lateEffect.lightUpColor, AppColors.accentYellow);
+      expect(earlyEffect.baseCellColors, hasLength(48));
+      expect(lateEffect.baseCellColors, hasLength(48));
+      expect(earlyEffect.lightUpCellColors, hasLength(48));
+      expect(lateEffect.lightUpCellColors, hasLength(48));
+      expect(
+        earlyEffect.baseCellColors!.every(
+          (Color color) => color.a == generationImageMosaicBaseAlpha,
+        ),
+        isTrue,
+      );
+      expect(
+        earlyEffect.lightUpCellColors!.every((Color color) => color.a == 1),
+        isTrue,
+      );
+      for (int index = 0; index < 48; index += 1) {
+        expect(
+          earlyEffect.baseCellColors![index].withValues(alpha: 1),
+          earlyEffect.lightUpCellColors![index],
+        );
+      }
+      expect(earlyEffect.enableGlow, isTrue);
+      expect(lateEffect.enableGlow, isTrue);
+      expect(earlyEffect.glowIntensity, 0.6);
+      expect(lateEffect.glowIntensity, 0.6);
+      expect(find.byType(ShaderMask), findsNothing);
+      expect(
+        mosaicRepository.extractedRequests.map((request) => request.path),
+        containsAll(<String>[jobs.first.imagePath, jobs.last.imagePath]),
+      );
+      expect(
+        mosaicRepository.extractedRequests.every(
+          (request) => request.rows == 8 && request.columns == 6,
+        ),
+        isTrue,
+      );
       final ColoredBox earlyBackground = tester.widget<ColoredBox>(
         find.byKey(
           const ValueKey<String>(
-            'generation-submission-fractal-background-early',
+            'generation-submission-grid-square-background-early',
           ),
         ),
       );
       expect(earlyBackground.color, AppColors.white);
-      expect(
-        tester.getSize(earlyFractal),
-        tester.getSize(
-          find.byKey(
-            const ValueKey<String>('generation-submission-fractal-back-early'),
-          ),
-        ),
+      final Finder earlyBack = find.byKey(
+        const ValueKey<String>('generation-submission-grid-square-back-early'),
       );
+      final Size backSize = tester.getSize(earlyBack);
+      expect(
+        tester.getSize(earlyGrid),
+        Size(backSize.width - 16, backSize.height - 16),
+      );
+      expect(tester.getCenter(earlyGrid), tester.getCenter(earlyBack));
       expect(
         find.byKey(
           const ValueKey<String>(
-            'generation-submission-fractal-progress-early',
+            'generation-submission-grid-square-progress-early',
           ),
         ),
         findsOneWidget,
@@ -320,7 +392,7 @@ void main() {
       final Text progressText = tester.widget<Text>(
         find.byKey(
           const ValueKey<String>(
-            'generation-submission-fractal-progress-early',
+            'generation-submission-grid-square-progress-early',
           ),
         ),
       );
@@ -330,38 +402,113 @@ void main() {
     },
   );
 
-  testWidgets('job ids map across the configured fractal families', (
+  testWidgets('grid square follows the inherited ticker mode', (
     WidgetTester tester,
   ) async {
-    const List<({String id, FractalFloorKind kind})> cases =
-        <({String id, FractalFloorKind kind})>[
-          (id: 'reduced-motion', kind: FractalFloorKind.mandelbrot),
-          (id: 'animated-confirm', kind: FractalFloorKind.newton4),
-          (id: 'processing', kind: FractalFloorKind.newton3),
-          (id: 'early', kind: FractalFloorKind.celtic),
-          (id: 'late', kind: FractalFloorKind.tricorn),
-        ];
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
     await _pumpModalHost(
       tester,
       _ModalHost(
+        key: hostKey,
         jobs: <GenerationSubmissionJob>[
-          for (final ({String id, FractalFloorKind kind}) item in cases)
-            _job(id: item.id, status: GenerationSubmissionStatus.uploading),
+          _job(id: 'ticker-mode', status: GenerationSubmissionStatus.uploading),
         ],
       ),
     );
 
-    for (final ({String id, FractalFloorKind kind}) item in cases) {
-      final FractalFloor floor = tester.widget<FractalFloor>(
-        find.byKey(
-          ValueKey<String>('generation-submission-fractal-${item.id}'),
+    final Finder grid = find.byKey(
+      const ValueKey<String>('generation-submission-grid-square-ticker-mode'),
+    );
+    expect(TickerMode.valuesOf(tester.element(grid)).enabled, isTrue);
+
+    hostKey.currentState!.setTickerModeEnabled(false);
+    await tester.pump();
+    expect(TickerMode.valuesOf(tester.element(grid)).enabled, isFalse);
+
+    hostKey.currentState!.setTickerModeEnabled(true);
+    await tester.pump();
+    expect(TickerMode.valuesOf(tester.element(grid)).enabled, isTrue);
+  });
+
+  testWidgets('grid square reloads its mosaic when the image path changes', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+    final _FakeGenerationImageMosaicRepository mosaicRepository =
+        _FakeGenerationImageMosaicRepository(
+          _testMosaic(const <Color>[
+            Color(0xFFF4A6A6),
+            Color(0xFFA6D8F4),
+            Color(0xFFB9E6B3),
+          ]),
+        );
+    final String firstPath = _writeImageFile('mosaic-first').path;
+    final String secondPath = _writeImageFile('mosaic-second').path;
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        key: hostKey,
+        jobs: <GenerationSubmissionJob>[
+          _job(
+            id: 'mosaic-path',
+            imagePath: firstPath,
+            status: GenerationSubmissionStatus.uploading,
+          ),
+        ],
+        imageMosaicRepository: mosaicRepository,
+      ),
+    );
+    expect(
+      mosaicRepository.extractedRequests.map((request) => request.path),
+      <String>[firstPath],
+    );
+
+    await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+      _job(
+        id: 'mosaic-path',
+        imagePath: secondPath,
+        status: GenerationSubmissionStatus.uploading,
+      ),
+    ]);
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      mosaicRepository.extractedRequests.map((request) => request.path),
+      <String>[firstPath, secondPath],
+    );
+  });
+
+  testWidgets('grid square keeps its fallback when mosaic extraction fails', (
+    WidgetTester tester,
+  ) async {
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        jobs: <GenerationSubmissionJob>[
+          _job(
+            id: 'mosaic-failure',
+            status: GenerationSubmissionStatus.uploading,
+          ),
+        ],
+        imageMosaicRepository: _FakeGenerationImageMosaicRepository(
+          GenerationImageMosaic.fallback(rows: 8, columns: 6),
+          failure: const FormatException('invalid mosaic'),
         ),
-      );
-      expect(floor.kind, item.kind);
-      expect(floor.edge, FractalFloorEdge.bottom);
-      expect(floor.color, AppColors.accentYellow);
-      expect(floor.density, 1.75);
-    }
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-grid-square-mosaic-failure',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(ShaderMask), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('generation progress advances at integer boundaries', (
@@ -376,7 +523,9 @@ void main() {
       ),
     );
     final Finder progress = find.byKey(
-      const ValueKey<String>('generation-submission-fractal-progress-estimate'),
+      const ValueKey<String>(
+        'generation-submission-grid-square-progress-estimate',
+      ),
     );
 
     expect(progress, findsOneWidget);
@@ -454,21 +603,20 @@ void main() {
     );
     final Finder firstProgress = find.byKey(
       const ValueKey<String>(
-        'generation-submission-fractal-progress-persisted-progress',
+        'generation-submission-grid-square-progress-persisted-progress',
       ),
     );
     final Finder firstCard = find.byKey(
       const ValueKey<String>('generation-submission-flip-persisted-progress'),
     );
-    final FractalFloorKind firstKind = tester
-        .widget<FractalFloor>(
-          find.byKey(
-            const ValueKey<String>(
-              'generation-submission-fractal-persisted-progress',
-            ),
-          ),
-        )
-        .kind;
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-grid-square-persisted-progress',
+        ),
+      ),
+      findsOneWidget,
+    );
     final Size firstSize = tester.getSize(firstCard);
     expect(firstProgress, findsOneWidget);
     final int firstPercentage = _percentageFromText(
@@ -493,29 +641,26 @@ void main() {
     );
     final Finder secondProgress = find.byKey(
       const ValueKey<String>(
-        'generation-submission-fractal-progress-persisted-progress',
+        'generation-submission-grid-square-progress-persisted-progress',
       ),
     );
-    final FractalFloorKind secondKind = tester
-        .widget<FractalFloor>(
-          find.byKey(
-            const ValueKey<String>(
-              'generation-submission-fractal-persisted-progress',
-            ),
-          ),
-        )
-        .kind;
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-grid-square-persisted-progress',
+        ),
+      ),
+      findsOneWidget,
+    );
     final int secondPercentage = _percentageFromText(
       tester.widget<Text>(secondProgress).data!,
     );
     expect(tester.getSize(secondCard), firstSize);
-    expect(firstKind, FractalFloorKind.tricorn);
-    expect(secondKind, firstKind);
     expect(secondPercentage, greaterThanOrEqualTo(firstPercentage));
     expect(secondPercentage, lessThanOrEqualTo(99));
   });
 
-  testWidgets('completed keeps the fractal finishing label visible', (
+  testWidgets('completed keeps the grid square finishing label visible', (
     WidgetTester tester,
   ) async {
     await _pumpModalHost(
@@ -539,7 +684,7 @@ void main() {
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-fractal-completion'),
+        const ValueKey<String>('generation-submission-grid-square-completion'),
       ),
       findsOneWidget,
     );
@@ -552,7 +697,7 @@ void main() {
     expect(find.text('即将完成'), findsOneWidget);
   });
 
-  testWidgets('reduced motion shows static fractal progress immediately', (
+  testWidgets('reduced motion shows static grid square progress immediately', (
     WidgetTester tester,
   ) async {
     await _pumpModalHost(
@@ -569,23 +714,27 @@ void main() {
     );
     final Finder progress = find.byKey(
       const ValueKey<String>(
-        'generation-submission-fractal-progress-reduced-motion',
+        'generation-submission-grid-square-progress-reduced-motion',
       ),
     );
     expect(progress, findsOneWidget);
     expect(find.text('0%'), findsOneWidget);
-    final FractalFloor floor = tester.widget<FractalFloor>(
-      find.byKey(
-        const ValueKey<String>('generation-submission-fractal-reduced-motion'),
+    final Finder grid = find.byKey(
+      const ValueKey<String>(
+        'generation-submission-grid-square-reduced-motion',
       ),
     );
-    expect(floor.kind, FractalFloorKind.mandelbrot);
-    expect(floor.color, AppColors.accentYellow);
+    final GridSquareAnimation animation = tester.widget<GridSquareAnimation>(
+      grid,
+    );
+    expect(animation.lightUpColor, AppColors.accentYellow);
+    expect(TickerMode.valuesOf(tester.element(grid)).enabled, isFalse);
 
     await tester.pump(const Duration(seconds: 21));
 
     expect(find.text('30%'), findsOneWidget);
     expect(find.text('0%'), findsNothing);
+    expect(TickerMode.valuesOf(tester.element(grid)).enabled, isFalse);
   });
 
   for (final Locale locale in AppLocalizations.supportedLocales) {
@@ -704,7 +853,7 @@ void main() {
     expect(card.side, FlipCardSide.back);
   });
 
-  testWidgets('real confirmation flips the card toward fractal', (
+  testWidgets('real confirmation flips the card toward grid square', (
     WidgetTester tester,
   ) async {
     await _pumpModalHost(
@@ -777,7 +926,7 @@ void main() {
     expect(
       find.byKey(
         const ValueKey<String>(
-          'generation-submission-fractal-reveal-animated-confirm',
+          'generation-submission-grid-square-reveal-animated-confirm',
         ),
       ),
       findsOneWidget,
@@ -785,7 +934,7 @@ void main() {
     expect(
       find.byKey(
         const ValueKey<String>(
-          'generation-submission-fractal-animated-confirm',
+          'generation-submission-grid-square-animated-confirm',
         ),
       ),
       findsOneWidget,
@@ -795,7 +944,7 @@ void main() {
           .widget<AnimatedOpacity>(
             find.byKey(
               const ValueKey<String>(
-                'generation-submission-fractal-reveal-animated-confirm',
+                'generation-submission-grid-square-reveal-animated-confirm',
               ),
             ),
           )
@@ -810,7 +959,7 @@ void main() {
           .widget<AnimatedOpacity>(
             find.byKey(
               const ValueKey<String>(
-                'generation-submission-fractal-reveal-animated-confirm',
+                'generation-submission-grid-square-reveal-animated-confirm',
               ),
             ),
           )
@@ -824,7 +973,7 @@ void main() {
           .widget<AnimatedOpacity>(
             find.byKey(
               const ValueKey<String>(
-                'generation-submission-fractal-reveal-animated-confirm',
+                'generation-submission-grid-square-reveal-animated-confirm',
               ),
             ),
           )
@@ -833,7 +982,7 @@ void main() {
     );
   });
 
-  testWidgets('guided confirmation also flips toward fractal', (
+  testWidgets('guided confirmation also flips toward grid square', (
     WidgetTester tester,
   ) async {
     await _pumpModalHost(
@@ -881,7 +1030,7 @@ void main() {
           .widget<AnimatedOpacity>(
             find.byKey(
               const ValueKey<String>(
-                'generation-submission-fractal-reveal-guided-animated-confirm',
+                'generation-submission-grid-square-reveal-guided-animated-confirm',
               ),
             ),
           )
@@ -894,7 +1043,7 @@ void main() {
           .widget<AnimatedOpacity>(
             find.byKey(
               const ValueKey<String>(
-                'generation-submission-fractal-reveal-guided-animated-confirm',
+                'generation-submission-grid-square-reveal-guided-animated-confirm',
               ),
             ),
           )
@@ -933,7 +1082,7 @@ void main() {
     expect(
       find.byKey(
         const ValueKey<String>(
-          'generation-submission-fractal-real-retry-transition',
+          'generation-submission-grid-square-real-retry-transition',
         ),
       ),
       findsOneWidget,
@@ -1838,7 +1987,7 @@ void main() {
     );
     expect(
       find.byKey(
-        const ValueKey<String>('generation-submission-fractal-precache'),
+        const ValueKey<String>('generation-submission-grid-square-precache'),
       ),
       findsOneWidget,
     );
@@ -2554,6 +2703,7 @@ class _ModalHost extends StatefulWidget {
     this.themePreference = AppThemePreference.light,
     this.imagePicker,
     this.heroImagePrecache,
+    this.imageMosaicRepository,
     this.uploadRepository,
     this.taskRepository,
     this.guideRepository,
@@ -2568,6 +2718,7 @@ class _ModalHost extends StatefulWidget {
   final AppThemePreference themePreference;
   final _FakeGalleryImagePicker? imagePicker;
   final HeroImagePrecache? heroImagePrecache;
+  final GenerationImageMosaicRepository? imageMosaicRepository;
   final _FakeUploadRepository? uploadRepository;
   final _FakeGenerationTaskRepository? taskRepository;
   final _FakeGenerationSubmissionGuideRepository? guideRepository;
@@ -2582,6 +2733,7 @@ class _ModalHost extends StatefulWidget {
 }
 
 class _ModalHostState extends State<_ModalHost> {
+  bool _tickerModeEnabled = true;
   late final GenerationRecordDatabase _database =
       GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
   late final StreamController<List<GenerationRecord>> _recordsController =
@@ -2605,6 +2757,10 @@ class _ModalHostState extends State<_ModalHost> {
     await _recordRepository.replaceJobs(jobs);
   }
 
+  void setTickerModeEnabled(bool enabled) {
+    setState(() => _tickerModeEnabled = enabled);
+  }
+
   @override
   void dispose() {
     _recordsController.close();
@@ -2623,6 +2779,7 @@ class _ModalHostState extends State<_ModalHost> {
         child: page,
       );
     }
+    page = TickerMode(enabled: _tickerModeEnabled, child: page);
     final bool useExplicitTheme =
         widget.themePreference != AppThemePreference.light;
     return AppToastHost(
@@ -2675,6 +2832,12 @@ class _ModalHostState extends State<_ModalHost> {
                   return true;
                 },
           ),
+          generationImageMosaicRepositoryProvider.overrideWithValue(
+            widget.imageMosaicRepository ??
+                _FakeGenerationImageMosaicRepository(
+                  GenerationImageMosaic.fallback(rows: 8, columns: 6),
+                ),
+          ),
           uploadRepositoryProvider.overrideWithValue(
             widget.uploadRepository ?? _FakeUploadRepository(),
           ),
@@ -2725,6 +2888,30 @@ class _ModalHostState extends State<_ModalHost> {
 class _NoopAppToastPresenter extends AppToastPresenter {
   @override
   void show(AppToastMessage message) {}
+}
+
+class _FakeGenerationImageMosaicRepository
+    implements GenerationImageMosaicRepository {
+  _FakeGenerationImageMosaicRepository(this.mosaic, {this.failure});
+
+  final GenerationImageMosaic mosaic;
+  final Object? failure;
+  final List<({String path, int rows, int columns})> extractedRequests =
+      <({String path, int rows, int columns})>[];
+
+  @override
+  Future<GenerationImageMosaic> extract(
+    String imagePath, {
+    required int rows,
+    required int columns,
+  }) async {
+    extractedRequests.add((path: imagePath, rows: rows, columns: columns));
+    final Object? error = failure;
+    if (error != null) {
+      throw error;
+    }
+    return mosaic;
+  }
 }
 
 class _SeededModal extends StatefulWidget {
@@ -3526,6 +3713,19 @@ class _FakeGenerationSubmissionGuideRepository
   Future<void> markConfirmationGuideSeen() async {
     seen = true;
   }
+}
+
+GenerationImageMosaic _testMosaic(List<Color> colors) {
+  assert(colors.isNotEmpty);
+  return GenerationImageMosaic(
+    rows: 8,
+    columns: 6,
+    cellColors: List<Color>.generate(
+      48,
+      (int index) => colors[index % colors.length].withValues(alpha: 1),
+      growable: false,
+    ),
+  );
 }
 
 GenerationSubmissionJob _job({

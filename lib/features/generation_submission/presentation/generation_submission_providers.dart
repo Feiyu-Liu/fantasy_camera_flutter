@@ -26,6 +26,7 @@ import '../domain/capture_metadata.dart';
 import '../domain/generation_record_state_machine.dart';
 import '../domain/generation_submission_job.dart';
 import 'generation_record_providers.dart';
+import 'generation_image_mosaic_repository.dart';
 
 final galleryImagePickerProvider = Provider<GalleryImagePicker>((Ref ref) {
   return PlatformGalleryImagePicker(fallbackImagePicker: ImagePicker());
@@ -36,6 +37,12 @@ typedef HeroImagePrecache = Future<bool> Function(ImageProvider imageProvider);
 final heroImagePrecacheProvider = Provider<HeroImagePrecache>((Ref ref) {
   return defaultHeroImagePrecache;
 }, dependencies: const <ProviderOrFamily>[]);
+
+final generationImageMosaicRepositoryProvider =
+    Provider<GenerationImageMosaicRepository>(
+      (Ref ref) => CachedGenerationImageMosaicRepository(),
+      dependencies: const <ProviderOrFamily>[],
+    );
 
 final galleryResumeActiveRecordsOnOpenProvider = Provider<bool>(
   (Ref ref) => true,

@@ -11,7 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:just_the_tooltip/just_the_tooltip.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:my_ui/my_ui.dart'
-    show FractalFloor, FractalFloorEdge, FractalFloorKind;
+    show GridSquareAnimation, GridSquareAnimationPreset;
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:progressive_blur/progressive_blur.dart';
@@ -34,6 +34,7 @@ import '../domain/generation_record.dart';
 import '../domain/generation_record_state_machine.dart';
 import '../domain/generation_submission_job.dart';
 import 'generation_hero_photo_view_page_options.dart';
+import 'generation_image_mosaic_repository.dart';
 import 'generation_progress_estimate.dart';
 import 'generation_status_pill.dart';
 import 'generation_submission_providers.dart';
@@ -2242,8 +2243,8 @@ class _JobThumbnail extends StatefulWidget {
 
 class _JobThumbnailState extends State<_JobThumbnail> {
   static const Duration _flipDuration = Duration(milliseconds: 800);
-  static const Duration _fractalRevealDelay = Duration(seconds: 1);
-  static const Duration _fractalFadeDuration = Duration(milliseconds: 240);
+  static const Duration _gridSquareRevealDelay = Duration(seconds: 1);
+  static const Duration _gridSquareFadeDuration = Duration(milliseconds: 240);
 
   late final FlipCardController _flipController;
   late GenerationSubmissionStatus _backStatus;
@@ -2252,8 +2253,8 @@ class _JobThumbnailState extends State<_JobThumbnail> {
   late VoidCallback? _frontOnCancel;
   late VoidCallback? _frontOnRetry;
   late VoidCallback? _frontOnRemove;
-  Timer? _fractalRevealTimer;
-  late bool _showFractal;
+  Timer? _gridSquareRevealTimer;
+  late bool _showGridSquare;
 
   @override
   void initState() {
@@ -2262,7 +2263,7 @@ class _JobThumbnailState extends State<_JobThumbnail> {
     _backStatus = _isLoading(widget.job.status)
         ? widget.job.status
         : GenerationSubmissionStatus.queued;
-    _showFractal = _isLoading(widget.job.status);
+    _showGridSquare = _isLoading(widget.job.status);
     _captureFrontState();
   }
 
@@ -2274,19 +2275,19 @@ class _JobThumbnailState extends State<_JobThumbnail> {
     if (loading) {
       _backStatus = widget.job.status;
       if (!wasLoading) {
-        _cancelFractalReveal();
-        _showFractal = false;
+        _cancelGridSquareReveal();
+        _showGridSquare = false;
       }
     } else {
-      _cancelFractalReveal();
-      _showFractal = false;
+      _cancelGridSquareReveal();
+      _showGridSquare = false;
       _captureFrontState();
     }
   }
 
   @override
   void dispose() {
-    _cancelFractalReveal();
+    _cancelGridSquareReveal();
     super.dispose();
   }
 
@@ -2300,28 +2301,28 @@ class _JobThumbnailState extends State<_JobThumbnail> {
 
   void _handleFlipCompleted(FlipCardSide side) {
     if (side != FlipCardSide.back || !_isLoading(widget.job.status)) {
-      _cancelFractalReveal();
+      _cancelGridSquareReveal();
       return;
     }
-    if (_showFractal) {
+    if (_showGridSquare) {
       return;
     }
     if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
-      setState(() => _showFractal = true);
+      setState(() => _showGridSquare = true);
       return;
     }
-    _cancelFractalReveal();
-    _fractalRevealTimer = Timer(_fractalRevealDelay, () {
+    _cancelGridSquareReveal();
+    _gridSquareRevealTimer = Timer(_gridSquareRevealDelay, () {
       if (!mounted || !_isLoading(widget.job.status)) {
         return;
       }
-      setState(() => _showFractal = true);
+      setState(() => _showGridSquare = true);
     });
   }
 
-  void _cancelFractalReveal() {
-    _fractalRevealTimer?.cancel();
-    _fractalRevealTimer = null;
+  void _cancelGridSquareReveal() {
+    _gridSquareRevealTimer?.cancel();
+    _gridSquareRevealTimer = null;
   }
 
   @override
@@ -2439,7 +2440,7 @@ class _JobThumbnailState extends State<_JobThumbnail> {
       height: widget.height,
       selected: widget.selected,
       child: AnimatedSwitcher(
-        duration: reduceMotion ? Duration.zero : _fractalFadeDuration,
+        duration: reduceMotion ? Duration.zero : _gridSquareFadeDuration,
         switchInCurve: Curves.easeOutCubic,
         switchOutCurve: Curves.easeOutCubic,
         layoutBuilder: (Widget? currentChild, List<Widget> previousChildren) {
@@ -2451,29 +2452,30 @@ class _JobThumbnailState extends State<_JobThumbnail> {
         child: loading
             ? Stack(
                 key: ValueKey<String>(
-                  'generation-submission-fractal-loading-${widget.job.id}',
+                  'generation-submission-grid-square-loading-${widget.job.id}',
                 ),
                 fit: StackFit.expand,
                 children: <Widget>[
                   const ColoredBox(color: AppColors.white),
                   ExcludeSemantics(
-                    excluding: !_showFractal,
+                    excluding: !_showGridSquare,
                     child: AnimatedOpacity(
                       key: ValueKey<String>(
-                        'generation-submission-fractal-reveal-${widget.job.id}',
+                        'generation-submission-grid-square-reveal-${widget.job.id}',
                       ),
-                      opacity: _showFractal ? 1 : 0,
+                      opacity: _showGridSquare ? 1 : 0,
                       duration: reduceMotion
                           ? Duration.zero
-                          : _fractalFadeDuration,
+                          : _gridSquareFadeDuration,
                       curve: Curves.easeOutCubic,
                       child: TickerMode(
-                        enabled: _showFractal,
+                        enabled: _showGridSquare,
                         child: _GenerationLoadingCardBack(
                           key: ValueKey<String>(
-                            'generation-submission-fractal-back-${widget.job.id}',
+                            'generation-submission-grid-square-back-${widget.job.id}',
                           ),
                           jobId: widget.job.id,
+                          imagePath: widget.job.imagePath,
                           startedAt: widget.job.generationStartedAt,
                           status: _backStatus,
                         ),
@@ -2484,7 +2486,7 @@ class _JobThumbnailState extends State<_JobThumbnail> {
               )
             : ColoredBox(
                 key: ValueKey<String>(
-                  'generation-submission-fractal-inactive-${widget.job.id}',
+                  'generation-submission-grid-square-inactive-${widget.job.id}',
                 ),
                 color: AppColors.white,
               ),
@@ -2572,11 +2574,13 @@ class _GenerationLoadingCardBack extends StatefulWidget {
   const _GenerationLoadingCardBack({
     super.key,
     required this.jobId,
+    required this.imagePath,
     required this.startedAt,
     required this.status,
   });
 
   final String jobId;
+  final String imagePath;
   final DateTime? startedAt;
   final GenerationSubmissionStatus status;
 
@@ -2642,31 +2646,26 @@ class _GenerationLoadingCardBackState
         children: <Widget>[
           ColoredBox(
             key: ValueKey<String>(
-              'generation-submission-fractal-background-${widget.jobId}',
+              'generation-submission-grid-square-background-${widget.jobId}',
             ),
             color: AppColors.white,
           ),
           ExcludeSemantics(
-            child: LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-                return FractalFloor(
-                  key: ValueKey<String>(
-                    'generation-submission-fractal-${widget.jobId}',
-                  ),
-                  edge: FractalFloorEdge.bottom,
-                  height: constraints.maxHeight,
-                  kind: _fractalFloorKindForJobId(widget.jobId),
-                  color: AppColors.accentYellow,
-                  density: 1.75,
-                );
-              },
+            child: _GenerationGridSquare(
+              key: ValueKey<String>(
+                'generation-submission-grid-square-loop-${widget.jobId}',
+              ),
+              animationKey: ValueKey<String>(
+                'generation-submission-grid-square-${widget.jobId}',
+              ),
+              imagePath: widget.imagePath,
             ),
           ),
           Center(
             child: Text(
               label,
               key: ValueKey<String>(
-                'generation-submission-fractal-progress-${widget.jobId}',
+                'generation-submission-grid-square-progress-${widget.jobId}',
               ),
               maxLines: 1,
               softWrap: false,
@@ -2684,22 +2683,129 @@ class _GenerationLoadingCardBackState
   }
 }
 
-const List<FractalFloorKind> _generationFractalFloorKinds = <FractalFloorKind>[
-  FractalFloorKind.mandelbrot,
-  FractalFloorKind.newton4,
-  FractalFloorKind.newton3,
-  FractalFloorKind.celtic,
-  FractalFloorKind.tricorn,
-];
+class _GenerationGridSquare extends ConsumerStatefulWidget {
+  const _GenerationGridSquare({
+    required this.animationKey,
+    required this.imagePath,
+    super.key,
+  });
 
-FractalFloorKind _fractalFloorKindForJobId(String jobId) {
-  var hash = 0x811C9DC5;
-  for (final codeUnit in jobId.codeUnits) {
-    hash ^= codeUnit;
-    hash = (hash * 0x01000193) & 0xFFFFFFFF;
+  static const int _rows = 8;
+  static const int _columns = 6;
+  static const double _cardPadding = 8;
+  static const Duration _lightUpDuration = Duration(milliseconds: 300);
+  static const Duration _dimDuration = Duration(milliseconds: 750);
+  static const Duration _staggerInterval = Duration(milliseconds: 90);
+  static const double _glowIntensity = 0.6;
+  static final List<List<int>> _rowSweepSequence = List<List<int>>.generate(
+    _rows * _columns,
+    (int index) => <int>[index],
+    growable: false,
+  );
+
+  final Key animationKey;
+  final String imagePath;
+
+  @override
+  ConsumerState<_GenerationGridSquare> createState() =>
+      _GenerationGridSquareState();
+}
+
+class _GenerationGridSquareState extends ConsumerState<_GenerationGridSquare> {
+  late Future<GenerationImageMosaic> _mosaicFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _mosaicFuture = _extractMosaic();
   }
-  return _generationFractalFloorKinds[hash %
-      _generationFractalFloorKinds.length];
+
+  @override
+  void didUpdateWidget(covariant _GenerationGridSquare oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.imagePath != oldWidget.imagePath) {
+      _mosaicFuture = _extractMosaic();
+    }
+  }
+
+  Future<GenerationImageMosaic> _extractMosaic() {
+    return ref
+        .read(generationImageMosaicRepositoryProvider)
+        .extract(
+          widget.imagePath,
+          rows: _GenerationGridSquare._rows,
+          columns: _GenerationGridSquare._columns,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool tickerModeEnabled = TickerMode.valuesOf(context).enabled;
+    final bool reduceMotion =
+        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    return FutureBuilder<GenerationImageMosaic>(
+      future: _mosaicFuture,
+      builder:
+          (
+            BuildContext context,
+            AsyncSnapshot<GenerationImageMosaic> snapshot,
+          ) {
+            final GenerationImageMosaic fallback =
+                GenerationImageMosaic.fallback(
+                  rows: _GenerationGridSquare._rows,
+                  columns: _GenerationGridSquare._columns,
+                );
+            final GenerationImageMosaic mosaic = snapshot.data ?? fallback;
+            final List<Color> sampledCellColors =
+                mosaic.rows == _GenerationGridSquare._rows &&
+                    mosaic.columns == _GenerationGridSquare._columns &&
+                    mosaic.cellColors.length ==
+                        _GenerationGridSquare._rows *
+                            _GenerationGridSquare._columns
+                ? mosaic.cellColors
+                : fallback.cellColors;
+            final List<Color> baseCellColors = generationImageMosaicBaseColors(
+              sampledCellColors,
+            );
+            final List<Color> lightUpCellColors =
+                generationImageMosaicLightUpColors(sampledCellColors);
+            return TickerMode(
+              enabled: tickerModeEnabled && !reduceMotion,
+              child: Padding(
+                padding: const EdgeInsets.all(
+                  _GenerationGridSquare._cardPadding,
+                ),
+                child: LayoutBuilder(
+                  builder: (BuildContext context, BoxConstraints constraints) {
+                    return GridSquareAnimation(
+                      key: widget.animationKey,
+                      preset: GridSquareAnimationPreset.rowSweep,
+                      rows: _GenerationGridSquare._rows,
+                      columns: _GenerationGridSquare._columns,
+                      groupedSequence: _GenerationGridSquare._rowSweepSequence,
+                      width: constraints.maxWidth,
+                      height: constraints.maxHeight,
+                      spacing: 2,
+                      borderRadius: 4,
+                      lightUpDuration: _GenerationGridSquare._lightUpDuration,
+                      dimDuration: _GenerationGridSquare._dimDuration,
+                      staggerInterval: _GenerationGridSquare._staggerInterval,
+                      baseColor: AppColors.accentYellow.withValues(
+                        alpha: generationImageMosaicBaseAlpha,
+                      ),
+                      lightUpColor: AppColors.accentYellow,
+                      baseCellColors: baseCellColors,
+                      lightUpCellColors: lightUpCellColors,
+                      enableGlow: true,
+                      glowIntensity: _GenerationGridSquare._glowIntensity,
+                    );
+                  },
+                ),
+              ),
+            );
+          },
+    );
+  }
 }
 
 class _ThumbnailImage extends StatelessWidget {
