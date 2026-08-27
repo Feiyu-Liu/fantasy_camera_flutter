@@ -47,6 +47,66 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:my_ui/my_ui.dart';
 
+const List<List<int>> _diagonalGridSquareSequence = <List<int>>[
+  <int>[0],
+  <int>[1],
+  <int>[6],
+  <int>[2],
+  <int>[7],
+  <int>[12],
+  <int>[3],
+  <int>[8],
+  <int>[13],
+  <int>[18],
+  <int>[4],
+  <int>[9],
+  <int>[14],
+  <int>[19],
+  <int>[24],
+  <int>[5],
+  <int>[10],
+  <int>[15],
+  <int>[20],
+  <int>[25],
+  <int>[30],
+  <int>[11],
+  <int>[16],
+  <int>[21],
+  <int>[26],
+  <int>[31],
+  <int>[36],
+  <int>[17],
+  <int>[22],
+  <int>[27],
+  <int>[32],
+  <int>[37],
+  <int>[42],
+  <int>[23],
+  <int>[28],
+  <int>[33],
+  <int>[38],
+  <int>[43],
+  <int>[29],
+  <int>[34],
+  <int>[39],
+  <int>[44],
+  <int>[35],
+  <int>[40],
+  <int>[45],
+  <int>[41],
+  <int>[46],
+  <int>[47],
+];
+
+const List<List<int>> _diamondGridSquareSequence = <List<int>>[
+  <int>[20, 21, 26, 27],
+  <int>[14, 15, 19, 22, 25, 28, 32, 33],
+  <int>[8, 9, 13, 16, 18, 23, 24, 29, 31, 34, 38, 39],
+  <int>[2, 3, 7, 10, 12, 17, 30, 35, 37, 40, 44, 45],
+  <int>[1, 4, 6, 11, 36, 41, 43, 46],
+  <int>[0, 5, 42, 47],
+];
+
 void main() {
   testWidgets('modal shows captured photos with status icons', (
     WidgetTester tester,
@@ -260,7 +320,7 @@ void main() {
   });
 
   testWidgets(
-    'loading cards show branded grid square sweeps with estimated progress',
+    'loading cards use three stable branded mosaic animation variants',
     (WidgetTester tester) async {
       final _FakeGenerationImageMosaicRepository mosaicRepository =
           _FakeGenerationImageMosaicRepository(
@@ -271,6 +331,7 @@ void main() {
             ]),
           );
       final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
+        _job(id: 'job-3', status: GenerationSubmissionStatus.pollingTask),
         _job(id: 'early', status: GenerationSubmissionStatus.uploading),
         _job(
           id: 'late',
@@ -290,73 +351,95 @@ void main() {
       final Finder lateGrid = find.byKey(
         const ValueKey<String>('generation-submission-grid-square-late'),
       );
+      final Finder diagonalGrid = find.byKey(
+        const ValueKey<String>('generation-submission-grid-square-job-3'),
+      );
 
       expect(earlyGrid, findsOneWidget);
       expect(lateGrid, findsOneWidget);
+      expect(diagonalGrid, findsOneWidget);
       final GridSquareAnimation earlyEffect = tester
           .widget<GridSquareAnimation>(earlyGrid);
       final GridSquareAnimation lateEffect = tester.widget<GridSquareAnimation>(
         lateGrid,
       );
-      expect(earlyEffect.rows, 8);
-      expect(lateEffect.rows, 8);
-      expect(earlyEffect.columns, 6);
-      expect(lateEffect.columns, 6);
-      expect(earlyEffect.rows, greaterThan(earlyEffect.columns));
-      expect(lateEffect.rows, greaterThan(lateEffect.columns));
-      expect(earlyEffect.groupedSequence, hasLength(48));
-      expect(lateEffect.groupedSequence, hasLength(48));
-      expect(earlyEffect.groupedSequence, <List<int>>[
+      final GridSquareAnimation diagonalEffect = tester
+          .widget<GridSquareAnimation>(diagonalGrid);
+      final List<GridSquareAnimation> effects = <GridSquareAnimation>[
+        diagonalEffect,
+        earlyEffect,
+        lateEffect,
+      ];
+
+      for (final GridSquareAnimation effect in effects) {
+        expect(effect.rows, 8);
+        expect(effect.columns, 6);
+        expect(effect.rows, greaterThan(effect.columns));
+        expect(effect.spacing, 2.173295454545453);
+        expect(effect.borderRadius, 4);
+        expect(effect.lightUpCurve, Curves.easeOutCubic);
+        expect(effect.dimCurve, Curves.easeInCubic);
+        expect(
+          effect.baseColor,
+          AppColors.accentYellow.withValues(
+            alpha: generationImageMosaicBaseAlpha,
+          ),
+        );
+        expect(effect.lightUpColor, AppColors.accentYellow);
+        expect(effect.baseCellColors, hasLength(48));
+        expect(effect.lightUpCellColors, hasLength(48));
+        expect(
+          effect.baseCellColors!.every(
+            (Color color) => color.a == generationImageMosaicBaseAlpha,
+          ),
+          isTrue,
+        );
+        expect(
+          effect.lightUpCellColors!.every((Color color) => color.a == 1),
+          isTrue,
+        );
+        for (int index = 0; index < 48; index += 1) {
+          expect(
+            effect.baseCellColors![index].withValues(alpha: 1),
+            effect.lightUpCellColors![index],
+          );
+        }
+        expect(effect.enableGlow, isTrue);
+        expect(effect.glowIntensity, 0.63);
+      }
+
+      expect(diagonalEffect.groupedSequence, _diagonalGridSquareSequence);
+      expect(diagonalEffect.lightUpDuration, const Duration(milliseconds: 300));
+      expect(diagonalEffect.dimDuration, const Duration(milliseconds: 1000));
+      expect(diagonalEffect.staggerInterval, const Duration(milliseconds: 72));
+      expect(
+        diagonalEffect.groupLoopPauseDuration,
+        const Duration(milliseconds: 150),
+      );
+
+      expect(earlyEffect.groupedSequence, _diamondGridSquareSequence);
+      expect(earlyEffect.lightUpDuration, const Duration(milliseconds: 300));
+      expect(earlyEffect.dimDuration, const Duration(milliseconds: 518));
+      expect(earlyEffect.staggerInterval, const Duration(milliseconds: 118));
+      expect(
+        earlyEffect.groupLoopPauseDuration,
+        const Duration(milliseconds: 243),
+      );
+
+      expect(lateEffect.groupedSequence, <List<int>>[
         for (int index = 0; index < 48; index += 1) <int>[index],
       ]);
-      expect(lateEffect.groupedSequence, earlyEffect.groupedSequence);
-      expect(earlyEffect.lightUpDuration, const Duration(milliseconds: 300));
-      expect(lateEffect.lightUpDuration, earlyEffect.lightUpDuration);
-      expect(earlyEffect.dimDuration, const Duration(milliseconds: 750));
-      expect(lateEffect.dimDuration, earlyEffect.dimDuration);
-      expect(earlyEffect.staggerInterval, const Duration(milliseconds: 90));
-      expect(lateEffect.staggerInterval, earlyEffect.staggerInterval);
-      expect(earlyEffect.spacing, 2);
-      expect(lateEffect.spacing, 2);
-      expect(earlyEffect.borderRadius, 4);
-      expect(lateEffect.borderRadius, 4);
+      expect(lateEffect.lightUpDuration, const Duration(milliseconds: 300));
+      expect(lateEffect.dimDuration, const Duration(milliseconds: 1000));
+      expect(lateEffect.staggerInterval, const Duration(milliseconds: 72));
       expect(
-        earlyEffect.baseColor,
-        AppColors.accentYellow.withValues(
-          alpha: generationImageMosaicBaseAlpha,
-        ),
+        lateEffect.groupLoopPauseDuration,
+        const Duration(milliseconds: 570),
       );
-      expect(lateEffect.baseColor, earlyEffect.baseColor);
-      expect(earlyEffect.lightUpColor, AppColors.accentYellow);
-      expect(lateEffect.lightUpColor, AppColors.accentYellow);
-      expect(earlyEffect.baseCellColors, hasLength(48));
-      expect(lateEffect.baseCellColors, hasLength(48));
-      expect(earlyEffect.lightUpCellColors, hasLength(48));
-      expect(lateEffect.lightUpCellColors, hasLength(48));
-      expect(
-        earlyEffect.baseCellColors!.every(
-          (Color color) => color.a == generationImageMosaicBaseAlpha,
-        ),
-        isTrue,
-      );
-      expect(
-        earlyEffect.lightUpCellColors!.every((Color color) => color.a == 1),
-        isTrue,
-      );
-      for (int index = 0; index < 48; index += 1) {
-        expect(
-          earlyEffect.baseCellColors![index].withValues(alpha: 1),
-          earlyEffect.lightUpCellColors![index],
-        );
-      }
-      expect(earlyEffect.enableGlow, isTrue);
-      expect(lateEffect.enableGlow, isTrue);
-      expect(earlyEffect.glowIntensity, 0.6);
-      expect(lateEffect.glowIntensity, 0.6);
       expect(find.byType(ShaderMask), findsNothing);
       expect(
         mosaicRepository.extractedRequests.map((request) => request.path),
-        containsAll(<String>[jobs.first.imagePath, jobs.last.imagePath]),
+        containsAll(jobs.map((GenerationSubmissionJob job) => job.imagePath)),
       );
       expect(
         mosaicRepository.extractedRequests.every(
@@ -397,10 +480,50 @@ void main() {
         ),
       );
       expect(progressText.style?.color, AppColors.black);
-      expect(find.text('0%'), findsOneWidget);
+      expect(find.text('0%'), findsWidgets);
       expect(find.text('即将完成'), findsOneWidget);
     },
   );
+
+  testWidgets('grid square animation assignment stays stable across status', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        key: hostKey,
+        jobs: <GenerationSubmissionJob>[
+          _job(id: 'early', status: GenerationSubmissionStatus.uploading),
+        ],
+      ),
+    );
+
+    const ValueKey<String> animationKey = ValueKey<String>(
+      'generation-submission-grid-square-early',
+    );
+    final GridSquareAnimation before = tester.widget<GridSquareAnimation>(
+      find.byKey(animationKey),
+    );
+
+    await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+      _job(
+        id: 'early',
+        status: GenerationSubmissionStatus.processingResultImage,
+      ),
+    ]);
+    await tester.pump();
+    await tester.pump();
+
+    final GridSquareAnimation after = tester.widget<GridSquareAnimation>(
+      find.byKey(animationKey),
+    );
+    expect(after.groupedSequence, before.groupedSequence);
+    expect(after.lightUpDuration, before.lightUpDuration);
+    expect(after.dimDuration, before.dimDuration);
+    expect(after.staggerInterval, before.staggerInterval);
+    expect(after.groupLoopPauseDuration, before.groupLoopPauseDuration);
+  });
 
   testWidgets('grid square follows the inherited ticker mode', (
     WidgetTester tester,

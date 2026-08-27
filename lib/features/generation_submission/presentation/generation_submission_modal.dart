@@ -10,8 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_the_tooltip/just_the_tooltip.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:my_ui/my_ui.dart'
-    show GridSquareAnimation, GridSquareAnimationPreset;
+import 'package:my_ui/my_ui.dart' show GridSquareAnimation;
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:progressive_blur/progressive_blur.dart';
@@ -2658,6 +2657,7 @@ class _GenerationLoadingCardBackState
               animationKey: ValueKey<String>(
                 'generation-submission-grid-square-${widget.jobId}',
               ),
+              jobId: widget.jobId,
               imagePath: widget.imagePath,
             ),
           ),
@@ -2683,9 +2683,12 @@ class _GenerationLoadingCardBackState
   }
 }
 
+enum _GenerationGridSquareAnimationVariant { diagonal, diamond, rowsEnhanced }
+
 class _GenerationGridSquare extends ConsumerStatefulWidget {
   const _GenerationGridSquare({
     required this.animationKey,
+    required this.jobId,
     required this.imagePath,
     super.key,
   });
@@ -2693,18 +2696,117 @@ class _GenerationGridSquare extends ConsumerStatefulWidget {
   static const int _rows = 8;
   static const int _columns = 6;
   static const double _cardPadding = 8;
-  static const Duration _lightUpDuration = Duration(milliseconds: 300);
-  static const Duration _dimDuration = Duration(milliseconds: 750);
-  static const Duration _staggerInterval = Duration(milliseconds: 90);
-  static const double _glowIntensity = 0.6;
-  static final List<List<int>> _rowSweepSequence = List<List<int>>.generate(
-    _rows * _columns,
-    (int index) => <int>[index],
-    growable: false,
-  );
+  static final Map<
+    _GenerationGridSquareAnimationVariant,
+    _GenerationGridSquareAnimationSpec
+  >
+  _animationSpecs =
+      <
+        _GenerationGridSquareAnimationVariant,
+        _GenerationGridSquareAnimationSpec
+      >{
+        _GenerationGridSquareAnimationVariant.diagonal:
+            const _GenerationGridSquareAnimationSpec(
+              groupedSequence: <List<int>>[
+                <int>[0],
+                <int>[1],
+                <int>[6],
+                <int>[2],
+                <int>[7],
+                <int>[12],
+                <int>[3],
+                <int>[8],
+                <int>[13],
+                <int>[18],
+                <int>[4],
+                <int>[9],
+                <int>[14],
+                <int>[19],
+                <int>[24],
+                <int>[5],
+                <int>[10],
+                <int>[15],
+                <int>[20],
+                <int>[25],
+                <int>[30],
+                <int>[11],
+                <int>[16],
+                <int>[21],
+                <int>[26],
+                <int>[31],
+                <int>[36],
+                <int>[17],
+                <int>[22],
+                <int>[27],
+                <int>[32],
+                <int>[37],
+                <int>[42],
+                <int>[23],
+                <int>[28],
+                <int>[33],
+                <int>[38],
+                <int>[43],
+                <int>[29],
+                <int>[34],
+                <int>[39],
+                <int>[44],
+                <int>[35],
+                <int>[40],
+                <int>[45],
+                <int>[41],
+                <int>[46],
+                <int>[47],
+              ],
+              lightUpDuration: Duration(milliseconds: 300),
+              dimDuration: Duration(milliseconds: 1000),
+              staggerInterval: Duration(milliseconds: 72),
+              groupLoopPauseDuration: Duration(milliseconds: 150),
+            ),
+        _GenerationGridSquareAnimationVariant.diamond:
+            const _GenerationGridSquareAnimationSpec(
+              groupedSequence: <List<int>>[
+                <int>[20, 21, 26, 27],
+                <int>[14, 15, 19, 22, 25, 28, 32, 33],
+                <int>[8, 9, 13, 16, 18, 23, 24, 29, 31, 34, 38, 39],
+                <int>[2, 3, 7, 10, 12, 17, 30, 35, 37, 40, 44, 45],
+                <int>[1, 4, 6, 11, 36, 41, 43, 46],
+                <int>[0, 5, 42, 47],
+              ],
+              lightUpDuration: Duration(milliseconds: 300),
+              dimDuration: Duration(milliseconds: 518),
+              staggerInterval: Duration(milliseconds: 118),
+              groupLoopPauseDuration: Duration(milliseconds: 243),
+            ),
+        _GenerationGridSquareAnimationVariant.rowsEnhanced:
+            _GenerationGridSquareAnimationSpec(
+              groupedSequence: List<List<int>>.generate(
+                _rows * _columns,
+                (int index) => <int>[index],
+                growable: false,
+              ),
+              lightUpDuration: const Duration(milliseconds: 300),
+              dimDuration: const Duration(milliseconds: 1000),
+              staggerInterval: const Duration(milliseconds: 72),
+              groupLoopPauseDuration: const Duration(milliseconds: 570),
+            ),
+      };
 
   final Key animationKey;
+  final String jobId;
   final String imagePath;
+
+  static _GenerationGridSquareAnimationSpec _animationSpecForJobId(
+    String jobId,
+  ) {
+    int hash = 0;
+    for (final int codeUnit in jobId.codeUnits) {
+      hash = ((hash * 31) + codeUnit) & 0x7FFFFFFF;
+    }
+    final _GenerationGridSquareAnimationVariant variant =
+        _GenerationGridSquareAnimationVariant.values[hash %
+            _GenerationGridSquareAnimationVariant.values.length];
+    return _animationSpecs[variant]!;
+  }
 
   @override
   ConsumerState<_GenerationGridSquare> createState() =>
@@ -2740,6 +2842,8 @@ class _GenerationGridSquareState extends ConsumerState<_GenerationGridSquare> {
 
   @override
   Widget build(BuildContext context) {
+    final _GenerationGridSquareAnimationSpec animationSpec =
+        _GenerationGridSquare._animationSpecForJobId(widget.jobId);
     final bool tickerModeEnabled = TickerMode.valuesOf(context).enabled;
     final bool reduceMotion =
         MediaQuery.maybeDisableAnimationsOf(context) ?? false;
@@ -2779,25 +2883,28 @@ class _GenerationGridSquareState extends ConsumerState<_GenerationGridSquare> {
                   builder: (BuildContext context, BoxConstraints constraints) {
                     return GridSquareAnimation(
                       key: widget.animationKey,
-                      preset: GridSquareAnimationPreset.rowSweep,
                       rows: _GenerationGridSquare._rows,
                       columns: _GenerationGridSquare._columns,
-                      groupedSequence: _GenerationGridSquare._rowSweepSequence,
+                      groupedSequence: animationSpec.groupedSequence,
                       width: constraints.maxWidth,
                       height: constraints.maxHeight,
-                      spacing: 2,
-                      borderRadius: 4,
-                      lightUpDuration: _GenerationGridSquare._lightUpDuration,
-                      dimDuration: _GenerationGridSquare._dimDuration,
-                      staggerInterval: _GenerationGridSquare._staggerInterval,
+                      spacing: animationSpec.spacing,
+                      borderRadius: animationSpec.borderRadius,
+                      lightUpDuration: animationSpec.lightUpDuration,
+                      dimDuration: animationSpec.dimDuration,
+                      staggerInterval: animationSpec.staggerInterval,
+                      groupLoopPauseDuration:
+                          animationSpec.groupLoopPauseDuration,
                       baseColor: AppColors.accentYellow.withValues(
                         alpha: generationImageMosaicBaseAlpha,
                       ),
                       lightUpColor: AppColors.accentYellow,
                       baseCellColors: baseCellColors,
                       lightUpCellColors: lightUpCellColors,
-                      enableGlow: true,
-                      glowIntensity: _GenerationGridSquare._glowIntensity,
+                      lightUpCurve: animationSpec.lightUpCurve,
+                      dimCurve: animationSpec.dimCurve,
+                      enableGlow: animationSpec.enableGlow,
+                      glowIntensity: animationSpec.glowIntensity,
                     );
                   },
                 ),
@@ -2806,6 +2913,28 @@ class _GenerationGridSquareState extends ConsumerState<_GenerationGridSquare> {
           },
     );
   }
+}
+
+class _GenerationGridSquareAnimationSpec {
+  const _GenerationGridSquareAnimationSpec({
+    required this.groupedSequence,
+    required this.lightUpDuration,
+    required this.dimDuration,
+    required this.staggerInterval,
+    required this.groupLoopPauseDuration,
+  });
+
+  final List<List<int>> groupedSequence;
+  final Duration lightUpDuration;
+  final Duration dimDuration;
+  final Duration staggerInterval;
+  final Duration groupLoopPauseDuration;
+  Curve get lightUpCurve => Curves.easeOutCubic;
+  Curve get dimCurve => Curves.easeInCubic;
+  double get spacing => 2.173295454545453;
+  double get borderRadius => 4;
+  bool get enableGlow => true;
+  double get glowIntensity => 0.63;
 }
 
 class _ThumbnailImage extends StatelessWidget {
