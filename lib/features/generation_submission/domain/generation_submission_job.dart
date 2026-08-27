@@ -33,6 +33,8 @@ class GenerationSubmissionJob {
     required this.updatedAt,
     this.animationIndex,
     this.generationStartedAt,
+    this.originalWidth,
+    this.originalHeight,
     this.uploadSessionId,
     this.promptSelection,
     this.captureAspectRatio,
@@ -67,6 +69,8 @@ class GenerationSubmissionJob {
   final DateTime updatedAt;
   final int? animationIndex;
   final DateTime? generationStartedAt;
+  final int? originalWidth;
+  final int? originalHeight;
   final String? uploadSessionId;
   final PromptSelectionSnapshot? promptSelection;
   final CameraCaptureAspectRatio? captureAspectRatio;
@@ -135,6 +139,8 @@ class GenerationSubmissionJob {
     DateTime? updatedAt,
     int? animationIndex,
     DateTime? generationStartedAt,
+    int? originalWidth,
+    int? originalHeight,
     String? uploadSessionId,
     PromptSelectionSnapshot? promptSelection,
     CameraCaptureAspectRatio? captureAspectRatio,
@@ -171,6 +177,8 @@ class GenerationSubmissionJob {
       updatedAt: updatedAt ?? this.updatedAt,
       animationIndex: animationIndex ?? this.animationIndex,
       generationStartedAt: generationStartedAt ?? this.generationStartedAt,
+      originalWidth: originalWidth ?? this.originalWidth,
+      originalHeight: originalHeight ?? this.originalHeight,
       uploadSessionId: uploadSessionId ?? this.uploadSessionId,
       promptSelection: promptSelection ?? this.promptSelection,
       captureAspectRatio: captureAspectRatio ?? this.captureAspectRatio,

@@ -229,9 +229,8 @@ Future<GenerationImagePixelBuffer> loadGenerationImagePixelBuffer(
   if (imagePath.isEmpty) {
     throw const FormatException('Image path is empty');
   }
-  final Uint8List bytes = await File(imagePath).readAsBytes();
-  final ui.ImmutableBuffer buffer = await ui.ImmutableBuffer.fromUint8List(
-    bytes,
+  final ui.ImmutableBuffer buffer = await ui.ImmutableBuffer.fromFilePath(
+    imagePath,
   );
   ui.ImageDescriptor? descriptor;
   ui.Codec? codec;

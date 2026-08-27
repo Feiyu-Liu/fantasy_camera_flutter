@@ -307,6 +307,40 @@ void main() {
     );
   });
 
+  testWidgets('thumbnail decodes near its physical display size', (
+    WidgetTester tester,
+  ) async {
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        jobs: <GenerationSubmissionJob>[
+          _job(
+            id: 'resized-thumbnail',
+            status: GenerationSubmissionStatus.awaitingConfirmation,
+            originalWidth: 4032,
+            originalHeight: 3024,
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+
+    final Finder thumbnail = find.byKey(
+      const ValueKey<String>('generation-thumbnail-image-resized-thumbnail'),
+    );
+    final Image image = tester.widget<Image>(
+      find.descendant(of: thumbnail, matching: find.byType(Image)),
+    );
+    final ResizeImage provider = image.image as ResizeImage;
+
+    expect(provider.policy, ResizeImagePolicy.fit);
+    expect(provider.width, isNotNull);
+    expect(provider.height, isNotNull);
+    expect(provider.width!, lessThan(4032));
+    expect(provider.height!, lessThan(3024));
+    expect(provider.width! / provider.height!, closeTo(4 / 3, 0.01));
+  });
+
   testWidgets(
     'loading cards cycle through three branded mosaic animation variants',
     (WidgetTester tester) async {
@@ -589,6 +623,51 @@ void main() {
     hostKey.currentState!.setTickerModeEnabled(true);
     await tester.pump();
     expect(TickerMode.valuesOf(tester.element(grid)).enabled, isTrue);
+  });
+
+  testWidgets('scrolling activates the visible loading card ticker', (
+    WidgetTester tester,
+  ) async {
+    final List<GenerationSubmissionJob> jobs =
+        List<GenerationSubmissionJob>.generate(
+          12,
+          (int index) => _job(
+            id: 'visibility-$index',
+            status: GenerationSubmissionStatus.uploading,
+          ),
+        );
+    await _pumpModalHost(tester, _ModalHost(jobs: jobs));
+    await tester.pump();
+
+    final Finder firstTicker = find.byKey(
+      const ValueKey<String>(
+        'generation-submission-grid-square-ticker-visibility-0',
+      ),
+    );
+    expect(tester.widget<TickerMode>(firstTicker).enabled, isTrue);
+
+    final Finder strip = find.byKey(
+      const ValueKey<String>('generation-submission-photo-list'),
+    );
+    final Finder scrollable = find.descendant(
+      of: strip,
+      matching: find.byType(Scrollable),
+    );
+    final Finder lastCard = find.byKey(
+      const ValueKey<String>('generation-submission-photo-visibility-11'),
+    );
+    await tester.scrollUntilVisible(lastCard, 240, scrollable: scrollable);
+    await tester.pump();
+
+    final Finder lastTicker = find.byKey(
+      const ValueKey<String>(
+        'generation-submission-grid-square-ticker-visibility-11',
+      ),
+    );
+    expect(tester.widget<TickerMode>(lastTicker).enabled, isTrue);
+    if (firstTicker.evaluate().isNotEmpty) {
+      expect(tester.widget<TickerMode>(firstTicker).enabled, isFalse);
+    }
   });
 
   testWidgets('grid square reloads its mosaic when the image path changes', (
@@ -3379,6 +3458,8 @@ Future<void> _seedJobs(
       recordId: job.id,
       originalLocalPath: job.imagePath,
       createdAt: job.createdAt,
+      originalWidth: job.originalWidth,
+      originalHeight: job.originalHeight,
       promptStyle: promptSelection.promptStyle,
       captureMode: promptSelection.captureMode,
       appInputContractId: promptSelection.appInputContractId,
@@ -3917,6 +3998,8 @@ GenerationSubmissionJob _job({
   DateTime? resultNegativeFeedbackSubmittedAt,
   DateTime? updatedAt,
   DateTime? generationStartedAt,
+  int? originalWidth,
+  int? originalHeight,
 }) {
   final DateTime now = DateTime.parse('2026-05-29T00:00:00Z');
   final String resolvedImagePath = imagePath ?? _writeImageFile(id).path;
@@ -3952,6 +4035,8 @@ GenerationSubmissionJob _job({
     createdAt: now,
     updatedAt: updatedAt ?? now,
     generationStartedAt: generationStartedAt,
+    originalWidth: originalWidth,
+    originalHeight: originalHeight,
   );
 }
 

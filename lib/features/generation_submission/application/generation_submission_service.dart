@@ -2003,6 +2003,8 @@ class GenerationSubmissionService extends ChangeNotifier {
         updatedAt: record.updatedAt,
         animationIndex: record.animationIndex,
         generationStartedAt: record.generationStartedAt,
+        originalWidth: record.originalWidth,
+        originalHeight: record.originalHeight,
         taskId: record.taskId,
         taskStatus: _taskStatusFromWire(record.taskStatus),
         resultImageObjectId: record.resultImageObjectId,
@@ -2048,6 +2050,8 @@ class GenerationSubmissionService extends ChangeNotifier {
       updatedAt: record.updatedAt,
       animationIndex: record.animationIndex,
       generationStartedAt: record.generationStartedAt,
+      originalWidth: record.originalWidth,
+      originalHeight: record.originalHeight,
       uploadSessionId: record.uploadSessionId,
       promptSelection: _promptSelectionForRecord(record),
       captureAspectRatio: CameraCaptureAspectRatio.fromNullableStorageValue(
