@@ -2474,6 +2474,9 @@ class _JobThumbnailState extends State<_JobThumbnail> {
                             'generation-submission-grid-square-back-${widget.job.id}',
                           ),
                           jobId: widget.job.id,
+                          animationIndex:
+                              widget.job.animationIndex ??
+                              generationDefaultAnimationIndex,
                           imagePath: widget.job.imagePath,
                           startedAt: widget.job.generationStartedAt,
                           status: _backStatus,
@@ -2573,12 +2576,14 @@ class _GenerationLoadingCardBack extends StatefulWidget {
   const _GenerationLoadingCardBack({
     super.key,
     required this.jobId,
+    required this.animationIndex,
     required this.imagePath,
     required this.startedAt,
     required this.status,
   });
 
   final String jobId;
+  final int animationIndex;
   final String imagePath;
   final DateTime? startedAt;
   final GenerationSubmissionStatus status;
@@ -2657,7 +2662,7 @@ class _GenerationLoadingCardBackState
               animationKey: ValueKey<String>(
                 'generation-submission-grid-square-${widget.jobId}',
               ),
-              jobId: widget.jobId,
+              animationIndex: widget.animationIndex,
               imagePath: widget.imagePath,
             ),
           ),
@@ -2688,13 +2693,13 @@ enum _GenerationGridSquareAnimationVariant { diagonal, diamond, rowsEnhanced }
 class _GenerationGridSquare extends ConsumerStatefulWidget {
   const _GenerationGridSquare({
     required this.animationKey,
-    required this.jobId,
+    required this.animationIndex,
     required this.imagePath,
     super.key,
-  });
+  }) : assert(animationIndex >= 0);
 
-  static const int _rows = 8;
-  static const int _columns = 6;
+  static const int _rows = 7;
+  static const int _columns = 5;
   static const double _cardPadding = 8;
   static final Map<
     _GenerationGridSquareAnimationVariant,
@@ -2710,52 +2715,39 @@ class _GenerationGridSquare extends ConsumerStatefulWidget {
               groupedSequence: <List<int>>[
                 <int>[0],
                 <int>[1],
-                <int>[6],
-                <int>[2],
-                <int>[7],
-                <int>[12],
-                <int>[3],
-                <int>[8],
-                <int>[13],
-                <int>[18],
-                <int>[4],
-                <int>[9],
-                <int>[14],
-                <int>[19],
-                <int>[24],
                 <int>[5],
+                <int>[2],
+                <int>[6],
                 <int>[10],
-                <int>[15],
-                <int>[20],
-                <int>[25],
-                <int>[30],
+                <int>[3],
+                <int>[7],
                 <int>[11],
+                <int>[15],
+                <int>[4],
+                <int>[8],
+                <int>[12],
                 <int>[16],
-                <int>[21],
-                <int>[26],
-                <int>[31],
-                <int>[36],
+                <int>[20],
+                <int>[9],
+                <int>[13],
                 <int>[17],
+                <int>[21],
+                <int>[25],
+                <int>[14],
+                <int>[18],
                 <int>[22],
-                <int>[27],
-                <int>[32],
-                <int>[37],
-                <int>[42],
+                <int>[26],
+                <int>[30],
+                <int>[19],
                 <int>[23],
+                <int>[27],
+                <int>[31],
+                <int>[24],
                 <int>[28],
-                <int>[33],
-                <int>[38],
-                <int>[43],
+                <int>[32],
                 <int>[29],
+                <int>[33],
                 <int>[34],
-                <int>[39],
-                <int>[44],
-                <int>[35],
-                <int>[40],
-                <int>[45],
-                <int>[41],
-                <int>[46],
-                <int>[47],
               ],
               lightUpDuration: Duration(milliseconds: 300),
               dimDuration: Duration(milliseconds: 1000),
@@ -2765,12 +2757,12 @@ class _GenerationGridSquare extends ConsumerStatefulWidget {
         _GenerationGridSquareAnimationVariant.diamond:
             const _GenerationGridSquareAnimationSpec(
               groupedSequence: <List<int>>[
-                <int>[20, 21, 26, 27],
-                <int>[14, 15, 19, 22, 25, 28, 32, 33],
-                <int>[8, 9, 13, 16, 18, 23, 24, 29, 31, 34, 38, 39],
-                <int>[2, 3, 7, 10, 12, 17, 30, 35, 37, 40, 44, 45],
-                <int>[1, 4, 6, 11, 36, 41, 43, 46],
-                <int>[0, 5, 42, 47],
+                <int>[17],
+                <int>[12, 16, 18, 22],
+                <int>[7, 11, 13, 15, 19, 21, 23, 27],
+                <int>[2, 6, 8, 10, 14, 20, 24, 26, 28, 32],
+                <int>[1, 3, 5, 9, 25, 29, 31, 33],
+                <int>[0, 4, 30, 34],
               ],
               lightUpDuration: Duration(milliseconds: 300),
               dimDuration: Duration(milliseconds: 518),
@@ -2792,18 +2784,14 @@ class _GenerationGridSquare extends ConsumerStatefulWidget {
       };
 
   final Key animationKey;
-  final String jobId;
+  final int animationIndex;
   final String imagePath;
 
-  static _GenerationGridSquareAnimationSpec _animationSpecForJobId(
-    String jobId,
+  static _GenerationGridSquareAnimationSpec _animationSpecForIndex(
+    int animationIndex,
   ) {
-    int hash = 0;
-    for (final int codeUnit in jobId.codeUnits) {
-      hash = ((hash * 31) + codeUnit) & 0x7FFFFFFF;
-    }
     final _GenerationGridSquareAnimationVariant variant =
-        _GenerationGridSquareAnimationVariant.values[hash %
+        _GenerationGridSquareAnimationVariant.values[animationIndex %
             _GenerationGridSquareAnimationVariant.values.length];
     return _animationSpecs[variant]!;
   }
@@ -2843,7 +2831,7 @@ class _GenerationGridSquareState extends ConsumerState<_GenerationGridSquare> {
   @override
   Widget build(BuildContext context) {
     final _GenerationGridSquareAnimationSpec animationSpec =
-        _GenerationGridSquare._animationSpecForJobId(widget.jobId);
+        _GenerationGridSquare._animationSpecForIndex(widget.animationIndex);
     final bool tickerModeEnabled = TickerMode.valuesOf(context).enabled;
     final bool reduceMotion =
         MediaQuery.maybeDisableAnimationsOf(context) ?? false;

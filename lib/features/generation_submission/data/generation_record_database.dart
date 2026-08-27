@@ -15,6 +15,7 @@ class GenerationRecords extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
   DateTimeColumn get generationStartedAt => dateTime().nullable()();
+  IntColumn get animationIndex => integer().nullable()();
 
   TextColumn get pipelineStatus => text()();
   TextColumn get originalSourceType => text()();
@@ -75,9 +76,19 @@ class GenerationRecords extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{recordId};
 }
 
-@DriftDatabase(tables: <Type>[GenerationRecords])
+class GenerationAnimationSequenceStates extends Table {
+  IntColumn get singletonId => integer()();
+  IntColumn get nextAnimationIndex => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{singletonId};
+}
+
+@DriftDatabase(
+  tables: <Type>[GenerationRecords, GenerationAnimationSequenceStates],
+)
 class GenerationRecordDatabase extends _$GenerationRecordDatabase {
-  static const int currentSchemaVersion = 4;
+  static const int currentSchemaVersion = 5;
 
   GenerationRecordDatabase() : super(_openConnection());
 
@@ -99,6 +110,8 @@ class GenerationRecordDatabase extends _$GenerationRecordDatabase {
               await _migrateFrom2To3(migrator);
             case 3:
               await _migrateFrom3To4(migrator);
+            case 4:
+              await _migrateFrom4To5(migrator);
           }
         }
       },
@@ -138,6 +151,14 @@ WHERE generation_started_at IS NULL
         GenerationRecordPipelineStatus.canceled.name,
       ],
     );
+  }
+
+  Future<void> _migrateFrom4To5(Migrator migrator) async {
+    await migrator.addColumn(
+      generationRecords,
+      generationRecords.animationIndex,
+    );
+    await migrator.createTable(generationAnimationSequenceStates);
   }
 }
 

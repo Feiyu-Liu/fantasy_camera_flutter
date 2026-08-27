@@ -507,6 +507,7 @@ void main() {
         state.jobs.single.imagePath,
         '/resolved/originals/2026/06/04/$recordId.heic',
       );
+      expect(state.jobs.single.animationIndex, generationDefaultAnimationIndex);
       expect(photoLibraryAssetStore.resolvedAssetIds, isEmpty);
     },
   );

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:background_downloader/background_downloader.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/app/app_router.dart';
 import 'package:fantasy_camera_flutter/auth/domain/auth_session_state.dart';
@@ -50,61 +51,48 @@ import 'package:my_ui/my_ui.dart';
 const List<List<int>> _diagonalGridSquareSequence = <List<int>>[
   <int>[0],
   <int>[1],
-  <int>[6],
-  <int>[2],
-  <int>[7],
-  <int>[12],
-  <int>[3],
-  <int>[8],
-  <int>[13],
-  <int>[18],
-  <int>[4],
-  <int>[9],
-  <int>[14],
-  <int>[19],
-  <int>[24],
   <int>[5],
+  <int>[2],
+  <int>[6],
   <int>[10],
-  <int>[15],
-  <int>[20],
-  <int>[25],
-  <int>[30],
+  <int>[3],
+  <int>[7],
   <int>[11],
+  <int>[15],
+  <int>[4],
+  <int>[8],
+  <int>[12],
   <int>[16],
-  <int>[21],
-  <int>[26],
-  <int>[31],
-  <int>[36],
+  <int>[20],
+  <int>[9],
+  <int>[13],
   <int>[17],
+  <int>[21],
+  <int>[25],
+  <int>[14],
+  <int>[18],
   <int>[22],
-  <int>[27],
-  <int>[32],
-  <int>[37],
-  <int>[42],
+  <int>[26],
+  <int>[30],
+  <int>[19],
   <int>[23],
+  <int>[27],
+  <int>[31],
+  <int>[24],
   <int>[28],
-  <int>[33],
-  <int>[38],
-  <int>[43],
+  <int>[32],
   <int>[29],
+  <int>[33],
   <int>[34],
-  <int>[39],
-  <int>[44],
-  <int>[35],
-  <int>[40],
-  <int>[45],
-  <int>[41],
-  <int>[46],
-  <int>[47],
 ];
 
 const List<List<int>> _diamondGridSquareSequence = <List<int>>[
-  <int>[20, 21, 26, 27],
-  <int>[14, 15, 19, 22, 25, 28, 32, 33],
-  <int>[8, 9, 13, 16, 18, 23, 24, 29, 31, 34, 38, 39],
-  <int>[2, 3, 7, 10, 12, 17, 30, 35, 37, 40, 44, 45],
-  <int>[1, 4, 6, 11, 36, 41, 43, 46],
-  <int>[0, 5, 42, 47],
+  <int>[17],
+  <int>[12, 16, 18, 22],
+  <int>[7, 11, 13, 15, 19, 21, 23, 27],
+  <int>[2, 6, 8, 10, 14, 20, 24, 26, 28, 32],
+  <int>[1, 3, 5, 9, 25, 29, 31, 33],
+  <int>[0, 4, 30, 34],
 ];
 
 void main() {
@@ -320,7 +308,7 @@ void main() {
   });
 
   testWidgets(
-    'loading cards use three stable branded mosaic animation variants',
+    'loading cards cycle through three branded mosaic animation variants',
     (WidgetTester tester) async {
       final _FakeGenerationImageMosaicRepository mosaicRepository =
           _FakeGenerationImageMosaicRepository(
@@ -331,12 +319,10 @@ void main() {
             ]),
           );
       final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
-        _job(id: 'job-3', status: GenerationSubmissionStatus.pollingTask),
-        _job(id: 'early', status: GenerationSubmissionStatus.uploading),
-        _job(
-          id: 'late',
-          status: GenerationSubmissionStatus.processingResultImage,
-        ),
+        _job(id: 'a', status: GenerationSubmissionStatus.pollingTask),
+        _job(id: 'd', status: GenerationSubmissionStatus.uploading),
+        _job(id: 'g', status: GenerationSubmissionStatus.processingResultImage),
+        _job(id: 'j', status: GenerationSubmissionStatus.pollingTask),
       ];
 
       await _pumpModalHost(
@@ -345,35 +331,41 @@ void main() {
       );
       await tester.pump();
 
-      final Finder earlyGrid = find.byKey(
-        const ValueKey<String>('generation-submission-grid-square-early'),
+      final Finder diamondGrid = find.byKey(
+        const ValueKey<String>('generation-submission-grid-square-d'),
       );
-      final Finder lateGrid = find.byKey(
-        const ValueKey<String>('generation-submission-grid-square-late'),
+      final Finder rowsEnhancedGrid = find.byKey(
+        const ValueKey<String>('generation-submission-grid-square-g'),
       );
       final Finder diagonalGrid = find.byKey(
-        const ValueKey<String>('generation-submission-grid-square-job-3'),
+        const ValueKey<String>('generation-submission-grid-square-a'),
+      );
+      final Finder repeatedDiagonalGrid = find.byKey(
+        const ValueKey<String>('generation-submission-grid-square-j'),
       );
 
-      expect(earlyGrid, findsOneWidget);
-      expect(lateGrid, findsOneWidget);
+      expect(diamondGrid, findsOneWidget);
+      expect(rowsEnhancedGrid, findsOneWidget);
       expect(diagonalGrid, findsOneWidget);
-      final GridSquareAnimation earlyEffect = tester
-          .widget<GridSquareAnimation>(earlyGrid);
-      final GridSquareAnimation lateEffect = tester.widget<GridSquareAnimation>(
-        lateGrid,
-      );
+      expect(repeatedDiagonalGrid, findsOneWidget);
+      final GridSquareAnimation diamondEffect = tester
+          .widget<GridSquareAnimation>(diamondGrid);
+      final GridSquareAnimation rowsEnhancedEffect = tester
+          .widget<GridSquareAnimation>(rowsEnhancedGrid);
       final GridSquareAnimation diagonalEffect = tester
           .widget<GridSquareAnimation>(diagonalGrid);
+      final GridSquareAnimation repeatedDiagonalEffect = tester
+          .widget<GridSquareAnimation>(repeatedDiagonalGrid);
       final List<GridSquareAnimation> effects = <GridSquareAnimation>[
         diagonalEffect,
-        earlyEffect,
-        lateEffect,
+        diamondEffect,
+        rowsEnhancedEffect,
+        repeatedDiagonalEffect,
       ];
 
       for (final GridSquareAnimation effect in effects) {
-        expect(effect.rows, 8);
-        expect(effect.columns, 6);
+        expect(effect.rows, 7);
+        expect(effect.columns, 5);
         expect(effect.rows, greaterThan(effect.columns));
         expect(effect.spacing, 2.173295454545453);
         expect(effect.borderRadius, 4);
@@ -386,8 +378,8 @@ void main() {
           ),
         );
         expect(effect.lightUpColor, AppColors.accentYellow);
-        expect(effect.baseCellColors, hasLength(48));
-        expect(effect.lightUpCellColors, hasLength(48));
+        expect(effect.baseCellColors, hasLength(35));
+        expect(effect.lightUpCellColors, hasLength(35));
         expect(
           effect.baseCellColors!.every(
             (Color color) => color.a == generationImageMosaicBaseAlpha,
@@ -398,7 +390,7 @@ void main() {
           effect.lightUpCellColors!.every((Color color) => color.a == 1),
           isTrue,
         );
-        for (int index = 0; index < 48; index += 1) {
+        for (int index = 0; index < 35; index += 1) {
           expect(
             effect.baseCellColors![index].withValues(alpha: 1),
             effect.lightUpCellColors![index],
@@ -416,24 +408,37 @@ void main() {
         diagonalEffect.groupLoopPauseDuration,
         const Duration(milliseconds: 150),
       );
-
-      expect(earlyEffect.groupedSequence, _diamondGridSquareSequence);
-      expect(earlyEffect.lightUpDuration, const Duration(milliseconds: 300));
-      expect(earlyEffect.dimDuration, const Duration(milliseconds: 518));
-      expect(earlyEffect.staggerInterval, const Duration(milliseconds: 118));
       expect(
-        earlyEffect.groupLoopPauseDuration,
+        repeatedDiagonalEffect.groupedSequence,
+        _diagonalGridSquareSequence,
+      );
+
+      expect(diamondEffect.groupedSequence, _diamondGridSquareSequence);
+      expect(diamondEffect.lightUpDuration, const Duration(milliseconds: 300));
+      expect(diamondEffect.dimDuration, const Duration(milliseconds: 518));
+      expect(diamondEffect.staggerInterval, const Duration(milliseconds: 118));
+      expect(
+        diamondEffect.groupLoopPauseDuration,
         const Duration(milliseconds: 243),
       );
 
-      expect(lateEffect.groupedSequence, <List<int>>[
-        for (int index = 0; index < 48; index += 1) <int>[index],
+      expect(rowsEnhancedEffect.groupedSequence, <List<int>>[
+        for (int index = 0; index < 35; index += 1) <int>[index],
       ]);
-      expect(lateEffect.lightUpDuration, const Duration(milliseconds: 300));
-      expect(lateEffect.dimDuration, const Duration(milliseconds: 1000));
-      expect(lateEffect.staggerInterval, const Duration(milliseconds: 72));
       expect(
-        lateEffect.groupLoopPauseDuration,
+        rowsEnhancedEffect.lightUpDuration,
+        const Duration(milliseconds: 300),
+      );
+      expect(
+        rowsEnhancedEffect.dimDuration,
+        const Duration(milliseconds: 1000),
+      );
+      expect(
+        rowsEnhancedEffect.staggerInterval,
+        const Duration(milliseconds: 72),
+      );
+      expect(
+        rowsEnhancedEffect.groupLoopPauseDuration,
         const Duration(milliseconds: 570),
       );
       expect(find.byType(ShaderMask), findsNothing);
@@ -443,31 +448,31 @@ void main() {
       );
       expect(
         mosaicRepository.extractedRequests.every(
-          (request) => request.rows == 8 && request.columns == 6,
+          (request) => request.rows == 7 && request.columns == 5,
         ),
         isTrue,
       );
-      final ColoredBox earlyBackground = tester.widget<ColoredBox>(
+      final ColoredBox diamondBackground = tester.widget<ColoredBox>(
         find.byKey(
           const ValueKey<String>(
-            'generation-submission-grid-square-background-early',
+            'generation-submission-grid-square-background-d',
           ),
         ),
       );
-      expect(earlyBackground.color, AppColors.white);
-      final Finder earlyBack = find.byKey(
-        const ValueKey<String>('generation-submission-grid-square-back-early'),
+      expect(diamondBackground.color, AppColors.white);
+      final Finder diamondBack = find.byKey(
+        const ValueKey<String>('generation-submission-grid-square-back-d'),
       );
-      final Size backSize = tester.getSize(earlyBack);
+      final Size backSize = tester.getSize(diamondBack);
       expect(
-        tester.getSize(earlyGrid),
+        tester.getSize(diamondGrid),
         Size(backSize.width - 16, backSize.height - 16),
       );
-      expect(tester.getCenter(earlyGrid), tester.getCenter(earlyBack));
+      expect(tester.getCenter(diamondGrid), tester.getCenter(diamondBack));
       expect(
         find.byKey(
           const ValueKey<String>(
-            'generation-submission-grid-square-progress-early',
+            'generation-submission-grid-square-progress-d',
           ),
         ),
         findsOneWidget,
@@ -475,7 +480,7 @@ void main() {
       final Text progressText = tester.widget<Text>(
         find.byKey(
           const ValueKey<String>(
-            'generation-submission-grid-square-progress-early',
+            'generation-submission-grid-square-progress-d',
           ),
         ),
       );
@@ -523,6 +528,39 @@ void main() {
     expect(after.dimDuration, before.dimDuration);
     expect(after.staggerInterval, before.staggerInterval);
     expect(after.groupLoopPauseDuration, before.groupLoopPauseDuration);
+  });
+
+  testWidgets('legacy job without animation index falls back to diagonal', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        key: hostKey,
+        jobs: <GenerationSubmissionJob>[
+          _job(id: 'first', status: GenerationSubmissionStatus.uploading),
+          _job(id: 'legacy', status: GenerationSubmissionStatus.uploading),
+        ],
+      ),
+    );
+
+    const ValueKey<String> animationKey = ValueKey<String>(
+      'generation-submission-grid-square-legacy',
+    );
+    final GridSquareAnimation persisted = tester.widget<GridSquareAnimation>(
+      find.byKey(animationKey),
+    );
+    expect(persisted.groupedSequence, _diamondGridSquareSequence);
+
+    await hostKey.currentState!.clearAnimationIndex('legacy');
+    await tester.pump();
+    await tester.pump();
+
+    final GridSquareAnimation fallback = tester.widget<GridSquareAnimation>(
+      find.byKey(animationKey),
+    );
+    expect(fallback.groupedSequence, _diagonalGridSquareSequence);
   });
 
   testWidgets('grid square follows the inherited ticker mode', (
@@ -615,7 +653,7 @@ void main() {
           ),
         ],
         imageMosaicRepository: _FakeGenerationImageMosaicRepository(
-          GenerationImageMosaic.fallback(rows: 8, columns: 6),
+          GenerationImageMosaic.fallback(rows: 7, columns: 5),
           failure: const FormatException('invalid mosaic'),
         ),
       ),
@@ -2880,6 +2918,10 @@ class _ModalHostState extends State<_ModalHost> {
     await _recordRepository.replaceJobs(jobs);
   }
 
+  Future<void> clearAnimationIndex(String recordId) {
+    return _recordRepository.clearAnimationIndex(recordId);
+  }
+
   void setTickerModeEnabled(bool enabled) {
     setState(() => _tickerModeEnabled = enabled);
   }
@@ -2958,7 +3000,7 @@ class _ModalHostState extends State<_ModalHost> {
           generationImageMosaicRepositoryProvider.overrideWithValue(
             widget.imageMosaicRepository ??
                 _FakeGenerationImageMosaicRepository(
-                  GenerationImageMosaic.fallback(rows: 8, columns: 6),
+                  GenerationImageMosaic.fallback(rows: 7, columns: 5),
                 ),
           ),
           uploadRepositoryProvider.overrideWithValue(
@@ -3066,8 +3108,10 @@ class _SeededModalState extends State<_SeededModal> {
 }
 
 class _NotifyingGenerationRecordRepository extends GenerationRecordRepository {
-  _NotifyingGenerationRecordRepository(super.database, this._recordsController);
+  _NotifyingGenerationRecordRepository(this._database, this._recordsController)
+    : super(_database);
 
+  final GenerationRecordDatabase _database;
   final StreamController<List<GenerationRecord>> _recordsController;
   bool _suspendEmits = false;
 
@@ -3080,13 +3124,21 @@ class _NotifyingGenerationRecordRepository extends GenerationRecordRepository {
   Future<void> replaceJobs(List<GenerationSubmissionJob> jobs) async {
     _suspendEmits = true;
     try {
-      for (final GenerationRecord record in await listRecords()) {
-        await super.deleteRecord(record.recordId);
-      }
+      await super.deleteAllRecords();
       await _seedJobs(jobs, this);
     } finally {
       _suspendEmits = false;
     }
+    await _emitRecords();
+  }
+
+  Future<void> clearAnimationIndex(String recordId) async {
+    await (_database.update(_database.generationRecords)..where(
+          ($GenerationRecordsTable table) => table.recordId.equals(recordId),
+        ))
+        .write(
+          const GenerationRecordsCompanion(animationIndex: Value<int?>(null)),
+        );
     await _emitRecords();
   }
 
@@ -3841,10 +3893,10 @@ class _FakeGenerationSubmissionGuideRepository
 GenerationImageMosaic _testMosaic(List<Color> colors) {
   assert(colors.isNotEmpty);
   return GenerationImageMosaic(
-    rows: 8,
-    columns: 6,
+    rows: 7,
+    columns: 5,
     cellColors: List<Color>.generate(
-      48,
+      35,
       (int index) => colors[index % colors.length].withValues(alpha: 1),
       growable: false,
     ),
