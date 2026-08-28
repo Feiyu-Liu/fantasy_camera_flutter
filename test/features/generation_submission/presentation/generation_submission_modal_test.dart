@@ -328,6 +328,11 @@ void main() {
     final Finder thumbnail = find.byKey(
       const ValueKey<String>('generation-thumbnail-image-resized-thumbnail'),
     );
+    final Size thumbnailCardSize = tester.getSize(
+      find.byKey(
+        const ValueKey<String>('generation-submission-photo-resized-thumbnail'),
+      ),
+    );
     final Image image = tester.widget<Image>(
       find.descendant(of: thumbnail, matching: find.byType(Image)),
     );
@@ -339,6 +344,10 @@ void main() {
     expect(provider.width!, lessThan(4032));
     expect(provider.height!, lessThan(3024));
     expect(provider.width! / provider.height!, closeTo(4 / 3, 0.01));
+    expect(
+      thumbnailCardSize.width / thumbnailCardSize.height,
+      closeTo(3 / 4, 0.001),
+    );
   });
 
   testWidgets(

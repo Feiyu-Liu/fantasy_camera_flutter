@@ -1540,6 +1540,7 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
   static const Duration _removeDuration = Duration(milliseconds: 220);
   static const double _horizontalPadding = 24;
   static const double _itemGap = 8;
+  static const double _thumbnailAspectRatio = 3 / 4;
 
   late GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   late final ScrollController _scrollController = ScrollController()
@@ -1791,7 +1792,7 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
                         0.0,
                         280.0,
                       );
-                  final double tileWidth = tileHeight * 0.72;
+                  final double tileWidth = tileHeight * _thumbnailAspectRatio;
                   final double itemExtent = tileWidth + _itemGap;
                   if (_itemExtent != itemExtent) {
                     _itemExtent = itemExtent;
@@ -2103,7 +2104,9 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
                         0.0,
                         280.0,
                       );
-                  final double tileWidth = tileHeight * 0.72;
+                  final double tileWidth =
+                      tileHeight *
+                      _RelatedMomentsStripState._thumbnailAspectRatio;
                   Widget thumbnail = _JobThumbnail(
                     thumbnailKey: removing
                         ? 'generation-submission-removing-photo-${job.id}'
