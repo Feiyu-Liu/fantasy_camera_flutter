@@ -2408,6 +2408,7 @@ class _JobThumbnailState extends State<_JobThumbnail> {
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     final String thumbnailImagePath =
         widget.job.status == GenerationSubmissionStatus.resultSaved
         ? widget.job.processedResultPath ?? ''
@@ -2547,7 +2548,7 @@ class _JobThumbnailState extends State<_JobThumbnail> {
                 ),
                 fit: StackFit.expand,
                 children: <Widget>[
-                  const ColoredBox(color: AppColors.white),
+                  ColoredBox(color: colors.surface),
                   ExcludeSemantics(
                     excluding: !_showGridSquare,
                     child: AnimatedOpacity(
@@ -2585,7 +2586,7 @@ class _JobThumbnailState extends State<_JobThumbnail> {
                 key: ValueKey<String>(
                   'generation-submission-grid-square-inactive-${widget.job.id}',
                 ),
-                color: AppColors.white,
+                color: colors.surface,
               ),
       ),
     );
@@ -2726,6 +2727,7 @@ class _GenerationLoadingCardBackState
 
   @override
   Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
     return Stack(
       fit: StackFit.expand,
       children: <Widget>[
@@ -2733,7 +2735,7 @@ class _GenerationLoadingCardBackState
           key: ValueKey<String>(
             'generation-submission-grid-square-background-${widget.jobId}',
           ),
-          color: AppColors.white,
+          color: colors.surface,
         ),
         ExcludeSemantics(
           child: _GenerationGridSquare(
@@ -2766,8 +2768,8 @@ class _GenerationLoadingCardBackState
                   ),
                   maxLines: 1,
                   softWrap: false,
-                  style: const TextStyle(
-                    color: AppColors.black,
+                  style: TextStyle(
+                    color: colors.textPrimary,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0,

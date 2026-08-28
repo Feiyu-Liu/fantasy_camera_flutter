@@ -1707,6 +1707,7 @@ void main() {
   testWidgets('gallery uses dark theme colors', (WidgetTester tester) async {
     final List<GenerationSubmissionJob> jobs = <GenerationSubmissionJob>[
       _job(id: 'dark', status: GenerationSubmissionStatus.awaitingConfirmation),
+      _job(id: 'dark-loading', status: GenerationSubmissionStatus.pollingTask),
     ];
 
     await _pumpModalHost(
@@ -1761,6 +1762,23 @@ void main() {
       (thumbnailDecoration.shape as OutlinedBorder).side.color,
       AppThemeColors.dark.accentYellow,
     );
+
+    final ColoredBox loadingBackground = tester.widget<ColoredBox>(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-grid-square-background-dark-loading',
+        ),
+      ),
+    );
+    final Text progress = tester.widget<Text>(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-grid-square-progress-dark-loading',
+        ),
+      ),
+    );
+    expect(loadingBackground.color, AppThemeColors.dark.surface);
+    expect(progress.style?.color, AppThemeColors.dark.textPrimary);
   });
 
   testWidgets('modal shows thumbnail fallback when original file is missing', (
