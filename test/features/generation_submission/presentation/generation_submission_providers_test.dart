@@ -22,6 +22,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/applicatio
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_repository.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_processor.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_image_artifact_store.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_original_file_store.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_submission_adapters.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_record.dart';
@@ -154,10 +155,7 @@ void main() {
     expect(imageProcessor.preparedSourcePaths, <String>[
       '/resolved/originals/2026/06/04/$jobId.heic',
     ]);
-    expect(
-      job.uploadImagePath,
-      '/resolved/originals/2026/06/04/$jobId.heic.cleaned.jpg',
-    );
+    expect(job.uploadImagePath, isNull);
     expect(job.uploadImageSizeBytes, 4);
     expect(job.sourceExif, <String, Object>{
       'DateTimeOriginal': '2026:05:29 00:00:00',
@@ -1854,6 +1852,52 @@ void main() {
     expect(job.isRetryableFailure, isTrue);
   });
 
+  test('result save retry reuses persisted processed artifact', () async {
+    final _FakeGenerationImageProcessor imageProcessor =
+        _FakeGenerationImageProcessor();
+    final _FakePhotoLibraryAssetStore photoLibraryAssetStore =
+        _FakePhotoLibraryAssetStore()..failure = StateError('photos denied');
+    final _FakeGenerationImageArtifactStore artifactStore =
+        _FakeGenerationImageArtifactStore();
+    final ProviderContainer container = _container(
+      imageProcessor: imageProcessor,
+      photoLibraryAssetStore: photoLibraryAssetStore,
+      imageArtifactStore: artifactStore,
+      taskRepository: _completedTaskRepository(),
+    );
+    addTearDown(container.dispose);
+
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .submitCapturedFile(XFile('/tmp/photo.jpg'));
+
+    GenerationSubmissionJob job = await _waitForSingleJobStatus(
+      container,
+      GenerationSubmissionStatus.resultProcessingFailed,
+    );
+    expect(job.failureStage, GenerationRecordFailureStage.resultSaving);
+    expect(job.resultSaveErrorCode, 'result_saving_failed');
+    expect(imageProcessor.processedResultUrls, hasLength(1));
+    final GenerationRecord? failedRecord = await container
+        .read(generationRecordRepositoryProvider)
+        .findById(job.id);
+    expect(
+      failedRecord?.resultLocalCachePath,
+      '/tmp/photo.jpg.cleaned.jpg.result.heic',
+    );
+    expect(failedRecord?.resultSizeBytes, 3);
+
+    photoLibraryAssetStore.failure = null;
+    await container
+        .read(generationSubmissionControllerProvider.notifier)
+        .retryJob(job.id);
+
+    job = container.read(generationSubmissionControllerProvider).jobs.single;
+    expect(job.status, GenerationSubmissionStatus.resultSaved);
+    expect(imageProcessor.processedResultUrls, hasLength(1));
+    expect(photoLibraryAssetStore.events, hasLength(2));
+  });
+
   test('polling failed task marks job failed', () async {
     final _FakeGenerationTaskRepository taskRepository =
         _FakeGenerationTaskRepository()
@@ -2316,6 +2360,7 @@ ProviderContainer _container({
   _FakeFeedbackRepository? feedbackRepository,
   _FakeGenerationOriginalFileStore? originalFileStore,
   _FakeBackgroundR2UploadService? backgroundR2UploadService,
+  _FakeGenerationImageArtifactStore? imageArtifactStore,
 }) {
   final GenerationRecordDatabase resolvedDatabase =
       database ?? GenerationRecordDatabase.forExecutor(NativeDatabase.memory());
@@ -2330,6 +2375,9 @@ ProviderContainer _container({
       ),
       generationImageProcessorProvider.overrideWithValue(
         imageProcessor ?? _FakeGenerationImageProcessor(),
+      ),
+      generationImageArtifactStoreProvider.overrideWithValue(
+        imageArtifactStore ?? _FakeGenerationImageArtifactStore(),
       ),
       uploadRepositoryProvider.overrideWithValue(
         uploadRepository ?? _FakeUploadRepository(),
@@ -2365,6 +2413,7 @@ ProviderContainer _container({
           originalFileStore: ref.watch(generationOriginalFileStoreProvider),
           photoLibraryAssetStore: ref.watch(photoLibraryAssetStoreProvider),
           imageProcessor: ref.watch(generationImageProcessorProvider),
+          imageArtifactStore: ref.watch(generationImageArtifactStoreProvider),
           backgroundR2UploadService: ref.watch(
             backgroundR2UploadServiceProvider,
           ),
@@ -2503,7 +2552,8 @@ class _FakeGenerationImageProcessor implements GenerationImageProcessor {
     }
     return PreparedUploadImage(
       path: '$sourcePath.cleaned.jpg',
-      bytes: Uint8List.fromList(<int>[1, 2, 3, 4]),
+      sizeBytes: 4,
+      checksumSha256: 'checksum',
       sourceExif: const <String, Object>{
         'DateTimeOriginal': '2026:05:29 00:00:00',
       },
@@ -2524,9 +2574,66 @@ class _FakeGenerationImageProcessor implements GenerationImageProcessor {
     }
     return ProcessedResultImage(
       path: '/tmp/photo.jpg.cleaned.jpg.result.heic',
-      bytes: Uint8List.fromList(<int>[9, 8, 7]),
+      sizeBytes: 3,
     );
   }
+}
+
+class _FakeGenerationImageArtifactStore
+    implements GenerationImageArtifactStore {
+  final List<String> deletedArtifacts = <String>[];
+  final List<String> deletedRecordIds = <String>[];
+
+  @override
+  Future<void> commitPartial({
+    required String partialPath,
+    required String finalPath,
+  }) async {}
+
+  @override
+  Future<String> createPartialPath(String finalPath) async => '$finalPath.part';
+
+  @override
+  Future<void> deleteArtifact(String path) async {
+    deletedArtifacts.add(path);
+  }
+
+  @override
+  Future<void> deleteRecordArtifacts(String recordId) async {
+    deletedRecordIds.add(recordId);
+  }
+
+  @override
+  Future<GenerationUploadArtifactTarget> resolveUploadTarget({
+    required String recordId,
+    required String sourcePath,
+    required int maxSide,
+    required int quality,
+    required bool keepExif,
+  }) async {
+    return GenerationUploadArtifactTarget(
+      path: '$sourcePath.cleaned.jpg',
+      isReusable: true,
+    );
+  }
+
+  @override
+  Future<String> resultArtifactPath(
+    String recordId, {
+    required String suffix,
+  }) async => '/tmp/$recordId.result.$suffix';
+
+  @override
+  Future<String> resultDownloadPath(String recordId) async =>
+      '/tmp/$recordId.result-download';
+
+  @override
+  Future<int?> validFileSize(String path, {int? expectedSizeBytes}) async {
+    return expectedSizeBytes ?? 3;
+  }
+
+  @override
+  Future<int?> validJpegSize(String path) async => 4;
 }
 
 class _FakePhotoLibraryAssetStore implements PhotoLibraryAssetStore {
@@ -2621,10 +2728,11 @@ class _FakeUploadRepository implements UploadRepository {
   Future<UploadSession> createUpload({
     required String clientRequestId,
     required String contentType,
-    required Uint8List bytes,
+    required int sizeBytes,
+    required String checksumSha256,
     CreateGenerationTaskInput? generationRequest,
   }) async {
-    events.add('create:$contentType:${bytes.length}');
+    events.add('create:$contentType:$sizeBytes');
     generationRequests.add(generationRequest);
     if (createUploadFailures.isNotEmpty) {
       throw createUploadFailures.removeAt(0);
@@ -2641,7 +2749,7 @@ class _FakeUploadRepository implements UploadRepository {
       expiresAt: _fixedExpiresAt,
       requiredHeaders: <String, String>{
         'content-type': 'image/jpeg',
-        'content-length': '${bytes.length}',
+        'content-length': '$sizeBytes',
         'x-amz-checksum-sha256': 'checksum',
       },
       url: 'https://example.com/upload',

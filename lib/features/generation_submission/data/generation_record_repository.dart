@@ -388,6 +388,23 @@ class GenerationRecordRepository {
     );
   }
 
+  Future<void> clearResultLocalCache({
+    required String recordId,
+    required DateTime updatedAt,
+  }) {
+    return _updateById(
+      recordId,
+      GenerationRecordsCompanion(
+        updatedAt: Value<DateTime>(updatedAt),
+        resultAvailability: Value<String>(
+          GenerationRecordResultAvailability.none.name,
+        ),
+        resultLocalCachePath: const Value<String?>(null),
+        resultSizeBytes: const Value<int?>(null),
+      ),
+    );
+  }
+
   Future<void> markResultSaved({
     required String recordId,
     required DateTime updatedAt,

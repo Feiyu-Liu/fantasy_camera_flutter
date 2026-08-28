@@ -359,7 +359,8 @@ void main() {
       final upload = await repository.createUpload(
         clientRequestId: 'local-test-record',
         contentType: 'image/png',
-        bytes: bytes,
+        sizeBytes: bytes.length,
+        checksumSha256: sha256Base64(bytes),
         generationRequest: const CreateGenerationTaskInput(
           uploadSessionId: '',
           promptStyle: 'realistic',

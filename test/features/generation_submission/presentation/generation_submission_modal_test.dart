@@ -3581,7 +3581,8 @@ class _FakeGenerationImageProcessor implements GenerationImageProcessor {
   }) async {
     return PreparedUploadImage(
       path: '$sourcePath.cleaned.jpg',
-      bytes: Uint8List.fromList(<int>[1]),
+      sizeBytes: 1,
+      checksumSha256: 'checksum',
       sourceExif: const <String, Object>{},
     );
   }
@@ -3592,10 +3593,7 @@ class _FakeGenerationImageProcessor implements GenerationImageProcessor {
     required String resultUrl,
     required Map<String, Object> sourceExif,
   }) async {
-    return ProcessedResultImage(
-      path: '/tmp/result.heic',
-      bytes: Uint8List.fromList(<int>[1]),
-    );
+    return ProcessedResultImage(path: '/tmp/result.heic', sizeBytes: 1);
   }
 }
 
@@ -3767,7 +3765,8 @@ class _FakeUploadRepository implements UploadRepository {
   Future<UploadSession> createUpload({
     required String clientRequestId,
     required String contentType,
-    required Uint8List bytes,
+    required int sizeBytes,
+    required String checksumSha256,
     CreateGenerationTaskInput? generationRequest,
   }) async {
     createUploadCount += 1;

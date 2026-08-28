@@ -19,6 +19,7 @@ import '../../camera/domain/camera_capture_aspect_ratio.dart';
 import 'background_r2_upload_service.dart';
 import '../data/generation_record_database.dart';
 import '../data/generation_record_repository.dart';
+import '../data/generation_image_artifact_store.dart';
 import '../data/generation_image_processor.dart';
 import '../data/generation_original_file_store.dart';
 import '../data/generation_submission_adapters.dart';
@@ -50,6 +51,8 @@ class GenerationSubmissionService extends ChangeNotifier {
     required GenerationOriginalFileStore originalFileStore,
     required PhotoLibraryAssetStore photoLibraryAssetStore,
     required GenerationImageProcessor imageProcessor,
+    GenerationImageArtifactStore imageArtifactStore =
+        const ApplicationCacheGenerationImageArtifactStore(),
     BackgroundR2UploadService backgroundR2UploadService =
         const ForegroundFallbackR2UploadService(),
     NotificationDeviceCoordinator notificationDeviceCoordinator =
@@ -61,6 +64,7 @@ class GenerationSubmissionService extends ChangeNotifier {
        _originalFileStore = originalFileStore,
        _photoLibraryAssetStore = photoLibraryAssetStore,
        _imageProcessor = imageProcessor,
+       _imageArtifactStore = imageArtifactStore,
        _backgroundR2UploadService = backgroundR2UploadService,
        _notificationDeviceCoordinator = notificationDeviceCoordinator;
 
@@ -73,6 +77,7 @@ class GenerationSubmissionService extends ChangeNotifier {
   final GenerationOriginalFileStore _originalFileStore;
   final PhotoLibraryAssetStore _photoLibraryAssetStore;
   final GenerationImageProcessor _imageProcessor;
+  final GenerationImageArtifactStore _imageArtifactStore;
   final BackgroundR2UploadService _backgroundR2UploadService;
   final NotificationDeviceCoordinator _notificationDeviceCoordinator;
   final Map<String, Future<void>> _submissionOperations =
@@ -343,6 +348,7 @@ class GenerationSubmissionService extends ChangeNotifier {
     }
     _runtimeState.remove(recordId);
     await _generationRecordRepository.deleteRecord(recordId);
+    unawaited(_deleteRecordImageArtifacts(recordId));
     notifyListeners();
   }
 
@@ -819,6 +825,7 @@ class GenerationSubmissionService extends ChangeNotifier {
     }
     _runtimeState.remove(recordId);
     await _generationRecordRepository.deleteRecord(recordId);
+    unawaited(_deleteRecordImageArtifacts(recordId));
     _debugLog('remove success record=$recordId');
     notifyListeners();
   }
@@ -936,15 +943,16 @@ class GenerationSubmissionService extends ChangeNotifier {
       final PreparedUploadImage uploadImage = await _imageProcessor
           .prepareUploadImage(jobId: recordId, sourcePath: sourcePath);
       _debugLog(
-        'prepare upload image success record=$recordId path=${uploadImage.path} bytes=${uploadImage.bytes.length} exifKeys=${uploadImage.sourceExif.length}',
+        'prepare upload image success record=$recordId path=${uploadImage.path} bytes=${uploadImage.sizeBytes} exifKeys=${uploadImage.sourceExif.length}',
       );
       _runtimeFor(recordId).uploadImagePath = uploadImage.path;
       _runtimeFor(recordId).sourceExif = uploadImage.sourceExif;
-
-      stage = 'readingFile';
-      final Uint8List bytes = uploadImage.bytes;
-      _debugLog(
-        'read cleaned file success record=$recordId bytes=${bytes.length}',
+      await _generationRecordRepository.updateUploadFields(
+        recordId: recordId,
+        updatedAt: DateTime.now(),
+        uploadContentType: 'image/jpeg',
+        uploadSizeBytes: uploadImage.sizeBytes,
+        uploadSha256: uploadImage.checksumSha256,
       );
 
       stage = 'creatingUpload';
@@ -969,11 +977,14 @@ class GenerationSubmissionService extends ChangeNotifier {
       );
       final String? originDeviceId = await _notificationDeviceCoordinator
           .ensureRegisteredForGeneration();
-      _debugLog('create upload start record=$recordId bytes=${bytes.length}');
+      _debugLog(
+        'create upload start record=$recordId bytes=${uploadImage.sizeBytes}',
+      );
       final UploadSession uploadSession = await _uploadRepository.createUpload(
         clientRequestId: recordId,
         contentType: 'image/jpeg',
-        bytes: bytes,
+        sizeBytes: uploadImage.sizeBytes,
+        checksumSha256: uploadImage.checksumSha256,
         generationRequest: CreateGenerationTaskInput(
           uploadSessionId: '',
           promptStyle: promptSelection.promptStyle,
@@ -993,7 +1004,8 @@ class GenerationSubmissionService extends ChangeNotifier {
         uploadSessionId: uploadSession.uploadSessionId,
         sourceImageObjectId: uploadSession.sourceImageObjectId,
         uploadContentType: 'image/jpeg',
-        uploadSizeBytes: bytes.length,
+        uploadSizeBytes: uploadImage.sizeBytes,
+        uploadSha256: uploadImage.checksumSha256,
       );
 
       stage = 'uploading';
@@ -1036,6 +1048,7 @@ class GenerationSubmissionService extends ChangeNotifier {
       _debugLog(
         'complete upload success record=$recordId uploadSession=${uploadSession.uploadSessionId} result=$completeResult',
       );
+      await _deleteUploadArtifact(recordId: recordId, path: uploadImage.path);
 
       stage = 'uploadedWaitingTask';
       await _markPipelineStatus(
@@ -1766,61 +1779,17 @@ class GenerationSubmissionService extends ChangeNotifier {
       return;
     }
 
+    _debugLog('process result pipeline start record=$recordId task=$taskId');
+    await _markPipelineStatus(
+      recordId,
+      GenerationRecordPipelineStatus.processingResultImage,
+      clearError: true,
+      clearFailure: true,
+    );
+
+    final ProcessedResultImage result;
     try {
-      _debugLog('process result pipeline start record=$recordId task=$taskId');
-      await _markPipelineStatus(
-        recordId,
-        GenerationRecordPipelineStatus.processingResultImage,
-        clearError: true,
-        clearFailure: true,
-      );
-      final String? resultUrl = await _loadResultUrlForRecord(record);
-      if (resultUrl == null) {
-        throw StateError('Result URL was not available.');
-      }
-      final Map<String, Object> sourceExif =
-          _runtimeState[recordId]?.sourceExif ?? const <String, Object>{};
-      final ProcessedResultImage result = await _imageProcessor
-          .processResultImage(
-            jobId: recordId,
-            resultUrl: resultUrl,
-            sourceExif: sourceExif,
-          );
-      _runtimeFor(recordId).processedResultPath = result.path;
-      _debugLog(
-        'save processed result start record=$recordId path=${result.path}',
-      );
-      final SavedPhotoLibraryImage savedImage = await _photoLibraryAssetStore
-          .saveImage(
-            result.path,
-            album: AppConfig.generationPhotoAlbumName,
-            fileName: AppConfig.generationResultFileName(recordId),
-          );
-      final DateTime savedAt = DateTime.now();
-      _debugLog(
-        'save processed result success record=$recordId bytes=${result.bytes.length} asset=${savedImage.assetId}',
-      );
-      final String? savedResultPath = await _photoLibraryAssetStore
-          .resolveImagePath(savedImage.assetId);
-      if (savedResultPath != null && savedResultPath.isNotEmpty) {
-        _runtimeFor(recordId).processedResultPath = savedResultPath;
-        _debugLog(
-          'resolve saved result success record=$recordId asset=${savedImage.assetId} path=$savedResultPath',
-        );
-      } else {
-        _debugLog(
-          'resolve saved result unavailable record=$recordId asset=${savedImage.assetId}',
-        );
-      }
-      await _generationRecordRepository.markResultSaved(
-        recordId: recordId,
-        updatedAt: savedAt,
-        resultAssetId: savedImage.assetId,
-        resultSavedAt: savedAt,
-        resultSizeBytes: result.bytes.length,
-      );
-      _cancelResultRetry(recordId);
-      await _deleteTemporaryResultFile(recordId: recordId, path: result.path);
+      result = await _prepareResultArtifact(record);
     } on _ResultUrlNotReadyException {
       _debugLog(
         'process result deferred record=$recordId task=$taskId reason=result-not-ready',
@@ -1833,12 +1802,11 @@ class GenerationSubmissionService extends ChangeNotifier {
         clearFailure: true,
       );
       _scheduleResultProcessingRetry(recordId: recordId, taskId: taskId);
+      return;
     } on Object catch (error) {
       _debugLog(
-        'process result pipeline failure record=$recordId error=$error',
+        'prepare result artifact failure record=$recordId error=$error',
       );
-      final GenerationRecord? failedRecord = await _generationRecordRepository
-          .findById(recordId);
       await _generationRecordRepository.markFailure(
         recordId: recordId,
         status: GenerationRecordPipelineStatus.resultSaveFailed,
@@ -1848,18 +1816,119 @@ class GenerationSubmissionService extends ChangeNotifier {
         errorCode: 'result_processing_failed',
         errorMessage: error.toString(),
       );
-      final String? temporaryResultPath =
-          _runtimeState[recordId]?.processedResultPath;
-      if (temporaryResultPath != null &&
-          failedRecord?.resultLocalCachePath != temporaryResultPath) {
-        await _generationRecordRepository.updateResultFields(
-          recordId: recordId,
-          updatedAt: DateTime.now(),
-          resultAvailability: GenerationRecordResultAvailability.localCache,
-          resultLocalCachePath: temporaryResultPath,
+      return;
+    }
+
+    try {
+      await _savePreparedResult(recordId: recordId, result: result);
+    } on Object catch (error) {
+      _debugLog('save prepared result failure record=$recordId error=$error');
+      await _generationRecordRepository.markFailure(
+        recordId: recordId,
+        status: GenerationRecordPipelineStatus.resultSaveFailed,
+        failureStage: GenerationRecordFailureStage.resultSaving,
+        failureRetryable: true,
+        updatedAt: DateTime.now(),
+        errorCode: 'result_saving_failed',
+        errorMessage: error.toString(),
+      );
+    }
+  }
+
+  Future<ProcessedResultImage> _prepareResultArtifact(
+    GenerationRecord record,
+  ) async {
+    final String recordId = record.recordId;
+    final String? cachedPath = record.resultLocalCachePath;
+    if (cachedPath != null && cachedPath.isNotEmpty) {
+      final int? cachedSize = await _imageArtifactStore.validFileSize(
+        cachedPath,
+        expectedSizeBytes: record.resultSizeBytes,
+      );
+      if (cachedSize != null) {
+        _runtimeFor(recordId).processedResultPath = cachedPath;
+        _debugLog(
+          'reuse result artifact record=$recordId path=$cachedPath bytes=$cachedSize',
         );
+        return ProcessedResultImage(path: cachedPath, sizeBytes: cachedSize);
+      }
+      _debugLog(
+        'discard invalid result artifact record=$recordId path=$cachedPath expectedBytes=${record.resultSizeBytes ?? 'unknown'}',
+      );
+      await _imageArtifactStore.deleteArtifact(cachedPath);
+      await _generationRecordRepository.clearResultLocalCache(
+        recordId: recordId,
+        updatedAt: DateTime.now(),
+      );
+      if (_runtimeState[recordId]?.processedResultPath == cachedPath) {
+        _runtimeState[recordId]?.processedResultPath = null;
       }
     }
+
+    final String? resultUrl = await _loadResultUrlForRecord(record);
+    if (resultUrl == null) {
+      throw StateError('Result URL was not available.');
+    }
+    final Map<String, Object> sourceExif =
+        _runtimeState[recordId]?.sourceExif ?? const <String, Object>{};
+    final ProcessedResultImage result = await _imageProcessor
+        .processResultImage(
+          jobId: recordId,
+          resultUrl: resultUrl,
+          sourceExif: sourceExif,
+        );
+    _runtimeFor(recordId).processedResultPath = result.path;
+    await _generationRecordRepository.updateResultFields(
+      recordId: recordId,
+      updatedAt: DateTime.now(),
+      resultAvailability: GenerationRecordResultAvailability.localCache,
+      resultLocalCachePath: result.path,
+      resultSizeBytes: result.sizeBytes,
+    );
+    _debugLog(
+      'persist result artifact record=$recordId path=${result.path} bytes=${result.sizeBytes}',
+    );
+    return result;
+  }
+
+  Future<void> _savePreparedResult({
+    required String recordId,
+    required ProcessedResultImage result,
+  }) async {
+    _debugLog(
+      'save processed result start record=$recordId path=${result.path}',
+    );
+    final SavedPhotoLibraryImage savedImage = await _photoLibraryAssetStore
+        .saveImage(
+          result.path,
+          album: AppConfig.generationPhotoAlbumName,
+          fileName: AppConfig.generationResultFileName(recordId),
+        );
+    final DateTime savedAt = DateTime.now();
+    _debugLog(
+      'save processed result success record=$recordId bytes=${result.sizeBytes} asset=${savedImage.assetId}',
+    );
+    final String? savedResultPath = await _photoLibraryAssetStore
+        .resolveImagePath(savedImage.assetId);
+    if (savedResultPath != null && savedResultPath.isNotEmpty) {
+      _runtimeFor(recordId).processedResultPath = savedResultPath;
+      _debugLog(
+        'resolve saved result success record=$recordId asset=${savedImage.assetId} path=$savedResultPath',
+      );
+    } else {
+      _debugLog(
+        'resolve saved result unavailable record=$recordId asset=${savedImage.assetId}',
+      );
+    }
+    await _generationRecordRepository.markResultSaved(
+      recordId: recordId,
+      updatedAt: savedAt,
+      resultAssetId: savedImage.assetId,
+      resultSavedAt: savedAt,
+      resultSizeBytes: result.sizeBytes,
+    );
+    _cancelResultRetry(recordId);
+    await _deleteTemporaryResultFile(recordId: recordId, path: result.path);
   }
 
   Future<void> _deleteTemporaryResultFile({
@@ -1867,11 +1936,8 @@ class GenerationSubmissionService extends ChangeNotifier {
     required String path,
   }) async {
     try {
-      final File file = File(path);
-      if (await file.exists()) {
-        await file.delete();
-        _debugLog('delete temp result success record=$recordId path=$path');
-      }
+      await _imageArtifactStore.deleteArtifact(path);
+      _debugLog('delete temp result success record=$recordId path=$path');
       if (_runtimeState[recordId]?.processedResultPath == path) {
         _runtimeState[recordId]?.processedResultPath = null;
       }
@@ -1879,6 +1945,32 @@ class GenerationSubmissionService extends ChangeNotifier {
       _debugLog(
         'delete temp result failure record=$recordId path=$path error=$error',
       );
+    }
+  }
+
+  Future<void> _deleteUploadArtifact({
+    required String recordId,
+    required String path,
+  }) async {
+    try {
+      await _imageArtifactStore.deleteArtifact(path);
+      if (_runtimeState[recordId]?.uploadImagePath == path) {
+        _runtimeState[recordId]?.uploadImagePath = null;
+      }
+      _debugLog('delete upload artifact success record=$recordId path=$path');
+    } on Object catch (error) {
+      _debugLog(
+        'delete upload artifact failure record=$recordId path=$path error=$error',
+      );
+    }
+  }
+
+  Future<void> _deleteRecordImageArtifacts(String recordId) async {
+    try {
+      await _imageArtifactStore.deleteRecordArtifacts(recordId);
+      _debugLog('delete image artifacts success record=$recordId');
+    } on Object catch (error) {
+      _debugLog('delete image artifacts failure record=$recordId error=$error');
     }
   }
 

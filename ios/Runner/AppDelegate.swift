@@ -5,7 +5,6 @@ import UIKit
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var photoLibraryAssetChannel: PhotoLibraryAssetChannel?
   private var captureLensMetadataChannel: CaptureLensMetadataChannel?
-  private var capturedPhotoProcessingChannel: CapturedPhotoProcessingChannel?
 
   override func application(
     _ application: UIApplication,
@@ -20,9 +19,6 @@ import UIKit
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
     )
     captureLensMetadataChannel = CaptureLensMetadataChannel(
-      binaryMessenger: engineBridge.applicationRegistrar.messenger()
-    )
-    capturedPhotoProcessingChannel = CapturedPhotoProcessingChannel(
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
     )
   }

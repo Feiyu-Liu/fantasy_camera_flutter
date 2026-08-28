@@ -19,6 +19,7 @@ import '../application/generation_original_cache_cleaner.dart';
 import '../application/generation_submission_service.dart';
 import '../data/generation_record_database.dart';
 import '../data/generation_record_repository.dart';
+import '../data/generation_image_artifact_store.dart';
 import '../data/generation_image_processor.dart';
 import '../data/generation_original_file_store.dart';
 import '../data/generation_submission_adapters.dart';
@@ -119,13 +120,24 @@ final resultDownloadDioProvider = Provider<Dio>((Ref ref) {
   );
 });
 
-final generationImageProcessorProvider = Provider<GenerationImageProcessor>((
-  Ref ref,
-) {
-  return FlutterGenerationImageProcessor(
-    dio: ref.watch(resultDownloadDioProvider),
-  );
-}, dependencies: <ProviderOrFamily>[resultDownloadDioProvider]);
+final generationImageArtifactStoreProvider =
+    Provider<GenerationImageArtifactStore>(
+      (Ref ref) => const ApplicationCacheGenerationImageArtifactStore(),
+      dependencies: const <ProviderOrFamily>[],
+    );
+
+final generationImageProcessorProvider = Provider<GenerationImageProcessor>(
+  (Ref ref) {
+    return FlutterGenerationImageProcessor(
+      dio: ref.watch(resultDownloadDioProvider),
+      artifactStore: ref.watch(generationImageArtifactStoreProvider),
+    );
+  },
+  dependencies: <ProviderOrFamily>[
+    resultDownloadDioProvider,
+    generationImageArtifactStoreProvider,
+  ],
+);
 
 final generationOriginalFileStoreProvider =
     Provider<GenerationOriginalFileStore>(
@@ -205,6 +217,7 @@ final generationSubmissionServiceProvider =
           originalFileStore: ref.watch(generationOriginalFileStoreProvider),
           photoLibraryAssetStore: ref.watch(photoLibraryAssetStoreProvider),
           imageProcessor: ref.watch(generationImageProcessorProvider),
+          imageArtifactStore: ref.watch(generationImageArtifactStoreProvider),
           backgroundR2UploadService: ref.watch(
             backgroundR2UploadServiceProvider,
           ),
@@ -224,6 +237,7 @@ final generationSubmissionServiceProvider =
         generationOriginalFileStoreProvider,
         photoLibraryAssetStoreProvider,
         generationImageProcessorProvider,
+        generationImageArtifactStoreProvider,
         backgroundR2UploadServiceProvider,
         notificationDeviceControllerProvider,
       ],

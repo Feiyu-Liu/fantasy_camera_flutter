@@ -7,6 +7,7 @@ import 'package:supabase/supabase.dart' hide AuthUser;
 import 'package:fantasy_camera_flutter/auth/domain/access_token_provider.dart';
 import 'package:fantasy_camera_flutter/config/app_config.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/data/checksum.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/fantasy_api_client.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 
@@ -71,7 +72,8 @@ void main() {
       final upload = await uploadRepository.createUpload(
         clientRequestId: 'live-smoke-${DateTime.now().microsecondsSinceEpoch}',
         contentType: 'image/png',
-        bytes: pngBytes,
+        sizeBytes: pngBytes.length,
+        checksumSha256: sha256Base64(pngBytes),
       );
       await uploadRepository.uploadBytes(
         uploadSession: upload,

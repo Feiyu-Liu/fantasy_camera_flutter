@@ -1,32 +1,37 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math' as math;
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:native_exif/native_exif.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../../config/app_config.dart';
 import '../../../shared/core/app_logger.dart';
+import 'generation_image_artifact_store.dart';
 
 class PreparedUploadImage {
   const PreparedUploadImage({
     required this.path,
-    required this.bytes,
+    required this.sizeBytes,
+    required this.checksumSha256,
     required this.sourceExif,
   });
 
   final String path;
-  final Uint8List bytes;
+  final int sizeBytes;
+  final String checksumSha256;
   final Map<String, Object> sourceExif;
 }
 
 class ProcessedResultImage {
-  const ProcessedResultImage({required this.path, required this.bytes});
+  const ProcessedResultImage({required this.path, required this.sizeBytes});
 
   final String path;
-  final Uint8List bytes;
+  final int sizeBytes;
 }
 
 abstract interface class GenerationImageProcessor {
@@ -43,9 +48,15 @@ abstract interface class GenerationImageProcessor {
 }
 
 class FlutterGenerationImageProcessor implements GenerationImageProcessor {
-  const FlutterGenerationImageProcessor({required Dio dio}) : _dio = dio;
+  const FlutterGenerationImageProcessor({
+    required Dio dio,
+    GenerationImageArtifactStore artifactStore =
+        const ApplicationCacheGenerationImageArtifactStore(),
+  }) : _dio = dio,
+       _artifactStore = artifactStore;
 
   final Dio _dio;
+  final GenerationImageArtifactStore _artifactStore;
 
   @override
   Future<PreparedUploadImage> prepareUploadImage({
@@ -68,38 +79,69 @@ class FlutterGenerationImageProcessor implements GenerationImageProcessor {
       'upload target size job=$jobId width=${targetSize.width} height=${targetSize.height} sourceWidth=${targetSize.sourceWidth ?? 'unknown'} sourceHeight=${targetSize.sourceHeight ?? 'unknown'}',
     );
 
-    final String targetPath = await _temporaryPath(
-      jobId: jobId,
-      suffix: 'upload.jpg',
-    );
-    final XFile compressedFile = await _measure(
-      label: 'clean jpeg',
-      jobId: jobId,
-      action: () async {
-        final XFile? file = await FlutterImageCompress.compressAndGetFile(
-          sourcePath,
-          targetPath,
-          minWidth: targetSize.width,
-          minHeight: targetSize.height,
+    final GenerationUploadArtifactTarget target = await _artifactStore
+        .resolveUploadTarget(
+          recordId: jobId,
+          sourcePath: sourcePath,
+          maxSide: AppConfig.generationUploadImageMaxSide,
           quality: AppConfig.generationUploadJpegQuality,
-          format: CompressFormat.jpeg,
           keepExif: AppConfig.generationUploadKeepExif,
         );
-        if (file == null) {
-          throw StateError('Image compression returned null.');
+    final String targetPath = target.path;
+    if (target.isReusable) {
+      _debugLog('reuse upload artifact job=$jobId path=$targetPath');
+    } else {
+      final String partialPath = await _artifactStore.createPartialPath(
+        targetPath,
+      );
+      try {
+        final XFile compressedFile = await _measure(
+          label: 'clean jpeg',
+          jobId: jobId,
+          action: () async {
+            final XFile? file = await FlutterImageCompress.compressAndGetFile(
+              sourcePath,
+              partialPath,
+              minWidth: targetSize.width,
+              minHeight: targetSize.height,
+              quality: AppConfig.generationUploadJpegQuality,
+              format: CompressFormat.jpeg,
+              keepExif: AppConfig.generationUploadKeepExif,
+            );
+            if (file == null) {
+              throw StateError('Image compression returned null.');
+            }
+            return file;
+          },
+        );
+        if (await _artifactStore.validJpegSize(compressedFile.path) == null) {
+          throw StateError('Image compression did not create a valid JPEG.');
         }
-        return file;
-      },
-    );
+        await _artifactStore.commitPartial(
+          partialPath: compressedFile.path,
+          finalPath: targetPath,
+        );
+      } finally {
+        await _artifactStore.deleteArtifact(partialPath);
+      }
+    }
 
-    final Uint8List bytes = await compressedFile.readAsBytes();
+    final int sizeBytes =
+        await _artifactStore.validJpegSize(targetPath) ??
+        (throw StateError('Upload artifact is missing or invalid.'));
+    final String checksumSha256 = await _measure(
+      label: 'hash upload jpeg',
+      jobId: jobId,
+      action: () => Isolate.run(() => _sha256FileBase64(targetPath)),
+    );
     _debugLog(
-      'prepare upload success job=$jobId output=${compressedFile.path} bytes=${bytes.length} exifKeys=${sourceExif.length}',
+      'prepare upload success job=$jobId output=$targetPath bytes=$sizeBytes exifKeys=${sourceExif.length}',
     );
 
     return PreparedUploadImage(
-      path: compressedFile.path,
-      bytes: bytes,
+      path: targetPath,
+      sizeBytes: sizeBytes,
+      checksumSha256: checksumSha256,
       sourceExif: sourceExif,
     );
   }
@@ -111,47 +153,59 @@ class FlutterGenerationImageProcessor implements GenerationImageProcessor {
     required Map<String, Object> sourceExif,
   }) async {
     _debugLog('process result start job=$jobId url=$resultUrl');
-    final String downloadedPath = await _temporaryPath(
-      jobId: jobId,
-      suffix: 'result-download',
+    final String downloadPath = await _artifactStore.resultDownloadPath(jobId);
+    final String downloadPartialPath = await _artifactStore.createPartialPath(
+      downloadPath,
     );
-    await _measure(
-      label: 'download result',
-      jobId: jobId,
-      action: () => _dio.download(resultUrl, downloadedPath),
+    final String heicPath = await _artifactStore.resultArtifactPath(
+      jobId,
+      suffix: 'heic',
     );
+    final String heicPartialPath = await _artifactStore.createPartialPath(
+      heicPath,
+    );
+    XFile resultFile;
+    try {
+      await _measure(
+        label: 'download result',
+        jobId: jobId,
+        action: () => _dio.download(resultUrl, downloadPartialPath),
+      );
 
-    final String heicPath = await _temporaryPath(
-      jobId: jobId,
-      suffix: 'result.heic',
-    );
-    final XFile heicFile = await _measure(
-      label: 'convert result heif',
-      jobId: jobId,
-      action: () async {
-        final XFile? file = await FlutterImageCompress.compressAndGetFile(
-          downloadedPath,
-          heicPath,
+      final XFile? heicFile = await _measure(
+        label: 'convert result heif',
+        jobId: jobId,
+        action: () => FlutterImageCompress.compressAndGetFile(
+          downloadPartialPath,
+          heicPartialPath,
           quality: AppConfig.generationResultHeifQuality,
           format: CompressFormat.heic,
           keepExif: false,
+        ),
+      );
+      if (heicFile != null &&
+          await _artifactStore.validFileSize(heicFile.path) != null) {
+        await _artifactStore.commitPartial(
+          partialPath: heicFile.path,
+          finalPath: heicPath,
         );
-        if (file == null) {
-          throw StateError('HEIF conversion returned null.');
-        }
-        return file;
-      },
-    );
-    XFile resultFile =
-        await _existingNonEmptyXFile(heicFile.path) ??
-        await _createFallbackJpegResult(
+        resultFile = XFile(heicPath);
+      } else {
+        resultFile = await _createFallbackJpegResult(
           jobId: jobId,
-          downloadedPath: downloadedPath,
-          missingHeicPath: heicFile.path,
+          downloadedPath: downloadPartialPath,
+          missingHeicPath: heicPartialPath,
         );
-    final int resultBytes = await File(resultFile.path).length();
+      }
+    } finally {
+      await _artifactStore.deleteArtifact(downloadPartialPath);
+      await _artifactStore.deleteArtifact(heicPartialPath);
+    }
+    final int convertedBytes =
+        await _artifactStore.validFileSize(resultFile.path) ??
+        (throw StateError('Processed result artifact is missing or empty.'));
     _debugLog(
-      'result image file ready job=$jobId path=${resultFile.path} bytes=$resultBytes',
+      'result image file ready job=$jobId path=${resultFile.path} bytes=$convertedBytes',
     );
 
     final Map<String, Object> resultExif = sanitizeResultExifForWrite(
@@ -170,24 +224,14 @@ class FlutterGenerationImageProcessor implements GenerationImageProcessor {
       jobId: jobId,
       action: () => _tryWriteExif(resultFile.path, resultExif),
     );
+    final int resultBytes =
+        await _artifactStore.validFileSize(resultFile.path) ??
+        (throw StateError('Processed result artifact became unavailable.'));
 
-    final Uint8List bytes = await resultFile.readAsBytes();
     _debugLog(
-      'process result success job=$jobId output=${resultFile.path} bytes=${bytes.length} sourceExifKeys=${sourceExif.length} resultExifKeys=${resultExif.length} exifWritten=$exifWritten',
+      'process result success job=$jobId output=${resultFile.path} bytes=$resultBytes sourceExifKeys=${sourceExif.length} resultExifKeys=${resultExif.length} exifWritten=$exifWritten',
     );
-    return ProcessedResultImage(path: resultFile.path, bytes: bytes);
-  }
-
-  Future<XFile?> _existingNonEmptyXFile(String path) async {
-    final File file = File(path);
-    if (!await file.exists()) {
-      return null;
-    }
-    final int length = await file.length();
-    if (length <= 0) {
-      return null;
-    }
-    return XFile(path);
+    return ProcessedResultImage(path: resultFile.path, sizeBytes: resultBytes);
   }
 
   Future<XFile> _createFallbackJpegResult({
@@ -198,35 +242,45 @@ class FlutterGenerationImageProcessor implements GenerationImageProcessor {
     _debugLog(
       'convert result heif output missing job=$jobId path=$missingHeicPath fallback=jpeg',
     );
-    final String fallbackPath = await _temporaryPath(
-      jobId: jobId,
-      suffix: 'result-fallback.jpg',
+    final String fallbackPath = await _artifactStore.resultArtifactPath(
+      jobId,
+      suffix: 'jpg',
+    );
+    final String fallbackPartialPath = await _artifactStore.createPartialPath(
+      fallbackPath,
     );
     final XFile? fallbackFile = await FlutterImageCompress.compressAndGetFile(
       downloadedPath,
-      fallbackPath,
+      fallbackPartialPath,
       quality: AppConfig.generationUploadJpegQuality,
       format: CompressFormat.jpeg,
       keepExif: false,
     );
-    final XFile? existingFallback = fallbackFile == null
-        ? null
-        : await _existingNonEmptyXFile(fallbackFile.path);
+    final XFile? existingFallback =
+        fallbackFile != null &&
+            await _artifactStore.validJpegSize(fallbackFile.path) != null
+        ? fallbackFile
+        : null;
     if (existingFallback != null) {
-      _debugLog(
-        'fallback jpeg result success job=$jobId path=${existingFallback.path}',
+      await _artifactStore.commitPartial(
+        partialPath: existingFallback.path,
+        finalPath: fallbackPath,
       );
-      return existingFallback;
+      _debugLog('fallback jpeg result success job=$jobId path=$fallbackPath');
+      return XFile(fallbackPath);
     }
 
-    final File downloadedFile = File(downloadedPath);
-    final File copiedFile = await downloadedFile.copy(fallbackPath);
-    final XFile? copiedFallback = await _existingNonEmptyXFile(copiedFile.path);
-    if (copiedFallback != null) {
-      _debugLog(
-        'fallback jpeg copy success job=$jobId path=${copiedFallback.path}',
+    await _artifactStore.deleteArtifact(fallbackPartialPath);
+    final File copiedFile = await File(
+      downloadedPath,
+    ).copy(fallbackPartialPath);
+    if (await _artifactStore.validFileSize(copiedFile.path) != null) {
+      await _artifactStore.commitPartial(
+        partialPath: copiedFile.path,
+        finalPath: fallbackPath,
       );
-      return copiedFallback;
+      _debugLog('fallback jpeg copy success job=$jobId path=$fallbackPath');
+      return XFile(fallbackPath);
     }
 
     throw StateError(
@@ -273,15 +327,6 @@ class FlutterGenerationImageProcessor implements GenerationImageProcessor {
     } finally {
       await exif.close();
     }
-  }
-
-  Future<String> _temporaryPath({
-    required String jobId,
-    required String suffix,
-  }) async {
-    final Directory directory = await getTemporaryDirectory();
-    final String safeJobId = jobId.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-    return '${directory.path}/generation-$safeJobId-$suffix';
   }
 
   _TargetImageSize _targetUploadSizeFromExif(Map<String, Object> sourceExif) {
@@ -365,6 +410,11 @@ class FlutterGenerationImageProcessor implements GenerationImageProcessor {
       );
     }
   }
+}
+
+Future<String> _sha256FileBase64(String path) async {
+  final Digest digest = await sha256.bind(File(path).openRead()).first;
+  return base64.encode(digest.bytes);
 }
 
 void _debugLog(String message) {
