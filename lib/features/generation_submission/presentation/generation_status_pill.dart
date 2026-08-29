@@ -4,7 +4,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../l10n/l10n.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_corners.dart';
-import '../../../theme/app_theme.dart';
 import '../domain/generation_submission_job.dart';
 
 enum _GenerationPillMode { confirmation, completed, retry, failure }
@@ -33,95 +32,80 @@ class GenerationStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final _GenerationPillMode mode = _mode;
-    if (mode == _GenerationPillMode.confirmation) {
-      return _ConfirmationPill(
-        jobId: jobId,
+    if (mode == _GenerationPillMode.confirmation ||
+        mode == _GenerationPillMode.retry) {
+      final bool retry = mode == _GenerationPillMode.retry;
+      final Color actionColor = retry
+          ? AppColors.accentYellow
+          : AppColors.success;
+      return _ThumbnailTextAction(
         height: height,
-        onPressed: onConfirm,
+        interactionKey: ValueKey<String>(
+          retry
+              ? 'generation-submission-retry-$jobId'
+              : 'generation-submission-confirm-$jobId',
+        ),
+        iconKey: retry
+            ? ValueKey<String>('generation-submission-retry-icon-$jobId')
+            : null,
+        visualKey: ValueKey<String>(
+          retry
+              ? 'generation-submission-retry-visual-$jobId'
+              : 'generation-submission-confirm-visual-$jobId',
+        ),
+        icon: retry ? LucideIcons.refreshCcw : LucideIcons.check600,
+        label: retry
+            ? context.l10n.generationSubmissionActionRetry
+            : context.l10n.generationSubmissionActionConfirm,
+        semanticLabel: retry
+            ? context.l10n.generationSubmissionActionRetry
+            : context.l10n.generationSubmissionStatusWaitingForConfirmation,
+        color: actionColor,
+        onPressed: retry ? onRetry : onConfirm,
       );
     }
 
-    final AppThemeColors colors = AppThemeColors.of(context);
-    final bool retry = mode == _GenerationPillMode.retry;
-    final double size = retry ? 24 : height;
-    final IconData icon = switch (mode) {
-      _GenerationPillMode.retry => LucideIcons.refreshCcw,
-      _GenerationPillMode.completed => LucideIcons.circleCheck,
-      _GenerationPillMode.failure => LucideIcons.circleAlert,
-      _GenerationPillMode.confirmation => LucideIcons.circleHelp,
-    };
-    final Color iconColor = switch (mode) {
-      _GenerationPillMode.retry => colors.inverseText,
-      _GenerationPillMode.completed => AppColors.success,
-      _GenerationPillMode.failure => AppColors.danger,
-      _GenerationPillMode.confirmation => AppColors.white,
-    };
-    final Key iconKey = switch (mode) {
-      _GenerationPillMode.retry => ValueKey<String>(
-        'generation-submission-retry-icon-$jobId',
-      ),
-      _GenerationPillMode.completed => const ValueKey<String>(
-        'generation-submission-status-result-saved',
-      ),
-      _GenerationPillMode.failure
-          when status == GenerationSubmissionStatus.resultProcessingFailed =>
-        const ValueKey<String>(
-          'generation-submission-status-result-processing-failed',
-        ),
-      _GenerationPillMode.failure => const ValueKey<String>(
-        'generation-submission-status-failed',
-      ),
-      _GenerationPillMode.confirmation => const ValueKey<String>(
-        'generation-submission-status-processing',
-      ),
-    };
-    final Key interactionKey = switch (mode) {
-      _GenerationPillMode.retry => ValueKey<String>(
-        'generation-submission-retry-$jobId',
-      ),
-      _GenerationPillMode.completed => ValueKey<String>(
-        'generation-submission-completed-$jobId',
-      ),
-      _GenerationPillMode.failure => ValueKey<String>(
-        'generation-submission-failed-$jobId',
-      ),
-      _GenerationPillMode.confirmation => ValueKey<String>(
-        'generation-submission-confirm-$jobId',
-      ),
-    };
-    final String semanticLabel = switch (mode) {
-      _GenerationPillMode.retry => context.l10n.generationSubmissionActionRetry,
-      _GenerationPillMode.completed =>
-        context.l10n.generationSubmissionStatusResultSaved,
-      _GenerationPillMode.failure
-          when status == GenerationSubmissionStatus.resultProcessingFailed =>
-        context.l10n.generationSubmissionStatusResultProcessingFailed,
-      _GenerationPillMode.failure =>
-        context.l10n.generationSubmissionStatusGenerationFailed,
-      _GenerationPillMode.confirmation =>
-        context.l10n.generationSubmissionStatusWaitingForConfirmation,
-    };
+    final bool completed = mode == _GenerationPillMode.completed;
+    final IconData icon = completed
+        ? LucideIcons.circleCheck
+        : LucideIcons.circleAlert;
+    final Color iconColor = completed ? AppColors.success : AppColors.danger;
+    final Key iconKey = completed
+        ? const ValueKey<String>('generation-submission-status-result-saved')
+        : status == GenerationSubmissionStatus.resultProcessingFailed
+        ? const ValueKey<String>(
+            'generation-submission-status-result-processing-failed',
+          )
+        : const ValueKey<String>('generation-submission-status-failed');
+    final Key interactionKey = ValueKey<String>(
+      completed
+          ? 'generation-submission-completed-$jobId'
+          : 'generation-submission-failed-$jobId',
+    );
+    final String semanticLabel = completed
+        ? context.l10n.generationSubmissionStatusResultSaved
+        : status == GenerationSubmissionStatus.resultProcessingFailed
+        ? context.l10n.generationSubmissionStatusResultProcessingFailed
+        : context.l10n.generationSubmissionStatusGenerationFailed;
 
     return Align(
       alignment: Alignment.centerRight,
       child: Semantics(
-        button: retry,
-        enabled: retry && onRetry != null,
+        button: false,
+        enabled: false,
         label: semanticLabel,
         child: GestureDetector(
           key: interactionKey,
           behavior: HitTestBehavior.opaque,
-          onTap: retry ? onRetry : null,
+          onTap: null,
           child: ExcludeSemantics(
             child: DecoratedBox(
               decoration: AppCorners.controlDecoration(
-                color: retry
-                    ? colors.accentYellow.withValues(alpha: 0.8)
-                    : AppColors.blackOverlay(0.45),
+                color: AppColors.blackOverlay(0.45),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: SizedBox.square(
-                dimension: size,
+                dimension: height,
                 child: Icon(icon, key: iconKey, color: iconColor, size: 14),
               ),
             ),
@@ -145,15 +129,27 @@ class GenerationStatusPill extends StatelessWidget {
   }
 }
 
-class _ConfirmationPill extends StatelessWidget {
-  const _ConfirmationPill({
-    required this.jobId,
+class _ThumbnailTextAction extends StatelessWidget {
+  const _ThumbnailTextAction({
     required this.height,
+    required this.interactionKey,
+    required this.iconKey,
+    required this.visualKey,
+    required this.icon,
+    required this.label,
+    required this.semanticLabel,
+    required this.color,
     required this.onPressed,
   });
 
-  final String jobId;
   final double height;
+  final Key interactionKey;
+  final Key? iconKey;
+  final Key visualKey;
+  final IconData icon;
+  final String label;
+  final String semanticLabel;
+  final Color color;
   final VoidCallback? onPressed;
 
   @override
@@ -161,43 +157,30 @@ class _ConfirmationPill extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: onPressed != null,
-      label: context.l10n.generationSubmissionStatusWaitingForConfirmation,
+      label: semanticLabel,
       child: GestureDetector(
-        key: ValueKey<String>('generation-submission-confirm-$jobId'),
+        key: interactionKey,
         behavior: HitTestBehavior.opaque,
         onTap: onPressed,
         child: ExcludeSemantics(
           child: Align(
             alignment: Alignment.bottomCenter,
-            child: SizedBox(
-              height: height,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(6, 5, 6, 3),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    const Icon(
-                      LucideIcons.check600,
-                      color: AppColors.success,
-                      size: 14,
-                      shadows: <Shadow>[
-                        Shadow(
-                          color: Color(0xB3000000),
-                          offset: Offset(0, 1),
-                          blurRadius: 2,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      context.l10n.generationSubmissionActionConfirm,
-                      maxLines: 1,
-                      softWrap: false,
-                      style: const TextStyle(
-                        color: AppColors.success,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        shadows: <Shadow>[
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: SizedBox(
+                key: visualKey,
+                height: height,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 5, 6, 3),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Icon(
+                        icon,
+                        key: iconKey,
+                        color: color,
+                        size: 14,
+                        shadows: const <Shadow>[
                           Shadow(
                             color: Color(0xB3000000),
                             offset: Offset(0, 1),
@@ -205,8 +188,26 @@ class _ConfirmationPill extends StatelessWidget {
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Text(
+                        label,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          shadows: const <Shadow>[
+                            Shadow(
+                              color: Color(0xB3000000),
+                              offset: Offset(0, 1),
+                              blurRadius: 2,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

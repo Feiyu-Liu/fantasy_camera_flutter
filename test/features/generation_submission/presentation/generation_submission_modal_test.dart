@@ -243,6 +243,9 @@ void main() {
         const ValueKey<String>('generation-submission-confirm-awaiting'),
       ),
     );
+    final Rect retryButtonRect = tester.getRect(
+      find.byKey(const ValueKey<String>('generation-submission-retry-failed')),
+    );
     final Rect removeButtonRect = tester.getRect(removeButton);
     final Rect failedImageRect = tester.getRect(
       find.byKey(const ValueKey<String>('generation-thumbnail-image-failed')),
@@ -251,6 +254,12 @@ void main() {
     expect(cancelButtonRect.top, awaitingOverlayRect.top);
     expect(removeButtonRect.left, failedImageRect.left);
     expect(removeButtonRect.top, failedImageRect.top);
+    expect(confirmButtonRect.left, awaitingOverlayRect.left);
+    expect(confirmButtonRect.right, awaitingOverlayRect.right);
+    expect(confirmButtonRect.bottom, awaitingOverlayRect.bottom);
+    expect(retryButtonRect.left, failedImageRect.left);
+    expect(retryButtonRect.right, failedImageRect.right);
+    expect(retryButtonRect.bottom, failedImageRect.bottom);
     expect(
       confirmButtonRect.center.dx,
       moreOrLessEquals(thumbnailRect.center.dx, epsilon: 0.01),
@@ -302,9 +311,99 @@ void main() {
       findsOneWidget,
     );
     expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-bottom-gradient-failed'),
+      ),
+      findsOneWidget,
+    );
+    expect(
       find.byKey(const ValueKey<String>('generation-submission-remove-failed')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('thumbnail retry matches the confirmation action style', (
+    WidgetTester tester,
+  ) async {
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        jobs: <GenerationSubmissionJob>[
+          _job(
+            id: 'confirm-style',
+            status: GenerationSubmissionStatus.awaitingConfirmation,
+          ),
+          _job(id: 'retry-style', status: GenerationSubmissionStatus.failed),
+        ],
+      ),
+    );
+
+    final Finder confirmAction = find.byKey(
+      const ValueKey<String>('generation-submission-confirm-confirm-style'),
+    );
+    final Finder retryAction = find.byKey(
+      const ValueKey<String>('generation-submission-retry-retry-style'),
+    );
+    final Finder confirmVisual = find.byKey(
+      const ValueKey<String>(
+        'generation-submission-confirm-visual-confirm-style',
+      ),
+    );
+    final Finder retryVisual = find.byKey(
+      const ValueKey<String>('generation-submission-retry-visual-retry-style'),
+    );
+    final Icon confirmIcon = tester.widget<Icon>(
+      find.descendant(of: confirmAction, matching: find.byType(Icon)).first,
+    );
+    final Icon retryIcon = tester.widget<Icon>(
+      find.descendant(of: retryAction, matching: find.byType(Icon)).first,
+    );
+    final Text confirmLabel = tester.widget<Text>(
+      find.descendant(of: confirmAction, matching: find.byType(Text)).first,
+    );
+    final Text retryLabel = tester.widget<Text>(
+      find.descendant(of: retryAction, matching: find.byType(Text)).first,
+    );
+
+    expect(retryIcon.icon, LucideIcons.refreshCcw);
+    expect(retryIcon.size, confirmIcon.size);
+    expect(confirmIcon.color, AppColors.success);
+    expect(retryIcon.color, AppColors.accentYellow);
+    expect(retryIcon.shadows, confirmIcon.shadows);
+    expect(retryLabel.data, isNotEmpty);
+    expect(retryLabel.data, isNot(confirmLabel.data));
+    expect(confirmLabel.style?.color, AppColors.success);
+    expect(retryLabel.style?.color, AppColors.accentYellow);
+    expect(retryLabel.style?.fontSize, confirmLabel.style?.fontSize);
+    expect(retryLabel.style?.fontWeight, confirmLabel.style?.fontWeight);
+    expect(retryLabel.style?.shadows, confirmLabel.style?.shadows);
+    final DecoratedBox confirmGradient = tester.widget<DecoratedBox>(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-bottom-gradient-confirm-style',
+        ),
+      ),
+    );
+    final DecoratedBox retryGradient = tester.widget<DecoratedBox>(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-bottom-gradient-retry-style',
+        ),
+      ),
+    );
+    expect(retryGradient.decoration, confirmGradient.decoration);
+    expect(
+      tester.getSize(retryAction).height,
+      tester.getSize(confirmAction).height,
+    );
+    final Rect confirmActionRect = tester.getRect(confirmAction);
+    final Rect retryActionRect = tester.getRect(retryAction);
+    final Rect confirmVisualRect = tester.getRect(confirmVisual);
+    final Rect retryVisualRect = tester.getRect(retryVisual);
+    expect(confirmActionRect.bottom - confirmVisualRect.bottom, 6);
+    expect(retryActionRect.bottom - retryVisualRect.bottom, 6);
+    expect(confirmVisualRect.center.dx, confirmActionRect.center.dx);
+    expect(retryVisualRect.center.dx, retryActionRect.center.dx);
   });
 
   testWidgets('thumbnail decodes near its physical display size', (
@@ -512,22 +611,16 @@ void main() {
         Size(backSize.width - 16, backSize.height - 16),
       );
       expect(tester.getCenter(diamondGrid), tester.getCenter(diamondBack));
+      final Finder progress = find.byKey(
+        const ValueKey<String>('generation-submission-caption-progress-d'),
+      );
+      expect(progress, findsOneWidget);
       expect(
-        find.byKey(
-          const ValueKey<String>(
-            'generation-submission-grid-square-progress-d',
-          ),
-        ),
-        findsOneWidget,
+        find.descendant(of: diamondBack, matching: progress),
+        findsNothing,
       );
-      final Text progressText = tester.widget<Text>(
-        find.byKey(
-          const ValueKey<String>(
-            'generation-submission-grid-square-progress-d',
-          ),
-        ),
-      );
-      expect(progressText.style?.color, AppColors.black);
+      final Text progressText = tester.widget<Text>(progress);
+      expect(progressText.style?.color, AppThemeColors.light.textMuted);
       expect(find.text('0%'), findsWidgets);
       expect(find.text('即将完成'), findsOneWidget);
     },
@@ -772,13 +865,30 @@ void main() {
       ),
     );
     final Finder progress = find.byKey(
-      const ValueKey<String>(
-        'generation-submission-grid-square-progress-estimate',
-      ),
+      const ValueKey<String>('generation-submission-caption-progress-estimate'),
     );
 
     expect(progress, findsOneWidget);
     expect(find.text('0%'), findsOneWidget);
+    final Finder card = find.byKey(
+      const ValueKey<String>('generation-submission-flip-estimate'),
+    );
+    final Rect cardRect = tester.getRect(card);
+    final Rect momentRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-moment-estimate'),
+      ),
+    );
+    final Rect progressRect = tester.getRect(progress);
+    final Text progressText = tester.widget<Text>(progress);
+    expect(progressRect.left - momentRect.left, 4);
+    expect(progressRect.top, greaterThanOrEqualTo(cardRect.bottom + 6));
+    expect(progressText.textAlign, TextAlign.left);
+    expect(find.descendant(of: card, matching: progress), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('generation-submission-time-estimate')),
+      findsNothing,
+    );
 
     await tester.pump(const Duration(milliseconds: 700));
     expect(find.text('1%'), findsOneWidget);
@@ -795,6 +905,62 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
     expect(find.text('即将完成'), findsOneWidget);
     expect(find.text('99%'), findsNothing);
+  });
+
+  testWidgets('generation progress replaces time until loading ends', (
+    WidgetTester tester,
+  ) async {
+    final GlobalKey<_ModalHostState> hostKey = GlobalKey<_ModalHostState>();
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        key: hostKey,
+        jobs: <GenerationSubmissionJob>[
+          _job(
+            id: 'caption-switch',
+            status: GenerationSubmissionStatus.pollingTask,
+          ),
+        ],
+      ),
+    );
+
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-caption-progress-caption-switch',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-time-caption-switch'),
+      ),
+      findsNothing,
+    );
+
+    await hostKey.currentState!.replaceJobs(<GenerationSubmissionJob>[
+      _job(id: 'caption-switch', status: GenerationSubmissionStatus.failed),
+    ]);
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'generation-submission-caption-progress-caption-switch',
+        ),
+      ),
+      findsNothing,
+    );
+    final Finder time = find.byKey(
+      const ValueKey<String>('generation-submission-time-caption-switch'),
+    );
+    expect(time, findsOneWidget);
+    expect(
+      tester.widget<Text>(time).data,
+      matches(RegExp(r'^\d{1,2}:\d{2} (AM|PM)$')),
+    );
   });
 
   testWidgets('generation progress advances without resizing its card', (
@@ -852,7 +1018,7 @@ void main() {
     );
     final Finder firstProgress = find.byKey(
       const ValueKey<String>(
-        'generation-submission-grid-square-progress-persisted-progress',
+        'generation-submission-caption-progress-persisted-progress',
       ),
     );
     final Finder firstCard = find.byKey(
@@ -890,7 +1056,7 @@ void main() {
     );
     final Finder secondProgress = find.byKey(
       const ValueKey<String>(
-        'generation-submission-grid-square-progress-persisted-progress',
+        'generation-submission-caption-progress-persisted-progress',
       ),
     );
     expect(
@@ -963,7 +1129,7 @@ void main() {
     );
     final Finder progress = find.byKey(
       const ValueKey<String>(
-        'generation-submission-grid-square-progress-reduced-motion',
+        'generation-submission-caption-progress-reduced-motion',
       ),
     );
     expect(progress, findsOneWidget);
@@ -1202,21 +1368,6 @@ void main() {
     );
 
     await tester.pump(const Duration(milliseconds: 380));
-    await tester.pump(const Duration(milliseconds: 999));
-    expect(
-      tester
-          .widget<AnimatedOpacity>(
-            find.byKey(
-              const ValueKey<String>(
-                'generation-submission-grid-square-reveal-animated-confirm',
-              ),
-            ),
-          )
-          .opacity,
-      0,
-    );
-
-    await tester.pump(const Duration(milliseconds: 1));
     expect(
       tester
           .widget<AnimatedOpacity>(
@@ -1228,6 +1379,18 @@ void main() {
           )
           .opacity,
       1,
+    );
+    expect(
+      tester
+          .widget<AnimatedOpacity>(
+            find.byKey(
+              const ValueKey<String>(
+                'generation-submission-grid-square-reveal-animated-confirm',
+              ),
+            ),
+          )
+          .duration,
+      const Duration(milliseconds: 240),
     );
   });
 
@@ -1284,9 +1447,8 @@ void main() {
             ),
           )
           .opacity,
-      0,
+      1,
     );
-    await tester.pump(const Duration(seconds: 1));
     expect(
       tester
           .widget<AnimatedOpacity>(
@@ -1296,8 +1458,8 @@ void main() {
               ),
             ),
           )
-          .opacity,
-      1,
+          .duration,
+      const Duration(milliseconds: 240),
     );
   });
 
@@ -1773,13 +1935,52 @@ void main() {
     final Text progress = tester.widget<Text>(
       find.byKey(
         const ValueKey<String>(
-          'generation-submission-grid-square-progress-dark-loading',
+          'generation-submission-caption-progress-dark-loading',
         ),
       ),
     );
     expect(loadingBackground.color, AppThemeColors.dark.surface);
-    expect(progress.style?.color, AppThemeColors.dark.textPrimary);
+    expect(progress.style?.color, AppThemeColors.dark.textMuted);
   });
+
+  testWidgets(
+    'gallery mirrors the hero divider and gives the reduced gap to the strip',
+    (WidgetTester tester) async {
+      await _pumpModalHost(
+        tester,
+        _ModalHost(
+          jobs: <GenerationSubmissionJob>[
+            _job(
+              id: 'layout',
+              status: GenerationSubmissionStatus.awaitingConfirmation,
+            ),
+          ],
+        ),
+      );
+
+      final Finder heroFrameFinder = find.byKey(
+        const ValueKey<String>('generation-gallery-hero-frame'),
+      );
+      final Finder relatedMomentsFinder = find.byKey(
+        const ValueKey<String>('generation-gallery-related-moments-strip'),
+      );
+      final DecoratedBox heroFrame = tester.widget<DecoratedBox>(
+        heroFrameFinder,
+      );
+      final BoxDecoration heroDecoration =
+          heroFrame.decoration as BoxDecoration;
+      final Border heroBorder = heroDecoration.border! as Border;
+
+      expect(heroFrame.position, DecorationPosition.foreground);
+      expect(heroBorder.bottom.color, AppThemeColors.light.border);
+      expect(heroBorder.bottom.width, 0.5);
+
+      final Rect heroRect = tester.getRect(heroFrameFinder);
+      final Rect relatedMomentsRect = tester.getRect(relatedMomentsFinder);
+      expect(relatedMomentsRect.top - heroRect.bottom, 4);
+      expect(relatedMomentsRect.height, 204);
+    },
+  );
 
   testWidgets('modal shows thumbnail fallback when original file is missing', (
     WidgetTester tester,

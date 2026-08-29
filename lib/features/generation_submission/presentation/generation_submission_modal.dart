@@ -409,6 +409,7 @@ class _GenerationSubmissionDebugModalState
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
+        final AppThemeColors colors = AppThemeColors.of(context);
         final double topInset = MediaQuery.paddingOf(context).top;
         final double navigationHeight = widget.showNavigationBar
             ? topInset + AppBlurNavigationBar.contentHeight
@@ -423,11 +424,13 @@ class _GenerationSubmissionDebugModalState
         final double layoutHeight = widget.showNavigationBar
             ? contentHeight
             : height;
-        const double heroStripGap = 12;
-        final double maxHeroHeight = (layoutHeight - 196 - heroStripGap).clamp(
-          0.0,
-          layoutHeight,
-        );
+        const double heroStripGap = 4;
+        const double relatedMomentsReservedHeight = 204;
+        final double maxHeroHeight =
+            (layoutHeight - relatedMomentsReservedHeight - heroStripGap).clamp(
+              0.0,
+              layoutHeight,
+            );
         final double heroWidth = constraints.maxWidth.clamp(
           0.0,
           maxHeroHeight * 3 / 4,
@@ -476,9 +479,18 @@ class _GenerationSubmissionDebugModalState
         final Widget galleryContent = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            SizedBox(
-              height: actualHeroViewportHeight,
-              child: Center(child: hero),
+            DecoratedBox(
+              key: const ValueKey<String>('generation-gallery-hero-frame'),
+              position: DecorationPosition.foreground,
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: colors.border, width: 0.5),
+                ),
+              ),
+              child: SizedBox(
+                height: actualHeroViewportHeight,
+                child: Center(child: hero),
+              ),
             ),
             const SizedBox(height: heroStripGap),
             Expanded(
@@ -1774,6 +1786,7 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
     );
 
     return DecoratedBox(
+      key: const ValueKey<String>('generation-gallery-related-moments-strip'),
       decoration: BoxDecoration(color: colors.background),
       child: Padding(
         padding: contentPadding,
@@ -1833,9 +1846,11 @@ class _RelatedMomentsStripState extends State<_RelatedMomentsStrip> {
                                   width: tileWidth,
                                   height: itemHeight,
                                   imageHeight: tileHeight,
-                                  caption: context
-                                      .l10n
-                                      .generationSubmissionImportNew,
+                                  caption: _GalleryTimeCaption(
+                                    label: context
+                                        .l10n
+                                        .generationSubmissionImportNew,
+                                  ),
                                   child: _GalleryPickerTile(
                                     width: tileWidth,
                                     height: tileHeight,
@@ -2002,12 +2017,11 @@ class _GalleryMomentItem extends StatelessWidget {
   final double width;
   final double height;
   final double imageHeight;
-  final String caption;
+  final Widget caption;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final AppThemeColors colors = AppThemeColors.of(context);
     return SizedBox(
       width: width,
       height: height,
@@ -2016,24 +2030,140 @@ class _GalleryMomentItem extends StatelessWidget {
         children: <Widget>[
           SizedBox(width: width, height: imageHeight, child: child),
           const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.only(left: 4),
-            child: Text(
-              caption,
-              maxLines: 1,
-              overflow: TextOverflow.clip,
-              softWrap: false,
-              style: TextStyle(
-                color: colors.textMuted,
-                fontSize: 10,
-                height: 1.2,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.1,
+          SizedBox(width: width, height: 12, child: caption),
+        ],
+      ),
+    );
+  }
+}
+
+class _GalleryTimeCaption extends StatelessWidget {
+  const _GalleryTimeCaption({required this.label, this.textKey});
+
+  final String label;
+  final Key? textKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 4),
+        child: Text(
+          label,
+          key: textKey,
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+          softWrap: false,
+          style: TextStyle(
+            color: colors.textMuted,
+            fontSize: 10,
+            height: 1.2,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.1,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GenerationProgressCaption extends StatefulWidget {
+  const _GenerationProgressCaption({
+    required this.jobId,
+    required this.startedAt,
+    required this.status,
+    required this.active,
+    super.key,
+  });
+
+  final String jobId;
+  final DateTime? startedAt;
+  final GenerationSubmissionStatus status;
+  final bool active;
+
+  @override
+  State<_GenerationProgressCaption> createState() =>
+      _GenerationProgressCaptionState();
+}
+
+class _GenerationProgressCaptionState
+    extends State<_GenerationProgressCaption> {
+  late final GenerationProgressTicker _progressTicker;
+
+  @override
+  void initState() {
+    super.initState();
+    _progressTicker = GenerationProgressTicker(
+      startedAt: widget.startedAt,
+      status: widget.status,
+      active: widget.active,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _GenerationProgressCaption oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _progressTicker.update(
+      startedAt: widget.startedAt,
+      status: widget.status,
+      active: widget.active,
+      preserveEstimateWhenInactive: true,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _progressTicker.setTickerModeEnabled(TickerMode.valuesOf(context).enabled);
+  }
+
+  @override
+  void dispose() {
+    _progressTicker.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
+    return ListenableBuilder(
+      listenable: _progressTicker,
+      builder: (BuildContext context, Widget? child) {
+        final int? percentage = _progressTicker.estimate.percentage;
+        final String label = percentage == null
+            ? context.l10n.generationSubmissionEstimatedFinishing
+            : context.l10n.generationSubmissionEstimatedProgressPercent(
+                percentage,
+              );
+        return Semantics(
+          label: label,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(
+                label,
+                key: ValueKey<String>(
+                  'generation-submission-caption-progress-${widget.jobId}',
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+                softWrap: false,
+                textAlign: TextAlign.left,
+                style: TextStyle(
+                  color: colors.textMuted,
+                  fontSize: 11,
+                  height: 1,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
               ),
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -2130,10 +2260,31 @@ class _AnimatedGalleryJobListItem extends StatelessWidget {
                     );
                   }
                   return _GalleryMomentItem(
+                    key: ValueKey<String>(
+                      'generation-submission-moment-${job.id}',
+                    ),
                     width: tileWidth,
                     height: itemHeight,
                     imageHeight: tileHeight,
-                    caption: _captionForJob(job),
+                    caption:
+                        GenerationRecordStateMachine.showsGenerationProgress(
+                          job.status,
+                        )
+                        ? _GenerationProgressCaption(
+                            key: ValueKey<String>(
+                              'generation-submission-progress-caption-${job.id}',
+                            ),
+                            jobId: job.id,
+                            startedAt: job.generationStartedAt,
+                            status: job.status,
+                            active: animationActive,
+                          )
+                        : _GalleryTimeCaption(
+                            label: _captionForJob(job),
+                            textKey: ValueKey<String>(
+                              'generation-submission-time-${job.id}',
+                            ),
+                          ),
                     child: thumbnail,
                   );
                 },
@@ -2324,26 +2475,20 @@ class _JobThumbnail extends StatefulWidget {
 
 class _JobThumbnailState extends State<_JobThumbnail> {
   static const Duration _flipDuration = Duration(milliseconds: 800);
-  static const Duration _gridSquareRevealDelay = Duration(seconds: 1);
   static const Duration _gridSquareFadeDuration = Duration(milliseconds: 240);
 
   late final FlipCardController _flipController;
-  late GenerationSubmissionStatus _backStatus;
   late GenerationSubmissionStatus _frontStatus;
   late VoidCallback? _frontOnConfirm;
   late VoidCallback? _frontOnCancel;
   late VoidCallback? _frontOnRetry;
   late VoidCallback? _frontOnRemove;
-  Timer? _gridSquareRevealTimer;
   late bool _showGridSquare;
 
   @override
   void initState() {
     super.initState();
     _flipController = FlipCardController();
-    _backStatus = _isLoading(widget.job.status)
-        ? widget.job.status
-        : GenerationSubmissionStatus.queued;
     _showGridSquare = _isLoading(widget.job.status);
     _captureFrontState();
   }
@@ -2354,22 +2499,13 @@ class _JobThumbnailState extends State<_JobThumbnail> {
     final bool wasLoading = _isLoading(oldWidget.job.status);
     final bool loading = _isLoading(widget.job.status);
     if (loading) {
-      _backStatus = widget.job.status;
       if (!wasLoading) {
-        _cancelGridSquareReveal();
         _showGridSquare = false;
       }
     } else {
-      _cancelGridSquareReveal();
       _showGridSquare = false;
       _captureFrontState();
     }
-  }
-
-  @override
-  void dispose() {
-    _cancelGridSquareReveal();
-    super.dispose();
   }
 
   void _captureFrontState() {
@@ -2382,28 +2518,12 @@ class _JobThumbnailState extends State<_JobThumbnail> {
 
   void _handleFlipCompleted(FlipCardSide side) {
     if (side != FlipCardSide.back || !_isLoading(widget.job.status)) {
-      _cancelGridSquareReveal();
       return;
     }
     if (_showGridSquare) {
       return;
     }
-    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
-      setState(() => _showGridSquare = true);
-      return;
-    }
-    _cancelGridSquareReveal();
-    _gridSquareRevealTimer = Timer(_gridSquareRevealDelay, () {
-      if (!mounted || !_isLoading(widget.job.status)) {
-        return;
-      }
-      setState(() => _showGridSquare = true);
-    });
-  }
-
-  void _cancelGridSquareReveal() {
-    _gridSquareRevealTimer?.cancel();
-    _gridSquareRevealTimer = null;
+    setState(() => _showGridSquare = true);
   }
 
   @override
@@ -2417,6 +2537,8 @@ class _JobThumbnailState extends State<_JobThumbnail> {
         thumbnailImagePath == widget.job.imagePath;
     final bool awaitingConfirmation =
         _frontStatus == GenerationSubmissionStatus.awaitingConfirmation;
+    final bool hasBottomTextAction =
+        _frontOnConfirm != null || _frontOnRetry != null;
     final bool loading = _isLoading(widget.job.status);
     final bool reduceMotion =
         MediaQuery.maybeDisableAnimationsOf(context) ?? false;
@@ -2477,6 +2599,10 @@ class _JobThumbnailState extends State<_JobThumbnail> {
               ),
             ),
           ),
+          if (!awaitingConfirmation && _frontOnRetry != null)
+            Positioned.fill(
+              child: _ThumbnailBottomGradient(jobId: widget.job.id),
+            ),
           if (_frontOnRemove != null)
             Positioned(
               key: ValueKey<String>(
@@ -2499,9 +2625,9 @@ class _JobThumbnailState extends State<_JobThumbnail> {
             key: ValueKey<String>(
               'generation-submission-state-pill-slot-${widget.job.id}',
             ),
-            left: 6,
-            right: 6,
-            bottom: 6,
+            left: hasBottomTextAction ? 0 : 6,
+            right: hasBottomTextAction ? 0 : 6,
+            bottom: hasBottomTextAction ? 0 : 6,
             height: 44,
             child: GenerationStatusPill(
               key: ValueKey<String>(
@@ -2574,8 +2700,6 @@ class _JobThumbnailState extends State<_JobThumbnail> {
                               widget.job.animationIndex ??
                               generationDefaultAnimationIndex,
                           imagePath: widget.job.imagePath,
-                          startedAt: widget.job.generationStartedAt,
-                          status: _backStatus,
                         ),
                       ),
                     ),
@@ -2668,62 +2792,17 @@ class _ThumbnailCardFace extends StatelessWidget {
   }
 }
 
-class _GenerationLoadingCardBack extends StatefulWidget {
+class _GenerationLoadingCardBack extends StatelessWidget {
   const _GenerationLoadingCardBack({
     super.key,
     required this.jobId,
     required this.animationIndex,
     required this.imagePath,
-    required this.startedAt,
-    required this.status,
   });
 
   final String jobId;
   final int animationIndex;
   final String imagePath;
-  final DateTime? startedAt;
-  final GenerationSubmissionStatus status;
-
-  @override
-  State<_GenerationLoadingCardBack> createState() =>
-      _GenerationLoadingCardBackState();
-}
-
-class _GenerationLoadingCardBackState
-    extends State<_GenerationLoadingCardBack> {
-  late final GenerationProgressTicker _progressTicker;
-
-  @override
-  void initState() {
-    super.initState();
-    _progressTicker = GenerationProgressTicker(
-      startedAt: widget.startedAt,
-      status: widget.status,
-      active: true,
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant _GenerationLoadingCardBack oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _progressTicker.update(
-      startedAt: widget.startedAt,
-      status: widget.status,
-      active: true,
-    );
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _progressTicker.setTickerModeEnabled(TickerMode.valuesOf(context).enabled);
-  }
-
-  @override
-  void dispose() {
-    _progressTicker.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -2733,51 +2812,21 @@ class _GenerationLoadingCardBackState
       children: <Widget>[
         ColoredBox(
           key: ValueKey<String>(
-            'generation-submission-grid-square-background-${widget.jobId}',
+            'generation-submission-grid-square-background-$jobId',
           ),
           color: colors.surface,
         ),
         ExcludeSemantics(
           child: _GenerationGridSquare(
             key: ValueKey<String>(
-              'generation-submission-grid-square-loop-${widget.jobId}',
+              'generation-submission-grid-square-loop-$jobId',
             ),
             animationKey: ValueKey<String>(
-              'generation-submission-grid-square-${widget.jobId}',
+              'generation-submission-grid-square-$jobId',
             ),
-            animationIndex: widget.animationIndex,
-            imagePath: widget.imagePath,
+            animationIndex: animationIndex,
+            imagePath: imagePath,
           ),
-        ),
-        ListenableBuilder(
-          listenable: _progressTicker,
-          builder: (BuildContext context, Widget? child) {
-            final int? percentage = _progressTicker.estimate.percentage;
-            final String label = percentage == null
-                ? context.l10n.generationSubmissionEstimatedFinishing
-                : context.l10n.generationSubmissionEstimatedProgressPercent(
-                    percentage,
-                  );
-            return Semantics(
-              label: label,
-              child: Center(
-                child: Text(
-                  label,
-                  key: ValueKey<String>(
-                    'generation-submission-grid-square-progress-${widget.jobId}',
-                  ),
-                  maxLines: 1,
-                  softWrap: false,
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ),
-            );
-          },
         ),
       ],
     );
@@ -3224,27 +3273,7 @@ class _AwaitingConfirmationOverlay extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: <Widget>[
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: FractionallySizedBox(
-            widthFactor: 1,
-            heightFactor: 0.45,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                key: ValueKey<String>(
-                  'generation-submission-bottom-gradient-$jobId',
-                ),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: <Color>[Color(0x00000000), Color(0xD9000000)],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+        _ThumbnailBottomGradient(jobId: jobId),
         Align(
           alignment: Alignment.topLeft,
           child: _ThumbnailDeleteAction(
@@ -3257,6 +3286,37 @@ class _AwaitingConfirmationOverlay extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ThumbnailBottomGradient extends StatelessWidget {
+  const _ThumbnailBottomGradient({required this.jobId});
+
+  final String jobId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: FractionallySizedBox(
+        widthFactor: 1,
+        heightFactor: 0.45,
+        child: IgnorePointer(
+          child: DecoratedBox(
+            key: ValueKey<String>(
+              'generation-submission-bottom-gradient-$jobId',
+            ),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: <Color>[Color(0x00000000), Color(0xD9000000)],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
