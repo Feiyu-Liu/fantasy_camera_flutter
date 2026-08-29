@@ -253,7 +253,7 @@
   "billingRedeemCodeButton": "引き換える",
   "commonCancel": "キャンセル",
   "commonOK": "OK",
-  "billingProductsUnavailable": "現在利用できるクレジットパックはありません。",
+  "billingProductsUnavailable": "商品情報を一時的に読み込めません。ネットワークを確認してもう一度お試しください。",
   "billingRetry": "再試行",
   "billingGrantedCreditsMessage": "+{credits}クレジット",
   "@billingGrantedCreditsMessage": {

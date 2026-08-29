@@ -1165,7 +1165,7 @@ abstract class AppLocalizations {
   /// No description provided for @billingProductsUnavailable.
   ///
   /// In en, this message translates to:
-  /// **'No credit packs are available right now.'**
+  /// **'Unable to load product information right now. Check your connection and try again.'**
   String get billingProductsUnavailable;
 
   /// No description provided for @billingRetry.

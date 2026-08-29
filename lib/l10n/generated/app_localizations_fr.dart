@@ -608,7 +608,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get billingProductsUnavailable =>
-      'Aucun pack de crédits disponible pour l\'instant.';
+      'Impossible de charger les informations produit pour le moment. Vérifiez votre connexion et réessayez.';
 
   @override
   String get billingRetry => 'Réessayer';

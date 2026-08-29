@@ -71,6 +71,100 @@ void main() {
     expect(state.errorMessage, isNull);
   });
 
+  test('loadProducts does not wait for purchase history sync', () async {
+    final Completer<void> syncGate = Completer<void>();
+    final _FakeBillingGateway gateway = _FakeBillingGateway(
+      products: const <BillingProduct>[
+        BillingProduct(
+          productId: 'tessercam_credits_40_v2',
+          credits: 0,
+          displayRank: 999,
+          price: r'¥30.00',
+          packageIdentifier: r'$rc_custom_40',
+        ),
+      ],
+    );
+    final _FakeBillingRepository billingRepository = _FakeBillingRepository(
+      backendProducts: const <CreditProduct>[
+        CreditProduct(
+          productId: 'tessercam_credits_40_v2',
+          displayNameKey: 'Standard',
+          credits: 40,
+          displayRank: 1,
+        ),
+      ],
+      syncGate: syncGate,
+    );
+    final ProviderContainer container = _container(
+      gateway: gateway,
+      billingRepository: billingRepository,
+    );
+    addTearDown(container.dispose);
+
+    await container.read(authSessionProvider.future);
+    await container.read(billingControllerProvider.notifier).loadProducts();
+
+    expect(container.read(billingControllerProvider).products, hasLength(1));
+    expect(container.read(billingControllerProvider).isLoading, isFalse);
+    expect(billingRepository.syncCalls, 1);
+    syncGate.complete();
+    await Future<void>.delayed(Duration.zero);
+  });
+
+  test('purchase history sync failure does not hide loaded products', () async {
+    final _FakeBillingGateway gateway = _FakeBillingGateway(
+      products: const <BillingProduct>[
+        BillingProduct(
+          productId: 'tessercam_credits_40_v2',
+          credits: 0,
+          displayRank: 999,
+          price: r'¥30.00',
+          packageIdentifier: r'$rc_custom_40',
+        ),
+      ],
+    );
+    final _FakeBillingRepository billingRepository = _FakeBillingRepository(
+      backendProducts: const <CreditProduct>[
+        CreditProduct(
+          productId: 'tessercam_credits_40_v2',
+          displayNameKey: 'Standard',
+          credits: 40,
+          displayRank: 1,
+        ),
+      ],
+      syncError: StateError('sync failed'),
+    );
+    final ProviderContainer container = _container(
+      gateway: gateway,
+      billingRepository: billingRepository,
+    );
+    addTearDown(container.dispose);
+
+    await container.read(authSessionProvider.future);
+    await container.read(billingControllerProvider.notifier).loadProducts();
+    await Future<void>.delayed(Duration.zero);
+
+    final BillingControllerState state = container.read(
+      billingControllerProvider,
+    );
+    expect(state.products, hasLength(1));
+    expect(state.errorMessage, isNull);
+    expect(state.isLoading, isFalse);
+  });
+
+  test('RevenueCat warmup logs in after the auth user is available', () async {
+    final _FakeBillingGateway gateway = _FakeBillingGateway();
+    final ProviderContainer container = _container(
+      gateway: gateway,
+      billingRepository: _FakeBillingRepository(),
+    );
+    addTearDown(container.dispose);
+
+    await container.read(billingRevenueCatWarmupProvider.future);
+
+    expect(gateway.loggedInUserIds, <String>['user-1']);
+  });
+
   test(
     'purchase cancellation clears purchasing without syncing credits',
     () async {
@@ -544,6 +638,9 @@ ProviderContainer _container({
         ),
       ),
       billingGatewayProvider.overrideWithValue(gateway),
+      billingCatalogDelayProvider.overrideWithValue(
+        (Duration duration) async {},
+      ),
       billingStartupPurchaseRecoveryEnabledProvider.overrideWithValue(true),
       billingRepositoryProvider.overrideWithValue(billingRepository),
       creditsRepositoryProvider.overrideWithValue(
@@ -571,12 +668,14 @@ class _FakeBillingGateway implements BillingGateway {
   final List<String> loggedInUserIds = <String>[];
   int purchaseCalls = 0;
   int restoreCalls = 0;
+  int fetchCalls = 0;
 
   @override
   bool get isPurchaseAvailable => true;
 
   @override
   Future<List<BillingProduct>> fetchProducts() async {
+    fetchCalls += 1;
     return products;
   }
 
@@ -614,11 +713,13 @@ class _FakeBillingRepository implements BillingRepository {
       products: <CreditProduct>[],
     ),
     this.syncError,
+    this.syncGate,
   });
 
   final List<CreditProduct> backendProducts;
   final CreditPurchaseSyncResult syncResult;
   final Object? syncError;
+  final Completer<void>? syncGate;
   int syncCalls = 0;
 
   @override
@@ -629,6 +730,7 @@ class _FakeBillingRepository implements BillingRepository {
   @override
   Future<CreditPurchaseSyncResult> syncRevenueCatPurchases() async {
     syncCalls += 1;
+    await syncGate?.future;
     if (syncError case final Object error) {
       throw error;
     }

@@ -569,7 +569,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commonOK => '好';
 
   @override
-  String get billingProductsUnavailable => '当前没有可购买的积分包。';
+  String get billingProductsUnavailable => '暂时无法加载商品信息，请检查网络后重试。';
 
   @override
   String get billingRetry => '重试';
@@ -1244,7 +1244,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get commonOK => '好';
 
   @override
-  String get billingProductsUnavailable => '目前沒有可購買的點數包。';
+  String get billingProductsUnavailable => '暫時無法載入商品資訊，請檢查網路後重試。';
 
   @override
   String get billingRetry => '重試';

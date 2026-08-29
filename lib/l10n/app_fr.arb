@@ -253,7 +253,7 @@
   "billingRedeemCodeButton": "Utiliser",
   "commonCancel": "Annuler",
   "commonOK": "OK",
-  "billingProductsUnavailable": "Aucun pack de crédits disponible pour l'instant.",
+  "billingProductsUnavailable": "Impossible de charger les informations produit pour le moment. Vérifiez votre connexion et réessayez.",
   "billingRetry": "Réessayer",
   "billingGrantedCreditsMessage": "+{credits} crédits",
   "@billingGrantedCreditsMessage": {

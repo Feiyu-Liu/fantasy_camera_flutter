@@ -253,7 +253,7 @@
   "billingRedeemCodeButton": "兑换",
   "commonCancel": "取消",
   "commonOK": "好",
-  "billingProductsUnavailable": "当前没有可购买的积分包。",
+  "billingProductsUnavailable": "暂时无法加载商品信息，请检查网络后重试。",
   "billingRetry": "重试",
   "billingGrantedCreditsMessage": "+{credits} 积分",
   "@billingGrantedCreditsMessage": {

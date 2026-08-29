@@ -8,6 +8,7 @@ import '../../features/backend_api/domain/api_failure.dart';
 import '../../features/backend_api/domain/credit_redemption.dart';
 import '../../features/backend_api/presentation/backend_api_providers.dart';
 import '../../shared/core/app_logger.dart';
+import '../application/billing_catalog_loader.dart';
 import '../data/billing_repositories.dart';
 import '../data/revenuecat_billing_gateway.dart';
 import '../domain/billing_product.dart';
@@ -31,16 +32,55 @@ final billingRepositoryProvider = Provider<BillingRepository>(
   ],
 );
 
+final billingCatalogRetryPolicyProvider = Provider<BillingCatalogRetryPolicy>(
+  (Ref ref) => const BillingCatalogRetryPolicy(),
+);
+
+final billingCatalogDelayProvider = Provider<BillingCatalogDelay>(
+  (Ref ref) => Future<void>.delayed,
+);
+
+final billingCatalogLoaderProvider = Provider<BillingCatalogLoader>(
+  (Ref ref) {
+    return BillingCatalogLoader(
+      gateway: ref.watch(billingGatewayProvider),
+      repository: ref.watch(billingRepositoryProvider),
+      retryPolicy: ref.watch(billingCatalogRetryPolicyProvider),
+      delay: ref.watch(billingCatalogDelayProvider),
+    );
+  },
+  dependencies: <ProviderOrFamily>[
+    billingGatewayProvider,
+    billingRepositoryProvider,
+    billingCatalogRetryPolicyProvider,
+    billingCatalogDelayProvider,
+  ],
+);
+
 final billingControllerProvider =
     NotifierProvider<BillingController, BillingControllerState>(
       BillingController.new,
       dependencies: <ProviderOrFamily>[
         authSessionProvider,
+        billingCatalogLoaderProvider,
         billingGatewayProvider,
         billingRepositoryProvider,
         creditBalanceProvider,
       ],
     );
+
+final billingRevenueCatWarmupProvider = FutureProvider<void>((Ref ref) async {
+  final String? userId = (await ref.watch(authSessionProvider.future)).user?.id;
+  if (userId == null || userId.isEmpty) {
+    return;
+  }
+  try {
+    await ref.read(billingGatewayProvider).logIn(userId);
+    appDebugLog('Billing', 'RevenueCat warmup completed');
+  } on Object catch (error, stackTrace) {
+    logAppError('billing_revenuecat_warmup_failed', error, stackTrace);
+  }
+});
 
 final billingStartupPurchaseRecoveryEnabledProvider = Provider<bool>(
   (Ref ref) => AppConfig.workerApiBaseUrl.isNotEmpty,
@@ -253,6 +293,8 @@ class BillingControllerState {
 }
 
 class BillingController extends Notifier<BillingControllerState> {
+  int _productLoadGeneration = 0;
+
   @override
   BillingControllerState build() {
     return const BillingControllerState();
@@ -269,44 +311,15 @@ class BillingController extends Notifier<BillingControllerState> {
       clearPurchaseSuccessCredits: true,
       clearRestoreFeedbackCredits: true,
     );
+    final int loadGeneration = ++_productLoadGeneration;
     try {
-      final String? userId = ref
-          .read(authSessionProvider)
-          .valueOrNull
-          ?.user
-          ?.id;
-      if (userId != null && userId.isNotEmpty) {
-        await ref.read(billingGatewayProvider).logIn(userId);
-      }
-      final CreditPurchaseSyncResult? recoveredPurchases =
-          await _syncRevenueCatPurchasesBestEffort();
-      final List<CreditProduct> backendProducts = await ref
-          .read(billingRepositoryProvider)
-          .fetchProducts();
-      final List<BillingProduct> revenueCatProducts = await ref
-          .read(billingGatewayProvider)
-          .fetchProducts();
-      final List<BillingProduct> mergedProducts = _mergeProducts(
-        backendProducts,
-        revenueCatProducts,
-      );
-      appDebugLog(
-        'Billing',
-        'products loaded backend=${backendProducts.length} '
-            'revenueCat=${revenueCatProducts.length} merged=${mergedProducts.length}',
-      );
-      state = state.copyWith(
-        isLoading: false,
-        products: mergedProducts,
-        lastGrantedCredits:
-            recoveredPurchases != null && recoveredPurchases.grantedCredits > 0
-            ? recoveredPurchases.grantedCredits
-            : null,
-        purchaseSuccessCredits:
-            recoveredPurchases != null && recoveredPurchases.grantedCredits > 0
-            ? recoveredPurchases.grantedCredits
-            : null,
-      );
+      final String? userId = await _currentUserId();
+      final List<BillingProduct> mergedProducts = await ref
+          .read(billingCatalogLoaderProvider)
+          .load(appUserId: userId);
+      appDebugLog('Billing', 'products loaded merged=${mergedProducts.length}');
+      state = state.copyWith(isLoading: false, products: mergedProducts);
+      unawaited(_syncPurchasesAfterProductLoad(loadGeneration));
     } on Object catch (error, stackTrace) {
       logAppError('billing_products_load_failed', error, stackTrace);
       state = state.copyWith(
@@ -432,7 +445,7 @@ class BillingController extends Notifier<BillingControllerState> {
     state = state.copyWith(clearPurchaseSuccessCredits: true);
   }
 
-  Future<CreditPurchaseSyncResult?> _syncRevenueCatPurchasesBestEffort() async {
+  Future<void> _syncPurchasesAfterProductLoad(int loadGeneration) async {
     try {
       final CreditPurchaseSyncResult result = await ref
           .read(billingRepositoryProvider)
@@ -440,33 +453,21 @@ class BillingController extends Notifier<BillingControllerState> {
       await ref
           .read(creditBalanceProvider.notifier)
           .refreshFromServer(userId: await _currentUserId());
-      return result;
-    } on Object {
-      return null;
-    }
-  }
-
-  List<BillingProduct> _mergeProducts(
-    List<CreditProduct> backendProducts,
-    List<BillingProduct> revenueCatProducts,
-  ) {
-    final Map<String, CreditProduct> backendById = <String, CreditProduct>{
-      for (final CreditProduct product in backendProducts)
-        product.productId: product,
-    };
-    return revenueCatProducts
-        .where(
-          (BillingProduct product) =>
-              backendById.containsKey(product.productId),
-        )
-        .map((BillingProduct product) {
-          return product.copyWithCreditProduct(backendById[product.productId]!);
-        })
-        .toList(growable: false)
-      ..sort(
-        (BillingProduct a, BillingProduct b) =>
-            a.displayRank.compareTo(b.displayRank),
+      if (loadGeneration != _productLoadGeneration ||
+          result.grantedCredits <= 0) {
+        return;
+      }
+      state = state.copyWith(
+        lastGrantedCredits: result.grantedCredits,
+        purchaseSuccessCredits: result.grantedCredits,
       );
+    } on Object catch (error, stackTrace) {
+      logAppError(
+        'billing_product_load_purchase_sync_failed',
+        error,
+        stackTrace,
+      );
+    }
   }
 
   Future<String?> _currentUserId() async {

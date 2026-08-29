@@ -253,7 +253,7 @@
   "billingRedeemCodeButton": "Redeem",
   "commonCancel": "Cancel",
   "commonOK": "OK",
-  "billingProductsUnavailable": "No credit packs are available right now.",
+  "billingProductsUnavailable": "Unable to load product information right now. Check your connection and try again.",
   "billingRetry": "Retry",
   "billingGrantedCreditsMessage": "+{credits} credits",
   "@billingGrantedCreditsMessage": {

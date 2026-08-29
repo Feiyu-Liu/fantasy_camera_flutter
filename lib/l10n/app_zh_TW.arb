@@ -253,7 +253,7 @@
   "billingRedeemCodeButton": "兌換",
   "commonCancel": "取消",
   "commonOK": "好",
-  "billingProductsUnavailable": "目前沒有可購買的點數包。",
+  "billingProductsUnavailable": "暫時無法載入商品資訊，請檢查網路後重試。",
   "billingRetry": "重試",
   "billingGrantedCreditsMessage": "+{credits} 點數",
   "@billingGrantedCreditsMessage": {

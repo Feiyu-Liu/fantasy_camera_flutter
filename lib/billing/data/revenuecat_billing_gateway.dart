@@ -40,21 +40,84 @@ abstract interface class BillingGateway {
   Future<void> restorePurchases();
 }
 
+abstract interface class RevenueCatClient {
+  Future<void> setLogLevel(LogLevel level);
+
+  Future<void> configure(PurchasesConfiguration configuration);
+
+  Future<void> logIn(String appUserId);
+
+  Future<void> logOut();
+
+  Future<Offerings> getOfferings();
+
+  Future<void> purchase(PurchaseParams purchaseParams);
+
+  Future<void> restorePurchases();
+}
+
+class PurchasesRevenueCatClient implements RevenueCatClient {
+  const PurchasesRevenueCatClient();
+
+  @override
+  Future<void> configure(PurchasesConfiguration configuration) {
+    return Purchases.configure(configuration);
+  }
+
+  @override
+  Future<Offerings> getOfferings() {
+    return Purchases.getOfferings();
+  }
+
+  @override
+  Future<void> logIn(String appUserId) async {
+    await Purchases.logIn(appUserId);
+  }
+
+  @override
+  Future<void> logOut() async {
+    await Purchases.logOut();
+  }
+
+  @override
+  Future<void> purchase(PurchaseParams purchaseParams) async {
+    await Purchases.purchase(purchaseParams);
+  }
+
+  @override
+  Future<void> restorePurchases() async {
+    await Purchases.restorePurchases();
+  }
+
+  @override
+  Future<void> setLogLevel(LogLevel level) {
+    return Purchases.setLogLevel(level);
+  }
+}
+
 class RevenueCatBillingGateway implements BillingGateway {
   RevenueCatBillingGateway({
     required String iosPublicSdkKey,
     required String offeringId,
+    RevenueCatClient client = const PurchasesRevenueCatClient(),
+    bool? isPurchaseAvailableOverride,
   }) : _iosPublicSdkKey = iosPublicSdkKey,
-       _offeringId = offeringId;
+       _offeringId = offeringId,
+       _client = client,
+       _isPurchaseAvailableOverride = isPurchaseAvailableOverride;
 
   final String _iosPublicSdkKey;
   final String _offeringId;
+  final RevenueCatClient _client;
+  final bool? _isPurchaseAvailableOverride;
   bool _configured = false;
   String? _configuredUserId;
+  Future<void>? _configurationFuture;
 
   @override
   bool get isPurchaseAvailable {
-    return !kIsWeb && Platform.isIOS && _iosPublicSdkKey.isNotEmpty;
+    return _isPurchaseAvailableOverride ??
+        (!kIsWeb && Platform.isIOS && _iosPublicSdkKey.isNotEmpty);
   }
 
   @override
@@ -64,7 +127,7 @@ class RevenueCatBillingGateway implements BillingGateway {
     }
     await _ensureConfigured(appUserId);
     if (_configuredUserId != appUserId) {
-      await Purchases.logIn(appUserId);
+      await _client.logIn(appUserId);
       _configuredUserId = appUserId;
     }
   }
@@ -72,13 +135,19 @@ class RevenueCatBillingGateway implements BillingGateway {
   @override
   Future<void> logOut() async {
     try {
-      if (isPurchaseAvailable && _configured) {
-        await Purchases.logOut();
+      if (!isPurchaseAvailable) {
+        return;
+      }
+      final Future<void>? configuration = _configurationFuture;
+      if (configuration != null) {
+        await configuration;
+      }
+      if (_configured) {
+        await _client.logOut();
       }
     } on Object catch (error, stackTrace) {
       logAppError('billing_revenuecat_logout_failed', error, stackTrace);
     } finally {
-      _configured = false;
       _configuredUserId = null;
     }
   }
@@ -89,7 +158,7 @@ class RevenueCatBillingGateway implements BillingGateway {
       return const <BillingProduct>[];
     }
     await _ensureConfigured(_configuredUserId);
-    final Offerings offerings = await Purchases.getOfferings();
+    final Offerings offerings = await _client.getOfferings();
     final Offering? offering = _offeringId.isEmpty
         ? offerings.current
         : offerings.getOffering(_offeringId) ?? offerings.current;
@@ -121,7 +190,7 @@ class RevenueCatBillingGateway implements BillingGateway {
     try {
       await _ensureConfigured(_configuredUserId);
       final Package package = await _findPackage(product);
-      await Purchases.purchase(PurchaseParams.package(package));
+      await _client.purchase(PurchaseParams.package(package));
       return const BillingPurchaseCompleted();
     } on PlatformException catch (error) {
       final PurchasesErrorCode code = PurchasesErrorHelper.getErrorCode(error);
@@ -140,7 +209,7 @@ class RevenueCatBillingGateway implements BillingGateway {
       return;
     }
     await _ensureConfigured(_configuredUserId);
-    await Purchases.restorePurchases();
+    await _client.restorePurchases();
   }
 
   Future<void> _ensureConfigured(String? appUserId) async {
@@ -150,20 +219,37 @@ class RevenueCatBillingGateway implements BillingGateway {
     if (_configured) {
       return;
     }
-    await Purchases.setLogLevel(kReleaseMode ? LogLevel.warn : LogLevel.debug);
+    final Future<void>? existingConfiguration = _configurationFuture;
+    if (existingConfiguration != null) {
+      await existingConfiguration;
+      return;
+    }
+    final Future<void> configuration = _configure(appUserId);
+    _configurationFuture = configuration;
+    try {
+      await configuration;
+    } finally {
+      if (identical(_configurationFuture, configuration)) {
+        _configurationFuture = null;
+      }
+    }
+  }
+
+  Future<void> _configure(String? appUserId) async {
+    await _client.setLogLevel(kReleaseMode ? LogLevel.warn : LogLevel.debug);
     final PurchasesConfiguration configuration = PurchasesConfiguration(
       _iosPublicSdkKey,
     );
     if (appUserId != null && appUserId.isNotEmpty) {
       configuration.appUserID = appUserId;
     }
-    await Purchases.configure(configuration);
+    await _client.configure(configuration);
     _configured = true;
     _configuredUserId = appUserId;
   }
 
   Future<Package> _findPackage(BillingProduct product) async {
-    final Offerings offerings = await Purchases.getOfferings();
+    final Offerings offerings = await _client.getOfferings();
     final Offering? offering = _offeringId.isEmpty
         ? offerings.current
         : offerings.getOffering(_offeringId) ?? offerings.current;

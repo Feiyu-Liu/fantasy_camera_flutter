@@ -55,6 +55,7 @@ class _FantasyCameraAppViewState extends ConsumerState<_FantasyCameraAppView> {
       effectiveLocaleForPreference(appSettings.localePreference),
     );
     ref.watch(notificationLifecycleProvider);
+    ref.watch(billingRevenueCatWarmupProvider);
     ref.watch(billingStartupPurchaseRecoveryProvider);
     return AnimatedAppTheme(
       preference: appSettings.themePreference,

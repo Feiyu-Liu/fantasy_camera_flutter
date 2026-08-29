@@ -577,7 +577,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commonOK => 'OK';
 
   @override
-  String get billingProductsUnavailable => '現在利用できるクレジットパックはありません。';
+  String get billingProductsUnavailable =>
+      '商品情報を一時的に読み込めません。ネットワークを確認してもう一度お試しください。';
 
   @override
   String get billingRetry => '再試行';

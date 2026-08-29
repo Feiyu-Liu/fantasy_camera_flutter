@@ -228,6 +228,55 @@ void main() {
       'tessercam_credits_40_v2',
     ]);
   });
+
+  testWidgets(
+    'shows a temporary load error and manual retry starts a new cycle',
+    (WidgetTester tester) async {
+      final _FakeBillingGateway billingGateway = _FakeBillingGateway(
+        productResults: const <Object>[
+          <BillingProduct>[],
+          <BillingProduct>[],
+          <BillingProduct>[],
+          <BillingProduct>[],
+          <BillingProduct>[
+            BillingProduct(
+              productId: 'tessercam_credits_40_v2',
+              credits: 0,
+              displayRank: 999,
+              price: r'¥30.00',
+              packageIdentifier: r'$rc_custom_40',
+            ),
+          ],
+        ],
+      );
+      await tester.pumpCreditPurchasePage(
+        creditsRepository: _FakeCreditsRepository(),
+        billingGateway: billingGateway,
+        billingRepository: _FakeBillingRepository(
+          products: const <CreditProduct>[
+            CreditProduct(
+              productId: 'tessercam_credits_40_v2',
+              displayNameKey: 'Standard',
+              credits: 40,
+              displayRank: 1,
+            ),
+          ],
+        ),
+      );
+
+      expect(find.text('暂时无法加载商品信息，请检查网络后重试。'), findsOneWidget);
+      expect(billingGateway.fetchCalls, 4);
+
+      await tester.tap(find.text('重试'));
+      for (int index = 0; index < 6; index += 1) {
+        await tester.pump();
+      }
+
+      expect(find.text('Standard'), findsOneWidget);
+      expect(find.text('暂时无法加载商品信息，请检查网络后重试。'), findsNothing);
+      expect(billingGateway.fetchCalls, 5);
+    },
+  );
 }
 
 extension on WidgetTester {
@@ -253,6 +302,9 @@ extension on WidgetTester {
             ),
             billingGatewayProvider.overrideWithValue(
               billingGateway ?? _FakeBillingGateway(),
+            ),
+            billingCatalogDelayProvider.overrideWithValue(
+              (Duration duration) async {},
             ),
             billingRepositoryProvider.overrideWithValue(
               billingRepository ?? _FakeBillingRepository(),
@@ -285,23 +337,40 @@ extension on WidgetTester {
         ),
       ),
     );
-    await pump();
-    await pump();
+    for (int index = 0; index < 8; index += 1) {
+      await pump();
+    }
   }
 }
 
 class _FakeBillingGateway implements BillingGateway {
-  _FakeBillingGateway({this.products = const <BillingProduct>[]});
+  _FakeBillingGateway({
+    this.products = const <BillingProduct>[],
+    List<Object>? productResults,
+  }) : _productResults = productResults == null
+           ? null
+           : List<Object>.of(productResults);
 
   final List<BillingProduct> products;
+  final List<Object>? _productResults;
   final List<String> purchasedProductIds = <String>[];
   int restoredPurchases = 0;
+  int fetchCalls = 0;
 
   @override
   bool get isPurchaseAvailable => true;
 
   @override
   Future<List<BillingProduct>> fetchProducts() async {
+    fetchCalls += 1;
+    if (_productResults case final List<Object> results
+        when results.isNotEmpty) {
+      final Object result = results.removeAt(0);
+      if (result is List<BillingProduct>) {
+        return result;
+      }
+      throw result;
+    }
     return products;
   }
 

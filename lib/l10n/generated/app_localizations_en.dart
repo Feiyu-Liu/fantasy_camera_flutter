@@ -601,7 +601,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get billingProductsUnavailable =>
-      'No credit packs are available right now.';
+      'Unable to load product information right now. Check your connection and try again.';
 
   @override
   String get billingRetry => 'Retry';
