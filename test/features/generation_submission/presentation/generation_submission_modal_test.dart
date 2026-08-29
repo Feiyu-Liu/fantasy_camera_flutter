@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:background_downloader/background_downloader.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
@@ -33,6 +32,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/domain/gen
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_image_mosaic_repository.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_status_pill.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_modal.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:fantasy_camera_flutter/l10n/l10n.dart';
@@ -43,6 +43,7 @@ import 'package:fantasy_camera_flutter/theme/app_theme.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_flip_card/flutter_flip_card.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -404,6 +405,138 @@ void main() {
     expect(retryActionRect.bottom - retryVisualRect.bottom, 6);
     expect(confirmVisualRect.center.dx, confirmActionRect.center.dx);
     expect(retryVisualRect.center.dx, retryActionRect.center.dx);
+  });
+
+  testWidgets('thumbnail confirmation and retry trigger one selection haptic', (
+    WidgetTester tester,
+  ) async {
+    final List<MethodCall> hapticCalls = <MethodCall>[];
+    final TestDefaultBinaryMessenger messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (
+      MethodCall call,
+    ) async {
+      if (call.method == 'HapticFeedback.vibrate') {
+        hapticCalls.add(call);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    int confirmCount = 0;
+    int retryCount = 0;
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: CupertinoPageScaffold(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                GenerationStatusPill(
+                  jobId: 'confirm-haptic',
+                  status: GenerationSubmissionStatus.awaitingConfirmation,
+                  onConfirm: () => confirmCount += 1,
+                  onRetry: null,
+                ),
+                GenerationStatusPill(
+                  jobId: 'retry-haptic',
+                  status: GenerationSubmissionStatus.failed,
+                  onConfirm: null,
+                  onRetry: () => retryCount += 1,
+                ),
+                const GenerationStatusPill(
+                  jobId: 'disabled-haptic',
+                  status: GenerationSubmissionStatus.awaitingConfirmation,
+                  onConfirm: null,
+                  onRetry: null,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('generation-submission-confirm-confirm-haptic'),
+      ),
+    );
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('generation-submission-retry-retry-haptic'),
+      ),
+    );
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('generation-submission-confirm-disabled-haptic'),
+      ),
+    );
+
+    expect(confirmCount, 1);
+    expect(retryCount, 1);
+    expect(hapticCalls, hasLength(2));
+    expect(
+      hapticCalls.map((MethodCall call) => call.arguments),
+      everyElement('HapticFeedbackType.selectionClick'),
+    );
+  });
+
+  testWidgets('thumbnail cancel and remove trigger one selection haptic', (
+    WidgetTester tester,
+  ) async {
+    final List<MethodCall> hapticCalls = <MethodCall>[];
+    final TestDefaultBinaryMessenger messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (
+      MethodCall call,
+    ) async {
+      if (call.method == 'HapticFeedback.vibrate') {
+        hapticCalls.add(call);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+
+    await _pumpModalHost(
+      tester,
+      _ModalHost(
+        jobs: <GenerationSubmissionJob>[
+          _job(
+            id: 'cancel-haptic',
+            status: GenerationSubmissionStatus.awaitingConfirmation,
+          ),
+          _job(id: 'remove-haptic', status: GenerationSubmissionStatus.failed),
+        ],
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('generation-submission-cancel-cancel-haptic'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>('generation-submission-remove-remove-haptic'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(hapticCalls, hasLength(2));
+    expect(
+      hapticCalls.map((MethodCall call) => call.arguments),
+      everyElement('HapticFeedbackType.selectionClick'),
+    );
   });
 
   testWidgets('thumbnail decodes near its physical display size', (

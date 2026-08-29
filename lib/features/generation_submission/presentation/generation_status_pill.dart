@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../l10n/l10n.dart';
@@ -161,7 +162,12 @@ class _ThumbnailTextAction extends StatelessWidget {
       child: GestureDetector(
         key: interactionKey,
         behavior: HitTestBehavior.opaque,
-        onTap: onPressed,
+        onTap: onPressed == null
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                onPressed!();
+              },
         child: ExcludeSemantics(
           child: Align(
             alignment: Alignment.bottomCenter,

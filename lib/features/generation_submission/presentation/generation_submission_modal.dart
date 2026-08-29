@@ -8,6 +8,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_flip_card/flutter_flip_card.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_the_tooltip/just_the_tooltip.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -3345,7 +3346,12 @@ class _ThumbnailDeleteAction extends StatelessWidget {
         child: GestureDetector(
           key: actionKey,
           behavior: HitTestBehavior.opaque,
-          onTap: onPressed,
+          onTap: onPressed == null
+              ? null
+              : () {
+                  HapticFeedback.selectionClick();
+                  onPressed!();
+                },
           child: ExcludeSemantics(
             child: Center(
               child: DecoratedBox(
