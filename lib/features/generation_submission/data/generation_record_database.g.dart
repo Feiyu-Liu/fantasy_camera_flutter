@@ -42,6 +42,28 @@ class $GenerationRecordsTable extends GenerationRecords
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _generationStartedAtMeta =
+      const VerificationMeta('generationStartedAt');
+  @override
+  late final GeneratedColumn<DateTime> generationStartedAt =
+      GeneratedColumn<DateTime>(
+        'generation_started_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _animationIndexMeta = const VerificationMeta(
+    'animationIndex',
+  );
+  @override
+  late final GeneratedColumn<int> animationIndex = GeneratedColumn<int>(
+    'animation_index',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _pipelineStatusMeta = const VerificationMeta(
     'pipelineStatus',
   );
@@ -553,6 +575,8 @@ class $GenerationRecordsTable extends GenerationRecords
     recordId,
     createdAt,
     updatedAt,
+    generationStartedAt,
+    animationIndex,
     pipelineStatus,
     originalSourceType,
     originalAvailability,
@@ -634,6 +658,24 @@ class $GenerationRecordsTable extends GenerationRecords
       );
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('generation_started_at')) {
+      context.handle(
+        _generationStartedAtMeta,
+        generationStartedAt.isAcceptableOrUnknown(
+          data['generation_started_at']!,
+          _generationStartedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('animation_index')) {
+      context.handle(
+        _animationIndexMeta,
+        animationIndex.isAcceptableOrUnknown(
+          data['animation_index']!,
+          _animationIndexMeta,
+        ),
+      );
     }
     if (data.containsKey('pipeline_status')) {
       context.handle(
@@ -1060,6 +1102,14 @@ class $GenerationRecordsTable extends GenerationRecords
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
       )!,
+      generationStartedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}generation_started_at'],
+      ),
+      animationIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}animation_index'],
+      ),
       pipelineStatus: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}pipeline_status'],
@@ -1254,6 +1304,8 @@ class GenerationRecord extends DataClass
   final String recordId;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final DateTime? generationStartedAt;
+  final int? animationIndex;
   final String pipelineStatus;
   final String originalSourceType;
   final String originalAvailability;
@@ -1303,6 +1355,8 @@ class GenerationRecord extends DataClass
     required this.recordId,
     required this.createdAt,
     required this.updatedAt,
+    this.generationStartedAt,
+    this.animationIndex,
     required this.pipelineStatus,
     required this.originalSourceType,
     required this.originalAvailability,
@@ -1355,6 +1409,12 @@ class GenerationRecord extends DataClass
     map['record_id'] = Variable<String>(recordId);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || generationStartedAt != null) {
+      map['generation_started_at'] = Variable<DateTime>(generationStartedAt);
+    }
+    if (!nullToAbsent || animationIndex != null) {
+      map['animation_index'] = Variable<int>(animationIndex);
+    }
     map['pipeline_status'] = Variable<String>(pipelineStatus);
     map['original_source_type'] = Variable<String>(originalSourceType);
     map['original_availability'] = Variable<String>(originalAvailability);
@@ -1494,6 +1554,12 @@ class GenerationRecord extends DataClass
       recordId: Value(recordId),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
+      generationStartedAt: generationStartedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(generationStartedAt),
+      animationIndex: animationIndex == null && nullToAbsent
+          ? const Value.absent()
+          : Value(animationIndex),
       pipelineStatus: Value(pipelineStatus),
       originalSourceType: Value(originalSourceType),
       originalAvailability: Value(originalAvailability),
@@ -1633,6 +1699,10 @@ class GenerationRecord extends DataClass
       recordId: serializer.fromJson<String>(json['recordId']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      generationStartedAt: serializer.fromJson<DateTime?>(
+        json['generationStartedAt'],
+      ),
+      animationIndex: serializer.fromJson<int?>(json['animationIndex']),
       pipelineStatus: serializer.fromJson<String>(json['pipelineStatus']),
       originalSourceType: serializer.fromJson<String>(
         json['originalSourceType'],
@@ -1725,6 +1795,8 @@ class GenerationRecord extends DataClass
       'recordId': serializer.toJson<String>(recordId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'generationStartedAt': serializer.toJson<DateTime?>(generationStartedAt),
+      'animationIndex': serializer.toJson<int?>(animationIndex),
       'pipelineStatus': serializer.toJson<String>(pipelineStatus),
       'originalSourceType': serializer.toJson<String>(originalSourceType),
       'originalAvailability': serializer.toJson<String>(originalAvailability),
@@ -1783,6 +1855,8 @@ class GenerationRecord extends DataClass
     String? recordId,
     DateTime? createdAt,
     DateTime? updatedAt,
+    Value<DateTime?> generationStartedAt = const Value.absent(),
+    Value<int?> animationIndex = const Value.absent(),
     String? pipelineStatus,
     String? originalSourceType,
     String? originalAvailability,
@@ -1832,6 +1906,12 @@ class GenerationRecord extends DataClass
     recordId: recordId ?? this.recordId,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
+    generationStartedAt: generationStartedAt.present
+        ? generationStartedAt.value
+        : this.generationStartedAt,
+    animationIndex: animationIndex.present
+        ? animationIndex.value
+        : this.animationIndex,
     pipelineStatus: pipelineStatus ?? this.pipelineStatus,
     originalSourceType: originalSourceType ?? this.originalSourceType,
     originalAvailability: originalAvailability ?? this.originalAvailability,
@@ -1945,6 +2025,12 @@ class GenerationRecord extends DataClass
       recordId: data.recordId.present ? data.recordId.value : this.recordId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      generationStartedAt: data.generationStartedAt.present
+          ? data.generationStartedAt.value
+          : this.generationStartedAt,
+      animationIndex: data.animationIndex.present
+          ? data.animationIndex.value
+          : this.animationIndex,
       pipelineStatus: data.pipelineStatus.present
           ? data.pipelineStatus.value
           : this.pipelineStatus,
@@ -2087,6 +2173,8 @@ class GenerationRecord extends DataClass
           ..write('recordId: $recordId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('generationStartedAt: $generationStartedAt, ')
+          ..write('animationIndex: $animationIndex, ')
           ..write('pipelineStatus: $pipelineStatus, ')
           ..write('originalSourceType: $originalSourceType, ')
           ..write('originalAvailability: $originalAvailability, ')
@@ -2145,6 +2233,8 @@ class GenerationRecord extends DataClass
     recordId,
     createdAt,
     updatedAt,
+    generationStartedAt,
+    animationIndex,
     pipelineStatus,
     originalSourceType,
     originalAvailability,
@@ -2198,6 +2288,8 @@ class GenerationRecord extends DataClass
           other.recordId == this.recordId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
+          other.generationStartedAt == this.generationStartedAt &&
+          other.animationIndex == this.animationIndex &&
           other.pipelineStatus == this.pipelineStatus &&
           other.originalSourceType == this.originalSourceType &&
           other.originalAvailability == this.originalAvailability &&
@@ -2251,6 +2343,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
   final Value<String> recordId;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
+  final Value<DateTime?> generationStartedAt;
+  final Value<int?> animationIndex;
   final Value<String> pipelineStatus;
   final Value<String> originalSourceType;
   final Value<String> originalAvailability;
@@ -2301,6 +2395,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     this.recordId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.generationStartedAt = const Value.absent(),
+    this.animationIndex = const Value.absent(),
     this.pipelineStatus = const Value.absent(),
     this.originalSourceType = const Value.absent(),
     this.originalAvailability = const Value.absent(),
@@ -2352,6 +2448,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     required String recordId,
     required DateTime createdAt,
     required DateTime updatedAt,
+    this.generationStartedAt = const Value.absent(),
+    this.animationIndex = const Value.absent(),
     required String pipelineStatus,
     required String originalSourceType,
     required String originalAvailability,
@@ -2409,6 +2507,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     Expression<String>? recordId,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
+    Expression<DateTime>? generationStartedAt,
+    Expression<int>? animationIndex,
     Expression<String>? pipelineStatus,
     Expression<String>? originalSourceType,
     Expression<String>? originalAvailability,
@@ -2460,6 +2560,9 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
       if (recordId != null) 'record_id': recordId,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (generationStartedAt != null)
+        'generation_started_at': generationStartedAt,
+      if (animationIndex != null) 'animation_index': animationIndex,
       if (pipelineStatus != null) 'pipeline_status': pipelineStatus,
       if (originalSourceType != null)
         'original_source_type': originalSourceType,
@@ -2528,6 +2631,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     Value<String>? recordId,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
+    Value<DateTime?>? generationStartedAt,
+    Value<int?>? animationIndex,
     Value<String>? pipelineStatus,
     Value<String>? originalSourceType,
     Value<String>? originalAvailability,
@@ -2579,6 +2684,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
       recordId: recordId ?? this.recordId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      generationStartedAt: generationStartedAt ?? this.generationStartedAt,
+      animationIndex: animationIndex ?? this.animationIndex,
       pipelineStatus: pipelineStatus ?? this.pipelineStatus,
       originalSourceType: originalSourceType ?? this.originalSourceType,
       originalAvailability: originalAvailability ?? this.originalAvailability,
@@ -2644,6 +2751,14 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
     }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (generationStartedAt.present) {
+      map['generation_started_at'] = Variable<DateTime>(
+        generationStartedAt.value,
+      );
+    }
+    if (animationIndex.present) {
+      map['animation_index'] = Variable<int>(animationIndex.value);
     }
     if (pipelineStatus.present) {
       map['pipeline_status'] = Variable<String>(pipelineStatus.value);
@@ -2810,6 +2925,8 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
           ..write('recordId: $recordId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('generationStartedAt: $generationStartedAt, ')
+          ..write('animationIndex: $animationIndex, ')
           ..write('pipelineStatus: $pipelineStatus, ')
           ..write('originalSourceType: $originalSourceType, ')
           ..write('originalAvailability: $originalAvailability, ')
@@ -2865,17 +2982,255 @@ class GenerationRecordsCompanion extends UpdateCompanion<GenerationRecord> {
   }
 }
 
+class $GenerationAnimationSequenceStatesTable
+    extends GenerationAnimationSequenceStates
+    with
+        TableInfo<
+          $GenerationAnimationSequenceStatesTable,
+          GenerationAnimationSequenceState
+        > {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $GenerationAnimationSequenceStatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _singletonIdMeta = const VerificationMeta(
+    'singletonId',
+  );
+  @override
+  late final GeneratedColumn<int> singletonId = GeneratedColumn<int>(
+    'singleton_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nextAnimationIndexMeta =
+      const VerificationMeta('nextAnimationIndex');
+  @override
+  late final GeneratedColumn<int> nextAnimationIndex = GeneratedColumn<int>(
+    'next_animation_index',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [singletonId, nextAnimationIndex];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'generation_animation_sequence_states';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<GenerationAnimationSequenceState> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('singleton_id')) {
+      context.handle(
+        _singletonIdMeta,
+        singletonId.isAcceptableOrUnknown(
+          data['singleton_id']!,
+          _singletonIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('next_animation_index')) {
+      context.handle(
+        _nextAnimationIndexMeta,
+        nextAnimationIndex.isAcceptableOrUnknown(
+          data['next_animation_index']!,
+          _nextAnimationIndexMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_nextAnimationIndexMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {singletonId};
+  @override
+  GenerationAnimationSequenceState map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return GenerationAnimationSequenceState(
+      singletonId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}singleton_id'],
+      )!,
+      nextAnimationIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}next_animation_index'],
+      )!,
+    );
+  }
+
+  @override
+  $GenerationAnimationSequenceStatesTable createAlias(String alias) {
+    return $GenerationAnimationSequenceStatesTable(attachedDatabase, alias);
+  }
+}
+
+class GenerationAnimationSequenceState extends DataClass
+    implements Insertable<GenerationAnimationSequenceState> {
+  final int singletonId;
+  final int nextAnimationIndex;
+  const GenerationAnimationSequenceState({
+    required this.singletonId,
+    required this.nextAnimationIndex,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['singleton_id'] = Variable<int>(singletonId);
+    map['next_animation_index'] = Variable<int>(nextAnimationIndex);
+    return map;
+  }
+
+  GenerationAnimationSequenceStatesCompanion toCompanion(bool nullToAbsent) {
+    return GenerationAnimationSequenceStatesCompanion(
+      singletonId: Value(singletonId),
+      nextAnimationIndex: Value(nextAnimationIndex),
+    );
+  }
+
+  factory GenerationAnimationSequenceState.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return GenerationAnimationSequenceState(
+      singletonId: serializer.fromJson<int>(json['singletonId']),
+      nextAnimationIndex: serializer.fromJson<int>(json['nextAnimationIndex']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'singletonId': serializer.toJson<int>(singletonId),
+      'nextAnimationIndex': serializer.toJson<int>(nextAnimationIndex),
+    };
+  }
+
+  GenerationAnimationSequenceState copyWith({
+    int? singletonId,
+    int? nextAnimationIndex,
+  }) => GenerationAnimationSequenceState(
+    singletonId: singletonId ?? this.singletonId,
+    nextAnimationIndex: nextAnimationIndex ?? this.nextAnimationIndex,
+  );
+  GenerationAnimationSequenceState copyWithCompanion(
+    GenerationAnimationSequenceStatesCompanion data,
+  ) {
+    return GenerationAnimationSequenceState(
+      singletonId: data.singletonId.present
+          ? data.singletonId.value
+          : this.singletonId,
+      nextAnimationIndex: data.nextAnimationIndex.present
+          ? data.nextAnimationIndex.value
+          : this.nextAnimationIndex,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GenerationAnimationSequenceState(')
+          ..write('singletonId: $singletonId, ')
+          ..write('nextAnimationIndex: $nextAnimationIndex')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(singletonId, nextAnimationIndex);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is GenerationAnimationSequenceState &&
+          other.singletonId == this.singletonId &&
+          other.nextAnimationIndex == this.nextAnimationIndex);
+}
+
+class GenerationAnimationSequenceStatesCompanion
+    extends UpdateCompanion<GenerationAnimationSequenceState> {
+  final Value<int> singletonId;
+  final Value<int> nextAnimationIndex;
+  const GenerationAnimationSequenceStatesCompanion({
+    this.singletonId = const Value.absent(),
+    this.nextAnimationIndex = const Value.absent(),
+  });
+  GenerationAnimationSequenceStatesCompanion.insert({
+    this.singletonId = const Value.absent(),
+    required int nextAnimationIndex,
+  }) : nextAnimationIndex = Value(nextAnimationIndex);
+  static Insertable<GenerationAnimationSequenceState> custom({
+    Expression<int>? singletonId,
+    Expression<int>? nextAnimationIndex,
+  }) {
+    return RawValuesInsertable({
+      if (singletonId != null) 'singleton_id': singletonId,
+      if (nextAnimationIndex != null)
+        'next_animation_index': nextAnimationIndex,
+    });
+  }
+
+  GenerationAnimationSequenceStatesCompanion copyWith({
+    Value<int>? singletonId,
+    Value<int>? nextAnimationIndex,
+  }) {
+    return GenerationAnimationSequenceStatesCompanion(
+      singletonId: singletonId ?? this.singletonId,
+      nextAnimationIndex: nextAnimationIndex ?? this.nextAnimationIndex,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (singletonId.present) {
+      map['singleton_id'] = Variable<int>(singletonId.value);
+    }
+    if (nextAnimationIndex.present) {
+      map['next_animation_index'] = Variable<int>(nextAnimationIndex.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GenerationAnimationSequenceStatesCompanion(')
+          ..write('singletonId: $singletonId, ')
+          ..write('nextAnimationIndex: $nextAnimationIndex')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$GenerationRecordDatabase extends GeneratedDatabase {
   _$GenerationRecordDatabase(QueryExecutor e) : super(e);
   $GenerationRecordDatabaseManager get managers =>
       $GenerationRecordDatabaseManager(this);
   late final $GenerationRecordsTable generationRecords =
       $GenerationRecordsTable(this);
+  late final $GenerationAnimationSequenceStatesTable
+  generationAnimationSequenceStates = $GenerationAnimationSequenceStatesTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [generationRecords];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    generationRecords,
+    generationAnimationSequenceStates,
+  ];
 }
 
 typedef $$GenerationRecordsTableCreateCompanionBuilder =
@@ -2883,6 +3238,8 @@ typedef $$GenerationRecordsTableCreateCompanionBuilder =
       required String recordId,
       required DateTime createdAt,
       required DateTime updatedAt,
+      Value<DateTime?> generationStartedAt,
+      Value<int?> animationIndex,
       required String pipelineStatus,
       required String originalSourceType,
       required String originalAvailability,
@@ -2935,6 +3292,8 @@ typedef $$GenerationRecordsTableUpdateCompanionBuilder =
       Value<String> recordId,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
+      Value<DateTime?> generationStartedAt,
+      Value<int?> animationIndex,
       Value<String> pipelineStatus,
       Value<String> originalSourceType,
       Value<String> originalAvailability,
@@ -3004,6 +3363,16 @@ class $$GenerationRecordsTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get generationStartedAt => $composableBuilder(
+    column: $table.generationStartedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get animationIndex => $composableBuilder(
+    column: $table.animationIndex,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3259,6 +3628,16 @@ class $$GenerationRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get generationStartedAt => $composableBuilder(
+    column: $table.generationStartedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get animationIndex => $composableBuilder(
+    column: $table.animationIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get pipelineStatus => $composableBuilder(
     column: $table.pipelineStatus,
     builder: (column) => ColumnOrderings(column),
@@ -3504,6 +3883,16 @@ class $$GenerationRecordsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get generationStartedAt => $composableBuilder(
+    column: $table.generationStartedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get animationIndex => $composableBuilder(
+    column: $table.animationIndex,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get pipelineStatus => $composableBuilder(
     column: $table.pipelineStatus,
@@ -3772,6 +4161,8 @@ class $$GenerationRecordsTableTableManager
                 Value<String> recordId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> generationStartedAt = const Value.absent(),
+                Value<int?> animationIndex = const Value.absent(),
                 Value<String> pipelineStatus = const Value.absent(),
                 Value<String> originalSourceType = const Value.absent(),
                 Value<String> originalAvailability = const Value.absent(),
@@ -3825,6 +4216,8 @@ class $$GenerationRecordsTableTableManager
                 recordId: recordId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                generationStartedAt: generationStartedAt,
+                animationIndex: animationIndex,
                 pipelineStatus: pipelineStatus,
                 originalSourceType: originalSourceType,
                 originalAvailability: originalAvailability,
@@ -3879,6 +4272,8 @@ class $$GenerationRecordsTableTableManager
                 required String recordId,
                 required DateTime createdAt,
                 required DateTime updatedAt,
+                Value<DateTime?> generationStartedAt = const Value.absent(),
+                Value<int?> animationIndex = const Value.absent(),
                 required String pipelineStatus,
                 required String originalSourceType,
                 required String originalAvailability,
@@ -3932,6 +4327,8 @@ class $$GenerationRecordsTableTableManager
                 recordId: recordId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
+                generationStartedAt: generationStartedAt,
+                animationIndex: animationIndex,
                 pipelineStatus: pipelineStatus,
                 originalSourceType: originalSourceType,
                 originalAvailability: originalAvailability,
@@ -4010,10 +4407,188 @@ typedef $$GenerationRecordsTableProcessedTableManager =
       GenerationRecord,
       PrefetchHooks Function()
     >;
+typedef $$GenerationAnimationSequenceStatesTableCreateCompanionBuilder =
+    GenerationAnimationSequenceStatesCompanion Function({
+      Value<int> singletonId,
+      required int nextAnimationIndex,
+    });
+typedef $$GenerationAnimationSequenceStatesTableUpdateCompanionBuilder =
+    GenerationAnimationSequenceStatesCompanion Function({
+      Value<int> singletonId,
+      Value<int> nextAnimationIndex,
+    });
+
+class $$GenerationAnimationSequenceStatesTableFilterComposer
+    extends
+        Composer<
+          _$GenerationRecordDatabase,
+          $GenerationAnimationSequenceStatesTable
+        > {
+  $$GenerationAnimationSequenceStatesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get singletonId => $composableBuilder(
+    column: $table.singletonId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get nextAnimationIndex => $composableBuilder(
+    column: $table.nextAnimationIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$GenerationAnimationSequenceStatesTableOrderingComposer
+    extends
+        Composer<
+          _$GenerationRecordDatabase,
+          $GenerationAnimationSequenceStatesTable
+        > {
+  $$GenerationAnimationSequenceStatesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get singletonId => $composableBuilder(
+    column: $table.singletonId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get nextAnimationIndex => $composableBuilder(
+    column: $table.nextAnimationIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$GenerationAnimationSequenceStatesTableAnnotationComposer
+    extends
+        Composer<
+          _$GenerationRecordDatabase,
+          $GenerationAnimationSequenceStatesTable
+        > {
+  $$GenerationAnimationSequenceStatesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get singletonId => $composableBuilder(
+    column: $table.singletonId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get nextAnimationIndex => $composableBuilder(
+    column: $table.nextAnimationIndex,
+    builder: (column) => column,
+  );
+}
+
+class $$GenerationAnimationSequenceStatesTableTableManager
+    extends
+        RootTableManager<
+          _$GenerationRecordDatabase,
+          $GenerationAnimationSequenceStatesTable,
+          GenerationAnimationSequenceState,
+          $$GenerationAnimationSequenceStatesTableFilterComposer,
+          $$GenerationAnimationSequenceStatesTableOrderingComposer,
+          $$GenerationAnimationSequenceStatesTableAnnotationComposer,
+          $$GenerationAnimationSequenceStatesTableCreateCompanionBuilder,
+          $$GenerationAnimationSequenceStatesTableUpdateCompanionBuilder,
+          (
+            GenerationAnimationSequenceState,
+            BaseReferences<
+              _$GenerationRecordDatabase,
+              $GenerationAnimationSequenceStatesTable,
+              GenerationAnimationSequenceState
+            >,
+          ),
+          GenerationAnimationSequenceState,
+          PrefetchHooks Function()
+        > {
+  $$GenerationAnimationSequenceStatesTableTableManager(
+    _$GenerationRecordDatabase db,
+    $GenerationAnimationSequenceStatesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$GenerationAnimationSequenceStatesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$GenerationAnimationSequenceStatesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$GenerationAnimationSequenceStatesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> singletonId = const Value.absent(),
+                Value<int> nextAnimationIndex = const Value.absent(),
+              }) => GenerationAnimationSequenceStatesCompanion(
+                singletonId: singletonId,
+                nextAnimationIndex: nextAnimationIndex,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> singletonId = const Value.absent(),
+                required int nextAnimationIndex,
+              }) => GenerationAnimationSequenceStatesCompanion.insert(
+                singletonId: singletonId,
+                nextAnimationIndex: nextAnimationIndex,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$GenerationAnimationSequenceStatesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$GenerationRecordDatabase,
+      $GenerationAnimationSequenceStatesTable,
+      GenerationAnimationSequenceState,
+      $$GenerationAnimationSequenceStatesTableFilterComposer,
+      $$GenerationAnimationSequenceStatesTableOrderingComposer,
+      $$GenerationAnimationSequenceStatesTableAnnotationComposer,
+      $$GenerationAnimationSequenceStatesTableCreateCompanionBuilder,
+      $$GenerationAnimationSequenceStatesTableUpdateCompanionBuilder,
+      (
+        GenerationAnimationSequenceState,
+        BaseReferences<
+          _$GenerationRecordDatabase,
+          $GenerationAnimationSequenceStatesTable,
+          GenerationAnimationSequenceState
+        >,
+      ),
+      GenerationAnimationSequenceState,
+      PrefetchHooks Function()
+    >;
 
 class $GenerationRecordDatabaseManager {
   final _$GenerationRecordDatabase _db;
   $GenerationRecordDatabaseManager(this._db);
   $$GenerationRecordsTableTableManager get generationRecords =>
       $$GenerationRecordsTableTableManager(_db, _db.generationRecords);
+  $$GenerationAnimationSequenceStatesTableTableManager
+  get generationAnimationSequenceStates =>
+      $$GenerationAnimationSequenceStatesTableTableManager(
+        _db,
+        _db.generationAnimationSequenceStates,
+      );
 }

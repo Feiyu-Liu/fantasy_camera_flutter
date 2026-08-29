@@ -70,7 +70,7 @@
   "generationSubmissionDownloadingFromICloud": "iCloudからダウンロード中",
   "generationSubmissionPreparingPhoto": "写真を準備中...",
   "generationSubmissionGalleryTitle": "ギャラリー",
-  "generationSubmissionImportNew": "写真から読み込む",
+  "generationSubmissionImportNew": "写真を追加",
   "generationSubmissionDefaultMomentMode": "モーメント",
   "generationSubmissionDefaultPromptBadge": "デフォルト",
   "generationSubmissionSelectMoment": "写真を撮影または選択",
@@ -87,6 +87,15 @@
   "generationSubmissionStatusWaitingForGenerationResult": "生成結果を待機中",
   "generationSubmissionStatusPreparingGenerationTask": "生成タスクを準備中",
   "generationSubmissionConfirmationGuideMessage": "写真の最適化には1枚につき2クレジットを使用します。確認後、完了まで約1分かかります。アプリを閉じても、完了時に通知でお知らせします。",
+  "generationSubmissionEstimatedProgressPercent": "{percent}%",
+  "@generationSubmissionEstimatedProgressPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "generationSubmissionEstimatedFinishing": "まもなく完了",
   "generationSubmissionConfirmationGuideDismiss": "了解",
   "generationSubmissionActionViewInAlbum": "アルバムで表示",
   "generationSubmissionActionSaveOriginal": "元の写真を保存",
@@ -97,6 +106,8 @@
   "generationSubmissionDislikeFeedbackPlaceholder": "フィードバックをお聞かせください（任意）",
   "generationSubmissionDislikeFeedbackSubmit": "送信",
   "generationSubmissionActionRemove": "削除",
+  "generationSubmissionActionDelete": "削除",
+  "generationSubmissionActionConfirm": "確認",
   "promptSwitchRecomposeTitle": "再構成",
   "promptSwitchBeautifyFaceTitle": "ビューティー",
   "promptSwitchCleanFrameTitle": "すっきり",

@@ -185,7 +185,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get generationSubmissionGalleryTitle => 'ギャラリー';
 
   @override
-  String get generationSubmissionImportNew => '写真から読み込む';
+  String get generationSubmissionImportNew => '写真を追加';
 
   @override
   String get generationSubmissionDefaultMomentMode => 'モーメント';
@@ -238,6 +238,14 @@ class AppLocalizationsJa extends AppLocalizations {
       '写真の最適化には1枚につき2クレジットを使用します。確認後、完了まで約1分かかります。アプリを閉じても、完了時に通知でお知らせします。';
 
   @override
+  String generationSubmissionEstimatedProgressPercent(int percent) {
+    return '$percent%';
+  }
+
+  @override
+  String get generationSubmissionEstimatedFinishing => 'まもなく完了';
+
+  @override
   String get generationSubmissionConfirmationGuideDismiss => '了解';
 
   @override
@@ -267,6 +275,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get generationSubmissionActionRemove => '削除';
+
+  @override
+  String get generationSubmissionActionDelete => '削除';
+
+  @override
+  String get generationSubmissionActionConfirm => '確認';
 
   @override
   String get promptSwitchRecomposeTitle => '再構成';

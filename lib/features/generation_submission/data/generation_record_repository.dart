@@ -2,10 +2,13 @@ import 'package:drift/drift.dart';
 
 import '../domain/generation_record.dart';
 import '../domain/generation_record_state_machine.dart';
+import '../domain/generation_submission_job.dart';
 import 'generation_record_database.dart';
 
 class GenerationRecordRepository {
   const GenerationRecordRepository(this._database);
+
+  static const int _animationSequenceSingletonId = 1;
 
   final GenerationRecordDatabase _database;
 
@@ -94,35 +97,34 @@ class GenerationRecordRepository {
     String? userInputJson,
     String? displaySnapshotJson,
   }) {
-    return _database
-        .into(_database.generationRecords)
-        .insert(
-          GenerationRecordsCompanion.insert(
-            recordId: recordId,
-            createdAt: createdAt,
-            updatedAt: createdAt,
-            pipelineStatus:
-                GenerationRecordPipelineStatus.awaitingConfirmation.name,
-            originalSourceType: GenerationRecordOriginalSourceType.camera.name,
-            originalAvailability:
-                GenerationRecordOriginalAvailability.available.name,
-            resultAvailability: GenerationRecordResultAvailability.none.name,
-            originalLocalPath: Value<String?>(originalLocalPath),
-            originalCapturedAt: Value<DateTime?>(originalCapturedAt),
-            originalFormat: Value<String?>(originalFormat),
-            originalWidth: Value<int?>(originalWidth),
-            originalHeight: Value<int?>(originalHeight),
-            originalHashStatus: Value<String?>(
-              GenerationRecordHashStatus.pending.name,
-            ),
-            promptStyle: Value<String?>(promptStyle),
-            captureMode: Value<String?>(captureMode),
-            captureAspectRatio: Value<String?>(captureAspectRatio),
-            appInputContractId: Value<String?>(appInputContractId),
-            userInputJson: Value<String?>(userInputJson),
-            displaySnapshotJson: Value<String?>(displaySnapshotJson),
-          ),
-        );
+    return _insertWithAllocatedAnimationIndex(
+      (int animationIndex) => GenerationRecordsCompanion.insert(
+        recordId: recordId,
+        createdAt: createdAt,
+        updatedAt: createdAt,
+        pipelineStatus:
+            GenerationRecordPipelineStatus.awaitingConfirmation.name,
+        originalSourceType: GenerationRecordOriginalSourceType.camera.name,
+        originalAvailability:
+            GenerationRecordOriginalAvailability.available.name,
+        resultAvailability: GenerationRecordResultAvailability.none.name,
+        originalLocalPath: Value<String?>(originalLocalPath),
+        originalCapturedAt: Value<DateTime?>(originalCapturedAt),
+        originalFormat: Value<String?>(originalFormat),
+        originalWidth: Value<int?>(originalWidth),
+        originalHeight: Value<int?>(originalHeight),
+        originalHashStatus: Value<String?>(
+          GenerationRecordHashStatus.pending.name,
+        ),
+        promptStyle: Value<String?>(promptStyle),
+        captureMode: Value<String?>(captureMode),
+        captureAspectRatio: Value<String?>(captureAspectRatio),
+        appInputContractId: Value<String?>(appInputContractId),
+        userInputJson: Value<String?>(userInputJson),
+        displaySnapshotJson: Value<String?>(displaySnapshotJson),
+        animationIndex: Value<int?>(animationIndex),
+      ),
+    );
   }
 
   Future<void> createGalleryRecord({
@@ -141,35 +143,34 @@ class GenerationRecordRepository {
     String? userInputJson,
     String? displaySnapshotJson,
   }) {
-    return _database
-        .into(_database.generationRecords)
-        .insert(
-          GenerationRecordsCompanion.insert(
-            recordId: recordId,
-            createdAt: createdAt,
-            updatedAt: createdAt,
-            pipelineStatus:
-                GenerationRecordPipelineStatus.awaitingConfirmation.name,
-            originalSourceType: GenerationRecordOriginalSourceType.gallery.name,
-            originalAvailability:
-                originalLocalPath == null || originalLocalPath.isEmpty
-                ? GenerationRecordOriginalAvailability.external.name
-                : GenerationRecordOriginalAvailability.available.name,
-            resultAvailability: GenerationRecordResultAvailability.none.name,
-            originalLocalPath: Value<String?>(originalLocalPath),
-            originalAssetId: Value<String?>(originalAssetId),
-            originalCapturedAt: Value<DateTime?>(originalCapturedAt),
-            originalFormat: Value<String?>(originalFormat),
-            originalWidth: Value<int?>(originalWidth),
-            originalHeight: Value<int?>(originalHeight),
-            promptStyle: Value<String?>(promptStyle),
-            captureMode: Value<String?>(captureMode),
-            captureAspectRatio: Value<String?>(captureAspectRatio),
-            appInputContractId: Value<String?>(appInputContractId),
-            userInputJson: Value<String?>(userInputJson),
-            displaySnapshotJson: Value<String?>(displaySnapshotJson),
-          ),
-        );
+    return _insertWithAllocatedAnimationIndex(
+      (int animationIndex) => GenerationRecordsCompanion.insert(
+        recordId: recordId,
+        createdAt: createdAt,
+        updatedAt: createdAt,
+        pipelineStatus:
+            GenerationRecordPipelineStatus.awaitingConfirmation.name,
+        originalSourceType: GenerationRecordOriginalSourceType.gallery.name,
+        originalAvailability:
+            originalLocalPath == null || originalLocalPath.isEmpty
+            ? GenerationRecordOriginalAvailability.external.name
+            : GenerationRecordOriginalAvailability.available.name,
+        resultAvailability: GenerationRecordResultAvailability.none.name,
+        originalLocalPath: Value<String?>(originalLocalPath),
+        originalAssetId: Value<String?>(originalAssetId),
+        originalCapturedAt: Value<DateTime?>(originalCapturedAt),
+        originalFormat: Value<String?>(originalFormat),
+        originalWidth: Value<int?>(originalWidth),
+        originalHeight: Value<int?>(originalHeight),
+        promptStyle: Value<String?>(promptStyle),
+        captureMode: Value<String?>(captureMode),
+        captureAspectRatio: Value<String?>(captureAspectRatio),
+        appInputContractId: Value<String?>(appInputContractId),
+        userInputJson: Value<String?>(userInputJson),
+        displaySnapshotJson: Value<String?>(displaySnapshotJson),
+        animationIndex: Value<int?>(animationIndex),
+      ),
+    );
   }
 
   Future<void> createLocalOriginalSaveFailedRecord({
@@ -184,33 +185,29 @@ class GenerationRecordRepository {
     String? userInputJson,
     String? displaySnapshotJson,
   }) {
-    return _database
-        .into(_database.generationRecords)
-        .insert(
-          GenerationRecordsCompanion.insert(
-            recordId: recordId,
-            createdAt: createdAt,
-            updatedAt: createdAt,
-            pipelineStatus:
-                GenerationRecordPipelineStatus.localOriginalSaveFailed.name,
-            originalSourceType: GenerationRecordOriginalSourceType.camera.name,
-            originalAvailability:
-                GenerationRecordOriginalAvailability.missing.name,
-            resultAvailability: GenerationRecordResultAvailability.none.name,
-            promptStyle: Value<String?>(promptStyle),
-            captureMode: Value<String?>(captureMode),
-            captureAspectRatio: Value<String?>(captureAspectRatio),
-            appInputContractId: Value<String?>(appInputContractId),
-            userInputJson: Value<String?>(userInputJson),
-            displaySnapshotJson: Value<String?>(displaySnapshotJson),
-            errorCode: Value<String?>(errorCode),
-            errorMessage: Value<String?>(errorMessage),
-            failureStage: Value<String?>(
-              GenerationRecordFailureStage.local.name,
-            ),
-            failureRetryable: const Value<bool?>(true),
-          ),
-        );
+    return _insertWithAllocatedAnimationIndex(
+      (int animationIndex) => GenerationRecordsCompanion.insert(
+        recordId: recordId,
+        createdAt: createdAt,
+        updatedAt: createdAt,
+        pipelineStatus:
+            GenerationRecordPipelineStatus.localOriginalSaveFailed.name,
+        originalSourceType: GenerationRecordOriginalSourceType.camera.name,
+        originalAvailability: GenerationRecordOriginalAvailability.missing.name,
+        resultAvailability: GenerationRecordResultAvailability.none.name,
+        promptStyle: Value<String?>(promptStyle),
+        captureMode: Value<String?>(captureMode),
+        captureAspectRatio: Value<String?>(captureAspectRatio),
+        appInputContractId: Value<String?>(appInputContractId),
+        userInputJson: Value<String?>(userInputJson),
+        displaySnapshotJson: Value<String?>(displaySnapshotJson),
+        errorCode: Value<String?>(errorCode),
+        errorMessage: Value<String?>(errorMessage),
+        failureStage: Value<String?>(GenerationRecordFailureStage.local.name),
+        failureRetryable: const Value<bool?>(true),
+        animationIndex: Value<int?>(animationIndex),
+      ),
+    );
   }
 
   Future<void> updatePipelineStatus({
@@ -221,6 +218,7 @@ class GenerationRecordRepository {
     String? errorMessage,
     bool clearError = false,
     bool clearFailure = false,
+    bool clearGenerationStartedAt = false,
   }) {
     return _updateById(
       recordId,
@@ -239,8 +237,39 @@ class GenerationRecordRepository {
         failureRetryable: clearFailure
             ? const Value<bool?>(null)
             : const Value<bool?>.absent(),
+        generationStartedAt: clearGenerationStartedAt
+            ? const Value<DateTime?>(null)
+            : const Value<DateTime?>.absent(),
       ),
     );
+  }
+
+  Future<bool> beginGenerationAttempt({
+    required String recordId,
+    required DateTime startedAt,
+  }) async {
+    final UpdateStatement<$GenerationRecordsTable, GenerationRecord> update =
+        _database.update(_database.generationRecords)..where(
+          ($GenerationRecordsTable table) =>
+              table.recordId.equals(recordId) &
+              table.pipelineStatus.equals(
+                GenerationRecordPipelineStatus.awaitingConfirmation.name,
+              ),
+        );
+    final int updatedRows = await update.write(
+      GenerationRecordsCompanion(
+        updatedAt: Value<DateTime>(startedAt),
+        generationStartedAt: Value<DateTime?>(startedAt),
+        pipelineStatus: Value<String>(
+          GenerationRecordPipelineStatus.awaitingRetry.name,
+        ),
+        errorCode: const Value<String?>(null),
+        errorMessage: const Value<String?>(null),
+        failureStage: const Value<String?>(null),
+        failureRetryable: const Value<bool?>(null),
+      ),
+    );
+    return updatedRows == 1;
   }
 
   Future<void> markFailure({
@@ -359,6 +388,23 @@ class GenerationRecordRepository {
     );
   }
 
+  Future<void> clearResultLocalCache({
+    required String recordId,
+    required DateTime updatedAt,
+  }) {
+    return _updateById(
+      recordId,
+      GenerationRecordsCompanion(
+        updatedAt: Value<DateTime>(updatedAt),
+        resultAvailability: Value<String>(
+          GenerationRecordResultAvailability.none.name,
+        ),
+        resultLocalCachePath: const Value<String?>(null),
+        resultSizeBytes: const Value<int?>(null),
+      ),
+    );
+  }
+
   Future<void> markResultSaved({
     required String recordId,
     required DateTime updatedAt,
@@ -443,6 +489,7 @@ class GenerationRecordRepository {
       recordId,
       GenerationRecordsCompanion(
         updatedAt: Value<DateTime>(updatedAt),
+        generationStartedAt: Value<DateTime?>(updatedAt),
         pipelineStatus: Value<String>(
           GenerationRecordPipelineStatus.awaitingRetry.name,
         ),
@@ -538,7 +585,39 @@ class GenerationRecordRepository {
   }
 
   Future<void> deleteAllRecords() {
-    return _database.delete(_database.generationRecords).go();
+    return _database.transaction(() async {
+      await _database.delete(_database.generationRecords).go();
+      await _database.delete(_database.generationAnimationSequenceStates).go();
+    });
+  }
+
+  Future<void> _insertWithAllocatedAnimationIndex(
+    GenerationRecordsCompanion Function(int animationIndex) buildCompanion,
+  ) {
+    return _database.transaction(() async {
+      final GenerationAnimationSequenceState? sequenceState =
+          await (_database.select(_database.generationAnimationSequenceStates)
+                ..where(
+                  ($GenerationAnimationSequenceStatesTable table) =>
+                      table.singletonId.equals(_animationSequenceSingletonId),
+                ))
+              .getSingleOrNull();
+      final int animationIndex =
+          sequenceState?.nextAnimationIndex ?? generationDefaultAnimationIndex;
+
+      await _database
+          .into(_database.generationRecords)
+          .insert(buildCompanion(animationIndex));
+      await _database
+          .into(_database.generationAnimationSequenceStates)
+          .insertOnConflictUpdate(
+            GenerationAnimationSequenceStatesCompanion.insert(
+              singletonId: const Value<int>(_animationSequenceSingletonId),
+              nextAnimationIndex:
+                  (animationIndex + 1) % generationAnimationVariantCount,
+            ),
+          );
+    });
   }
 
   Future<void> _updateById(

@@ -70,7 +70,7 @@
   "generationSubmissionDownloadingFromICloud": "Downloading from iCloud",
   "generationSubmissionPreparingPhoto": "Preparing your photo...",
   "generationSubmissionGalleryTitle": "GALLERY",
-  "generationSubmissionImportNew": "IMPORT FROM PHOTOS",
+  "generationSubmissionImportNew": "Import",
   "generationSubmissionDefaultMomentMode": "MOMENT",
   "generationSubmissionDefaultPromptBadge": "DEFAULT",
   "generationSubmissionSelectMoment": "CAPTURE OR CHOOSE A PHOTO",
@@ -87,6 +87,15 @@
   "generationSubmissionStatusWaitingForGenerationResult": "Waiting for generation result",
   "generationSubmissionStatusPreparingGenerationTask": "Preparing generation task",
   "generationSubmissionConfirmationGuideMessage": "Each photo enhancement uses 2 credits. After confirming, it takes about 1 minute. You can leave the app, and we'll notify you when it's done.",
+  "generationSubmissionEstimatedProgressPercent": "{percent}%",
+  "@generationSubmissionEstimatedProgressPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "generationSubmissionEstimatedFinishing": "Almost done",
   "generationSubmissionConfirmationGuideDismiss": "Got it",
   "generationSubmissionActionViewInAlbum": "View in Album",
   "generationSubmissionActionSaveOriginal": "Save Original",
@@ -97,6 +106,8 @@
   "generationSubmissionDislikeFeedbackPlaceholder": "Leave your feedback (optional)",
   "generationSubmissionDislikeFeedbackSubmit": "Submit",
   "generationSubmissionActionRemove": "Remove",
+  "generationSubmissionActionDelete": "Delete",
+  "generationSubmissionActionConfirm": "Confirm",
   "promptSwitchRecomposeTitle": "Recompose",
   "promptSwitchBeautifyFaceTitle": "Beautify",
   "promptSwitchCleanFrameTitle": "Declutter",

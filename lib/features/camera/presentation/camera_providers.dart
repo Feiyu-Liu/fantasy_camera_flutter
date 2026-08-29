@@ -15,9 +15,9 @@ import '../../../settings/application/app_settings.dart';
 import '../../../shared/camera/camera_controller.dart';
 import '../../../shared/core/app_logger.dart';
 import '../data/camera_device_repository.dart';
-import '../data/captured_photo_processor.dart';
 import '../data/capture_lens_metadata_reader.dart';
 import '../data/capture_orientation_reader.dart';
+import '../domain/camera_capture_aspect_ratio.dart';
 import '../domain/camera_choice.dart';
 import 'camera_message.dart';
 import 'camera_state.dart';
@@ -44,12 +44,6 @@ final cameraLensMetadataReaderProvider = Provider<CameraLensMetadataReader>((
   return const NativeCameraLensMetadataReader();
 });
 
-final capturedPhotoProcessorProvider = Provider<CapturedPhotoProcessor>((
-  Ref ref,
-) {
-  return const MethodChannelCapturedPhotoProcessor();
-});
-
 final captureOrientationProvider =
     StreamProvider.autoDispose<DeviceOrientation>((Ref ref) {
       final CaptureOrientationReader reader = ref.watch(
@@ -69,7 +63,6 @@ final cameraStateProvider =
         generationSubmissionControllerProvider,
         promptSelectionControllerProvider,
         cameraLensMetadataReaderProvider,
-        capturedPhotoProcessorProvider,
       ],
     );
 
@@ -89,9 +82,6 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
 
   CameraLensMetadataReader get _cameraLensMetadataReader =>
       ref.read(cameraLensMetadataReaderProvider);
-
-  CapturedPhotoProcessor get _capturedPhotoProcessor =>
-      ref.read(capturedPhotoProcessorProvider);
 
   @override
   CameraState build() {
@@ -339,21 +329,10 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
             captureOrientation,
             restoreOrientation: DeviceOrientation.portraitUp,
             photoMirrored: shouldMirrorPhoto,
+            photoCropMode: captureAspectRatio == CameraCaptureAspectRatio.square
+                ? AVFoundationPhotoCropMode.square
+                : AVFoundationPhotoCropMode.none,
           );
-      final PreparedCapturedPhoto preparedPhoto;
-      try {
-        preparedPhoto = await _capturedPhotoProcessor.prepareCanonicalOriginal(
-          source: capturedFile,
-          aspectRatio: captureAspectRatio,
-        );
-      } on Object catch (error, stackTrace) {
-        logAppError('camera_capture_processing_failed', error, stackTrace);
-        state = state.copyWith(
-          captureProcessingFailureTrigger:
-              state.captureProcessingFailureTrigger + 1,
-        );
-        return null;
-      }
       final PromptSelectionSnapshot promptSelection = ref
           .read(promptSelectionControllerProvider)
           .snapshot;
@@ -363,12 +342,12 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       final bool confirmBeforeGeneration =
           appSettings.confirmBeforeGenerationEnabled;
       final String? recordId = await submissionController.queueCapturedFile(
-        preparedPhoto.file,
+        capturedFile,
         captureAspectRatio: captureAspectRatio,
         promptSelection: promptSelection,
         cameraCaptureMetadataSnapshot: cameraCaptureMetadataSnapshot,
       );
-      XFile canonicalFile = preparedPhoto.file;
+      XFile canonicalFile = capturedFile;
       if (recordId != null) {
         for (final job
             in ref.read(generationSubmissionControllerProvider).jobs) {
@@ -379,17 +358,6 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
         }
       }
       state = state.copyWith(lastCapturedFile: canonicalFile);
-      if (canonicalFile.path != preparedPhoto.file.path) {
-        try {
-          await preparedPhoto.deleteTemporaryFile();
-        } on Object catch (error, stackTrace) {
-          logAppError(
-            'camera_capture_temporary_cleanup_failed',
-            error,
-            stackTrace,
-          );
-        }
-      }
       if (!confirmBeforeGeneration && recordId != null) {
         unawaited(_confirmCapturedRecord(recordId));
       }
@@ -516,6 +484,15 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
       await cameraController.setImageFileFormat(
         AppConfig.cameraImageFileFormat,
       );
+      if (!_isCurrentController(cameraController, generation)) {
+        return;
+      }
+      final CameraPlatform cameraPlatform = CameraPlatform.instance;
+      if (cameraPlatform is AVFoundationCamera) {
+        await cameraPlatform.setImageFileCompressionQuality(
+          AppConfig.cameraImageCompressionQuality,
+        );
+      }
       if (!_isCurrentController(cameraController, generation)) {
         return;
       }

@@ -55,16 +55,11 @@ class ForegroundFallbackR2UploadService implements BackgroundR2UploadService {
 
 class BackgroundDownloaderR2UploadService implements BackgroundR2UploadService {
   BackgroundDownloaderR2UploadService({FileDownloader? downloader})
-    : _downloader = downloader ?? FileDownloader() {
-    _registerCallbacks();
-  }
+    : _downloader = downloader ?? FileDownloader();
 
   static const String group = 'r2-generation-upload';
 
   final FileDownloader _downloader;
-  final Map<String, Completer<TaskStatusUpdate>> _pending =
-      <String, Completer<TaskStatusUpdate>>{};
-  bool _callbacksRegistered = false;
   bool _disposed = false;
 
   static Future<void> initializeDownloader({FileDownloader? downloader}) async {
@@ -95,7 +90,6 @@ class BackgroundDownloaderR2UploadService implements BackgroundR2UploadService {
     if (_disposed) {
       throw StateError('BackgroundR2UploadService has been disposed.');
     }
-    _registerCallbacks();
     final (BaseDirectory baseDirectory, String directory, String filename) =
         await Task.split(filePath: filePath);
     final UploadTask task = UploadTask(
@@ -113,7 +107,8 @@ class BackgroundDownloaderR2UploadService implements BackgroundR2UploadService {
       displayName: displayName,
       metaData: uploadSession.uploadSessionId,
     );
-    final TaskStatusUpdate update = await _enqueueAndAwait(task);
+    final TaskStatusUpdate update = await _uploadAndAwait(task);
+    _handleStatusUpdate(update);
     return BackgroundR2UploadResult(
       downloaderTaskId: task.taskId,
       status: update.status,
@@ -123,72 +118,40 @@ class BackgroundDownloaderR2UploadService implements BackgroundR2UploadService {
     );
   }
 
-  Future<TaskStatusUpdate> _enqueueAndAwait(UploadTask task) async {
-    final Completer<TaskStatusUpdate> completer = Completer<TaskStatusUpdate>();
-    _pending[task.taskId] = completer;
-    try {
-      final bool enqueued = await _downloader.enqueue(task);
-      _debugLog('enqueue task=${task.taskId} enqueued=$enqueued');
-      if (!enqueued) {
-        throw StateError('background_downloader enqueue returned false.');
-      }
-      return await completer.future.timeout(
-        const Duration(minutes: 15),
-        onTimeout: () {
-          throw TimeoutException(
-            'background_downloader upload did not reach a terminal state.',
-            const Duration(minutes: 15),
-          );
-        },
-      );
-    } finally {
-      _pending.remove(task.taskId);
-    }
-  }
-
-  void _registerCallbacks() {
-    if (_callbacksRegistered) {
-      return;
-    }
-    _downloader.registerCallbacks(
-      group: group,
-      taskStatusCallback: _handleStatusUpdate,
-      taskProgressCallback: _handleProgressUpdate,
-    );
-    _callbacksRegistered = true;
+  Future<TaskStatusUpdate> _uploadAndAwait(UploadTask task) {
+    _debugLog('enqueue task=${task.taskId}');
+    return _downloader
+        .upload(
+          task,
+          onStatus: (TaskStatus status) {
+            _debugLog('task status task=${task.taskId} status=${status.name}');
+          },
+          onProgress: (double progress) {
+            _debugLog(
+              'progress task=${task.taskId} progress=${progress.toStringAsFixed(4)}',
+            );
+          },
+        )
+        .timeout(
+          const Duration(minutes: 15),
+          onTimeout: () {
+            throw TimeoutException(
+              'background_downloader upload did not reach a terminal state.',
+              const Duration(minutes: 15),
+            );
+          },
+        );
   }
 
   void _handleStatusUpdate(TaskStatusUpdate update) {
     _debugLog(
       'status task=${update.task.taskId} status=${update.status.name} http=${update.responseStatusCode ?? 'none'} exception=${update.exception ?? 'none'}',
     );
-    final Completer<TaskStatusUpdate>? completer = _pending[update.task.taskId];
-    if (update.status.isFinalState &&
-        completer != null &&
-        !completer.isCompleted) {
-      completer.complete(update);
-    }
-  }
-
-  void _handleProgressUpdate(TaskProgressUpdate update) {
-    _debugLog(
-      'progress task=${update.task.taskId} progress=${update.progress.toStringAsFixed(4)} expected=${update.expectedFileSize} speed=${update.networkSpeed.toStringAsFixed(4)}',
-    );
   }
 
   @override
   void dispose() {
     _disposed = true;
-    for (final Completer<TaskStatusUpdate> completer in _pending.values) {
-      if (!completer.isCompleted) {
-        completer.completeError(StateError('Background upload disposed.'));
-      }
-    }
-    _pending.clear();
-    if (_callbacksRegistered) {
-      _downloader.unregisterCallbacks(group: group);
-      _callbacksRegistered = false;
-    }
   }
 }
 

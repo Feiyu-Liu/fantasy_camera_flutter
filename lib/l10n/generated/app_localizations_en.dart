@@ -192,7 +192,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get generationSubmissionGalleryTitle => 'GALLERY';
 
   @override
-  String get generationSubmissionImportNew => 'IMPORT FROM PHOTOS';
+  String get generationSubmissionImportNew => 'Import';
 
   @override
   String get generationSubmissionDefaultMomentMode => 'MOMENT';
@@ -253,6 +253,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Each photo enhancement uses 2 credits. After confirming, it takes about 1 minute. You can leave the app, and we\'ll notify you when it\'s done.';
 
   @override
+  String generationSubmissionEstimatedProgressPercent(int percent) {
+    return '$percent%';
+  }
+
+  @override
+  String get generationSubmissionEstimatedFinishing => 'Almost done';
+
+  @override
   String get generationSubmissionConfirmationGuideDismiss => 'Got it';
 
   @override
@@ -282,6 +290,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get generationSubmissionActionRemove => 'Remove';
+
+  @override
+  String get generationSubmissionActionDelete => 'Delete';
+
+  @override
+  String get generationSubmissionActionConfirm => 'Confirm';
 
   @override
   String get promptSwitchRecomposeTitle => 'Recompose';

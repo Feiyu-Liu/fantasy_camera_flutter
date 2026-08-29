@@ -3,6 +3,7 @@ import ImageIO
 import UIKit
 import UniformTypeIdentifiers
 import XCTest
+
 @testable import Runner
 
 class RunnerTests: XCTestCase {
@@ -21,7 +22,8 @@ class RunnerTests: XCTestCase {
 
     let result = try CapturedPhotoSquareCropper().crop(
       sourceURL: sourceURL,
-      outputURL: outputURL
+      outputURL: outputURL,
+      compressionQuality: 0.85
     )
 
     XCTAssertEqual(result.width, 80)
@@ -79,6 +81,35 @@ class RunnerTests: XCTestCase {
     XCTAssertEqual(format.fileExtension, "jpg")
   }
 
+  func testSquareCropBalancedQualityProducesSmallerFileThanMaximumQuality() throws {
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: directory,
+      withIntermediateDirectories: true
+    )
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let sourceURL = directory.appendingPathComponent("source.jpg")
+    let balancedURL = directory.appendingPathComponent("balanced.jpg")
+    let maximumURL = directory.appendingPathComponent("maximum.jpg")
+    try writeTestImage(to: sourceURL)
+
+    _ = try CapturedPhotoSquareCropper().crop(
+      sourceURL: sourceURL,
+      outputURL: balancedURL,
+      compressionQuality: 0.85
+    )
+    _ = try CapturedPhotoSquareCropper().crop(
+      sourceURL: sourceURL,
+      outputURL: maximumURL,
+      compressionQuality: 1.0
+    )
+
+    let balancedSize = try balancedURL.resourceValues(forKeys: [.fileSizeKey]).fileSize
+    let maximumSize = try maximumURL.resourceValues(forKeys: [.fileSizeKey]).fileSize
+    XCTAssertLessThan(try XCTUnwrap(balancedSize), try XCTUnwrap(maximumSize))
+  }
+
   private func writeTestImage(to url: URL) throws {
     let format = UIGraphicsImageRendererFormat()
     format.scale = 1
@@ -86,11 +117,11 @@ class RunnerTests: XCTestCase {
       size: CGSize(width: 120, height: 80),
       format: format
     ).image { context in
-        UIColor.red.setFill()
-        context.cgContext.fill(CGRect(x: 0, y: 0, width: 60, height: 80))
-        UIColor.blue.setFill()
-        context.cgContext.fill(CGRect(x: 60, y: 0, width: 60, height: 80))
-      }
+      UIColor.red.setFill()
+      context.cgContext.fill(CGRect(x: 0, y: 0, width: 60, height: 80))
+      UIColor.blue.setFill()
+      context.cgContext.fill(CGRect(x: 60, y: 0, width: 60, height: 80))
+    }
     let cgImage = try XCTUnwrap(image.cgImage)
     let destination = try XCTUnwrap(
       CGImageDestinationCreateWithURL(

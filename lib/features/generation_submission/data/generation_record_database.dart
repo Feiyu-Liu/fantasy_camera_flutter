@@ -5,6 +5,8 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../domain/generation_record.dart';
+
 part 'generation_record_database.g.dart';
 
 class GenerationRecords extends Table {
@@ -12,6 +14,8 @@ class GenerationRecords extends Table {
 
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
+  DateTimeColumn get generationStartedAt => dateTime().nullable()();
+  IntColumn get animationIndex => integer().nullable()();
 
   TextColumn get pipelineStatus => text()();
   TextColumn get originalSourceType => text()();
@@ -72,9 +76,19 @@ class GenerationRecords extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{recordId};
 }
 
-@DriftDatabase(tables: <Type>[GenerationRecords])
+class GenerationAnimationSequenceStates extends Table {
+  IntColumn get singletonId => integer()();
+  IntColumn get nextAnimationIndex => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{singletonId};
+}
+
+@DriftDatabase(
+  tables: <Type>[GenerationRecords, GenerationAnimationSequenceStates],
+)
 class GenerationRecordDatabase extends _$GenerationRecordDatabase {
-  static const int currentSchemaVersion = 3;
+  static const int currentSchemaVersion = 5;
 
   GenerationRecordDatabase() : super(_openConnection());
 
@@ -94,6 +108,10 @@ class GenerationRecordDatabase extends _$GenerationRecordDatabase {
               await _migrateFrom1To2(migrator);
             case 2:
               await _migrateFrom2To3(migrator);
+            case 3:
+              await _migrateFrom3To4(migrator);
+            case 4:
+              await _migrateFrom4To5(migrator);
           }
         }
       },
@@ -113,6 +131,34 @@ class GenerationRecordDatabase extends _$GenerationRecordDatabase {
       generationRecords,
       generationRecords.captureAspectRatio,
     );
+  }
+
+  Future<void> _migrateFrom3To4(Migrator migrator) async {
+    await migrator.addColumn(
+      generationRecords,
+      generationRecords.generationStartedAt,
+    );
+    await customStatement(
+      '''
+UPDATE generation_records
+SET generation_started_at = updated_at
+WHERE generation_started_at IS NULL
+  AND pipeline_status NOT IN (?, ?, ?)
+''',
+      <Object?>[
+        GenerationRecordPipelineStatus.awaitingConfirmation.name,
+        GenerationRecordPipelineStatus.resultSaved.name,
+        GenerationRecordPipelineStatus.canceled.name,
+      ],
+    );
+  }
+
+  Future<void> _migrateFrom4To5(Migrator migrator) async {
+    await migrator.addColumn(
+      generationRecords,
+      generationRecords.animationIndex,
+    );
+    await migrator.createTable(generationAnimationSequenceStates);
   }
 }
 

@@ -436,7 +436,7 @@ abstract class AppLocalizations {
   /// No description provided for @generationSubmissionImportNew.
   ///
   /// In en, this message translates to:
-  /// **'IMPORT FROM PHOTOS'**
+  /// **'Import'**
   String get generationSubmissionImportNew;
 
   /// No description provided for @generationSubmissionDefaultMomentMode.
@@ -535,6 +535,18 @@ abstract class AppLocalizations {
   /// **'Each photo enhancement uses 2 credits. After confirming, it takes about 1 minute. You can leave the app, and we\'ll notify you when it\'s done.'**
   String get generationSubmissionConfirmationGuideMessage;
 
+  /// No description provided for @generationSubmissionEstimatedProgressPercent.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}%'**
+  String generationSubmissionEstimatedProgressPercent(int percent);
+
+  /// No description provided for @generationSubmissionEstimatedFinishing.
+  ///
+  /// In en, this message translates to:
+  /// **'Almost done'**
+  String get generationSubmissionEstimatedFinishing;
+
   /// No description provided for @generationSubmissionConfirmationGuideDismiss.
   ///
   /// In en, this message translates to:
@@ -594,6 +606,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove'**
   String get generationSubmissionActionRemove;
+
+  /// No description provided for @generationSubmissionActionDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get generationSubmissionActionDelete;
+
+  /// No description provided for @generationSubmissionActionConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get generationSubmissionActionConfirm;
 
   /// No description provided for @promptSwitchRecomposeTitle.
   ///

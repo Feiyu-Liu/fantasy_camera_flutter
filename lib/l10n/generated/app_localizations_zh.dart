@@ -181,7 +181,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get generationSubmissionGalleryTitle => '画廊';
 
   @override
-  String get generationSubmissionImportNew => '从相册导入';
+  String get generationSubmissionImportNew => '导入照片';
 
   @override
   String get generationSubmissionDefaultMomentMode => '时刻';
@@ -234,6 +234,14 @@ class AppLocalizationsZh extends AppLocalizations {
       '每张照片优化将消耗2积分，确认后需要等待约1分钟。期间你可以退出app，完成后会通过通知提醒';
 
   @override
+  String generationSubmissionEstimatedProgressPercent(int percent) {
+    return '$percent%';
+  }
+
+  @override
+  String get generationSubmissionEstimatedFinishing => '即将完成';
+
+  @override
   String get generationSubmissionConfirmationGuideDismiss => '知道了';
 
   @override
@@ -262,6 +270,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get generationSubmissionActionRemove => '移除';
+
+  @override
+  String get generationSubmissionActionDelete => '删除';
+
+  @override
+  String get generationSubmissionActionConfirm => '确认';
 
   @override
   String get promptSwitchRecomposeTitle => '重构图';
@@ -842,7 +856,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get generationSubmissionGalleryTitle => '作品集';
 
   @override
-  String get generationSubmissionImportNew => '從照片匯入';
+  String get generationSubmissionImportNew => '匯入照片';
 
   @override
   String get generationSubmissionDefaultMomentMode => '時刻';
@@ -895,6 +909,14 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
       '每張照片最佳化將消耗 2 點數，確認後需要等待約 1 分鐘。期間你可以退出 App，完成後會透過通知提醒';
 
   @override
+  String generationSubmissionEstimatedProgressPercent(int percent) {
+    return '$percent%';
+  }
+
+  @override
+  String get generationSubmissionEstimatedFinishing => '即將完成';
+
+  @override
   String get generationSubmissionConfirmationGuideDismiss => '知道了';
 
   @override
@@ -923,6 +945,12 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get generationSubmissionActionRemove => '移除';
+
+  @override
+  String get generationSubmissionActionDelete => '刪除';
+
+  @override
+  String get generationSubmissionActionConfirm => '確認';
 
   @override
   String get promptSwitchRecomposeTitle => '重新構圖';

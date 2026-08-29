@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_capture_aspect_ratio.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_repository.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_record.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -130,6 +133,150 @@ void main() {
       'originals/2026/06/04/record-gallery-local.heic',
     );
     expect(record.originalAssetId, 'asset-1');
+  });
+
+  test(
+    'persists animation indexes across record types and deletions',
+    () async {
+      final DateTime createdAt = DateTime.utc(2026, 8, 27, 8);
+
+      await repository.createCameraRecord(
+        recordId: 'animation-camera',
+        originalLocalPath: '/tmp/animation-camera.heic',
+        createdAt: createdAt,
+      );
+      await repository.createGalleryRecord(
+        recordId: 'animation-gallery',
+        createdAt: createdAt.add(const Duration(minutes: 1)),
+        originalLocalPath: '/tmp/animation-gallery.heic',
+      );
+      await repository.createLocalOriginalSaveFailedRecord(
+        recordId: 'animation-failed',
+        createdAt: createdAt.add(const Duration(minutes: 2)),
+        errorCode: 'save_failed',
+        errorMessage: 'save failed',
+      );
+      await repository.createCameraRecord(
+        recordId: 'animation-fourth',
+        originalLocalPath: '/tmp/animation-fourth.heic',
+        createdAt: createdAt.add(const Duration(minutes: 3)),
+      );
+
+      expect(
+        <int?>[
+          (await repository.findById('animation-camera'))?.animationIndex,
+          (await repository.findById('animation-gallery'))?.animationIndex,
+          (await repository.findById('animation-failed'))?.animationIndex,
+          (await repository.findById('animation-fourth'))?.animationIndex,
+        ],
+        <int?>[0, 1, 2, 0],
+      );
+
+      await repository.deleteRecord('animation-fourth');
+      await repository.createCameraRecord(
+        recordId: 'animation-after-delete',
+        originalLocalPath: '/tmp/animation-after-delete.heic',
+        createdAt: createdAt.add(const Duration(minutes: 4)),
+      );
+      expect(
+        (await repository.findById('animation-after-delete'))?.animationIndex,
+        1,
+      );
+
+      await repository.deleteAllRecords();
+      await repository.createCameraRecord(
+        recordId: 'animation-after-clear',
+        originalLocalPath: '/tmp/animation-after-clear.heic',
+        createdAt: createdAt.add(const Duration(minutes: 5)),
+      );
+      expect(
+        (await repository.findById('animation-after-clear'))?.animationIndex,
+        generationDefaultAnimationIndex,
+      );
+    },
+  );
+
+  test('continues the animation sequence after database restart', () async {
+    final Directory tempDirectory = await Directory.systemTemp.createTemp(
+      'generation_animation_sequence_test_',
+    );
+    addTearDown(() async {
+      if (await tempDirectory.exists()) {
+        await tempDirectory.delete(recursive: true);
+      }
+    });
+    final File databaseFile = File(
+      '${tempDirectory.path}/generation_records.sqlite',
+    );
+    final DateTime createdAt = DateTime.utc(2026, 8, 27, 9);
+
+    final GenerationRecordDatabase firstDatabase =
+        GenerationRecordDatabase.forExecutor(NativeDatabase(databaseFile));
+    final GenerationRecordRepository firstRepository =
+        GenerationRecordRepository(firstDatabase);
+    await firstRepository.createCameraRecord(
+      recordId: 'before-restart',
+      originalLocalPath: '/tmp/before-restart.heic',
+      createdAt: createdAt,
+    );
+    await firstDatabase.close();
+
+    final GenerationRecordDatabase restartedDatabase =
+        GenerationRecordDatabase.forExecutor(NativeDatabase(databaseFile));
+    addTearDown(restartedDatabase.close);
+    final GenerationRecordRepository restartedRepository =
+        GenerationRecordRepository(restartedDatabase);
+    await restartedRepository.createCameraRecord(
+      recordId: 'after-restart',
+      originalLocalPath: '/tmp/after-restart.heic',
+      createdAt: createdAt.add(const Duration(minutes: 1)),
+    );
+
+    expect(
+      (await restartedRepository.findById('before-restart'))?.animationIndex,
+      0,
+    );
+    expect(
+      (await restartedRepository.findById('after-restart'))?.animationIndex,
+      1,
+    );
+  });
+
+  test('starts a generation attempt only from awaiting confirmation', () async {
+    final DateTime createdAt = DateTime.utc(2026, 7, 28, 8);
+    final DateTime startedAt = DateTime.utc(2026, 7, 28, 8, 5);
+    await repository.createCameraRecord(
+      recordId: 'begin-attempt',
+      originalLocalPath: '/tmp/begin-attempt.heic',
+      createdAt: createdAt,
+    );
+
+    expect(
+      await repository.beginGenerationAttempt(
+        recordId: 'begin-attempt',
+        startedAt: startedAt,
+      ),
+      isTrue,
+    );
+    expect(
+      await repository.beginGenerationAttempt(
+        recordId: 'begin-attempt',
+        startedAt: startedAt.add(const Duration(minutes: 1)),
+      ),
+      isFalse,
+    );
+
+    final GenerationRecord record = (await repository.findById(
+      'begin-attempt',
+    ))!;
+    expect(
+      record.pipelineStatus,
+      GenerationRecordPipelineStatus.awaitingRetry.name,
+    );
+    expect(
+      record.generationStartedAt?.millisecondsSinceEpoch,
+      startedAt.millisecondsSinceEpoch,
+    );
   });
 
   test('marks original cleared without deleting record', () async {
@@ -428,6 +575,10 @@ void main() {
     expect(
       record.pipelineStatus,
       GenerationRecordPipelineStatus.awaitingRetry.name,
+    );
+    expect(
+      record.generationStartedAt?.millisecondsSinceEpoch,
+      retryAt.millisecondsSinceEpoch,
     );
     expect(record.resultNotificationSeenAt, isNull);
   });

@@ -6,10 +6,13 @@ import 'package:drift_dev/api/migrations_native.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_database.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/data/generation_record_repository.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_record.dart';
+import 'package:fantasy_camera_flutter/features/generation_submission/domain/generation_submission_job.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../drift/generated/schema.dart' as generated_schema;
 import '../../../drift/generated/schema_v1.dart' as generated_v1;
+import '../../../drift/generated/schema_v3.dart' as generated_v3;
+import '../../../drift/generated/schema_v4.dart' as generated_v4;
 
 void main() {
   test('creates the current generation records schema', () async {
@@ -97,8 +100,180 @@ void main() {
     expect(record.promptStyle, 'realistic');
     expect(record.captureMode, 'portrait');
     expect(record.captureAspectRatio, isNull);
+    expect(record.generationStartedAt, isNull);
+    expect(record.animationIndex, isNull);
     expect(record.userInputJson, '{"prompt":"v1"}');
   });
+
+  test('migrates v4 records without backfilling animation indexes', () async {
+    final Directory tempDirectory = await Directory.systemTemp.createTemp(
+      'generation_record_v4_migration_test_',
+    );
+    addTearDown(() async {
+      if (await tempDirectory.exists()) {
+        await tempDirectory.delete(recursive: true);
+      }
+    });
+    final File databaseFile = File(
+      '${tempDirectory.path}/generation_records.sqlite',
+    );
+    final generated_v4.DatabaseAtV4 v4Database = generated_v4.DatabaseAtV4(
+      NativeDatabase(databaseFile),
+    );
+    await _insertV4Record(
+      v4Database,
+      recordId: 'record-v4-oldest',
+      createdAt: DateTime.utc(2026, 8, 1, 8),
+    );
+    await _insertV4Record(
+      v4Database,
+      recordId: 'record-v4-newest',
+      createdAt: DateTime.utc(2026, 8, 1, 9),
+    );
+    await v4Database.close();
+
+    final GenerationRecordDatabase migratedDatabase =
+        GenerationRecordDatabase.forExecutor(NativeDatabase(databaseFile));
+    addTearDown(migratedDatabase.close);
+    final GenerationRecordRepository repository = GenerationRecordRepository(
+      migratedDatabase,
+    );
+
+    final List<GenerationRecord> legacyRecords = await repository.listRecords();
+    expect(
+      legacyRecords.map((GenerationRecord record) => record.animationIndex),
+      <int?>[null, null],
+    );
+    expect(
+      await migratedDatabase
+          .select(migratedDatabase.generationAnimationSequenceStates)
+          .get(),
+      isEmpty,
+    );
+
+    await repository.createCameraRecord(
+      recordId: 'record-v5-new',
+      originalLocalPath: 'originals/record-v5-new.heic',
+      createdAt: DateTime.utc(2026, 8, 1, 10),
+    );
+
+    final GenerationRecord newRecord = (await repository.findById(
+      'record-v5-new',
+    ))!;
+    expect(newRecord.animationIndex, generationDefaultAnimationIndex);
+  });
+
+  test(
+    'migrates v3 progress anchors without changing pending records',
+    () async {
+      final Directory tempDirectory = await Directory.systemTemp.createTemp(
+        'generation_record_v3_migration_test_',
+      );
+      addTearDown(() async {
+        if (await tempDirectory.exists()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      final File databaseFile = File(
+        '${tempDirectory.path}/generation_records.sqlite',
+      );
+      final DateTime activeUpdatedAt = DateTime.utc(2026, 7, 28, 8, 30);
+      final generated_v3.DatabaseAtV3 v3Database = generated_v3.DatabaseAtV3(
+        NativeDatabase(databaseFile),
+      );
+      await _insertV3Record(
+        v3Database,
+        recordId: 'record-v3-active',
+        status: GenerationRecordPipelineStatus.pollingTask,
+        updatedAt: activeUpdatedAt,
+      );
+      await _insertV3Record(
+        v3Database,
+        recordId: 'record-v3-awaiting',
+        status: GenerationRecordPipelineStatus.awaitingConfirmation,
+        updatedAt: DateTime.utc(2026, 7, 28, 8),
+      );
+      await v3Database.close();
+
+      final GenerationRecordDatabase migratedDatabase =
+          GenerationRecordDatabase.forExecutor(NativeDatabase(databaseFile));
+      addTearDown(migratedDatabase.close);
+      final GenerationRecordRepository repository = GenerationRecordRepository(
+        migratedDatabase,
+      );
+
+      final GenerationRecord active = (await repository.findById(
+        'record-v3-active',
+      ))!;
+      final GenerationRecord awaiting = (await repository.findById(
+        'record-v3-awaiting',
+      ))!;
+
+      expect(
+        active.generationStartedAt?.millisecondsSinceEpoch,
+        activeUpdatedAt.millisecondsSinceEpoch,
+      );
+      expect(awaiting.generationStartedAt, isNull);
+    },
+  );
+}
+
+Future<void> _insertV3Record(
+  generated_v3.DatabaseAtV3 database, {
+  required String recordId,
+  required GenerationRecordPipelineStatus status,
+  required DateTime updatedAt,
+}) {
+  return database
+      .into(database.generationRecords)
+      .insert(
+        RawValuesInsertable<Object?>(<String, Expression<Object>>{
+          'record_id': Variable<String>(recordId),
+          'created_at': Variable<DateTime>(
+            updatedAt.subtract(const Duration(minutes: 5)),
+          ),
+          'updated_at': Variable<DateTime>(updatedAt),
+          'pipeline_status': Variable<String>(status.name),
+          'original_source_type': Variable<String>(
+            GenerationRecordOriginalSourceType.camera.name,
+          ),
+          'original_availability': Variable<String>(
+            GenerationRecordOriginalAvailability.available.name,
+          ),
+          'result_availability': Variable<String>(
+            GenerationRecordResultAvailability.none.name,
+          ),
+        }),
+      );
+}
+
+Future<void> _insertV4Record(
+  generated_v4.DatabaseAtV4 database, {
+  required String recordId,
+  required DateTime createdAt,
+}) {
+  return database
+      .into(database.generationRecords)
+      .insert(
+        RawValuesInsertable<Object?>(<String, Expression<Object>>{
+          'record_id': Variable<String>(recordId),
+          'created_at': Variable<DateTime>(createdAt),
+          'updated_at': Variable<DateTime>(createdAt),
+          'pipeline_status': Variable<String>(
+            GenerationRecordPipelineStatus.awaitingConfirmation.name,
+          ),
+          'original_source_type': Variable<String>(
+            GenerationRecordOriginalSourceType.camera.name,
+          ),
+          'original_availability': Variable<String>(
+            GenerationRecordOriginalAvailability.available.name,
+          ),
+          'result_availability': Variable<String>(
+            GenerationRecordResultAvailability.none.name,
+          ),
+          'original_local_path': Variable<String>('originals/$recordId.heic'),
+        }),
+      );
 }
 
 Future<void> _seedV1Database(File databaseFile) async {

@@ -3,6 +3,9 @@ import '../../backend_api/domain/prompt_config.dart';
 import '../../camera/domain/camera_capture_aspect_ratio.dart';
 import 'generation_record.dart';
 
+const int generationAnimationVariantCount = 3;
+const int generationDefaultAnimationIndex = 0;
+
 enum GenerationSubmissionStatus {
   awaitingConfirmation,
   queued,
@@ -28,6 +31,10 @@ class GenerationSubmissionJob {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
+    this.animationIndex,
+    this.generationStartedAt,
+    this.originalWidth,
+    this.originalHeight,
     this.uploadSessionId,
     this.promptSelection,
     this.captureAspectRatio,
@@ -60,6 +67,10 @@ class GenerationSubmissionJob {
   final GenerationSubmissionStatus status;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final int? animationIndex;
+  final DateTime? generationStartedAt;
+  final int? originalWidth;
+  final int? originalHeight;
   final String? uploadSessionId;
   final PromptSelectionSnapshot? promptSelection;
   final CameraCaptureAspectRatio? captureAspectRatio;
@@ -126,6 +137,10 @@ class GenerationSubmissionJob {
   GenerationSubmissionJob copyWith({
     GenerationSubmissionStatus? status,
     DateTime? updatedAt,
+    int? animationIndex,
+    DateTime? generationStartedAt,
+    int? originalWidth,
+    int? originalHeight,
     String? uploadSessionId,
     PromptSelectionSnapshot? promptSelection,
     CameraCaptureAspectRatio? captureAspectRatio,
@@ -160,6 +175,10 @@ class GenerationSubmissionJob {
       status: status ?? this.status,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      animationIndex: animationIndex ?? this.animationIndex,
+      generationStartedAt: generationStartedAt ?? this.generationStartedAt,
+      originalWidth: originalWidth ?? this.originalWidth,
+      originalHeight: originalHeight ?? this.originalHeight,
       uploadSessionId: uploadSessionId ?? this.uploadSessionId,
       promptSelection: promptSelection ?? this.promptSelection,
       captureAspectRatio: captureAspectRatio ?? this.captureAspectRatio,

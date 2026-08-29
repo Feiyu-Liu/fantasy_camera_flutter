@@ -70,7 +70,7 @@
   "generationSubmissionDownloadingFromICloud": "Téléchargement depuis iCloud",
   "generationSubmissionPreparingPhoto": "Préparation de la photo...",
   "generationSubmissionGalleryTitle": "GALERIE",
-  "generationSubmissionImportNew": "IMPORTER DEPUIS PHOTOS",
+  "generationSubmissionImportNew": "Importer",
   "generationSubmissionDefaultMomentMode": "MOMENT",
   "generationSubmissionDefaultPromptBadge": "DÉFAUT",
   "generationSubmissionSelectMoment": "PRENDRE OU CHOISIR UNE PHOTO",
@@ -87,6 +87,15 @@
   "generationSubmissionStatusWaitingForGenerationResult": "En attente du résultat",
   "generationSubmissionStatusPreparingGenerationTask": "Préparation de la tâche",
   "generationSubmissionConfirmationGuideMessage": "Chaque optimisation de photo utilise 2 crédits. Après confirmation, il faut environ 1 minute. Tu peux quitter l'app, nous t'enverrons une notification à la fin.",
+  "generationSubmissionEstimatedProgressPercent": "{percent}%",
+  "@generationSubmissionEstimatedProgressPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "generationSubmissionEstimatedFinishing": "Presque fini",
   "generationSubmissionConfirmationGuideDismiss": "Compris",
   "generationSubmissionActionViewInAlbum": "Voir dans l'album",
   "generationSubmissionActionSaveOriginal": "Enregistrer l'original",
@@ -97,6 +106,8 @@
   "generationSubmissionDislikeFeedbackPlaceholder": "Laisse un commentaire (facultatif)",
   "generationSubmissionDislikeFeedbackSubmit": "Envoyer",
   "generationSubmissionActionRemove": "Supprimer",
+  "generationSubmissionActionDelete": "Supprimer",
+  "generationSubmissionActionConfirm": "Confirmer",
   "promptSwitchRecomposeTitle": "Recadrer",
   "promptSwitchBeautifyFaceTitle": "Beauté",
   "promptSwitchCleanFrameTitle": "Épurer",

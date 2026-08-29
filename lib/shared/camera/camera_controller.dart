@@ -363,6 +363,7 @@ class CameraController extends ValueNotifier<CameraValue> {
     DeviceOrientation captureOrientation, {
     DeviceOrientation restoreOrientation = DeviceOrientation.portraitUp,
     bool photoMirrored = false,
+    AVFoundationPhotoCropMode photoCropMode = AVFoundationPhotoCropMode.none,
   }) async {
     value = value.copyWith(isTakingPicture: true);
     final CameraPlatform platform = CameraPlatform.instance;
@@ -374,6 +375,12 @@ class CameraController extends ValueNotifier<CameraValue> {
         await avFoundationCamera.setPhotoCaptureMirrored(photoMirrored);
       } else {
         await platform.lockCaptureOrientation(_cameraId, captureOrientation);
+      }
+      if (avFoundationCamera != null) {
+        return await avFoundationCamera.takePictureWithOptions(
+          _cameraId,
+          AVFoundationPhotoCaptureOptions(cropMode: photoCropMode),
+        );
       }
       return await platform.takePicture(_cameraId);
     } finally {

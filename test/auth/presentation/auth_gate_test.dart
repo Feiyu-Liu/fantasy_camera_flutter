@@ -979,7 +979,8 @@ class _FakeUploadRepository implements UploadRepository {
   Future<UploadSession> createUpload({
     required String clientRequestId,
     required String contentType,
-    required Uint8List bytes,
+    required int sizeBytes,
+    required String checksumSha256,
     CreateGenerationTaskInput? generationRequest,
   }) {
     throw UnimplementedError();

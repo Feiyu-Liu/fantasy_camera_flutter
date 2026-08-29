@@ -70,7 +70,7 @@
   "generationSubmissionDownloadingFromICloud": "正在从 iCloud 下载",
   "generationSubmissionPreparingPhoto": "正在准备照片...",
   "generationSubmissionGalleryTitle": "画廊",
-  "generationSubmissionImportNew": "从相册导入",
+  "generationSubmissionImportNew": "导入照片",
   "generationSubmissionDefaultMomentMode": "时刻",
   "generationSubmissionDefaultPromptBadge": "默认",
   "generationSubmissionSelectMoment": "拍摄或选择照片",
@@ -87,6 +87,15 @@
   "generationSubmissionStatusWaitingForGenerationResult": "等待生成结果",
   "generationSubmissionStatusPreparingGenerationTask": "正在准备生成任务",
   "generationSubmissionConfirmationGuideMessage": "每张照片优化将消耗2积分，确认后需要等待约1分钟。期间你可以退出app，完成后会通过通知提醒",
+  "generationSubmissionEstimatedProgressPercent": "{percent}%",
+  "@generationSubmissionEstimatedProgressPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "generationSubmissionEstimatedFinishing": "即将完成",
   "generationSubmissionConfirmationGuideDismiss": "知道了",
   "generationSubmissionActionViewInAlbum": "在相册中查看",
   "generationSubmissionActionSaveOriginal": "保存原始照片",
@@ -97,6 +106,8 @@
   "generationSubmissionDislikeFeedbackPlaceholder": "请留下宝贵建议（可选）",
   "generationSubmissionDislikeFeedbackSubmit": "提交",
   "generationSubmissionActionRemove": "移除",
+  "generationSubmissionActionDelete": "删除",
+  "generationSubmissionActionConfirm": "确认",
   "promptSwitchRecomposeTitle": "重构图",
   "promptSwitchBeautifyFaceTitle": "人物优化",
   "promptSwitchCleanFrameTitle": "画面净化",

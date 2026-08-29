@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'checksum.dart';
 import 'fantasy_api_client.dart';
 import '../domain/api_failure.dart';
 import '../domain/app_input_contract.dart';
@@ -104,7 +103,8 @@ abstract interface class UploadRepository {
   Future<UploadSession> createUpload({
     required String clientRequestId,
     required String contentType,
-    required Uint8List bytes,
+    required int sizeBytes,
+    required String checksumSha256,
     CreateGenerationTaskInput? generationRequest,
   });
 
@@ -125,7 +125,8 @@ class WorkerUploadRepository implements UploadRepository {
   Future<UploadSession> createUpload({
     required String clientRequestId,
     required String contentType,
-    required Uint8List bytes,
+    required int sizeBytes,
+    required String checksumSha256,
     CreateGenerationTaskInput? generationRequest,
   }) {
     return _client.post<UploadSession>(
@@ -133,8 +134,8 @@ class WorkerUploadRepository implements UploadRepository {
       data: <String, Object?>{
         'clientRequestId': clientRequestId,
         'contentType': contentType,
-        'byteSize': bytes.length,
-        'checksumSha256': sha256Base64(bytes),
+        'byteSize': sizeBytes,
+        'checksumSha256': checksumSha256,
         'purpose': 'generation_source',
         if (generationRequest != null)
           'generationRequest': generationRequest.toJson(
