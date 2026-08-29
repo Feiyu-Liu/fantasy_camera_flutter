@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'dart:async';
 
 import 'package:background_downloader/background_downloader.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
@@ -30,6 +30,7 @@ import 'package:fantasy_camera_flutter/features/generation_submission/domain/gen
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_record_providers.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/presentation/generation_submission_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -585,6 +586,60 @@ void main() {
     expect(backgroundR2UploadService.events.single, endsWith(':image/jpeg'));
     expect(taskRepository.createdInputs, isEmpty);
   });
+
+  test(
+    'marks job retryable when upload service is recreated before TLS failure',
+    () async {
+      const MethodChannel pathProviderChannel = MethodChannel(
+        'plugins.flutter.io/path_provider',
+      );
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(pathProviderChannel, (
+            MethodCall methodCall,
+          ) async {
+            return '/tmp';
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(pathProviderChannel, null);
+      });
+      final _ControllableFileDownloader downloader =
+          _ControllableFileDownloader();
+      final BackgroundDownloaderR2UploadService backgroundR2UploadService =
+          BackgroundDownloaderR2UploadService(downloader: downloader);
+      final ProviderContainer container = _container(
+        backgroundR2UploadService: backgroundR2UploadService,
+      );
+      addTearDown(container.dispose);
+
+      final Future<void> submission = container
+          .read(generationSubmissionControllerProvider.notifier)
+          .submitCapturedFile(XFile('/tmp/photo.jpg'));
+      addTearDown(() async {
+        backgroundR2UploadService.dispose();
+        await submission;
+      });
+      await downloader.taskEnqueued;
+
+      final BackgroundDownloaderR2UploadService reboundService =
+          BackgroundDownloaderR2UploadService(downloader: downloader);
+      addTearDown(reboundService.dispose);
+      downloader.emitTlsFailure();
+
+      final GenerationSubmissionJob job = await _waitForSingleJobStatus(
+        container,
+        GenerationSubmissionStatus.failed,
+        timeout: const Duration(milliseconds: 100),
+      );
+      expect(job.status, GenerationSubmissionStatus.failed);
+      expect(job.errorCode, 'upload_failed');
+      expect(job.failureStage, GenerationRecordFailureStage.uploading);
+      expect(job.failureRetryable, isTrue);
+      expect(job.isRetryableFailure, isTrue);
+      expect(job.errorMessage, contains('安全连接失败'));
+      expect(downloader.enqueuedTask, isA<UploadTask>());
+    },
+  );
 
   test('create upload network timeout marks failed and can retry', () async {
     final _FakeUploadRepository uploadRepository = _FakeUploadRepository()
@@ -2359,7 +2414,7 @@ ProviderContainer _container({
   _FakeGenerationTaskRepository? taskRepository,
   _FakeFeedbackRepository? feedbackRepository,
   _FakeGenerationOriginalFileStore? originalFileStore,
-  _FakeBackgroundR2UploadService? backgroundR2UploadService,
+  BackgroundR2UploadService? backgroundR2UploadService,
   _FakeGenerationImageArtifactStore? imageArtifactStore,
 }) {
   final GenerationRecordDatabase resolvedDatabase =
@@ -2808,6 +2863,86 @@ class _FakeBackgroundR2UploadService implements BackgroundR2UploadService {
 
   @override
   void dispose() {}
+}
+
+class _ControllableFileDownloader implements FileDownloader {
+  TaskStatusCallback? _statusCallback;
+  final Completer<Task> _taskEnqueued = Completer<Task>();
+  final Map<String, Completer<TaskStatusUpdate>> _uploadCompleters =
+      <String, Completer<TaskStatusUpdate>>{};
+  final Map<String, void Function(TaskStatus)?> _uploadStatusCallbacks =
+      <String, void Function(TaskStatus)?>{};
+  Task? enqueuedTask;
+
+  Future<Task> get taskEnqueued => _taskEnqueued.future;
+
+  @override
+  FileDownloader registerCallbacks({
+    String group = FileDownloader.defaultGroup,
+    TaskStatusCallback? taskStatusCallback,
+    TaskProgressCallback? taskProgressCallback,
+    TaskNotificationTapCallback? taskNotificationTapCallback,
+  }) {
+    _statusCallback = taskStatusCallback;
+    return this;
+  }
+
+  @override
+  Future<bool> enqueue(Task task) async {
+    enqueuedTask = task;
+    if (!_taskEnqueued.isCompleted) {
+      _taskEnqueued.complete(task);
+    }
+    return true;
+  }
+
+  @override
+  Future<TaskStatusUpdate> upload(
+    UploadTask task, {
+    void Function(TaskStatus)? onStatus,
+    void Function(double)? onProgress,
+    void Function(Duration)? onElapsedTime,
+    Duration? elapsedTimeInterval,
+  }) {
+    enqueuedTask = task;
+    if (!_taskEnqueued.isCompleted) {
+      _taskEnqueued.complete(task);
+    }
+    final Completer<TaskStatusUpdate> completer = Completer<TaskStatusUpdate>();
+    _uploadCompleters[task.taskId] = completer;
+    _uploadStatusCallbacks[task.taskId] = onStatus;
+    return completer.future;
+  }
+
+  void emitTlsFailure() {
+    final Task task = enqueuedTask!;
+    final TaskStatusUpdate update = TaskStatusUpdate(
+      task,
+      TaskStatus.failed,
+      TaskConnectionException('TLS错误导致安全连接失败。'),
+    );
+    final Completer<TaskStatusUpdate>? completer = _uploadCompleters.remove(
+      task.taskId,
+    );
+    if (completer != null) {
+      _uploadStatusCallbacks.remove(task.taskId)?.call(TaskStatus.failed);
+      completer.complete(update);
+      return;
+    }
+    _statusCallback?.call(update);
+  }
+
+  @override
+  FileDownloader unregisterCallbacks({
+    String group = FileDownloader.defaultGroup,
+    Function? callback,
+  }) {
+    _statusCallback = null;
+    return this;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeGenerationTaskRepository implements GenerationTaskRepository {
