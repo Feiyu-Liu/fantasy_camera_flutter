@@ -2249,6 +2249,15 @@ void main() {
       ),
       findsOneWidget,
     );
+    final Rect imageRect = tester.getRect(
+      find.byKey(const ValueKey<String>('generation-thumbnail-image-saved')),
+    );
+    final Rect completedIconRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>('generation-submission-completed-saved'),
+      ),
+    );
+    expect(imageRect.bottom - completedIconRect.bottom, 6);
   });
 
   testWidgets(

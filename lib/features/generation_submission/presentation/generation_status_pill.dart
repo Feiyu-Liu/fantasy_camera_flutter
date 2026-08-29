@@ -89,7 +89,7 @@ class GenerationStatusPill extends StatelessWidget {
         : context.l10n.generationSubmissionStatusGenerationFailed;
 
     return Align(
-      alignment: Alignment.centerRight,
+      alignment: completed ? Alignment.bottomRight : Alignment.centerRight,
       child: Semantics(
         button: false,
         enabled: false,
