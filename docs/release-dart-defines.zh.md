@@ -11,7 +11,7 @@
 | `SUPABASE_PUBLISHABLE_KEY` | Supabase 客户端 publishable key | 不能使用 service role / secret key |
 | `GOOGLE_IOS_CLIENT_ID` | Google Sign-In iOS OAuth client ID | 以 `.apps.googleusercontent.com` 结尾 |
 | `GOOGLE_WEB_CLIENT_ID` | Google Sign-In web OAuth client ID | Supabase 校验 ID token 需要 |
-| `WORKER_API_BASE_URL` | Cloudflare Worker API base URL | 例如 `https://fantasy-camera-worker.liufeiyu135.workers.dev` |
+| `WORKER_API_BASE_URL` | Cloudflare Worker API base URL | `https://api.tessercam.flyingfish.cc` |
 | `REVENUECAT_IOS_PUBLIC_SDK_KEY` | RevenueCat iOS public SDK key | 不能使用 secret API key |
 | `REVENUECAT_OFFERING_ID` | RevenueCat offering id | 当前为 `credits` |
 | `PUSH_NOTIFICATION_TOPIC` | APNs topic | 必须与 iOS Bundle ID 和 Worker `APNS_ALLOWED_TOPICS` 对齐 |
