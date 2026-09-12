@@ -51,6 +51,18 @@ class AppConfig {
     defaultValue: 'credits',
   );
 
+  static const String revenueCatSubscriptionOfferingId = String.fromEnvironment(
+    'REVENUECAT_SUBSCRIPTION_OFFERING_ID',
+    defaultValue: 'subscriptions',
+  );
+
+  // Local simulator E2E only. Production builds must leave this disabled.
+  static const bool localSubscriptionCatalogEnabled = bool.fromEnvironment(
+    'LOCAL_SUBSCRIPTION_CATALOG_ENABLED',
+  );
+
+  static const int billingContractVersion = 2;
+
   // 相机采集会话分辨率。`max` 会让平台相机插件选择支持的最高非方形格式。
   static const ResolutionPreset cameraPreviewResolutionPreset =
       ResolutionPreset.max;

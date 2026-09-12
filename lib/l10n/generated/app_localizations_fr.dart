@@ -461,11 +461,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsRedeemCodeSubtitle => 'Obtenir des crédits avec un code';
 
   @override
-  String get settingsManageSubscriptionTitle => 'Acheter des crédits';
+  String get settingsManageSubscriptionTitle => 'Gérer l’abonnement';
 
   @override
   String get settingsManageSubscriptionSubtitle =>
-      'Packs de crédits et restauration';
+      'Choisir un forfait ou restaurer les achats';
 
   @override
   String get settingsSectionInformation => 'INFORMATIONS';
@@ -621,6 +621,80 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get billingLegalNote =>
       'Les achats sont traités par l\'App Store. En continuant, tu acceptes les conditions d\'utilisation et la politique de confidentialité.';
+
+  @override
+  String get subscriptionTitle => 'ABONNEMENT';
+
+  @override
+  String get subscriptionHeroTitle => 'Choisis ton forfait créatif';
+
+  @override
+  String get subscriptionHeroSubtitle =>
+      'Quota renouvelé tous les 7 jours, crédits conservés séparément';
+
+  @override
+  String get subscriptionTierMini => 'Mini';
+
+  @override
+  String get subscriptionTierPlus => 'Plus';
+
+  @override
+  String get subscriptionTierPro => 'Pro';
+
+  @override
+  String subscriptionPhotosPerWindow(int count) {
+    return 'Environ $count photos pleine qualité tous les 7 jours';
+  }
+
+  @override
+  String get subscriptionMaxIncluded => 'Qualité MAX incluse';
+
+  @override
+  String get subscriptionMaxUnavailable =>
+      'La qualité MAX nécessite Plus ou Pro';
+
+  @override
+  String get subscriptionCurrentPlan => 'ACTUEL';
+
+  @override
+  String get subscriptionPurchaseButton => 'Continuer';
+
+  @override
+  String get subscriptionAutoRenewDisclosure =>
+      'Abonnement mensuel renouvelé automatiquement. Le quota est réinitialisé tous les 7 jours sans report. Annulation possible dans les réglages de l\'App Store.';
+
+  @override
+  String get subscriptionSyncPending =>
+      'Achat reçu. L\'abonnement est encore en cours de synchronisation ; ne rachète pas le forfait.';
+
+  @override
+  String get subscriptionProductsUnavailable =>
+      'Les abonnements sont temporairement indisponibles.';
+
+  @override
+  String get subscriptionPurchaseFailed =>
+      'L\'achat n\'a pas pu être finalisé. Réessaie.';
+
+  @override
+  String get subscriptionRestoreFailed =>
+      'Impossible de restaurer les achats. Réessaie.';
+
+  @override
+  String get cameraQuotaLow => 'FAIBLE';
+
+  @override
+  String get cameraQuotaOverflow => 'STD';
+
+  @override
+  String cameraQuotaReset(String date) {
+    return 'RESET $date';
+  }
+
+  @override
+  String get cameraMaxQuality => 'Qualité MAX';
+
+  @override
+  String get cameraMaxLocked => 'La qualité MAX nécessite Plus ou Pro';
 
   @override
   String get toastCaptureProcessingFailed =>

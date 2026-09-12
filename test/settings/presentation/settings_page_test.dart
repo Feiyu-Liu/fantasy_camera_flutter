@@ -9,6 +9,7 @@ import 'package:fantasy_camera_flutter/features/backend_api/data/backend_reposit
 import 'package:fantasy_camera_flutter/features/backend_api/data/credit_balance_cache_repository.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_redemption.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_capture_aspect_ratio.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_original_cache_cleaner.dart';
@@ -211,9 +212,9 @@ void main() {
     await scrollDownUntilTextVisible(tester, '使用兑换码');
     expect(find.text('使用兑换码'), findsOneWidget);
 
-    await scrollDownUntilTextVisible(tester, '购买积分');
+    await scrollDownUntilTextVisible(tester, '管理订阅');
 
-    expect(find.text('购买积分'), findsOneWidget);
+    expect(find.text('管理订阅'), findsOneWidget);
 
     await scrollDownUntilTextVisible(tester, '信息');
 
@@ -988,6 +989,11 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   Future<void> saveThemePreference(AppThemePreference preference) async {
     themePreference = preference;
   }
+
+  @override
+  Future<void> saveGenerationQualityTier(
+    GenerationQualityTier qualityTier,
+  ) async {}
 }
 
 class _FakeCreditsRepository implements CreditsRepository {

@@ -1,4 +1,5 @@
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_capture_aspect_ratio.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/settings/application/app_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -41,6 +42,22 @@ void main() {
         preferences.getString(cameraCaptureAspectRatioPreferenceKey),
         CameraCaptureAspectRatio.square.storageValue,
       );
+    },
+  );
+
+  test(
+    'MAX quality preference persists without adding a Drift table',
+    () async {
+      const SharedPreferencesAppSettingsRepository repository =
+          SharedPreferencesAppSettingsRepository();
+
+      await repository.saveGenerationQualityTier(GenerationQualityTier.max);
+      final AppSettingsState settings = await repository.loadSettings();
+
+      expect(settings.generationQualityTier, GenerationQualityTier.max);
+      final SharedPreferences preferences =
+          await SharedPreferences.getInstance();
+      expect(preferences.getString(generationQualityTierPreferenceKey), 'max');
     },
   );
 }

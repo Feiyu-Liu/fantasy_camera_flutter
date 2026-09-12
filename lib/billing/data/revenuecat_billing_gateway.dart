@@ -40,6 +40,18 @@ abstract interface class BillingGateway {
   Future<void> restorePurchases();
 }
 
+abstract interface class SubscriptionStoreGateway {
+  bool get isPurchaseAvailable;
+
+  Future<void> logIn(String appUserId);
+
+  Future<List<BillingProduct>> fetchProductsForOffering(String offeringId);
+
+  Future<BillingPurchaseOutcome> purchaseProduct(BillingProduct product);
+
+  Future<void> restorePurchases();
+}
+
 abstract interface class RevenueCatClient {
   Future<void> setLogLevel(LogLevel level);
 
@@ -95,7 +107,8 @@ class PurchasesRevenueCatClient implements RevenueCatClient {
   }
 }
 
-class RevenueCatBillingGateway implements BillingGateway {
+class RevenueCatBillingGateway
+    implements BillingGateway, SubscriptionStoreGateway {
   RevenueCatBillingGateway({
     required String iosPublicSdkKey,
     required String offeringId,
@@ -154,19 +167,30 @@ class RevenueCatBillingGateway implements BillingGateway {
 
   @override
   Future<List<BillingProduct>> fetchProducts() async {
+    return _fetchProducts(_offeringId);
+  }
+
+  @override
+  Future<List<BillingProduct>> fetchProductsForOffering(
+    String offeringId,
+  ) async {
+    return _fetchProducts(offeringId);
+  }
+
+  Future<List<BillingProduct>> _fetchProducts(String offeringId) async {
     if (!isPurchaseAvailable) {
       return const <BillingProduct>[];
     }
     await _ensureConfigured(_configuredUserId);
     final Offerings offerings = await _client.getOfferings();
-    final Offering? offering = _offeringId.isEmpty
+    final Offering? offering = offeringId.isEmpty
         ? offerings.current
-        : offerings.getOffering(_offeringId) ?? offerings.current;
+        : offerings.getOffering(offeringId) ?? offerings.current;
     final List<Package> packages =
         offering?.availablePackages ?? const <Package>[];
     appDebugLog(
       'Billing',
-      'RevenueCat products loaded offering=${_offeringId.isEmpty ? 'current' : _offeringId} '
+      'RevenueCat products loaded offering=${offeringId.isEmpty ? 'current' : offeringId} '
           'resolvedOffering=${offering?.identifier ?? 'none'} packages=${packages.length}',
     );
     return packages
@@ -177,6 +201,7 @@ class RevenueCatBillingGateway implements BillingGateway {
             displayRank: 999,
             price: package.storeProduct.priceString,
             packageIdentifier: package.identifier,
+            offeringIdentifier: offering?.identifier,
           );
         })
         .toList(growable: false);
@@ -250,9 +275,10 @@ class RevenueCatBillingGateway implements BillingGateway {
 
   Future<Package> _findPackage(BillingProduct product) async {
     final Offerings offerings = await _client.getOfferings();
-    final Offering? offering = _offeringId.isEmpty
+    final String offeringId = product.offeringIdentifier ?? _offeringId;
+    final Offering? offering = offeringId.isEmpty
         ? offerings.current
-        : offerings.getOffering(_offeringId) ?? offerings.current;
+        : offerings.getOffering(offeringId) ?? offerings.current;
     final List<Package> packages =
         offering?.availablePackages ?? const <Package>[];
     for (final Package package in packages) {
@@ -281,6 +307,31 @@ class NoopBillingGateway implements BillingGateway {
 
   @override
   Future<void> logOut() async {}
+
+  @override
+  Future<BillingPurchaseOutcome> purchaseProduct(BillingProduct product) async {
+    return const BillingPurchaseFailed('Purchases are not configured.');
+  }
+
+  @override
+  Future<void> restorePurchases() async {}
+}
+
+class NoopSubscriptionStoreGateway implements SubscriptionStoreGateway {
+  const NoopSubscriptionStoreGateway();
+
+  @override
+  bool get isPurchaseAvailable => false;
+
+  @override
+  Future<List<BillingProduct>> fetchProductsForOffering(
+    String offeringId,
+  ) async {
+    return const <BillingProduct>[];
+  }
+
+  @override
+  Future<void> logIn(String appUserId) async {}
 
   @override
   Future<BillingPurchaseOutcome> purchaseProduct(BillingProduct product) async {

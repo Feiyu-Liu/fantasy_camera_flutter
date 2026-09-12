@@ -9,10 +9,13 @@ import '../../features/backend_api/domain/credit_redemption.dart';
 import '../../features/backend_api/presentation/backend_api_providers.dart';
 import '../../shared/core/app_logger.dart';
 import '../application/billing_catalog_loader.dart';
+import '../application/subscription_catalog_loader.dart';
 import '../data/billing_repositories.dart';
 import '../data/revenuecat_billing_gateway.dart';
+import '../data/subscription_billing_repository.dart';
 import '../domain/billing_product.dart';
 import '../domain/credit_product.dart';
+import '../domain/subscription_billing.dart';
 
 final billingGatewayProvider = Provider<BillingGateway>((Ref ref) {
   final BillingGateway gateway = buildBillingGateway();
@@ -56,6 +59,66 @@ final billingCatalogLoaderProvider = Provider<BillingCatalogLoader>(
     billingCatalogDelayProvider,
   ],
 );
+
+final subscriptionStoreGatewayProvider = Provider<SubscriptionStoreGateway>((
+  Ref ref,
+) {
+  final BillingGateway gateway = ref.watch(billingGatewayProvider);
+  return gateway is SubscriptionStoreGateway
+      ? gateway as SubscriptionStoreGateway
+      : const NoopSubscriptionStoreGateway();
+}, dependencies: <ProviderOrFamily>[billingGatewayProvider]);
+
+final subscriptionBillingRepositoryProvider =
+    Provider<SubscriptionBillingRepository>(
+      (Ref ref) => WorkerSubscriptionBillingRepository(
+        ref.watch(fantasyApiClientProvider),
+      ),
+      dependencies: <ProviderOrFamily>[
+        accessTokenProvider,
+        fantasyApiClientProvider,
+      ],
+    );
+
+final subscriptionCatalogLoaderProvider = Provider<SubscriptionCatalogLoader>(
+  (Ref ref) => SubscriptionCatalogLoader(
+    gateway: ref.watch(subscriptionStoreGatewayProvider),
+    repository: ref.watch(subscriptionBillingRepositoryProvider),
+    offeringId: AppConfig.revenueCatSubscriptionOfferingId,
+    retryPolicy: ref.watch(billingCatalogRetryPolicyProvider),
+    delay: ref.watch(billingCatalogDelayProvider),
+    allowLocalProducts: AppConfig.localSubscriptionCatalogEnabled,
+  ),
+  dependencies: <ProviderOrFamily>[
+    subscriptionStoreGatewayProvider,
+    subscriptionBillingRepositoryProvider,
+    billingCatalogRetryPolicyProvider,
+    billingCatalogDelayProvider,
+  ],
+);
+
+final subscriptionBillingStatusProvider =
+    AsyncNotifierProvider<
+      SubscriptionBillingStatusController,
+      SubscriptionBillingStatus
+    >(
+      SubscriptionBillingStatusController.new,
+      dependencies: <ProviderOrFamily>[
+        authSessionProvider,
+        subscriptionBillingRepositoryProvider,
+      ],
+    );
+
+final subscriptionPurchaseControllerProvider =
+    NotifierProvider<SubscriptionPurchaseController, SubscriptionPurchaseState>(
+      SubscriptionPurchaseController.new,
+      dependencies: <ProviderOrFamily>[
+        authSessionProvider,
+        subscriptionCatalogLoaderProvider,
+        subscriptionStoreGatewayProvider,
+        subscriptionBillingStatusProvider,
+      ],
+    );
 
 final billingControllerProvider =
     NotifierProvider<BillingController, BillingControllerState>(
@@ -106,6 +169,7 @@ final billingStartupPurchaseRecoveryProvider = FutureProvider<void>((
         .read(creditBalanceCacheRepositoryProvider)
         .saveBalance(userId, balance);
     ref.invalidate(creditBalanceProvider);
+    ref.invalidate(subscriptionBillingStatusProvider);
     appDebugLog(
       'Billing',
       'startup purchase recovery sync processed=${result.processedPurchases} '
@@ -468,6 +532,256 @@ class BillingController extends Notifier<BillingControllerState> {
         stackTrace,
       );
     }
+  }
+
+  Future<String?> _currentUserId() async {
+    return ref.read(authSessionProvider).valueOrNull?.user?.id ??
+        (await ref.read(authSessionProvider.future)).user?.id;
+  }
+}
+
+class SubscriptionBillingStatusController
+    extends AsyncNotifier<SubscriptionBillingStatus> {
+  String? _userId;
+  int _requestGeneration = 0;
+
+  @override
+  Future<SubscriptionBillingStatus> build() async {
+    final String? userId = (await ref.watch(
+      authSessionProvider.future,
+    )).user?.id;
+    if (userId == null || userId.isEmpty) {
+      return Future<SubscriptionBillingStatus>.error(
+        StateError('Sign in is required to load subscription status.'),
+      );
+    }
+    _userId = userId;
+    final int generation = ++_requestGeneration;
+    final SubscriptionBillingStatus status = await ref
+        .watch(subscriptionBillingRepositoryProvider)
+        .fetchStatus();
+    if (_userId != userId || generation != _requestGeneration) {
+      return Future<SubscriptionBillingStatus>.error(
+        StateError('Subscription status response was superseded.'),
+      );
+    }
+    return status;
+  }
+
+  Future<SubscriptionBillingStatus?> refreshFromServer({bool sync = false}) {
+    return _refresh(sync: sync);
+  }
+
+  Future<SubscriptionBillingStatus?> _refresh({required bool sync}) async {
+    final String? userId = ref.read(authSessionProvider).valueOrNull?.user?.id;
+    if (userId == null || userId.isEmpty) {
+      return null;
+    }
+    _userId = userId;
+    final int generation = ++_requestGeneration;
+    final SubscriptionBillingStatus? previous = state.valueOrNull;
+    if (previous == null) {
+      state = const AsyncValue<SubscriptionBillingStatus>.loading();
+    }
+    try {
+      final SubscriptionBillingRepository repository = ref.read(
+        subscriptionBillingRepositoryProvider,
+      );
+      final SubscriptionBillingStatus next = sync
+          ? await repository.syncRevenueCatPurchases()
+          : await repository.fetchStatus();
+      if (_userId != userId || generation != _requestGeneration) {
+        return null;
+      }
+      state = AsyncValue<SubscriptionBillingStatus>.data(next);
+      return next;
+    } on Object catch (error, stackTrace) {
+      if (_userId != userId || generation != _requestGeneration) {
+        return null;
+      }
+      state = previous == null
+          ? AsyncValue<SubscriptionBillingStatus>.error(error, stackTrace)
+          : AsyncValue<SubscriptionBillingStatus>.data(previous);
+      rethrow;
+    }
+  }
+}
+
+enum SubscriptionPurchaseErrorKind { loadProducts, purchase, restore }
+
+class SubscriptionPurchaseState {
+  const SubscriptionPurchaseState({
+    this.products = const <SubscriptionProduct>[],
+    this.isLoading = false,
+    this.isPurchasing = false,
+    this.isSyncPending = false,
+    this.selectedProductId,
+    this.errorKind,
+    this.catalogStatus,
+  });
+
+  final List<SubscriptionProduct> products;
+  final bool isLoading;
+  final bool isPurchasing;
+  final bool isSyncPending;
+  final String? selectedProductId;
+  final SubscriptionPurchaseErrorKind? errorKind;
+  final SubscriptionBillingStatus? catalogStatus;
+
+  SubscriptionPurchaseState copyWith({
+    List<SubscriptionProduct>? products,
+    bool? isLoading,
+    bool? isPurchasing,
+    bool? isSyncPending,
+    String? selectedProductId,
+    SubscriptionPurchaseErrorKind? errorKind,
+    SubscriptionBillingStatus? catalogStatus,
+    bool clearError = false,
+  }) {
+    return SubscriptionPurchaseState(
+      products: products ?? this.products,
+      isLoading: isLoading ?? this.isLoading,
+      isPurchasing: isPurchasing ?? this.isPurchasing,
+      isSyncPending: isSyncPending ?? this.isSyncPending,
+      selectedProductId: selectedProductId ?? this.selectedProductId,
+      errorKind: clearError ? null : errorKind ?? this.errorKind,
+      catalogStatus: catalogStatus ?? this.catalogStatus,
+    );
+  }
+}
+
+class SubscriptionPurchaseController
+    extends Notifier<SubscriptionPurchaseState> {
+  @override
+  SubscriptionPurchaseState build() => const SubscriptionPurchaseState();
+
+  Future<void> loadProducts() async {
+    if (state.isLoading) {
+      return;
+    }
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final String? userId = await _currentUserId();
+      final SubscriptionCatalog catalog = await ref
+          .read(subscriptionCatalogLoaderProvider)
+          .load(appUserId: userId);
+      final String selectedProductId = _defaultProductId(catalog.products);
+      state = state.copyWith(
+        products: catalog.products,
+        selectedProductId: selectedProductId,
+        isLoading: false,
+        catalogStatus: catalog.status,
+      );
+      unawaited(
+        ref
+            .read(subscriptionBillingStatusProvider.notifier)
+            .refreshFromServer(),
+      );
+    } on Object catch (error, stackTrace) {
+      logAppError('subscription_products_load_failed', error, stackTrace);
+      state = state.copyWith(
+        isLoading: false,
+        errorKind: SubscriptionPurchaseErrorKind.loadProducts,
+      );
+    }
+  }
+
+  void selectProduct(String productId) {
+    if (state.isPurchasing) {
+      return;
+    }
+    state = state.copyWith(selectedProductId: productId, clearError: true);
+  }
+
+  Future<void> purchaseSelected() async {
+    if (state.isPurchasing) {
+      return;
+    }
+    final SubscriptionProduct? product = state.products
+        .where(
+          (SubscriptionProduct value) =>
+              value.storeProduct.productId == state.selectedProductId,
+        )
+        .firstOrNull;
+    if (product == null) {
+      return;
+    }
+    state = state.copyWith(
+      isPurchasing: true,
+      isSyncPending: false,
+      clearError: true,
+    );
+    final BillingPurchaseOutcome outcome = await ref
+        .read(subscriptionStoreGatewayProvider)
+        .purchaseProduct(product.storeProduct);
+    switch (outcome) {
+      case BillingPurchaseCancelled():
+        state = state.copyWith(isPurchasing: false);
+        return;
+      case BillingPurchaseFailed():
+        state = state.copyWith(
+          isPurchasing: false,
+          errorKind: SubscriptionPurchaseErrorKind.purchase,
+        );
+        return;
+      case BillingPurchaseCompleted():
+        await _syncAfterStoreChange(SubscriptionPurchaseErrorKind.purchase);
+    }
+  }
+
+  Future<void> restore() async {
+    if (state.isPurchasing) {
+      return;
+    }
+    state = state.copyWith(
+      isPurchasing: true,
+      isSyncPending: false,
+      clearError: true,
+    );
+    try {
+      final String? userId = await _currentUserId();
+      if (userId != null && userId.isNotEmpty) {
+        await ref.read(subscriptionStoreGatewayProvider).logIn(userId);
+      }
+      await ref.read(subscriptionStoreGatewayProvider).restorePurchases();
+      await _syncAfterStoreChange(SubscriptionPurchaseErrorKind.restore);
+    } on Object catch (error, stackTrace) {
+      logAppError('subscription_restore_failed', error, stackTrace);
+      state = state.copyWith(
+        isPurchasing: false,
+        errorKind: SubscriptionPurchaseErrorKind.restore,
+      );
+    }
+  }
+
+  Future<void> _syncAfterStoreChange(
+    SubscriptionPurchaseErrorKind errorKind,
+  ) async {
+    try {
+      await ref
+          .read(subscriptionBillingStatusProvider.notifier)
+          .refreshFromServer(sync: true);
+      ref.invalidate(creditBalanceProvider);
+      state = state.copyWith(isPurchasing: false, isSyncPending: false);
+    } on BackendApiFailure catch (error) {
+      if (error.code == 'billing_sync_pending') {
+        state = state.copyWith(isPurchasing: false, isSyncPending: true);
+        return;
+      }
+      state = state.copyWith(isPurchasing: false, errorKind: errorKind);
+    } on Object catch (error, stackTrace) {
+      logAppError('subscription_sync_failed', error, stackTrace);
+      state = state.copyWith(isPurchasing: false, errorKind: errorKind);
+    }
+  }
+
+  String _defaultProductId(List<SubscriptionProduct> products) {
+    for (final SubscriptionProduct product in products) {
+      if (product.plan.tier == SubscriptionTier.plus) {
+        return product.storeProduct.productId;
+      }
+    }
+    return products.first.storeProduct.productId;
   }
 
   Future<String?> _currentUserId() async {

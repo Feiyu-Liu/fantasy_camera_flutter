@@ -901,13 +901,13 @@ abstract class AppLocalizations {
   /// No description provided for @settingsManageSubscriptionTitle.
   ///
   /// In en, this message translates to:
-  /// **'Buy credits'**
+  /// **'Manage subscription'**
   String get settingsManageSubscriptionTitle;
 
   /// No description provided for @settingsManageSubscriptionSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Credit packs and restore'**
+  /// **'Choose a plan or restore purchases'**
   String get settingsManageSubscriptionSubtitle;
 
   /// No description provided for @settingsSectionInformation.
@@ -1185,6 +1185,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Purchases are processed by the App Store. By continuing, you agree to the Terms of Use and Privacy Policy.'**
   String get billingLegalNote;
+
+  /// No description provided for @subscriptionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'SUBSCRIPTION'**
+  String get subscriptionTitle;
+
+  /// No description provided for @subscriptionHeroTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your creative plan'**
+  String get subscriptionHeroTitle;
+
+  /// No description provided for @subscriptionHeroSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Fresh allowance every 7 days, with credits kept separately'**
+  String get subscriptionHeroSubtitle;
+
+  /// No description provided for @subscriptionTierMini.
+  ///
+  /// In en, this message translates to:
+  /// **'Mini'**
+  String get subscriptionTierMini;
+
+  /// No description provided for @subscriptionTierPlus.
+  ///
+  /// In en, this message translates to:
+  /// **'Plus'**
+  String get subscriptionTierPlus;
+
+  /// No description provided for @subscriptionTierPro.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro'**
+  String get subscriptionTierPro;
+
+  /// No description provided for @subscriptionPhotosPerWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'About {count} full-quality photos every 7 days'**
+  String subscriptionPhotosPerWindow(int count);
+
+  /// No description provided for @subscriptionMaxIncluded.
+  ///
+  /// In en, this message translates to:
+  /// **'MAX quality included'**
+  String get subscriptionMaxIncluded;
+
+  /// No description provided for @subscriptionMaxUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'MAX quality requires Plus or Pro'**
+  String get subscriptionMaxUnavailable;
+
+  /// No description provided for @subscriptionCurrentPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'CURRENT'**
+  String get subscriptionCurrentPlan;
+
+  /// No description provided for @subscriptionPurchaseButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get subscriptionPurchaseButton;
+
+  /// No description provided for @subscriptionAutoRenewDisclosure.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly auto-renewing subscription. Allowance resets every 7 days and does not roll over. Cancel anytime in App Store settings.'**
+  String get subscriptionAutoRenewDisclosure;
+
+  /// No description provided for @subscriptionSyncPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase received. Your subscription is still syncing; you will not be charged again.'**
+  String get subscriptionSyncPending;
+
+  /// No description provided for @subscriptionProductsUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription plans are temporarily unavailable.'**
+  String get subscriptionProductsUnavailable;
+
+  /// No description provided for @subscriptionPurchaseFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The purchase could not be completed. Try again.'**
+  String get subscriptionPurchaseFailed;
+
+  /// No description provided for @subscriptionRestoreFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchases could not be restored. Try again.'**
+  String get subscriptionRestoreFailed;
+
+  /// No description provided for @cameraQuotaLow.
+  ///
+  /// In en, this message translates to:
+  /// **'LOW'**
+  String get cameraQuotaLow;
+
+  /// No description provided for @cameraQuotaOverflow.
+  ///
+  /// In en, this message translates to:
+  /// **'STD'**
+  String get cameraQuotaOverflow;
+
+  /// No description provided for @cameraQuotaReset.
+  ///
+  /// In en, this message translates to:
+  /// **'RESET {date}'**
+  String cameraQuotaReset(String date);
+
+  /// No description provided for @cameraMaxQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'MAX quality'**
+  String get cameraMaxQuality;
+
+  /// No description provided for @cameraMaxLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'MAX quality requires Plus or Pro'**
+  String get cameraMaxLocked;
 
   /// No description provided for @toastCaptureProcessingFailed.
   ///

@@ -993,6 +993,7 @@ class GenerationSubmissionService extends ChangeNotifier {
           userInput: promptSelection.userInput,
           originDeviceId: originDeviceId,
           captureMetadata: captureMetadata?.toJson(),
+          qualityTier: promptSelection.requestedQualityTier,
         ),
       );
       _debugLog(
@@ -2319,7 +2320,26 @@ class GenerationSubmissionService extends ChangeNotifier {
         captureMode: record.captureMode ?? defaultCaptureMode,
       ),
       appInputContractId: record.appInputContractId,
+      requestedQualityTier: _qualityTierFromUserInputJson(record.userInputJson),
     );
+  }
+
+  GenerationQualityTier _qualityTierFromUserInputJson(String? userInputJson) {
+    if (userInputJson == null) {
+      return GenerationQualityTier.full;
+    }
+    try {
+      final Object? decoded = jsonDecode(userInputJson);
+      if (decoded is Map) {
+        final Object? value = decoded['requestedQualityTier'];
+        if (value is String) {
+          return GenerationQualityTier.fromWire(value);
+        }
+      }
+    } on Object {
+      return GenerationQualityTier.full;
+    }
+    return GenerationQualityTier.full;
   }
 
   CameraCaptureMetadataSnapshot? _cameraCaptureMetadataSnapshotForRecord(

@@ -177,7 +177,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               _SettingsActionRow(
                 title: l10n.settingsManageSubscriptionTitle,
                 subtitle: l10n.settingsManageSubscriptionSubtitle,
-                onPressed: _openCreditPurchase,
+                semanticsIdentifier: 'settings_manage_subscription_button',
+                onPressed: _openSubscriptionPurchase,
               ),
               const _SectionDivider(),
               _SectionTitle(l10n.settingsSectionInformation),
@@ -734,9 +735,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return '${size.toStringAsFixed(size >= 10 ? 1 : 2)} ${units[unitIndex]}';
   }
 
-  void _openCreditPurchase() {
+  void _openSubscriptionPurchase() {
     HapticFeedback.selectionClick();
-    context.push(creditPurchaseRoute);
+    context.push(subscriptionPurchaseRoute);
   }
 
   String _languagePreferenceLabel(
@@ -1195,6 +1196,7 @@ class _SettingsActionRow extends StatelessWidget {
     required this.onPressed,
     this.enabled = true,
     this.trailing,
+    this.semanticsIdentifier,
   });
 
   final String title;
@@ -1202,27 +1204,32 @@ class _SettingsActionRow extends StatelessWidget {
   final VoidCallback onPressed;
   final bool enabled;
   final Widget? trailing;
+  final String? semanticsIdentifier;
 
   @override
   Widget build(BuildContext context) {
     final AppThemeColors colors = AppThemeColors.of(context);
-    return CupertinoButton(
-      padding: EdgeInsets.zero,
-      minimumSize: Size.zero,
-      onPressed: enabled ? onPressed : null,
-      child: _SettingsRowFrame(
-        child: Row(
-          children: <Widget>[
-            Expanded(
-              child: _SettingsRowText(title: title, subtitle: subtitle),
-            ),
-            trailing ??
-                Icon(
-                  LucideIcons.chevronRight,
-                  color: colors.textMuted,
-                  size: 20,
-                ),
-          ],
+    return Semantics(
+      identifier: semanticsIdentifier,
+      button: true,
+      child: CupertinoButton(
+        padding: EdgeInsets.zero,
+        minimumSize: Size.zero,
+        onPressed: enabled ? onPressed : null,
+        child: _SettingsRowFrame(
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: _SettingsRowText(title: title, subtitle: subtitle),
+              ),
+              trailing ??
+                  Icon(
+                    LucideIcons.chevronRight,
+                    color: colors.textMuted,
+                    size: 20,
+                  ),
+            ],
+          ),
         ),
       ),
     );

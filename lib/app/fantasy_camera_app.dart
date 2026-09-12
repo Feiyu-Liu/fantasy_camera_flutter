@@ -42,8 +42,28 @@ class _FantasyCameraAppView extends ConsumerStatefulWidget {
       _FantasyCameraAppViewState();
 }
 
-class _FantasyCameraAppViewState extends ConsumerState<_FantasyCameraAppView> {
+class _FantasyCameraAppViewState extends ConsumerState<_FantasyCameraAppView>
+    with WidgetsBindingObserver {
   late final GoRouter _router = createAppRouter();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(subscriptionBillingStatusProvider.notifier).refreshFromServer();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +77,7 @@ class _FantasyCameraAppViewState extends ConsumerState<_FantasyCameraAppView> {
     ref.watch(notificationLifecycleProvider);
     ref.watch(billingRevenueCatWarmupProvider);
     ref.watch(billingStartupPurchaseRecoveryProvider);
+    ref.watch(subscriptionBillingStatusProvider);
     return AnimatedAppTheme(
       preference: appSettings.themePreference,
       builder: (BuildContext context, CupertinoThemeData theme) {

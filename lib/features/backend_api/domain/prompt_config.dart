@@ -1,4 +1,5 @@
 import 'json_value.dart';
+import 'generation_task.dart';
 
 const String defaultPromptStyle = 'realistic';
 const String defaultCaptureMode = 'auto';
@@ -126,12 +127,14 @@ class PromptSelectionSnapshot {
     required this.captureMode,
     required this.switches,
     this.appInputContractId,
+    this.requestedQualityTier = GenerationQualityTier.full,
   });
 
   final String promptStyle;
   final String captureMode;
   final Map<String, bool> switches;
   final String? appInputContractId;
+  final GenerationQualityTier requestedQualityTier;
 
   static const PromptSelectionSnapshot fallback = PromptSelectionSnapshot(
     promptStyle: defaultPromptStyle,
@@ -142,6 +145,7 @@ class PromptSelectionSnapshot {
   JsonObject get userInput {
     return <String, Object?>{
       'switches': <String, Object?>{...switches},
+      'requestedQualityTier': requestedQualityTier.wireValue,
     };
   }
 
@@ -150,12 +154,14 @@ class PromptSelectionSnapshot {
     String? captureMode,
     Map<String, bool>? switches,
     String? appInputContractId,
+    GenerationQualityTier? requestedQualityTier,
   }) {
     return PromptSelectionSnapshot(
       promptStyle: promptStyle ?? this.promptStyle,
       captureMode: captureMode ?? this.captureMode,
       switches: switches ?? this.switches,
       appInputContractId: appInputContractId ?? this.appInputContractId,
+      requestedQualityTier: requestedQualityTier ?? this.requestedQualityTier,
     );
   }
 }

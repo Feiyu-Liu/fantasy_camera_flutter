@@ -456,10 +456,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsRedeemCodeSubtitle => 'Use a code to get credits';
 
   @override
-  String get settingsManageSubscriptionTitle => 'Buy credits';
+  String get settingsManageSubscriptionTitle => 'Manage subscription';
 
   @override
-  String get settingsManageSubscriptionSubtitle => 'Credit packs and restore';
+  String get settingsManageSubscriptionSubtitle =>
+      'Choose a plan or restore purchases';
 
   @override
   String get settingsSectionInformation => 'INFORMATION';
@@ -614,6 +615,79 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get billingLegalNote =>
       'Purchases are processed by the App Store. By continuing, you agree to the Terms of Use and Privacy Policy.';
+
+  @override
+  String get subscriptionTitle => 'SUBSCRIPTION';
+
+  @override
+  String get subscriptionHeroTitle => 'Choose your creative plan';
+
+  @override
+  String get subscriptionHeroSubtitle =>
+      'Fresh allowance every 7 days, with credits kept separately';
+
+  @override
+  String get subscriptionTierMini => 'Mini';
+
+  @override
+  String get subscriptionTierPlus => 'Plus';
+
+  @override
+  String get subscriptionTierPro => 'Pro';
+
+  @override
+  String subscriptionPhotosPerWindow(int count) {
+    return 'About $count full-quality photos every 7 days';
+  }
+
+  @override
+  String get subscriptionMaxIncluded => 'MAX quality included';
+
+  @override
+  String get subscriptionMaxUnavailable => 'MAX quality requires Plus or Pro';
+
+  @override
+  String get subscriptionCurrentPlan => 'CURRENT';
+
+  @override
+  String get subscriptionPurchaseButton => 'Continue';
+
+  @override
+  String get subscriptionAutoRenewDisclosure =>
+      'Monthly auto-renewing subscription. Allowance resets every 7 days and does not roll over. Cancel anytime in App Store settings.';
+
+  @override
+  String get subscriptionSyncPending =>
+      'Purchase received. Your subscription is still syncing; you will not be charged again.';
+
+  @override
+  String get subscriptionProductsUnavailable =>
+      'Subscription plans are temporarily unavailable.';
+
+  @override
+  String get subscriptionPurchaseFailed =>
+      'The purchase could not be completed. Try again.';
+
+  @override
+  String get subscriptionRestoreFailed =>
+      'Purchases could not be restored. Try again.';
+
+  @override
+  String get cameraQuotaLow => 'LOW';
+
+  @override
+  String get cameraQuotaOverflow => 'STD';
+
+  @override
+  String cameraQuotaReset(String date) {
+    return 'RESET $date';
+  }
+
+  @override
+  String get cameraMaxQuality => 'MAX quality';
+
+  @override
+  String get cameraMaxLocked => 'MAX quality requires Plus or Pro';
 
   @override
   String get toastCaptureProcessingFailed =>
