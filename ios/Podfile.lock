@@ -72,15 +72,15 @@ PODS:
   - native_exif (0.8.0):
     - Flutter
   - PromisesObjC (2.4.0)
-  - purchases_flutter (9.16.1):
+  - purchases_flutter (10.13.1):
     - Flutter
-    - PurchasesHybridCommon (= 17.55.1)
-  - PurchasesHybridCommon (17.55.1):
-    - RevenueCat (= 5.67.1)
+    - PurchasesHybridCommon (= 19.2.0)
+  - PurchasesHybridCommon (19.2.0):
+    - RevenueCat (= 5.90.1)
   - push (0.0.1):
     - Flutter
     - FlutterMacOS
-  - RevenueCat (5.67.1)
+  - RevenueCat (5.90.1)
   - SDWebImage (5.21.7):
     - SDWebImage/Core (= 5.21.7)
   - SDWebImage/Core (5.21.7)
@@ -173,7 +173,7 @@ SPEC CHECKSUMS:
   AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
   background_downloader: 50e91d979067b82081aba359d7d916b3ba5fadad
   camera_avfoundation: 968a9a5323c79a99c166ad9d7866bfd2047b5a9b
-  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
   flutter_image_compress_common: 1697a328fd72bfb335507c6bca1a65fa5ad87df1
   google_sign_in_ios: 000870aa06da9b28d1d0bf7ef70ff0213059dd28
   GoogleSignIn: fcee2257188d5eda57a5e2b6a715550ffff9206d
@@ -187,10 +187,10 @@ SPEC CHECKSUMS:
   native_device_orientation: f3ba5f2ddbab3deee23a5f6693b4f97b02dafea2
   native_exif: fe0a79e4115f2d7cd084ba206e4933d8a5ed7bde
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
-  purchases_flutter: b44fcb4ff5e68a4dfe53fd0c339683803b04dd2c
-  PurchasesHybridCommon: ecd9d7c586287625f1225b8de5e24c1021502270
+  purchases_flutter: e6d8940221d596f33a25f789a76b63d0ec8c0dd3
+  PurchasesHybridCommon: d3ac1e960252e66c535d5bde6ac6dc7c9716d7eb
   push: 91373ae39c5341c6de6adefa3fda7f7287d646bf
-  RevenueCat: 9357239a9f0978285e68983637b8a602e65c94f0
+  RevenueCat: fafa0b7c0c2f6b04333f4a2c81624723c672f38e
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   SDWebImageWebPCoder: 0e06e365080397465cc73a7a9b472d8a3bd0f377
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
