@@ -53,7 +53,7 @@ class AppConfig {
 
   static const String revenueCatSubscriptionOfferingId = String.fromEnvironment(
     'REVENUECAT_SUBSCRIPTION_OFFERING_ID',
-    defaultValue: 'subscriptions',
+    defaultValue: 'subscription',
   );
 
   // Local simulator E2E only. Production builds must leave this disabled.

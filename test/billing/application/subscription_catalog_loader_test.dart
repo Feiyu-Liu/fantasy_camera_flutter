@@ -15,7 +15,7 @@ void main() {
         displayRank: 0,
         price: r'$9.99',
         packageIdentifier: r'$rc_monthly',
-        offeringIdentifier: 'subscriptions',
+        offeringIdentifier: 'subscription',
       ),
       const BillingProduct(
         productId: 'unknown',
@@ -28,7 +28,7 @@ void main() {
     final SubscriptionCatalog catalog = await SubscriptionCatalogLoader(
       gateway: gateway,
       repository: _Repository(_status()),
-      offeringId: 'subscriptions',
+      offeringId: 'subscription',
       retryPolicy: const BillingCatalogRetryPolicy(delays: <Duration>[]),
       delay: (_) async {},
     ).load(appUserId: 'user-1');
@@ -43,7 +43,7 @@ void main() {
     final SubscriptionCatalog catalog = await SubscriptionCatalogLoader(
       gateway: _StoreGateway(const <BillingProduct>[]),
       repository: _Repository(_status()),
-      offeringId: 'subscriptions',
+      offeringId: 'subscription',
       retryPolicy: const BillingCatalogRetryPolicy(delays: <Duration>[]),
       delay: (_) async {},
       allowLocalProducts: true,
