@@ -913,10 +913,10 @@ class _AllowanceCard extends StatelessWidget {
     final String? reset = progress == null
         ? null
         : l10n.settingsAllowanceReset(
-            DateFormat.Md(
-              Localizations.localeOf(context).toLanguageTag(),
-            ).add_Hm().format(window!.nextResetAt.toLocal()),
+            _formatResetTime(context, window!.nextResetAt),
           );
+    final bool stale =
+        subscription?.syncFreshness == SubscriptionSyncFreshness.stale;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
@@ -928,101 +928,127 @@ class _AllowanceCard extends StatelessWidget {
           detail,
           ?reset,
           ?overflowNote,
-          if (subscription?.syncFreshness == 'stale')
-            l10n.settingsAllowanceSyncing,
+          if (stale) l10n.settingsAllowanceSyncing,
         ].join(', '),
-        child: CupertinoButton(
-          key: const ValueKey<String>('settings-allowance-card'),
-          padding: EdgeInsets.zero,
-          onPressed: onPressed,
-          child: DecoratedBox(
-            decoration: AppCorners.controlDecoration(
-              color: colors.surface,
-              side: BorderSide(color: colors.border, width: 0.5),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      Flexible(
-                        child: Text(
-                          detail,
-                          textAlign: TextAlign.end,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: colors.textSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (progress != null) ...<Widget>[
-                    const SizedBox(height: 14),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: Container(
-                        height: 4,
-                        color: colors.surfaceMuted,
-                        alignment: Alignment.centerLeft,
-                        child: FractionallySizedBox(
-                          key: const ValueKey<String>(
-                            'settings-allowance-progress',
-                          ),
-                          widthFactor: progress,
-                          child: ColoredBox(color: colors.textPrimary),
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (window != null || !active) ...<Widget>[
-                    const SizedBox(height: 12),
+        // Matches the other settings rows, which opt out of Dynamic Type.
+        child: MediaQuery.withNoTextScaling(
+          child: CupertinoButton(
+            key: const ValueKey<String>('settings-allowance-card'),
+            padding: EdgeInsets.zero,
+            onPressed: onPressed,
+            child: DecoratedBox(
+              decoration: AppCorners.controlDecoration(
+                color: colors.surface,
+                side: BorderSide(color: colors.border, width: 0.5),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
                     Row(
                       children: <Widget>[
                         Expanded(
                           child: Text(
-                            !active
-                                ? l10n.settingsManageSubscriptionSubtitle
-                                : overflowNote!,
+                            title,
                             style: TextStyle(
-                              color: colors.textMuted,
-                              fontSize: 12,
+                              color: colors.textPrimary,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
-                        if (reset != null)
-                          Text(
-                            reset,
-                            style: TextStyle(
-                              color: colors.textMuted,
-                              fontSize: 12,
+                        // With a bar, the percentage sits beside it so a long
+                        // localized title keeps the whole first row.
+                        if (progress == null) ...<Widget>[
+                          const SizedBox(width: 12),
+                          Flexible(
+                            child: Text(
+                              detail,
+                              textAlign: TextAlign.end,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colors.textSecondary,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
+                        ],
                       ],
                     ),
+                    if (progress != null) ...<Widget>[
+                      const SizedBox(height: 14),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(2),
+                              child: Container(
+                                height: 4,
+                                color: colors.surfaceMuted,
+                                alignment: Alignment.centerLeft,
+                                child: FractionallySizedBox(
+                                  key: const ValueKey<String>(
+                                    'settings-allowance-progress',
+                                  ),
+                                  widthFactor: progress,
+                                  child: ColoredBox(color: colors.textPrimary),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            detail,
+                            style: TextStyle(
+                              color: colors.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (window != null || !active) ...<Widget>[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              !active
+                                  ? l10n.settingsManageSubscriptionSubtitle
+                                  : overflowNote!,
+                              style: TextStyle(
+                                color: colors.textMuted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          if (reset != null) ...<Widget>[
+                            const SizedBox(width: 12),
+                            Flexible(
+                              child: Text(
+                                reset,
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  color: colors.textMuted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                    if (stale) ...<Widget>[
+                      const SizedBox(height: 6),
+                      Text(
+                        l10n.settingsAllowanceSyncing,
+                        style: TextStyle(color: colors.textMuted, fontSize: 12),
+                      ),
+                    ],
                   ],
-                  if (subscription?.syncFreshness == 'stale') ...<Widget>[
-                    const SizedBox(height: 6),
-                    Text(
-                      l10n.settingsAllowanceSyncing,
-                      style: TextStyle(color: colors.textMuted, fontSize: 12),
-                    ),
-                  ],
-                ],
+                ),
               ),
             ),
           ),
@@ -1030,6 +1056,27 @@ class _AllowanceCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatResetTime(BuildContext context, DateTime resetAt) {
+  final Locale locale = Localizations.localeOf(context);
+  final String tag = locale.toLanguageTag();
+  final DateTime local = resetAt.toLocal();
+  final String date = DateFormat.MMMd(tag).format(local);
+  if (MediaQuery.alwaysUse24HourFormatOf(context)) {
+    return '$date ${DateFormat.Hm(tag).format(local)}';
+  }
+  // zh/ja default to a 24-hour pattern; honour the device's 12-hour setting.
+  DateFormat time = DateFormat.jm(tag);
+  if (!time.pattern!.contains('a')) {
+    time = DateFormat(
+      locale.languageCode == 'zh' || locale.languageCode == 'ja'
+          ? 'ah:mm'
+          : 'h:mm a',
+      tag,
+    );
+  }
+  return '$date ${time.format(local)}';
 }
 
 class _ProfileHeader extends StatelessWidget {

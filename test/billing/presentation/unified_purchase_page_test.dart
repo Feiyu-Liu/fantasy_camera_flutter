@@ -191,6 +191,18 @@ void main() {
     expect(find.text('Plus'), findsOneWidget);
   });
 
+  testWidgets('plan cards ignore Dynamic Type like the rest of the page', (
+    WidgetTester tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await _pumpPage(tester, PurchaseMode.subscription, _Store());
+
+    final BuildContext price = tester.element(find.text(r'$9.99'));
+    expect(MediaQuery.textScalerOf(price), TextScaler.noScaling);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('pending subscription sync stays visible inline', (
     WidgetTester tester,
   ) async {
@@ -364,7 +376,7 @@ const SubscriptionAccess _activePlus = SubscriptionAccess(
   productIdentifier: 'tessercam_plus_monthly',
   willRenew: true,
   accessEndIsFinal: false,
-  syncFreshness: 'fresh',
+  syncFreshness: SubscriptionSyncFreshness.fresh,
 );
 
 class _SubscriptionRepository implements SubscriptionBillingRepository {

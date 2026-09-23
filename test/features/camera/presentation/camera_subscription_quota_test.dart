@@ -34,7 +34,7 @@ SubscriptionBillingStatus _status({
       productIdentifier: 'tessercam_plus_monthly',
       willRenew: true,
       accessEndIsFinal: false,
-      syncFreshness: 'fresh',
+      syncFreshness: SubscriptionSyncFreshness.fresh,
     ),
     window: AllowanceWindow(
       windowStart: DateTime.utc(2026, 9, 10),

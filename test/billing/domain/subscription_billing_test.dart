@@ -19,6 +19,18 @@ void main() {
         SubscriptionTier.pro,
       ],
     );
+    expect(status.subscription?.syncFreshness, SubscriptionSyncFreshness.fresh);
+  });
+
+  test('unknown sync freshness reads as stale', () {
+    expect(
+      SubscriptionSyncFreshness.fromWire('stale'),
+      SubscriptionSyncFreshness.stale,
+    );
+    expect(
+      SubscriptionSyncFreshness.fromWire('reconciling'),
+      SubscriptionSyncFreshness.stale,
+    );
   });
 }
 

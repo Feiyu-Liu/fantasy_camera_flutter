@@ -14,6 +14,19 @@ enum SubscriptionTier {
   }
 }
 
+enum SubscriptionSyncFreshness {
+  fresh,
+  stale;
+
+  /// Unknown values read as stale so the UI keeps saying "syncing" rather
+  /// than presenting unverified access as settled.
+  factory SubscriptionSyncFreshness.fromWire(String value) {
+    return value == 'fresh'
+        ? SubscriptionSyncFreshness.fresh
+        : SubscriptionSyncFreshness.stale;
+  }
+}
+
 class SubscriptionPlan {
   const SubscriptionPlan({
     required this.productIdentifier,
@@ -83,7 +96,7 @@ class SubscriptionAccess {
   final bool willRenew;
   final DateTime? accessEndAt;
   final bool accessEndIsFinal;
-  final String syncFreshness;
+  final SubscriptionSyncFreshness syncFreshness;
 
   factory SubscriptionAccess.fromJson(JsonObject json) {
     return SubscriptionAccess(
@@ -93,7 +106,9 @@ class SubscriptionAccess {
       willRenew: _readBool(json, 'willRenew'),
       accessEndAt: _readDateTime(json, 'accessEndAt'),
       accessEndIsFinal: _readBool(json, 'accessEndIsFinal'),
-      syncFreshness: _readString(json, 'syncFreshness'),
+      syncFreshness: SubscriptionSyncFreshness.fromWire(
+        _readString(json, 'syncFreshness'),
+      ),
     );
   }
 }

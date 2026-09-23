@@ -39,82 +39,87 @@ class SubscriptionPurchaseContent extends ConsumerWidget {
               product.storeProduct.productId == state.selectedProductId &&
               product.plan.productIdentifier == currentProductIdentifier,
         );
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          if (state.isLoading)
-            const Center(child: CupertinoActivityIndicator())
-          else if (state.products.isEmpty)
-            _InlineMessage(
-              message: context.l10n.subscriptionProductsUnavailable,
-              actionLabel: context.l10n.billingRetry,
-              onPressed: ref
-                  .read(subscriptionPurchaseControllerProvider.notifier)
-                  .loadProducts,
-            )
-          else
-            for (final SubscriptionProduct product in state.products) ...[
-              _SubscriptionPlanCard(
-                product: product,
-                selected:
-                    product.storeProduct.productId == state.selectedProductId,
-                current:
-                    product.plan.productIdentifier == currentProductIdentifier,
-                busy: state.isPurchasing,
-                fullQualityUnits: status?.allowanceUnitsFor('full') ?? 0,
-                onPressed: () {
-                  HapticFeedback.selectionClick();
-                  ref
-                      .read(subscriptionPurchaseControllerProvider.notifier)
-                      .selectProduct(product.storeProduct.productId);
-                },
-              ),
-              const SizedBox(height: 10),
-            ],
-          if (state.isSyncPending) ...[
-            const SizedBox(height: 4),
-            _InlineMessage(message: context.l10n.subscriptionSyncPending),
-          ],
-          const SizedBox(height: 12),
-          PurchasePrimaryButton(
-            label: selectedIsCurrent
-                ? context.l10n.subscriptionCurrentPlanButton
-                : context.l10n.subscriptionPurchaseButton,
-            isBusy: state.isPurchasing,
-            onPressed:
-                selectedIsCurrent ||
-                    state.isSyncPending ||
-                    state.selectedProductId == null
-                ? null
-                : () {
+    // The hero and credit mode opt out of Dynamic Type; plan cards follow so
+    // the two modes lay out alike and prices cannot overflow at large sizes.
+    return MediaQuery.withNoTextScaling(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            if (state.isLoading)
+              const Center(child: CupertinoActivityIndicator())
+            else if (state.products.isEmpty)
+              _InlineMessage(
+                message: context.l10n.subscriptionProductsUnavailable,
+                actionLabel: context.l10n.billingRetry,
+                onPressed: ref
+                    .read(subscriptionPurchaseControllerProvider.notifier)
+                    .loadProducts,
+              )
+            else
+              for (final SubscriptionProduct product in state.products) ...[
+                _SubscriptionPlanCard(
+                  product: product,
+                  selected:
+                      product.storeProduct.productId == state.selectedProductId,
+                  current:
+                      product.plan.productIdentifier ==
+                      currentProductIdentifier,
+                  busy: state.isPurchasing,
+                  fullQualityUnits: status?.allowanceUnitsFor('full') ?? 0,
+                  onPressed: () {
                     HapticFeedback.selectionClick();
                     ref
                         .read(subscriptionPurchaseControllerProvider.notifier)
-                        .purchaseSelected();
+                        .selectProduct(product.storeProduct.productId);
                   },
-          ),
-          const SizedBox(height: 12),
-          Text(
-            context.l10n.subscriptionAutoRenewDisclosure,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: colors.textMuted, fontSize: 12),
-          ),
-          const SizedBox(height: 10),
-          PurchaseFooterLinks(
-            isBusy: state.isPurchasing,
-            onRestorePressed: () {
-              HapticFeedback.selectionClick();
-              ref
-                  .read(subscriptionPurchaseControllerProvider.notifier)
-                  .restore();
-            },
-            onPrivacyPressed: () =>
-                onOpenExternalLink(AppConfig.privacyPolicyUrl),
-            onTermsPressed: () => onOpenExternalLink(AppConfig.termsOfUseUrl),
-          ),
-        ],
+                ),
+                const SizedBox(height: 10),
+              ],
+            if (state.isSyncPending) ...[
+              const SizedBox(height: 4),
+              _InlineMessage(message: context.l10n.subscriptionSyncPending),
+            ],
+            const SizedBox(height: 12),
+            PurchasePrimaryButton(
+              label: selectedIsCurrent
+                  ? context.l10n.subscriptionCurrentPlanButton
+                  : context.l10n.subscriptionPurchaseButton,
+              isBusy: state.isPurchasing,
+              onPressed:
+                  selectedIsCurrent ||
+                      state.isSyncPending ||
+                      state.selectedProductId == null
+                  ? null
+                  : () {
+                      HapticFeedback.selectionClick();
+                      ref
+                          .read(subscriptionPurchaseControllerProvider.notifier)
+                          .purchaseSelected();
+                    },
+            ),
+            const SizedBox(height: 12),
+            Text(
+              context.l10n.subscriptionAutoRenewDisclosure,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: colors.textMuted, fontSize: 12),
+            ),
+            const SizedBox(height: 10),
+            PurchaseFooterLinks(
+              isBusy: state.isPurchasing,
+              onRestorePressed: () {
+                HapticFeedback.selectionClick();
+                ref
+                    .read(subscriptionPurchaseControllerProvider.notifier)
+                    .restore();
+              },
+              onPrivacyPressed: () =>
+                  onOpenExternalLink(AppConfig.privacyPolicyUrl),
+              onTermsPressed: () => onOpenExternalLink(AppConfig.termsOfUseUrl),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -196,7 +196,7 @@ SubscriptionBillingStatus _status({bool active = false}) {
             productIdentifier: 'tessercam_plus_monthly',
             willRenew: true,
             accessEndIsFinal: false,
-            syncFreshness: 'fresh',
+            syncFreshness: SubscriptionSyncFreshness.fresh,
           )
         : null,
     capabilities: BillingCapabilities(

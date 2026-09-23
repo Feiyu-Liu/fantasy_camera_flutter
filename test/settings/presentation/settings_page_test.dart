@@ -323,6 +323,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('reset time uses 12-hour time when the device does', (
+    WidgetTester tester,
+  ) async {
+    await pumpSettingsPage(tester, subscriptionStatus: _subscriptionStatus());
+    await scrollDownUntilTextVisible(tester, 'Plus · 7 天额度');
+    expect(find.textContaining(RegExp('[上下]午')), findsOneWidget);
+  });
+
+  testWidgets('reset time uses 24-hour time when the device does', (
+    WidgetTester tester,
+  ) async {
+    tester.platformDispatcher.alwaysUse24HourFormatTestValue = true;
+    addTearDown(tester.platformDispatcher.clearAlwaysUse24HourTestValue);
+    await pumpSettingsPage(tester, subscriptionStatus: _subscriptionStatus());
+    await scrollDownUntilTextVisible(tester, 'Plus · 7 天额度');
+    expect(find.textContaining(RegExp('[上下]午')), findsNothing);
+    expect(find.textContaining(RegExp(r'\d{2}:\d{2}')), findsOneWidget);
+  });
+
+  testWidgets('allowance card stays laid out at large text sizes', (
+    WidgetTester tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await pumpSettingsPage(
+      tester,
+      subscriptionStatus: _subscriptionStatus(
+        fullUsed: 34,
+        fullRemaining: 0,
+        stale: true,
+      ),
+    );
+    await scrollDownUntilTextVisible(tester, 'Plus · 7 天额度');
+    expect(find.text('已使用 100%'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('says Standard quality is in use once Full runs out', (
     WidgetTester tester,
   ) async {
@@ -1296,7 +1333,9 @@ SubscriptionBillingStatus _subscriptionStatus({
             productIdentifier: 'tessercam_plus_monthly',
             willRenew: true,
             accessEndIsFinal: false,
-            syncFreshness: stale ? 'stale' : 'fresh',
+            syncFreshness: stale
+                ? SubscriptionSyncFreshness.stale
+                : SubscriptionSyncFreshness.fresh,
           )
         : null,
     window: active && windowAvailable
