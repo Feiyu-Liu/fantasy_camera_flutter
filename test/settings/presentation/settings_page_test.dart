@@ -285,6 +285,8 @@ void main() {
       tester.getSize(progress).width,
       closeTo(tester.getSize(track).width * 0.5, 1),
     );
+    expect(tester.getSize(progress).height, tester.getSize(track).height);
+    expect(tester.getSize(progress).height, greaterThan(0));
     expect(tester.takeException(), isNull);
   });
 

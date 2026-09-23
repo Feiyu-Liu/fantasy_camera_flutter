@@ -993,6 +993,7 @@ class _AllowanceCard extends StatelessWidget {
                                     'settings-allowance-progress',
                                   ),
                                   widthFactor: progress,
+                                  heightFactor: 1,
                                   child: ColoredBox(color: colors.textPrimary),
                                 ),
                               ),
