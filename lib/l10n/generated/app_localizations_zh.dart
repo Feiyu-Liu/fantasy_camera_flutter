@@ -615,6 +615,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get subscriptionCurrentPlan => '当前方案';
 
   @override
+  String get subscriptionCurrentPlanButton => '当前方案';
+
+  @override
   String get subscriptionPurchaseButton => '继续';
 
   @override
@@ -628,10 +631,59 @@ class AppLocalizationsZh extends AppLocalizations {
   String get subscriptionProductsUnavailable => '暂时无法加载订阅方案。';
 
   @override
-  String get subscriptionPurchaseFailed => '购买未完成，请重试。';
+  String get purchaseModeSubscription => '订阅方案';
 
   @override
-  String get subscriptionRestoreFailed => '恢复购买失败，请重试。';
+  String get purchaseModeCredits => '积分包';
+
+  @override
+  String toastSubscriptionPurchaseSuccess(String tier) {
+    return '已开通 $tier';
+  }
+
+  @override
+  String get toastSubscriptionPurchaseSuccessGeneric => '订阅已开通';
+
+  @override
+  String purchaseCreditPackName(String name) {
+    return '$name 积分包';
+  }
+
+  @override
+  String settingsAllowanceTitle(String tier) {
+    return '$tier · 7 天额度';
+  }
+
+  @override
+  String settingsAllowancePercent(int percent) {
+    return '已使用 $percent%';
+  }
+
+  @override
+  String settingsAllowanceReset(String date) {
+    return '$date 重置';
+  }
+
+  @override
+  String get settingsAllowanceOverflow => '额度用尽后将以标准画质继续';
+
+  @override
+  String get settingsAllowanceOverflowExhausted => '本窗口额度已用尽';
+
+  @override
+  String get settingsAllowanceInOverflow => '本窗口以标准画质继续';
+
+  @override
+  String get settingsAllowanceUnavailable => '当前额度暂不可用';
+
+  @override
+  String get settingsAllowanceSyncing => '订阅状态同步中';
+
+  @override
+  String get settingsAllowanceSubscribe => '选择订阅套餐';
+
+  @override
+  String get settingsAllowanceLoading => '加载中…';
 
   @override
   String get cameraQuotaLow => '将用尽';
@@ -1358,6 +1410,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get subscriptionCurrentPlan => '目前方案';
 
   @override
+  String get subscriptionCurrentPlanButton => '目前方案';
+
+  @override
   String get subscriptionPurchaseButton => '繼續';
 
   @override
@@ -1371,10 +1426,59 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get subscriptionProductsUnavailable => '暫時無法載入訂閱方案。';
 
   @override
-  String get subscriptionPurchaseFailed => '購買未完成，請重試。';
+  String get purchaseModeSubscription => '訂閱方案';
 
   @override
-  String get subscriptionRestoreFailed => '恢復購買失敗，請重試。';
+  String get purchaseModeCredits => '點數包';
+
+  @override
+  String toastSubscriptionPurchaseSuccess(String tier) {
+    return '已開通 $tier';
+  }
+
+  @override
+  String get toastSubscriptionPurchaseSuccessGeneric => '訂閱已開通';
+
+  @override
+  String purchaseCreditPackName(String name) {
+    return '$name 點數包';
+  }
+
+  @override
+  String settingsAllowanceTitle(String tier) {
+    return '$tier · 7 天額度';
+  }
+
+  @override
+  String settingsAllowancePercent(int percent) {
+    return '已使用 $percent%';
+  }
+
+  @override
+  String settingsAllowanceReset(String date) {
+    return '$date 重置';
+  }
+
+  @override
+  String get settingsAllowanceOverflow => '額度用盡後將以標準畫質繼續';
+
+  @override
+  String get settingsAllowanceOverflowExhausted => '本視窗額度已用盡';
+
+  @override
+  String get settingsAllowanceInOverflow => '本視窗以標準畫質繼續';
+
+  @override
+  String get settingsAllowanceUnavailable => '目前額度暫不可用';
+
+  @override
+  String get settingsAllowanceSyncing => '訂閱狀態同步中';
+
+  @override
+  String get settingsAllowanceSubscribe => '選擇訂閱方案';
+
+  @override
+  String get settingsAllowanceLoading => '載入中…';
 
   @override
   String get cameraQuotaLow => '將用盡';

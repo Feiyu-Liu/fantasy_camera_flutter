@@ -17,10 +17,20 @@ import '../../theme/app_corners.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_theme.dart';
 import '../domain/billing_product.dart';
+import '../domain/subscription_billing.dart';
 import 'billing_providers.dart';
+import 'purchase_page_components.dart';
+import 'subscription_purchase_page.dart';
+
+export 'purchase_page_components.dart' show PurchaseMode;
 
 class CreditPurchasePage extends ConsumerStatefulWidget {
-  const CreditPurchasePage({super.key});
+  const CreditPurchasePage({
+    this.initialMode = PurchaseMode.credits,
+    super.key,
+  });
+
+  final PurchaseMode initialMode;
 
   @override
   ConsumerState<CreditPurchasePage> createState() => _CreditPurchasePageState();
@@ -31,13 +41,27 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
 
   String? _selectedProductId;
   double _heroOverscroll = 0;
+  late PurchaseMode _mode = widget.initialMode;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     scheduleMicrotask(() {
-      ref.read(billingControllerProvider.notifier).loadProducts();
+      if (_mode == PurchaseMode.credits) {
+        ref.read(billingControllerProvider.notifier).loadProducts();
+      } else {
+        ref
+            .read(subscriptionPurchaseControllerProvider.notifier)
+            .loadProducts();
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -80,15 +104,22 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
           break;
       }
     });
+    ref.listen<SubscriptionPurchaseState>(
+      subscriptionPurchaseControllerProvider,
+      _onSubscriptionPurchaseStateChanged,
+    );
     final BillingControllerState state = ref.watch(billingControllerProvider);
+    final SubscriptionPurchaseState subscriptionState = ref.watch(
+      subscriptionPurchaseControllerProvider,
+    );
     final double topInset = MediaQuery.paddingOf(context).top;
+    final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
     final BillingProduct? selectedProduct = state.products.isEmpty
         ? null
         : state.products.firstWhere(
             (BillingProduct product) => product.productId == _selectedProductId,
             orElse: () => _defaultSelectedProduct(state.products),
           );
-    final String? selectedProductId = selectedProduct?.productId;
     final AppThemeColors colors = AppThemeColors.of(context);
     final double heroContentHeight = _baseHeroContentHeight + _heroOverscroll;
     return CupertinoPageScaffold(
@@ -112,6 +143,7 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
                     return false;
                   },
                   child: CustomScrollView(
+                    controller: _scrollController,
                     physics: const _TopBouncingScrollPhysics(
                       parent: AlwaysScrollableScrollPhysics(),
                     ),
@@ -125,107 +157,40 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: <Widget>[
                               const SizedBox(height: 24),
-                              if (state.isLoading)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 40),
-                                  child: Center(
-                                    child: CupertinoActivityIndicator(
-                                      color: colors.textPrimary,
-                                    ),
-                                  ),
-                                )
-                              else if (state.products.isEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  child: _EmptyPurchaseState(
-                                    onRetry: () {
-                                      ref
-                                          .read(
-                                            billingControllerProvider.notifier,
-                                          )
-                                          .loadProducts();
-                                    },
-                                  ),
-                                )
-                              else ...<Widget>[
-                                for (final BillingProduct product
-                                    in state.products)
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      16,
-                                      0,
-                                      16,
-                                      12,
-                                    ),
-                                    child: _CreditPackRow(
-                                      product: product,
-                                      isBusy: state.isPurchasing,
-                                      isSelected:
-                                          product.productId ==
-                                          selectedProductId,
-                                      onPressed: () {
-                                        HapticFeedback.selectionClick();
-                                        setState(() {
-                                          _selectedProductId =
-                                              product.productId;
-                                        });
-                                        ref
-                                            .read(
-                                              billingControllerProvider
-                                                  .notifier,
-                                            )
-                                            .clearPurchaseSuccess();
-                                      },
-                                    ),
-                                  ),
-                                const SizedBox(height: 2),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  child: _PurchaseButton(
-                                    isBusy: state.isPurchasing,
-                                    grantedCredits:
-                                        state.purchaseSuccessCredits,
-                                    onPressed: selectedProduct == null
-                                        ? null
-                                        : () {
-                                            HapticFeedback.selectionClick();
-                                            ref
-                                                .read(
-                                                  billingControllerProvider
-                                                      .notifier,
-                                                )
-                                                .purchase(selectedProduct);
-                                          },
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: 10),
                               Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  20,
                                 ),
-                                child: _PurchaseFooterLinks(
-                                  isBusy: state.isPurchasing,
-                                  onRestorePressed: () {
-                                    HapticFeedback.selectionClick();
-                                    ref
-                                        .read(
-                                          billingControllerProvider.notifier,
+                                child: PurchaseModeSwitcher(
+                                  mode: _mode,
+                                  enabled:
+                                      !state.isPurchasing &&
+                                      !subscriptionState.isPurchasing,
+                                  onChanged: _setMode,
+                                ),
+                              ),
+                              AnimatedSwitcher(
+                                duration: reduceMotion
+                                    ? Duration.zero
+                                    : const Duration(milliseconds: 180),
+                                switchInCurve: Curves.easeOut,
+                                switchOutCurve: Curves.easeIn,
+                                layoutBuilder: _topAlignedSwitcherLayout,
+                                child: KeyedSubtree(
+                                  key: ValueKey<PurchaseMode>(_mode),
+                                  child: _mode == PurchaseMode.subscription
+                                      ? SubscriptionPurchaseContent(
+                                          onOpenExternalLink: (String url) =>
+                                              unawaited(_openExternalLink(url)),
                                         )
-                                        .restore();
-                                  },
-                                  onPrivacyPressed: () => unawaited(
-                                    _openExternalLink(
-                                      AppConfig.privacyPolicyUrl,
-                                    ),
-                                  ),
-                                  onTermsPressed: () => unawaited(
-                                    _openExternalLink(AppConfig.termsOfUseUrl),
-                                  ),
+                                      : _buildCreditContent(
+                                          context,
+                                          state,
+                                          selectedProduct,
+                                        ),
                                 ),
                               ),
                             ],
@@ -244,7 +209,7 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
             right: 0,
             height: heroContentHeight,
             child: IgnorePointer(
-              child: _PurchaseHeroContent(topInset: topInset),
+              child: _PurchaseHeroContent(topInset: topInset, mode: _mode),
             ),
           ),
           Positioned(
@@ -253,12 +218,164 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
             right: 0,
             child: _PurchaseNavigationBar(
               topInset: topInset,
+              mode: _mode,
               onBackPressed: () => context.pop(),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildCreditContent(
+    BuildContext context,
+    BillingControllerState state,
+    BillingProduct? selectedProduct,
+  ) {
+    final AppThemeColors colors = AppThemeColors.of(context);
+    final int? successCredits = state.purchaseSuccessCredits;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (state.isLoading)
+          Padding(
+            padding: const EdgeInsets.only(top: 40),
+            child: Center(
+              child: CupertinoActivityIndicator(color: colors.textPrimary),
+            ),
+          )
+        else if (state.products.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _EmptyPurchaseState(
+              onRetry: () {
+                ref.read(billingControllerProvider.notifier).loadProducts();
+              },
+            ),
+          )
+        else ...<Widget>[
+          for (final BillingProduct product in state.products)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: _CreditPackRow(
+                product: product,
+                isBusy: state.isPurchasing,
+                isSelected: product.productId == selectedProduct?.productId,
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _selectedProductId = product.productId;
+                  });
+                  ref
+                      .read(billingControllerProvider.notifier)
+                      .clearPurchaseSuccess();
+                },
+              ),
+            ),
+          const SizedBox(height: 2),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: PurchasePrimaryButton(
+              label: context.l10n.billingPurchaseButton,
+              successLabel: successCredits == null
+                  ? null
+                  : context.l10n.billingPurchaseSuccessButton(successCredits),
+              isBusy: state.isPurchasing,
+              onPressed: selectedProduct == null
+                  ? null
+                  : () {
+                      HapticFeedback.selectionClick();
+                      ref
+                          .read(billingControllerProvider.notifier)
+                          .purchase(selectedProduct);
+                    },
+            ),
+          ),
+        ],
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: PurchaseFooterLinks(
+            isBusy: state.isPurchasing,
+            onRestorePressed: () {
+              HapticFeedback.selectionClick();
+              ref.read(billingControllerProvider.notifier).restore();
+            },
+            onPrivacyPressed: () =>
+                unawaited(_openExternalLink(AppConfig.privacyPolicyUrl)),
+            onTermsPressed: () =>
+                unawaited(_openExternalLink(AppConfig.termsOfUseUrl)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _onSubscriptionPurchaseStateChanged(
+    SubscriptionPurchaseState? previous,
+    SubscriptionPurchaseState next,
+  ) {
+    final AppToastService toastService = ref.read(appToastServiceProvider);
+    final AppLocalizations l10n = context.l10n;
+    if (next.successSerial != (previous?.successSerial ?? 0)) {
+      switch (next.lastSuccess) {
+        case SubscriptionPurchaseSuccess.purchase:
+          final SubscriptionTier? tier = ref
+              .read(subscriptionBillingStatusProvider)
+              .valueOrNull
+              ?.subscription
+              ?.tier;
+          toastService.showSubscriptionPurchaseSuccess(
+            l10n,
+            tier == null ? null : subscriptionTierName(l10n, tier),
+          );
+        case SubscriptionPurchaseSuccess.restore:
+          toastService.showRestorePurchaseSynced(l10n);
+        case null:
+          break;
+      }
+    }
+    if (next.errorKind == null || next.errorKind == previous?.errorKind) {
+      return;
+    }
+    switch (next.errorKind!) {
+      case SubscriptionPurchaseErrorKind.purchase:
+        toastService.showPurchaseFailure(l10n);
+      case SubscriptionPurchaseErrorKind.restore:
+        toastService.showRestorePurchaseFailure(l10n);
+      case SubscriptionPurchaseErrorKind.loadProducts:
+        break;
+    }
+  }
+
+  void _setMode(PurchaseMode mode) {
+    if (_mode == mode) return;
+    HapticFeedback.selectionClick();
+    if (_scrollController.hasClients && _scrollController.offset > 0) {
+      _scrollController.jumpTo(0);
+    }
+    setState(() => _mode = mode);
+    if (mode == PurchaseMode.credits) {
+      final BillingController controller = ref.read(
+        billingControllerProvider.notifier,
+      );
+      controller.clearPurchaseSuccess();
+      final BillingControllerState credits = ref.read(
+        billingControllerProvider,
+      );
+      if (credits.products.isEmpty && !credits.isLoading) {
+        controller.loadProducts();
+      }
+    } else {
+      final SubscriptionPurchaseState subscription = ref.read(
+        subscriptionPurchaseControllerProvider,
+      );
+      if (subscription.products.isEmpty && !subscription.isLoading) {
+        ref
+            .read(subscriptionPurchaseControllerProvider.notifier)
+            .loadProducts();
+      }
+    }
   }
 
   void _updateHeroOverscroll(ScrollMetrics metrics) {
@@ -302,6 +419,16 @@ class _CreditPurchasePageState extends ConsumerState<CreditPurchasePage> {
   }
 }
 
+Widget _topAlignedSwitcherLayout(
+  Widget? currentChild,
+  List<Widget> previousChildren,
+) {
+  return Stack(
+    alignment: Alignment.topCenter,
+    children: <Widget>[...previousChildren, ?currentChild],
+  );
+}
+
 void _debugLog(String message) {
   appDebugLog('CreditPurchasePage', message);
 }
@@ -309,10 +436,12 @@ void _debugLog(String message) {
 class _PurchaseNavigationBar extends StatelessWidget {
   const _PurchaseNavigationBar({
     required this.topInset,
+    required this.mode,
     required this.onBackPressed,
   });
 
   final double topInset;
+  final PurchaseMode mode;
   final VoidCallback onBackPressed;
 
   @override
@@ -348,7 +477,9 @@ class _PurchaseNavigationBar extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    context.l10n.billingTitle,
+                    mode == PurchaseMode.subscription
+                        ? context.l10n.subscriptionTitle
+                        : context.l10n.billingTitle,
                     textScaler: TextScaler.noScaling,
                     style: const TextStyle(
                       color: Color(0xFFFFFFFF),
@@ -525,9 +656,10 @@ class _PurchaseHeroEasterEggText extends StatelessWidget {
 }
 
 class _PurchaseHeroContent extends StatelessWidget {
-  const _PurchaseHeroContent({required this.topInset});
+  const _PurchaseHeroContent({required this.topInset, required this.mode});
 
   final double topInset;
+  final PurchaseMode mode;
 
   @override
   Widget build(BuildContext context) {
@@ -538,7 +670,7 @@ class _PurchaseHeroContent extends StatelessWidget {
           width: double.infinity,
           child: SizedBox(
             width: double.infinity,
-            child: _PurchaseHeroMainContent(),
+            child: _PurchaseHeroMainContent(mode: mode),
           ),
         ),
       ),
@@ -547,7 +679,9 @@ class _PurchaseHeroContent extends StatelessWidget {
 }
 
 class _PurchaseHeroMainContent extends StatelessWidget {
-  const _PurchaseHeroMainContent();
+  const _PurchaseHeroMainContent({required this.mode});
+
+  final PurchaseMode mode;
 
   @override
   Widget build(BuildContext context) {
@@ -573,31 +707,47 @@ class _PurchaseHeroMainContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        Text(
-          context.l10n.billingHeroTitle,
-          textAlign: TextAlign.center,
-          textScaler: TextScaler.noScaling,
-          style: const TextStyle(
-            color: Color(0xFFFFFFFF),
-            fontSize: 24,
-            fontWeight: FontWeight.w600,
-            height: 1.05,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            context.l10n.billingHeroSubtitle,
-            textAlign: TextAlign.center,
-            textScaler: TextScaler.noScaling,
-            style: TextStyle(
-              color: const Color(0xFFFFFFFF).withValues(alpha: 0.7),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 1.1,
-              height: 1.4,
-            ),
+        AnimatedSwitcher(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
+          layoutBuilder: _topAlignedSwitcherLayout,
+          child: Column(
+            key: ValueKey<PurchaseMode>(mode),
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                mode == PurchaseMode.subscription
+                    ? context.l10n.subscriptionHeroTitle
+                    : context.l10n.billingHeroTitle,
+                textAlign: TextAlign.center,
+                textScaler: TextScaler.noScaling,
+                style: const TextStyle(
+                  color: Color(0xFFFFFFFF),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  height: 1.05,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  mode == PurchaseMode.subscription
+                      ? context.l10n.subscriptionHeroSubtitle
+                      : context.l10n.billingHeroSubtitle,
+                  textAlign: TextAlign.center,
+                  textScaler: TextScaler.noScaling,
+                  style: TextStyle(
+                    color: const Color(0xFFFFFFFF).withValues(alpha: 0.7),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 1.1,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -712,7 +862,9 @@ class _CreditPackRow extends StatelessWidget {
                       children: <Widget>[
                         Flexible(
                           child: Text(
-                            product.displayNameKey,
+                            context.l10n.purchaseCreditPackName(
+                              product.displayNameKey,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textScaler: TextScaler.noScaling,
@@ -803,159 +955,6 @@ class _SavingsBadge extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PurchaseButton extends StatelessWidget {
-  const _PurchaseButton({
-    required this.isBusy,
-    required this.grantedCredits,
-    required this.onPressed,
-  });
-
-  final bool isBusy;
-  final int? grantedCredits;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final AppThemeColors colors = AppThemeColors.of(context);
-    final int? successCredits = grantedCredits;
-    final bool isSuccess = successCredits != null;
-    final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
-    return CupertinoButton(
-      padding: EdgeInsets.zero,
-      minimumSize: Size.zero,
-      onPressed: isBusy || isSuccess ? null : onPressed,
-      child: AnimatedContainer(
-        duration: reduceMotion
-            ? Duration.zero
-            : const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        decoration: AppCorners.controlDecoration(
-          color: isSuccess
-              ? AppColors.purchaseSuccessGreen
-              : isBusy || onPressed == null
-              ? colors.controlFillDisabled
-              : colors.textPrimary,
-          side: BorderSide(color: colors.border, width: 0.5),
-        ),
-        child: SizedBox(
-          height: 52,
-          child: Center(
-            child: isBusy
-                ? CupertinoActivityIndicator(color: colors.inverseText)
-                : Text(
-                    isSuccess
-                        ? context.l10n.billingPurchaseSuccessButton(
-                            successCredits,
-                          )
-                        : context.l10n.billingPurchaseButton,
-                    textScaler: TextScaler.noScaling,
-                    style: TextStyle(
-                      color: AppColors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PurchaseFooterLinks extends StatelessWidget {
-  const _PurchaseFooterLinks({
-    required this.isBusy,
-    required this.onRestorePressed,
-    required this.onPrivacyPressed,
-    required this.onTermsPressed,
-  });
-
-  final bool isBusy;
-  final VoidCallback onRestorePressed;
-  final VoidCallback onPrivacyPressed;
-  final VoidCallback onTermsPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final AppThemeColors colors = AppThemeColors.of(context);
-    return Row(
-      children: <Widget>[
-        _FooterLinkButton(
-          label: context.l10n.billingRestorePurchases,
-          onPressed: isBusy ? null : onRestorePressed,
-        ),
-        Expanded(
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                children: <Widget>[
-                  _FooterLinkButton(
-                    label: context.l10n.settingsPrivacyPolicyTitle,
-                    onPressed: onPrivacyPressed,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      '|',
-                      textScaler: TextScaler.noScaling,
-                      style: TextStyle(
-                        color: colors.textMuted,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                  _FooterLinkButton(
-                    label: context.l10n.settingsTermsTitle,
-                    onPressed: onTermsPressed,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _FooterLinkButton extends StatelessWidget {
-  const _FooterLinkButton({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final AppThemeColors colors = AppThemeColors.of(context);
-    return CupertinoButton(
-      padding: EdgeInsets.zero,
-      minimumSize: Size.zero,
-      onPressed: onPressed,
-      child: Text(
-        label,
-        textScaler: TextScaler.noScaling,
-        style: TextStyle(
-          color: onPressed == null
-              ? colors.textMuted.withValues(alpha: 0.45)
-              : colors.textMuted,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-          decoration: onPressed == null
-              ? TextDecoration.none
-              : TextDecoration.underline,
-          decorationColor: onPressed == null
-              ? colors.textMuted.withValues(alpha: 0)
-              : colors.textMuted,
-          decorationThickness: 0.7,
         ),
       ),
     );

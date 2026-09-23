@@ -625,6 +625,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get subscriptionCurrentPlan => '現在';
 
   @override
+  String get subscriptionCurrentPlanButton => '現在のプラン';
+
+  @override
   String get subscriptionPurchaseButton => '続ける';
 
   @override
@@ -639,10 +642,59 @@ class AppLocalizationsJa extends AppLocalizations {
   String get subscriptionProductsUnavailable => 'サブスクリプションプランを一時的に読み込めません。';
 
   @override
-  String get subscriptionPurchaseFailed => '購入を完了できませんでした。再試行してください。';
+  String get purchaseModeSubscription => 'サブスクリプション';
 
   @override
-  String get subscriptionRestoreFailed => '購入を復元できませんでした。再試行してください。';
+  String get purchaseModeCredits => 'クレジットパック';
+
+  @override
+  String toastSubscriptionPurchaseSuccess(String tier) {
+    return '$tier が有効になりました';
+  }
+
+  @override
+  String get toastSubscriptionPurchaseSuccessGeneric => 'サブスクリプションが有効になりました';
+
+  @override
+  String purchaseCreditPackName(String name) {
+    return '$name クレジットパック';
+  }
+
+  @override
+  String settingsAllowanceTitle(String tier) {
+    return '$tier · 7日間の利用枠';
+  }
+
+  @override
+  String settingsAllowancePercent(int percent) {
+    return '使用済み $percent%';
+  }
+
+  @override
+  String settingsAllowanceReset(String date) {
+    return '$date に更新';
+  }
+
+  @override
+  String get settingsAllowanceOverflow => '利用枠の終了後は標準画質になります';
+
+  @override
+  String get settingsAllowanceOverflowExhausted => 'この期間の利用枠は終了しました';
+
+  @override
+  String get settingsAllowanceInOverflow => 'この期間は標準画質で継続中';
+
+  @override
+  String get settingsAllowanceUnavailable => '利用枠を取得できません';
+
+  @override
+  String get settingsAllowanceSyncing => '購読状況を同期中';
+
+  @override
+  String get settingsAllowanceSubscribe => 'プランを選ぶ';
+
+  @override
+  String get settingsAllowanceLoading => '読み込み中…';
 
   @override
   String get cameraQuotaLow => '残り少';

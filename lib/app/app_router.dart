@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../auth/presentation/auth_gate.dart';
 import '../billing/presentation/credit_purchase_page.dart';
-import '../billing/presentation/subscription_purchase_page.dart';
 import '../features/generation_submission/presentation/generation_submission_modal.dart';
 import '../features/notifications/presentation/notification_providers.dart';
 import '../settings/presentation/settings_page.dart';
@@ -56,7 +55,9 @@ GoRouter createAppRouter() {
       GoRoute(
         path: subscriptionPurchaseRoute,
         pageBuilder: (BuildContext context, GoRouterState state) {
-          return const CupertinoPage<void>(child: SubscriptionPurchasePage());
+          return const CupertinoPage<void>(
+            child: CreditPurchasePage(initialMode: PurchaseMode.subscription),
+          );
         },
       ),
     ],

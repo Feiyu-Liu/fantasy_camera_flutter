@@ -650,6 +650,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get subscriptionCurrentPlan => 'CURRENT';
 
   @override
+  String get subscriptionCurrentPlanButton => 'Current plan';
+
+  @override
   String get subscriptionPurchaseButton => 'Continue';
 
   @override
@@ -665,12 +668,64 @@ class AppLocalizationsEn extends AppLocalizations {
       'Subscription plans are temporarily unavailable.';
 
   @override
-  String get subscriptionPurchaseFailed =>
-      'The purchase could not be completed. Try again.';
+  String get purchaseModeSubscription => 'Subscriptions';
 
   @override
-  String get subscriptionRestoreFailed =>
-      'Purchases could not be restored. Try again.';
+  String get purchaseModeCredits => 'Credit packs';
+
+  @override
+  String toastSubscriptionPurchaseSuccess(String tier) {
+    return '$tier is now active';
+  }
+
+  @override
+  String get toastSubscriptionPurchaseSuccessGeneric =>
+      'Subscription is now active';
+
+  @override
+  String purchaseCreditPackName(String name) {
+    return '$name credit pack';
+  }
+
+  @override
+  String settingsAllowanceTitle(String tier) {
+    return '$tier · 7-day allowance';
+  }
+
+  @override
+  String settingsAllowancePercent(int percent) {
+    return '$percent% used';
+  }
+
+  @override
+  String settingsAllowanceReset(String date) {
+    return 'Resets $date';
+  }
+
+  @override
+  String get settingsAllowanceOverflow =>
+      'Standard quality after the allowance runs out';
+
+  @override
+  String get settingsAllowanceOverflowExhausted =>
+      'This window\'s allowance is exhausted';
+
+  @override
+  String get settingsAllowanceInOverflow =>
+      'Continuing in Standard quality this window';
+
+  @override
+  String get settingsAllowanceUnavailable =>
+      'Allowance temporarily unavailable';
+
+  @override
+  String get settingsAllowanceSyncing => 'Subscription status syncing';
+
+  @override
+  String get settingsAllowanceSubscribe => 'Choose a subscription';
+
+  @override
+  String get settingsAllowanceLoading => 'Loading…';
 
   @override
   String get cameraQuotaLow => 'LOW';

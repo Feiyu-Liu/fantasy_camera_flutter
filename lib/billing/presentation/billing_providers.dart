@@ -117,6 +117,7 @@ final subscriptionPurchaseControllerProvider =
         subscriptionCatalogLoaderProvider,
         subscriptionStoreGatewayProvider,
         subscriptionBillingStatusProvider,
+        creditBalanceProvider,
       ],
     );
 
@@ -609,6 +610,8 @@ class SubscriptionBillingStatusController
 
 enum SubscriptionPurchaseErrorKind { loadProducts, purchase, restore }
 
+enum SubscriptionPurchaseSuccess { purchase, restore }
+
 class SubscriptionPurchaseState {
   const SubscriptionPurchaseState({
     this.products = const <SubscriptionProduct>[],
@@ -618,6 +621,8 @@ class SubscriptionPurchaseState {
     this.selectedProductId,
     this.errorKind,
     this.catalogStatus,
+    this.lastSuccess,
+    this.successSerial = 0,
   });
 
   final List<SubscriptionProduct> products;
@@ -627,6 +632,11 @@ class SubscriptionPurchaseState {
   final String? selectedProductId;
   final SubscriptionPurchaseErrorKind? errorKind;
   final SubscriptionBillingStatus? catalogStatus;
+  final SubscriptionPurchaseSuccess? lastSuccess;
+
+  /// Bumped on every successful purchase or restore so listeners can react
+  /// to repeated successes of the same kind.
+  final int successSerial;
 
   SubscriptionPurchaseState copyWith({
     List<SubscriptionProduct>? products,
@@ -636,6 +646,8 @@ class SubscriptionPurchaseState {
     String? selectedProductId,
     SubscriptionPurchaseErrorKind? errorKind,
     SubscriptionBillingStatus? catalogStatus,
+    SubscriptionPurchaseSuccess? lastSuccess,
+    int? successSerial,
     bool clearError = false,
   }) {
     return SubscriptionPurchaseState(
@@ -646,6 +658,8 @@ class SubscriptionPurchaseState {
       selectedProductId: selectedProductId ?? this.selectedProductId,
       errorKind: clearError ? null : errorKind ?? this.errorKind,
       catalogStatus: catalogStatus ?? this.catalogStatus,
+      lastSuccess: lastSuccess ?? this.lastSuccess,
+      successSerial: successSerial ?? this.successSerial,
     );
   }
 }
@@ -725,7 +739,10 @@ class SubscriptionPurchaseController
         );
         return;
       case BillingPurchaseCompleted():
-        await _syncAfterStoreChange(SubscriptionPurchaseErrorKind.purchase);
+        await _syncAfterStoreChange(
+          SubscriptionPurchaseErrorKind.purchase,
+          SubscriptionPurchaseSuccess.purchase,
+        );
     }
   }
 
@@ -744,7 +761,10 @@ class SubscriptionPurchaseController
         await ref.read(subscriptionStoreGatewayProvider).logIn(userId);
       }
       await ref.read(subscriptionStoreGatewayProvider).restorePurchases();
-      await _syncAfterStoreChange(SubscriptionPurchaseErrorKind.restore);
+      await _syncAfterStoreChange(
+        SubscriptionPurchaseErrorKind.restore,
+        SubscriptionPurchaseSuccess.restore,
+      );
     } on Object catch (error, stackTrace) {
       logAppError('subscription_restore_failed', error, stackTrace);
       state = state.copyWith(
@@ -756,13 +776,19 @@ class SubscriptionPurchaseController
 
   Future<void> _syncAfterStoreChange(
     SubscriptionPurchaseErrorKind errorKind,
+    SubscriptionPurchaseSuccess successKind,
   ) async {
     try {
       await ref
           .read(subscriptionBillingStatusProvider.notifier)
           .refreshFromServer(sync: true);
       ref.invalidate(creditBalanceProvider);
-      state = state.copyWith(isPurchasing: false, isSyncPending: false);
+      state = state.copyWith(
+        isPurchasing: false,
+        isSyncPending: false,
+        lastSuccess: successKind,
+        successSerial: state.successSerial + 1,
+      );
     } on BackendApiFailure catch (error) {
       if (error.code == 'billing_sync_pending') {
         state = state.copyWith(isPurchasing: false, isSyncPending: true);

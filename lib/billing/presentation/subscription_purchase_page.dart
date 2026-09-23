@@ -1,39 +1,26 @@
-import 'dart:async';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../config/app_config.dart';
 import '../../l10n/l10n.dart';
-import '../../shared/platform/external_link_launcher.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_corners.dart';
 import '../../theme/app_theme.dart';
 import '../domain/subscription_billing.dart';
 import 'billing_providers.dart';
+import 'purchase_page_components.dart';
 
-class SubscriptionPurchasePage extends ConsumerStatefulWidget {
-  const SubscriptionPurchasePage({super.key});
+class SubscriptionPurchaseContent extends ConsumerWidget {
+  const SubscriptionPurchaseContent({
+    required this.onOpenExternalLink,
+    super.key,
+  });
 
-  @override
-  ConsumerState<SubscriptionPurchasePage> createState() =>
-      _SubscriptionPurchasePageState();
-}
-
-class _SubscriptionPurchasePageState
-    extends ConsumerState<SubscriptionPurchasePage> {
-  @override
-  void initState() {
-    super.initState();
-    scheduleMicrotask(
-      ref.read(subscriptionPurchaseControllerProvider.notifier).loadProducts,
-    );
-  }
+  final ValueChanged<String> onOpenExternalLink;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final SubscriptionPurchaseState state = ref.watch(
       subscriptionPurchaseControllerProvider,
     );
@@ -41,149 +28,104 @@ class _SubscriptionPurchasePageState
         ref.watch(subscriptionBillingStatusProvider).valueOrNull ??
         state.catalogStatus;
     final AppThemeColors colors = AppThemeColors.of(context);
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        backgroundColor: colors.background.withValues(alpha: 0.9),
-        border: Border(bottom: BorderSide(color: colors.border, width: 0.5)),
-        leading: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: context.pop,
-          child: Icon(CupertinoIcons.chevron_left, color: colors.textPrimary),
-        ),
-        middle: Text(context.l10n.subscriptionTitle),
-      ),
-      backgroundColor: colors.background,
-      child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(18, 22, 18, 28),
-          children: <Widget>[
-            Icon(LucideIcons.sparkles, size: 34, color: colors.textPrimary),
-            const SizedBox(height: 14),
-            Text(
-              context.l10n.subscriptionHeroTitle,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 27,
-                fontWeight: FontWeight.w700,
+    final String? currentProductIdentifier =
+        status?.subscription?.active == true
+        ? status!.subscription!.productIdentifier
+        : null;
+    final bool selectedIsCurrent =
+        currentProductIdentifier != null &&
+        state.products.any(
+          (SubscriptionProduct product) =>
+              product.storeProduct.productId == state.selectedProductId &&
+              product.plan.productIdentifier == currentProductIdentifier,
+        );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          if (state.isLoading)
+            const Center(child: CupertinoActivityIndicator())
+          else if (state.products.isEmpty)
+            _InlineMessage(
+              message: context.l10n.subscriptionProductsUnavailable,
+              actionLabel: context.l10n.billingRetry,
+              onPressed: ref
+                  .read(subscriptionPurchaseControllerProvider.notifier)
+                  .loadProducts,
+            )
+          else
+            for (final SubscriptionProduct product in state.products) ...[
+              _SubscriptionPlanCard(
+                product: product,
+                selected:
+                    product.storeProduct.productId == state.selectedProductId,
+                current:
+                    product.plan.productIdentifier == currentProductIdentifier,
+                busy: state.isPurchasing,
+                fullQualityUnits: status?.allowanceUnitsFor('full') ?? 0,
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  ref
+                      .read(subscriptionPurchaseControllerProvider.notifier)
+                      .selectProduct(product.storeProduct.productId);
+                },
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              context.l10n.subscriptionHeroSubtitle,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: colors.textMuted, fontSize: 14),
-            ),
-            const SizedBox(height: 24),
-            if (state.isLoading)
-              const Center(child: CupertinoActivityIndicator())
-            else if (state.products.isEmpty)
-              _InlineMessage(
-                message: context.l10n.subscriptionProductsUnavailable,
-                actionLabel: context.l10n.billingRetry,
-                onPressed: ref
-                    .read(subscriptionPurchaseControllerProvider.notifier)
-                    .loadProducts,
-              )
-            else
-              for (final SubscriptionProduct product in state.products) ...[
-                _SubscriptionPlanCard(
-                  product: product,
-                  selected:
-                      product.storeProduct.productId == state.selectedProductId,
-                  current:
-                      product.plan.productIdentifier ==
-                      status?.subscription?.productIdentifier,
-                  busy: state.isPurchasing,
-                  fullQualityUnits: status?.allowanceUnitsFor('full') ?? 0,
-                  onPressed: () {
+              const SizedBox(height: 10),
+            ],
+          if (state.isSyncPending) ...[
+            const SizedBox(height: 4),
+            _InlineMessage(message: context.l10n.subscriptionSyncPending),
+          ],
+          const SizedBox(height: 12),
+          PurchasePrimaryButton(
+            label: selectedIsCurrent
+                ? context.l10n.subscriptionCurrentPlanButton
+                : context.l10n.subscriptionPurchaseButton,
+            isBusy: state.isPurchasing,
+            onPressed:
+                selectedIsCurrent ||
+                    state.isSyncPending ||
+                    state.selectedProductId == null
+                ? null
+                : () {
                     HapticFeedback.selectionClick();
                     ref
                         .read(subscriptionPurchaseControllerProvider.notifier)
-                        .selectProduct(product.storeProduct.productId);
+                        .purchaseSelected();
                   },
-                ),
-                const SizedBox(height: 10),
-              ],
-            if (state.isSyncPending) ...[
-              const SizedBox(height: 4),
-              _InlineMessage(message: context.l10n.subscriptionSyncPending),
-            ],
-            if (state.errorKind != null) ...[
-              const SizedBox(height: 4),
-              _InlineMessage(message: _errorMessage(context, state.errorKind!)),
-            ],
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 52,
-              child: CupertinoButton.filled(
-                onPressed: state.isPurchasing || state.selectedProductId == null
-                    ? null
-                    : ref
-                          .read(subscriptionPurchaseControllerProvider.notifier)
-                          .purchaseSelected,
-                child: state.isPurchasing
-                    ? const CupertinoActivityIndicator(color: AppColors.black)
-                    : Text(context.l10n.subscriptionPurchaseButton),
-              ),
-            ),
-            const SizedBox(height: 10),
-            CupertinoButton(
-              onPressed: state.isPurchasing
-                  ? null
-                  : ref
-                        .read(subscriptionPurchaseControllerProvider.notifier)
-                        .restore,
-              child: Text(context.l10n.billingRestorePurchases),
-            ),
-            Text(
-              context.l10n.subscriptionAutoRenewDisclosure,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: colors.textMuted, fontSize: 12),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                CupertinoButton(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  onPressed: () => unawaited(
-                    ref.read(externalLinkLauncherProvider)(
-                      Uri.parse(AppConfig.termsOfUseUrl),
-                    ),
-                  ),
-                  child: Text(context.l10n.settingsTermsTitle),
-                ),
-                CupertinoButton(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  onPressed: () => unawaited(
-                    ref.read(externalLinkLauncherProvider)(
-                      Uri.parse(AppConfig.privacyPolicyUrl),
-                    ),
-                  ),
-                  child: Text(context.l10n.settingsPrivacyPolicyTitle),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            context.l10n.subscriptionAutoRenewDisclosure,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: colors.textMuted, fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          PurchaseFooterLinks(
+            isBusy: state.isPurchasing,
+            onRestorePressed: () {
+              HapticFeedback.selectionClick();
+              ref
+                  .read(subscriptionPurchaseControllerProvider.notifier)
+                  .restore();
+            },
+            onPrivacyPressed: () =>
+                onOpenExternalLink(AppConfig.privacyPolicyUrl),
+            onTermsPressed: () => onOpenExternalLink(AppConfig.termsOfUseUrl),
+          ),
+        ],
       ),
     );
   }
+}
 
-  String _errorMessage(
-    BuildContext context,
-    SubscriptionPurchaseErrorKind kind,
-  ) {
-    return switch (kind) {
-      SubscriptionPurchaseErrorKind.loadProducts =>
-        context.l10n.subscriptionProductsUnavailable,
-      SubscriptionPurchaseErrorKind.purchase =>
-        context.l10n.subscriptionPurchaseFailed,
-      SubscriptionPurchaseErrorKind.restore =>
-        context.l10n.subscriptionRestoreFailed,
-    };
-  }
+String subscriptionTierName(AppLocalizations l10n, SubscriptionTier tier) {
+  return switch (tier) {
+    SubscriptionTier.mini => l10n.subscriptionTierMini,
+    SubscriptionTier.plus => l10n.subscriptionTierPlus,
+    SubscriptionTier.pro => l10n.subscriptionTierPro,
+  };
 }
 
 class _SubscriptionPlanCard extends StatelessWidget {
@@ -206,8 +148,10 @@ class _SubscriptionPlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppThemeColors colors = AppThemeColors.of(context);
-    final int photos = fullQualityUnits <= 0
-        ? 0
+    // Without a Full cost from billing status the photo estimate would read
+    // "0 photos", so the line is hidden until the status arrives.
+    final int? photos = fullQualityUnits <= 0
+        ? null
         : product.plan.fullAllowanceUnits ~/ fullQualityUnits;
     return Semantics(
       identifier: 'subscription_plan_${product.plan.tier.name}',
@@ -219,12 +163,9 @@ class _SubscriptionPlanCard extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
+          decoration: AppCorners.controlDecoration(
             color: selected ? colors.accentYellow : colors.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: selected ? colors.accentYellow : colors.border,
-            ),
+            side: BorderSide(color: colors.border, width: 0.5),
           ),
           child: Row(
             children: <Widget>[
@@ -234,14 +175,20 @@ class _SubscriptionPlanCard extends StatelessWidget {
                   children: <Widget>[
                     Row(
                       children: <Widget>[
-                        Text(
-                          _tierName(context, product.plan.tier),
-                          style: TextStyle(
-                            color: selected
-                                ? AppColors.black
-                                : colors.textPrimary,
-                            fontSize: 19,
-                            fontWeight: FontWeight.w700,
+                        Flexible(
+                          child: Text(
+                            subscriptionTierName(
+                              context.l10n,
+                              product.plan.tier,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: selected
+                                  ? AppColors.black
+                                  : colors.textPrimary,
+                              fontSize: 19,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         if (current) ...[
@@ -260,16 +207,18 @@ class _SubscriptionPlanCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 7),
-                    Text(
-                      context.l10n.subscriptionPhotosPerWindow(photos),
-                      style: TextStyle(
-                        color: selected
-                            ? AppColors.black.withValues(alpha: 0.72)
-                            : colors.textMuted,
-                        fontSize: 13,
+                    if (photos != null) ...<Widget>[
+                      Text(
+                        context.l10n.subscriptionPhotosPerWindow(photos),
+                        style: TextStyle(
+                          color: selected
+                              ? AppColors.black.withValues(alpha: 0.72)
+                              : colors.textMuted,
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 3),
+                      const SizedBox(height: 3),
+                    ],
                     Text(
                       product.plan.maxEnabled
                           ? context.l10n.subscriptionMaxIncluded
@@ -297,14 +246,6 @@ class _SubscriptionPlanCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _tierName(BuildContext context, SubscriptionTier tier) {
-    return switch (tier) {
-      SubscriptionTier.mini => context.l10n.subscriptionTierMini,
-      SubscriptionTier.plus => context.l10n.subscriptionTierPlus,
-      SubscriptionTier.pro => context.l10n.subscriptionTierPro,
-    };
   }
 }
 

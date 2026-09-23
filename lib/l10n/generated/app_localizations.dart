@@ -1246,6 +1246,12 @@ abstract class AppLocalizations {
   /// **'CURRENT'**
   String get subscriptionCurrentPlan;
 
+  /// No description provided for @subscriptionCurrentPlanButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Current plan'**
+  String get subscriptionCurrentPlanButton;
+
   /// No description provided for @subscriptionPurchaseButton.
   ///
   /// In en, this message translates to:
@@ -1270,17 +1276,95 @@ abstract class AppLocalizations {
   /// **'Subscription plans are temporarily unavailable.'**
   String get subscriptionProductsUnavailable;
 
-  /// No description provided for @subscriptionPurchaseFailed.
+  /// No description provided for @purchaseModeSubscription.
   ///
   /// In en, this message translates to:
-  /// **'The purchase could not be completed. Try again.'**
-  String get subscriptionPurchaseFailed;
+  /// **'Subscriptions'**
+  String get purchaseModeSubscription;
 
-  /// No description provided for @subscriptionRestoreFailed.
+  /// No description provided for @purchaseModeCredits.
   ///
   /// In en, this message translates to:
-  /// **'Purchases could not be restored. Try again.'**
-  String get subscriptionRestoreFailed;
+  /// **'Credit packs'**
+  String get purchaseModeCredits;
+
+  /// No description provided for @toastSubscriptionPurchaseSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'{tier} is now active'**
+  String toastSubscriptionPurchaseSuccess(String tier);
+
+  /// No description provided for @toastSubscriptionPurchaseSuccessGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription is now active'**
+  String get toastSubscriptionPurchaseSuccessGeneric;
+
+  /// No description provided for @purchaseCreditPackName.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} credit pack'**
+  String purchaseCreditPackName(String name);
+
+  /// No description provided for @settingsAllowanceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{tier} · 7-day allowance'**
+  String settingsAllowanceTitle(String tier);
+
+  /// No description provided for @settingsAllowancePercent.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% used'**
+  String settingsAllowancePercent(int percent);
+
+  /// No description provided for @settingsAllowanceReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Resets {date}'**
+  String settingsAllowanceReset(String date);
+
+  /// No description provided for @settingsAllowanceOverflow.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard quality after the allowance runs out'**
+  String get settingsAllowanceOverflow;
+
+  /// No description provided for @settingsAllowanceOverflowExhausted.
+  ///
+  /// In en, this message translates to:
+  /// **'This window\'s allowance is exhausted'**
+  String get settingsAllowanceOverflowExhausted;
+
+  /// No description provided for @settingsAllowanceInOverflow.
+  ///
+  /// In en, this message translates to:
+  /// **'Continuing in Standard quality this window'**
+  String get settingsAllowanceInOverflow;
+
+  /// No description provided for @settingsAllowanceUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Allowance temporarily unavailable'**
+  String get settingsAllowanceUnavailable;
+
+  /// No description provided for @settingsAllowanceSyncing.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription status syncing'**
+  String get settingsAllowanceSyncing;
+
+  /// No description provided for @settingsAllowanceSubscribe.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a subscription'**
+  String get settingsAllowanceSubscribe;
+
+  /// No description provided for @settingsAllowanceLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading…'**
+  String get settingsAllowanceLoading;
 
   /// No description provided for @cameraQuotaLow.
   ///

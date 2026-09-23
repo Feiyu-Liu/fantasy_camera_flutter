@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:smooth_corner/smooth_corner.dart';
 
@@ -11,6 +12,8 @@ import '../../auth/domain/auth_user.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../app/app_router.dart';
 import '../../billing/presentation/billing_providers.dart';
+import '../../billing/presentation/subscription_purchase_page.dart';
+import '../../billing/domain/subscription_billing.dart';
 import '../../config/app_config.dart';
 import '../../features/backend_api/domain/credit_balance.dart';
 import '../../features/backend_api/presentation/backend_api_providers.dart';
@@ -82,6 +85,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final AppLocalizations l10n = context.l10n;
     final AsyncValue<CreditBalance> creditBalance = ref.watch(
       creditBalanceProvider,
+    );
+    final AsyncValue<SubscriptionBillingStatus> subscriptionStatus = ref.watch(
+      subscriptionBillingStatusProvider,
     );
     final AppSettingsState appSettings = ref.watch(
       appSettingsControllerProvider,
@@ -174,10 +180,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 subtitle: l10n.settingsRedeemCodeSubtitle,
                 onPressed: _showRedeemCodeDialog,
               ),
-              _SettingsActionRow(
-                title: l10n.settingsManageSubscriptionTitle,
-                subtitle: l10n.settingsManageSubscriptionSubtitle,
-                semanticsIdentifier: 'settings_manage_subscription_button',
+              _AllowanceCard(
+                status: subscriptionStatus,
                 onPressed: _openSubscriptionPurchase,
               ),
               const _SectionDivider(),
@@ -865,6 +869,169 @@ class _LanguageAction extends StatelessWidget {
   }
 }
 
+class _AllowanceCard extends StatelessWidget {
+  const _AllowanceCard({required this.status, required this.onPressed});
+
+  final AsyncValue<SubscriptionBillingStatus> status;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppThemeColors colors = AppThemeColors.of(context);
+    final AppLocalizations l10n = context.l10n;
+    final SubscriptionBillingStatus? value = status.valueOrNull;
+    final SubscriptionAccess? subscription = value?.subscription;
+    final bool active = subscription?.active == true;
+    final AllowanceWindow? window = active ? value?.window : null;
+    final int limit = window?.fullLimit ?? 0;
+    final double? progress = window != null && limit > 0
+        ? ((window.fullUsed + window.fullReserved) / limit).clamp(0.0, 1.0)
+        : null;
+    final int? percent = progress == null ? null : (progress * 100).round();
+    final String title = active
+        ? l10n.settingsAllowanceTitle(
+            subscriptionTierName(l10n, subscription!.tier),
+          )
+        : l10n.settingsManageSubscriptionTitle;
+    final bool loading = value == null && status.isLoading;
+    final String detail = active
+        ? progress == null
+              ? l10n.settingsAllowanceUnavailable
+              : l10n.settingsAllowancePercent(percent!)
+        : loading
+        ? l10n.settingsAllowanceLoading
+        : value == null
+        ? l10n.settingsAllowanceUnavailable
+        : l10n.settingsAllowanceSubscribe;
+    final String? overflowNote = window == null
+        ? null
+        : window.fullRemaining > 0
+        ? l10n.settingsAllowanceOverflow
+        : window.overflowRemaining > 0
+        ? l10n.settingsAllowanceInOverflow
+        : l10n.settingsAllowanceOverflowExhausted;
+    final String? reset = progress == null
+        ? null
+        : l10n.settingsAllowanceReset(
+            DateFormat.Md(
+              Localizations.localeOf(context).toLanguageTag(),
+            ).add_Hm().format(window!.nextResetAt.toLocal()),
+          );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+      child: Semantics(
+        identifier: 'settings_manage_subscription_button',
+        button: true,
+        label: <String>[
+          title,
+          detail,
+          ?reset,
+          ?overflowNote,
+          if (subscription?.syncFreshness == 'stale')
+            l10n.settingsAllowanceSyncing,
+        ].join(', '),
+        child: CupertinoButton(
+          key: const ValueKey<String>('settings-allowance-card'),
+          padding: EdgeInsets.zero,
+          onPressed: onPressed,
+          child: DecoratedBox(
+            decoration: AppCorners.controlDecoration(
+              color: colors.surface,
+              side: BorderSide(color: colors.border, width: 0.5),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Flexible(
+                        child: Text(
+                          detail,
+                          textAlign: TextAlign.end,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (progress != null) ...<Widget>[
+                    const SizedBox(height: 14),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: Container(
+                        height: 4,
+                        color: colors.surfaceMuted,
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          key: const ValueKey<String>(
+                            'settings-allowance-progress',
+                          ),
+                          widthFactor: progress,
+                          child: ColoredBox(color: colors.textPrimary),
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (window != null || !active) ...<Widget>[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            !active
+                                ? l10n.settingsManageSubscriptionSubtitle
+                                : overflowNote!,
+                            style: TextStyle(
+                              color: colors.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        if (reset != null)
+                          Text(
+                            reset,
+                            style: TextStyle(
+                              color: colors.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                  if (subscription?.syncFreshness == 'stale') ...<Widget>[
+                    const SizedBox(height: 6),
+                    Text(
+                      l10n.settingsAllowanceSyncing,
+                      style: TextStyle(color: colors.textMuted, fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({required this.userName, required this.creditsLabel});
 
@@ -1196,7 +1363,6 @@ class _SettingsActionRow extends StatelessWidget {
     required this.onPressed,
     this.enabled = true,
     this.trailing,
-    this.semanticsIdentifier,
   });
 
   final String title;
@@ -1204,13 +1370,11 @@ class _SettingsActionRow extends StatelessWidget {
   final VoidCallback onPressed;
   final bool enabled;
   final Widget? trailing;
-  final String? semanticsIdentifier;
 
   @override
   Widget build(BuildContext context) {
     final AppThemeColors colors = AppThemeColors.of(context);
     return Semantics(
-      identifier: semanticsIdentifier,
       button: true,
       child: CupertinoButton(
         padding: EdgeInsets.zero,

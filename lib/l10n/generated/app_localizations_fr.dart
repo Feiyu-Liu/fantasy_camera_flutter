@@ -657,6 +657,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get subscriptionCurrentPlan => 'ACTUEL';
 
   @override
+  String get subscriptionCurrentPlanButton => 'Forfait actuel';
+
+  @override
   String get subscriptionPurchaseButton => 'Continuer';
 
   @override
@@ -672,12 +675,63 @@ class AppLocalizationsFr extends AppLocalizations {
       'Les abonnements sont temporairement indisponibles.';
 
   @override
-  String get subscriptionPurchaseFailed =>
-      'L\'achat n\'a pas pu être finalisé. Réessaie.';
+  String get purchaseModeSubscription => 'Abonnements';
 
   @override
-  String get subscriptionRestoreFailed =>
-      'Impossible de restaurer les achats. Réessaie.';
+  String get purchaseModeCredits => 'Packs de crédits';
+
+  @override
+  String toastSubscriptionPurchaseSuccess(String tier) {
+    return '$tier est maintenant actif';
+  }
+
+  @override
+  String get toastSubscriptionPurchaseSuccessGeneric => 'Abonnement activé';
+
+  @override
+  String purchaseCreditPackName(String name) {
+    return 'Pack de crédits $name';
+  }
+
+  @override
+  String settingsAllowanceTitle(String tier) {
+    return '$tier · quota de 7 jours';
+  }
+
+  @override
+  String settingsAllowancePercent(int percent) {
+    return '$percent% utilisé';
+  }
+
+  @override
+  String settingsAllowanceReset(String date) {
+    return 'Renouvellement le $date';
+  }
+
+  @override
+  String get settingsAllowanceOverflow =>
+      'Qualité standard après épuisement du quota';
+
+  @override
+  String get settingsAllowanceOverflowExhausted =>
+      'Quota de cette période épuisé';
+
+  @override
+  String get settingsAllowanceInOverflow =>
+      'Qualité standard jusqu\'à la fin de la période';
+
+  @override
+  String get settingsAllowanceUnavailable =>
+      'Quota temporairement indisponible';
+
+  @override
+  String get settingsAllowanceSyncing => 'Synchronisation de l\'abonnement';
+
+  @override
+  String get settingsAllowanceSubscribe => 'Choisir un abonnement';
+
+  @override
+  String get settingsAllowanceLoading => 'Chargement…';
 
   @override
   String get cameraQuotaLow => 'FAIBLE';
