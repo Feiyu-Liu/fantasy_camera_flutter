@@ -112,6 +112,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 userName: _displayNameFor(user, l10n),
                 creditsLabel: _creditsLabelFor(creditBalance, l10n),
               ),
+              _AllowanceCard(
+                status: subscriptionStatus,
+                onPressed: _openSubscriptionPurchase,
+              ),
+              const _SectionDivider(),
               _AppearanceSection(
                 title: l10n.settingsSectionAppearance,
                 lightTitle: l10n.settingsAppearanceLight,
@@ -179,10 +184,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 title: l10n.settingsRedeemCodeTitle,
                 subtitle: l10n.settingsRedeemCodeSubtitle,
                 onPressed: _showRedeemCodeDialog,
-              ),
-              _AllowanceCard(
-                status: subscriptionStatus,
-                onPressed: _openSubscriptionPurchase,
               ),
               const _SectionDivider(),
               _SectionTitle(l10n.settingsSectionInformation),
@@ -925,7 +926,10 @@ class _AllowanceCard extends StatelessWidget {
         button: true,
         label: <String>[
           title,
-          detail,
+          if (active || value == null)
+            detail
+          else
+            l10n.settingsManageSubscriptionSubtitle,
           ?reset,
           ?overflowNote,
           if (stale) l10n.settingsAllowanceSyncing,
@@ -960,7 +964,7 @@ class _AllowanceCard extends StatelessWidget {
                         ),
                         // With a bar, the percentage sits beside it so a long
                         // localized title keeps the whole first row.
-                        if (progress == null) ...<Widget>[
+                        if (active && progress == null) ...<Widget>[
                           const SizedBox(width: 12),
                           Flexible(
                             child: Text(
@@ -973,6 +977,14 @@ class _AllowanceCard extends StatelessWidget {
                                 fontSize: 13,
                               ),
                             ),
+                          ),
+                        ],
+                        if (!active) ...<Widget>[
+                          const SizedBox(width: 12),
+                          Icon(
+                            LucideIcons.chevronRight,
+                            color: colors.textMuted,
+                            size: 18,
                           ),
                         ],
                       ],
@@ -1017,7 +1029,9 @@ class _AllowanceCard extends StatelessWidget {
                           Expanded(
                             child: Text(
                               !active
-                                  ? l10n.settingsManageSubscriptionSubtitle
+                                  ? value == null
+                                        ? detail
+                                        : l10n.settingsManageSubscriptionSubtitle
                                   : overflowNote!,
                               style: TextStyle(
                                 color: colors.textMuted,
@@ -1089,55 +1103,50 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppThemeColors colors = AppThemeColors.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: colors.border, width: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 34, 18, 36),
-        child: Column(
-          children: <Widget>[
-            const _AvatarPlaceholder(),
-            const SizedBox(height: 18),
-            Text(
-              userName,
-              textAlign: TextAlign.center,
-              textScaler: TextScaler.noScaling,
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontFamily: 'Times New Roman',
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-                height: 1,
-              ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 34, 18, 8),
+      child: Column(
+        children: <Widget>[
+          const _AvatarPlaceholder(),
+          const SizedBox(height: 18),
+          Text(
+            userName,
+            textAlign: TextAlign.center,
+            textScaler: TextScaler.noScaling,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontFamily: 'Times New Roman',
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              height: 1,
             ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Icon(LucideIcons.tickets, color: colors.textMuted, size: 14),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    creditsLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    textScaler: TextScaler.noScaling,
-                    style: TextStyle(
-                      color: colors.textMuted,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 2.4,
-                      height: 1,
-                    ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(LucideIcons.tickets, color: colors.textMuted, size: 14),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  creditsLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  textScaler: TextScaler.noScaling,
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 2.4,
+                    height: 1,
                   ),
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
