@@ -29,7 +29,7 @@ class WorkerBillingRepository implements BillingRepository {
   @override
   Future<CreditPurchaseSyncResult> syncRevenueCatPurchases() {
     return _client.post<CreditPurchaseSyncResult>(
-      '/v1/billing/revenuecat/sync',
+      '/v1/billing/revenuecat/credits/sync',
       decode: (Object? data) {
         return decodeJsonObject(data, CreditPurchaseSyncResult.fromJson);
       },

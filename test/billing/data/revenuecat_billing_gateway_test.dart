@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fantasy_camera_flutter/billing/data/revenuecat_billing_gateway.dart';
+import 'package:fantasy_camera_flutter/billing/domain/billing_product.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
@@ -72,6 +73,52 @@ void main() {
     expect(client.configureCalls, 2);
     expect(client.configuredAppUserIds, <String?>['user-1', 'user-1']);
   });
+
+  test(
+    'an unavailable subscription offering never falls back to credit packs',
+    () async {
+      const StoreProduct creditStoreProduct = StoreProduct(
+        'tessercam_credits_6_v2',
+        'Credits',
+        'Credits',
+        1.99,
+        r'$1.99',
+        'USD',
+      );
+      const Package creditPackage = Package(
+        'credit-pack',
+        PackageType.custom,
+        creditStoreProduct,
+        PresentedOfferingContext('credits', null, null),
+      );
+      const Offering credits = Offering(
+        'credits',
+        'Credit packs',
+        <String, Object>{},
+        <Package>[creditPackage],
+      );
+      final _FakeRevenueCatClient client = _FakeRevenueCatClient(
+        offerings: const Offerings(<String, Offering>{
+          'credits': credits,
+        }, current: credits),
+      );
+      final RevenueCatBillingGateway gateway = _gateway(client);
+
+      expect(await gateway.fetchProductsForOffering('subscription'), isEmpty);
+      final BillingPurchaseOutcome outcome = await gateway.purchaseProduct(
+        const BillingProduct(
+          productId: 'tessercam_credits_6_v2',
+          credits: 6,
+          displayRank: 0,
+          price: r'$1.99',
+          packageIdentifier: 'credit-pack',
+          offeringIdentifier: 'subscription',
+        ),
+      );
+      expect(outcome, isA<BillingPurchaseFailed>());
+      expect(client.purchaseCalls, 0);
+    },
+  );
 }
 
 RevenueCatBillingGateway _gateway(RevenueCatClient client) {
@@ -86,15 +133,18 @@ RevenueCatBillingGateway _gateway(RevenueCatClient client) {
 class _FakeRevenueCatClient implements RevenueCatClient {
   _FakeRevenueCatClient({
     this.configureGate,
+    this.offerings,
     List<Object> configureErrors = const <Object>[],
   }) : _configureErrors = List<Object>.of(configureErrors);
 
   final Completer<void>? configureGate;
+  final Offerings? offerings;
   final List<Object> _configureErrors;
   final List<String?> configuredAppUserIds = <String?>[];
   final List<String> loginUserIds = <String>[];
   int configureCalls = 0;
   int logoutCalls = 0;
+  int purchaseCalls = 0;
 
   @override
   Future<void> configure(PurchasesConfiguration configuration) async {
@@ -108,7 +158,9 @@ class _FakeRevenueCatClient implements RevenueCatClient {
 
   @override
   Future<Offerings> getOfferings() {
-    throw UnimplementedError();
+    return Future<Offerings>.value(
+      offerings ?? const Offerings(<String, Offering>{}),
+    );
   }
 
   @override
@@ -122,8 +174,8 @@ class _FakeRevenueCatClient implements RevenueCatClient {
   }
 
   @override
-  Future<void> purchase(PurchaseParams purchaseParams) {
-    throw UnimplementedError();
+  Future<void> purchase(PurchaseParams purchaseParams) async {
+    purchaseCalls += 1;
   }
 
   @override

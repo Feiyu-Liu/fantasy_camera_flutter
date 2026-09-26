@@ -185,7 +185,7 @@ class RevenueCatBillingGateway
     final Offerings offerings = await _client.getOfferings();
     final Offering? offering = offeringId.isEmpty
         ? offerings.current
-        : offerings.getOffering(offeringId) ?? offerings.current;
+        : offerings.getOffering(offeringId);
     final List<Package> packages =
         offering?.availablePackages ?? const <Package>[];
     appDebugLog(
@@ -278,7 +278,7 @@ class RevenueCatBillingGateway
     final String offeringId = product.offeringIdentifier ?? _offeringId;
     final Offering? offering = offeringId.isEmpty
         ? offerings.current
-        : offerings.getOffering(offeringId) ?? offerings.current;
+        : offerings.getOffering(offeringId);
     final List<Package> packages =
         offering?.availablePackages ?? const <Package>[];
     for (final Package package in packages) {
