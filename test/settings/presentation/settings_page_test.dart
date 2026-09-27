@@ -204,6 +204,7 @@ void main() {
     expect(backButtonCenter.dx, lessThan(titleCenter.dx));
     expect(find.text('alex'), findsOneWidget);
     expect(find.text('128 积分'), findsOneWidget);
+    expect(find.text('管理订阅'), findsOneWidget);
     expect(find.text('外观'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('settings-appearance-editorial-light')),
@@ -221,13 +222,10 @@ void main() {
 
     expect(find.text('通用'), findsOneWidget);
     expect(find.text('语言切换'), findsOneWidget);
+    await scrollDownUntilTextVisible(tester, '清除原图缓存');
     expect(find.text('清除原图缓存'), findsOneWidget);
     await scrollDownUntilTextVisible(tester, '使用兑换码');
     expect(find.text('使用兑换码'), findsOneWidget);
-
-    await scrollDownUntilTextVisible(tester, '管理订阅');
-
-    expect(find.text('管理订阅'), findsOneWidget);
 
     await scrollDownUntilTextVisible(tester, '信息');
     await scrollDownUntilTextVisible(tester, '隐私政策');
@@ -383,7 +381,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await pumpSettingsPage(tester, subscriptionStatusPending: true);
-    await scrollDownUntilTextVisible(tester, '管理订阅');
+    await scrollDownUntilTextVisible(tester, '加载中…');
     expect(find.text('加载中…'), findsOneWidget);
     expect(find.text('当前额度暂不可用'), findsNothing);
     expect(find.text('选择订阅套餐'), findsNothing);
@@ -397,7 +395,7 @@ void main() {
       subscriptionStatus: _subscriptionStatus(active: false),
     );
     await scrollDownUntilTextVisible(tester, '管理订阅');
-    expect(find.text('选择订阅套餐'), findsOneWidget);
+    expect(find.text('选择方案或恢复购买'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('settings-allowance-progress')),
       findsNothing,
@@ -451,7 +449,7 @@ void main() {
       appSettingsRepository: appSettingsRepository,
     );
 
-    await scrollDownUntilTextVisible(tester, 'Language');
+    await scrollDownUntilTextTappable(tester, 'Language');
 
     expect(find.text('System default'), findsOneWidget);
 
@@ -766,6 +764,8 @@ void main() {
     expect(creditsRepository.redeemCalls, 1);
     expect(creditsRepository.redeemedCode, 'ABCD-EFGH-2345');
     expect(find.text('兑换码'), findsNothing);
+    await tester.drag(find.byType(Scrollable), const Offset(0, 2000));
+    await tester.pumpAndSettle();
     expect(find.text('178 积分'), findsOneWidget);
     expect(toastPresenter.messages.single.title, '已兑换 50 积分。');
   });
