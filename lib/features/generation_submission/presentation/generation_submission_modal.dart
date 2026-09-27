@@ -19,6 +19,7 @@ import 'package:progressive_blur/progressive_blur.dart';
 import 'package:smooth_corner/smooth_corner.dart';
 
 import '../../../app/app_router.dart';
+import '../../../billing/presentation/billing_providers.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/core/app_logger.dart';
 import '../../../shared/presentation/widgets/app_blur_navigation_bar.dart';
@@ -27,6 +28,7 @@ import '../../../theme/app_corners.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_theme.dart';
 import '../../backend_api/domain/prompt_config.dart';
+import '../../backend_api/domain/generation_task.dart';
 import '../../camera/presentation/camera_ui/camera_photo_option_button.dart';
 import '../../camera/presentation/camera_ui/camera_ui_models.dart';
 import '../../camera/presentation/camera_ui/camera_ui_tokens.dart';
@@ -39,6 +41,7 @@ import 'generation_image_mosaic_repository.dart';
 import 'generation_progress_estimate.dart';
 import 'generation_status_pill.dart';
 import 'generation_submission_providers.dart';
+import '../../../settings/application/app_settings.dart';
 
 Future<void> showGenerationSubmissionDebugModal(BuildContext context) {
   return showCupertinoModalPopup<void>(
@@ -871,7 +874,10 @@ class _GenerationSubmissionDebugModalState
     try {
       await ref
           .read(generationSubmissionControllerProvider.notifier)
-          .updatePendingPromptSelection(job.id, promptSelection);
+          .updatePendingPromptSelection(
+            job.id,
+            _withEffectiveQualityTier(promptSelection),
+          );
     } on Object catch (error) {
       _debugLog('update prompt selection failure job=${job.id} error=$error');
     }
@@ -1113,7 +1119,7 @@ class _GenerationSubmissionDebugModalState
           .queueGalleryFile(
             file,
             originalAssetId: pickedImage.assetId,
-            promptSelection: promptSelection,
+            promptSelection: _withEffectiveQualityTier(promptSelection),
           );
     } on Object catch (error) {
       _debugLog('pick gallery failure error=$error');
@@ -1135,6 +1141,27 @@ class _GenerationSubmissionDebugModalState
         _galleryExportProgress.value = 0;
       }
     }
+  }
+
+  PromptSelectionSnapshot _withEffectiveQualityTier(
+    PromptSelectionSnapshot promptSelection,
+  ) {
+    final GenerationQualityTier preference = ref
+        .read(appSettingsControllerProvider)
+        .generationQualityTier;
+    final bool maxEnabled =
+        preference == GenerationQualityTier.max &&
+        ref
+                .read(subscriptionBillingStatusProvider)
+                .valueOrNull
+                ?.capabilities
+                .maxEnabled ==
+            true;
+    return promptSelection.copyWith(
+      requestedQualityTier: maxEnabled
+          ? GenerationQualityTier.max
+          : GenerationQualityTier.full,
+    );
   }
 
   void _showToastForFailedUserSubmission(
@@ -2418,25 +2445,29 @@ class _GalleryPickerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppThemeColors colors = AppThemeColors.of(context);
-    return GestureDetector(
-      key: const ValueKey<String>('generation-submission-gallery-picker'),
-      onTap: picking ? null : onTap,
-      child: SmoothContainer(
-        width: width,
-        height: height,
-        borderRadius: AppCorners.controlBorderRadius,
-        smoothness: AppCorners.smoothness,
-        side: BorderSide(color: colors.border, width: 0.5),
-        padding: EdgeInsets.zero,
-        color: colors.surface,
-        child: Center(
-          child: picking
-              ? const CupertinoActivityIndicator(
-                  key: ValueKey<String>(
-                    'generation-submission-gallery-picker-loading',
-                  ),
-                )
-              : Icon(LucideIcons.plus, color: colors.textPrimary, size: 24),
+    return Semantics(
+      identifier: 'generation_gallery_import_button',
+      button: true,
+      child: GestureDetector(
+        key: const ValueKey<String>('generation-submission-gallery-picker'),
+        onTap: picking ? null : onTap,
+        child: SmoothContainer(
+          width: width,
+          height: height,
+          borderRadius: AppCorners.controlBorderRadius,
+          smoothness: AppCorners.smoothness,
+          side: BorderSide(color: colors.border, width: 0.5),
+          padding: EdgeInsets.zero,
+          color: colors.surface,
+          child: Center(
+            child: picking
+                ? const CupertinoActivityIndicator(
+                    key: ValueKey<String>(
+                      'generation-submission-gallery-picker-loading',
+                    ),
+                  )
+                : Icon(LucideIcons.plus, color: colors.textPrimary, size: 24),
+          ),
         ),
       ),
     );

@@ -195,6 +195,11 @@ class NotificationDeviceController extends Notifier<NotificationDeviceState>
           ? await _gateway.requestPermission()
           : await _gateway.areNotificationsEnabled();
 
+      if (requestPermission && !permissionEnabled && token == null) {
+        state = state.copyWith(isRegistering: false, permissionEnabled: false);
+        return null;
+      }
+
       if (token == null) {
         _gateway.registerForRemoteNotifications();
       }

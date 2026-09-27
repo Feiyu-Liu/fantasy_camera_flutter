@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../auth/domain/access_token_provider.dart';
+import '../../../config/app_config.dart';
 import '../../../shared/core/app_logger.dart';
 import '../domain/api_failure.dart';
 import '../domain/json_value.dart';
@@ -235,7 +236,10 @@ Dio buildFantasyApiDio(String baseUrl) {
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 30),
       sendTimeout: const Duration(seconds: 30),
-      headers: <String, Object?>{'accept': 'application/json'},
+      headers: <String, Object?>{
+        'accept': 'application/json',
+        'X-TesserCam-Billing-Contract': AppConfig.billingContractVersion,
+      },
     ),
   );
 }

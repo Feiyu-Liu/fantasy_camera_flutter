@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fantasy_camera_flutter/auth/domain/access_token_provider.dart';
 import 'package:fantasy_camera_flutter/config/app_config.dart';
+import 'package:fantasy_camera_flutter/billing/data/billing_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/checksum.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/fantasy_api_client.dart';
@@ -17,6 +18,30 @@ import 'package:fantasy_camera_flutter/features/notifications/domain/notificatio
 
 void main() {
   group('FantasyApiClient', () {
+    test('credit purchase sync uses the credit-only endpoint', () async {
+      final _FakeHttpClientAdapter adapter = _FakeHttpClientAdapter();
+      adapter.enqueueJson(<String, Object?>{
+        'data': <String, Object?>{
+          'grantedCredits': 6,
+          'processedPurchases': 1,
+          'balance': 12,
+          'products': <Object>[],
+        },
+      });
+      final WorkerBillingRepository repository = WorkerBillingRepository(
+        _client(adapter, tokenProvider: _FakeAccessTokenProvider()),
+      );
+
+      final result = await repository.syncRevenueCatPurchases();
+
+      expect(result.grantedCredits, 6);
+      expect(adapter.requests.single.method, 'POST');
+      expect(
+        adapter.requests.single.uri.path,
+        '/v1/billing/revenuecat/credits/sync',
+      );
+    });
+
     test('attaches bearer token to authorized requests', () async {
       final _FakeHttpClientAdapter adapter = _FakeHttpClientAdapter();
       adapter.enqueueJson(<String, Object?>{

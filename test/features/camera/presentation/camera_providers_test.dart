@@ -1151,6 +1151,7 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   bool mirrorFrontCameraEnabled;
   AppLocalePreference localePreference = AppLocalePreference.system;
   AppThemePreference themePreference = AppThemePreference.light;
+  GenerationQualityTier generationQualityTier = GenerationQualityTier.full;
   CameraCaptureAspectRatio cameraCaptureAspectRatio;
 
   @override
@@ -1161,6 +1162,7 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
       localePreference: localePreference,
       themePreference: themePreference,
       cameraCaptureAspectRatio: cameraCaptureAspectRatio,
+      generationQualityTier: generationQualityTier,
     );
   }
 
@@ -1189,6 +1191,13 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   @override
   Future<void> saveThemePreference(AppThemePreference preference) async {
     themePreference = preference;
+  }
+
+  @override
+  Future<void> saveGenerationQualityTier(
+    GenerationQualityTier qualityTier,
+  ) async {
+    generationQualityTier = qualityTier;
   }
 }
 

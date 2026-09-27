@@ -436,10 +436,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsRedeemCodeSubtitle => 'コードを使ってクレジットを取得';
 
   @override
-  String get settingsManageSubscriptionTitle => 'クレジットを購入';
+  String get settingsManageSubscriptionTitle => 'サブスクリプション管理';
 
   @override
-  String get settingsManageSubscriptionSubtitle => 'クレジットパックと購入の復元';
+  String get settingsManageSubscriptionSubtitle => 'プランの選択または購入の復元';
 
   @override
   String get settingsSectionInformation => '情報';
@@ -591,6 +591,127 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get billingLegalNote =>
       '購入はApp Storeで処理されます。続行することで、利用規約とプライバシーポリシーに同意したことになります。';
+
+  @override
+  String get subscriptionTitle => 'サブスクリプション';
+
+  @override
+  String get subscriptionHeroTitle => 'クリエイティブプランを選択';
+
+  @override
+  String get subscriptionHeroSubtitle => '7日ごとに利用枠を更新し、既存クレジットは別に保持します';
+
+  @override
+  String get subscriptionTierMini => 'Mini';
+
+  @override
+  String get subscriptionTierPlus => 'Plus';
+
+  @override
+  String get subscriptionTierPro => 'Pro';
+
+  @override
+  String subscriptionPhotosPerWindow(int count) {
+    return '7日ごとに高画質写真約$count枚';
+  }
+
+  @override
+  String get subscriptionMaxIncluded => 'MAX画質を利用可能';
+
+  @override
+  String get subscriptionMaxUnavailable => 'MAX画質にはPlusまたはProが必要です';
+
+  @override
+  String get subscriptionCurrentPlan => '現在';
+
+  @override
+  String get subscriptionCurrentPlanButton => '現在のプラン';
+
+  @override
+  String get subscriptionPurchaseButton => '続ける';
+
+  @override
+  String get subscriptionAutoRenewDisclosure =>
+      '月額自動更新です。利用枠は7日ごとにリセットされ、繰り越されません。App Storeの設定でいつでも解約できます。';
+
+  @override
+  String get subscriptionSyncPending =>
+      '購入を受け付けました。サブスクリプションを同期中です。再購入しないでください。';
+
+  @override
+  String get subscriptionProductsUnavailable => 'サブスクリプションプランを一時的に読み込めません。';
+
+  @override
+  String get purchaseModeSubscription => 'サブスクリプション';
+
+  @override
+  String get purchaseModeCredits => 'クレジットパック';
+
+  @override
+  String toastSubscriptionPurchaseSuccess(String tier) {
+    return '$tier が有効になりました';
+  }
+
+  @override
+  String get toastSubscriptionPurchaseSuccessGeneric => 'サブスクリプションが有効になりました';
+
+  @override
+  String purchaseCreditPackName(String name) {
+    return '$name クレジットパック';
+  }
+
+  @override
+  String settingsAllowanceTitle(String tier) {
+    return '$tier · 7日間の利用枠';
+  }
+
+  @override
+  String settingsAllowancePercent(int percent) {
+    return '使用済み $percent%';
+  }
+
+  @override
+  String settingsAllowanceReset(String date) {
+    return '$date に更新';
+  }
+
+  @override
+  String get settingsAllowanceOverflow => '利用枠の終了後は標準画質になります';
+
+  @override
+  String get settingsAllowanceOverflowExhausted => 'この期間の利用枠は終了しました';
+
+  @override
+  String get settingsAllowanceInOverflow => 'この期間は標準画質で継続中';
+
+  @override
+  String get settingsAllowanceUnavailable => '利用枠を取得できません';
+
+  @override
+  String get settingsAllowanceSyncing => '購読状況を同期中';
+
+  @override
+  String get settingsAllowanceSubscribe => 'プランを選ぶ';
+
+  @override
+  String get settingsAllowanceLoading => '読み込み中…';
+
+  @override
+  String get cameraQuotaLow => '残り少';
+
+  @override
+  String get cameraQuotaOverflow => '標準';
+
+  @override
+  String cameraQuotaReset(String date) {
+    return '$date更新';
+  }
+
+  @override
+  String get cameraMaxQuality => 'MAX画質';
+
+  @override
+  String get cameraMaxLocked => 'MAX画質にはPlusまたはProが必要です';
 
   @override
   String get toastCaptureProcessingFailed => '写真を処理できませんでした。もう一度撮影してください。';

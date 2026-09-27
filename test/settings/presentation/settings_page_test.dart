@@ -5,10 +5,14 @@ import 'package:fantasy_camera_flutter/app/app_router.dart';
 import 'package:fantasy_camera_flutter/auth/domain/auth_session_state.dart';
 import 'package:fantasy_camera_flutter/auth/domain/auth_user.dart';
 import 'package:fantasy_camera_flutter/auth/presentation/auth_providers.dart';
+import 'package:fantasy_camera_flutter/billing/data/subscription_billing_repository.dart';
+import 'package:fantasy_camera_flutter/billing/domain/subscription_billing.dart';
+import 'package:fantasy_camera_flutter/billing/presentation/billing_providers.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/backend_repositories.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/data/credit_balance_cache_repository.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_balance.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/domain/credit_redemption.dart';
+import 'package:fantasy_camera_flutter/features/backend_api/domain/generation_task.dart';
 import 'package:fantasy_camera_flutter/features/backend_api/presentation/backend_api_providers.dart';
 import 'package:fantasy_camera_flutter/features/camera/domain/camera_capture_aspect_ratio.dart';
 import 'package:fantasy_camera_flutter/features/generation_submission/application/generation_original_cache_cleaner.dart';
@@ -70,6 +74,8 @@ void main() {
     _RecordingAppToastPresenter? toastPresenter,
     _FakeSettingsSignOutAction? signOutAction,
     _RecordingExternalLinkLauncher? externalLinkLauncher,
+    SubscriptionBillingStatus? subscriptionStatus,
+    bool subscriptionStatusPending = false,
   }) async {
     final _FakeAppSettingsRepository settingsRepository =
         appSettingsRepository ?? _FakeAppSettingsRepository();
@@ -94,6 +100,14 @@ void main() {
               ),
             ),
             creditsRepositoryProvider.overrideWithValue(fakeCreditsRepository),
+            if (subscriptionStatusPending)
+              subscriptionBillingRepositoryProvider.overrideWithValue(
+                _PendingSubscriptionBillingRepository(),
+              )
+            else if (subscriptionStatus != null)
+              subscriptionBillingRepositoryProvider.overrideWithValue(
+                _FakeSubscriptionBillingRepository(subscriptionStatus),
+              ),
             creditBalanceCacheRepositoryProvider.overrideWithValue(
               _FakeCreditBalanceCacheRepository(),
             ),
@@ -190,6 +204,7 @@ void main() {
     expect(backButtonCenter.dx, lessThan(titleCenter.dx));
     expect(find.text('alex'), findsOneWidget);
     expect(find.text('128 积分'), findsOneWidget);
+    expect(find.text('管理订阅'), findsOneWidget);
     expect(find.text('外观'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('settings-appearance-editorial-light')),
@@ -207,15 +222,13 @@ void main() {
 
     expect(find.text('通用'), findsOneWidget);
     expect(find.text('语言切换'), findsOneWidget);
+    await scrollDownUntilTextVisible(tester, '清除原图缓存');
     expect(find.text('清除原图缓存'), findsOneWidget);
     await scrollDownUntilTextVisible(tester, '使用兑换码');
     expect(find.text('使用兑换码'), findsOneWidget);
 
-    await scrollDownUntilTextVisible(tester, '购买积分');
-
-    expect(find.text('购买积分'), findsOneWidget);
-
     await scrollDownUntilTextVisible(tester, '信息');
+    await scrollDownUntilTextVisible(tester, '隐私政策');
 
     expect(find.text('信息'), findsOneWidget);
     expect(find.text('隐私政策'), findsOneWidget);
@@ -236,6 +249,157 @@ void main() {
     expect(find.text('退出登录'), findsOneWidget);
     expect(find.text('Grid Lines'), findsNothing);
     expect(find.text('Cloud Storage'), findsNothing);
+  });
+
+  testWidgets('shows the current 7-day Full progress without exposing units', (
+    WidgetTester tester,
+  ) async {
+    await pumpSettingsPage(
+      tester,
+      subscriptionStatus: _subscriptionStatus(
+        fullUsed: 12,
+        fullReserved: 5,
+        fullRemaining: 17,
+      ),
+    );
+    await scrollDownUntilTextVisible(tester, 'Plus · 7 天额度');
+
+    expect(find.text('已使用 50%'), findsOneWidget);
+    expect(find.textContaining('重置'), findsOneWidget);
+    expect(find.text('额度用尽后将以标准画质继续'), findsOneWidget);
+    expect(find.textContaining('17 张'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('settings-allowance-progress')),
+      findsOneWidget,
+    );
+    final Finder progress = find.byKey(
+      const ValueKey<String>('settings-allowance-progress'),
+    );
+    final Finder track = find.ancestor(
+      of: progress,
+      matching: find.byType(ClipRRect),
+    );
+    expect(
+      tester.getSize(progress).width,
+      closeTo(tester.getSize(track).width * 0.5, 1),
+    );
+    expect(tester.getSize(progress).height, tester.getSize(track).height);
+    expect(tester.getSize(progress).height, greaterThan(0));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('does not fabricate progress without a usable window', (
+    WidgetTester tester,
+  ) async {
+    await pumpSettingsPage(
+      tester,
+      subscriptionStatus: _subscriptionStatus(windowAvailable: false),
+    );
+    await scrollDownUntilTextVisible(tester, 'Plus · 7 天额度');
+    expect(find.text('当前额度暂不可用'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('settings-allowance-progress')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('shows exhausted and stale allowance as a full bar', (
+    WidgetTester tester,
+  ) async {
+    await pumpSettingsPage(
+      tester,
+      subscriptionStatus: _subscriptionStatus(
+        fullUsed: 34,
+        fullRemaining: 0,
+        overflowRemaining: 0,
+        stale: true,
+      ),
+    );
+    await scrollDownUntilTextVisible(tester, 'Plus · 7 天额度');
+    expect(find.text('已使用 100%'), findsOneWidget);
+    expect(find.text('订阅状态同步中'), findsOneWidget);
+    expect(find.text('本窗口额度已用尽'), findsOneWidget);
+    expect(find.textContaining('重置'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('reset time uses 12-hour time when the device does', (
+    WidgetTester tester,
+  ) async {
+    await pumpSettingsPage(tester, subscriptionStatus: _subscriptionStatus());
+    await scrollDownUntilTextVisible(tester, 'Plus · 7 天额度');
+    expect(find.textContaining(RegExp('[上下]午')), findsOneWidget);
+  });
+
+  testWidgets('reset time uses 24-hour time when the device does', (
+    WidgetTester tester,
+  ) async {
+    tester.platformDispatcher.alwaysUse24HourFormatTestValue = true;
+    addTearDown(tester.platformDispatcher.clearAlwaysUse24HourTestValue);
+    await pumpSettingsPage(tester, subscriptionStatus: _subscriptionStatus());
+    await scrollDownUntilTextVisible(tester, 'Plus · 7 天额度');
+    expect(find.textContaining(RegExp('[上下]午')), findsNothing);
+    expect(find.textContaining(RegExp(r'\d{2}:\d{2}')), findsOneWidget);
+  });
+
+  testWidgets('allowance card stays laid out at large text sizes', (
+    WidgetTester tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 3;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await pumpSettingsPage(
+      tester,
+      subscriptionStatus: _subscriptionStatus(
+        fullUsed: 34,
+        fullRemaining: 0,
+        stale: true,
+      ),
+    );
+    await scrollDownUntilTextVisible(tester, 'Plus · 7 天额度');
+    expect(find.text('已使用 100%'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('says Standard quality is in use once Full runs out', (
+    WidgetTester tester,
+  ) async {
+    await pumpSettingsPage(
+      tester,
+      subscriptionStatus: _subscriptionStatus(
+        fullUsed: 34,
+        fullRemaining: 0,
+        overflowRemaining: 12,
+      ),
+    );
+    await scrollDownUntilTextVisible(tester, 'Plus · 7 天额度');
+    expect(find.text('本窗口以标准画质继续'), findsOneWidget);
+    expect(find.text('额度用尽后将以标准画质继续'), findsNothing);
+    expect(find.text('本窗口额度已用尽'), findsNothing);
+  });
+
+  testWidgets('shows loading, not unavailable, while status is pending', (
+    WidgetTester tester,
+  ) async {
+    await pumpSettingsPage(tester, subscriptionStatusPending: true);
+    await scrollDownUntilTextVisible(tester, '加载中…');
+    expect(find.text('加载中…'), findsOneWidget);
+    expect(find.text('当前额度暂不可用'), findsNothing);
+    expect(find.text('选择订阅套餐'), findsNothing);
+  });
+
+  testWidgets('signed-in non-subscriber sees a purchase entry, not a bar', (
+    WidgetTester tester,
+  ) async {
+    await pumpSettingsPage(
+      tester,
+      subscriptionStatus: _subscriptionStatus(active: false),
+    );
+    await scrollDownUntilTextVisible(tester, '管理订阅');
+    expect(find.text('选择方案或恢复购买'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('settings-allowance-progress')),
+      findsNothing,
+    );
   });
 
   testWidgets('switch rows can toggle local state', (
@@ -285,7 +449,7 @@ void main() {
       appSettingsRepository: appSettingsRepository,
     );
 
-    await scrollDownUntilTextVisible(tester, 'Language');
+    await scrollDownUntilTextTappable(tester, 'Language');
 
     expect(find.text('System default'), findsOneWidget);
 
@@ -600,6 +764,8 @@ void main() {
     expect(creditsRepository.redeemCalls, 1);
     expect(creditsRepository.redeemedCode, 'ABCD-EFGH-2345');
     expect(find.text('兑换码'), findsNothing);
+    await tester.drag(find.byType(Scrollable), const Offset(0, 2000));
+    await tester.pumpAndSettle();
     expect(find.text('178 积分'), findsOneWidget);
     expect(toastPresenter.messages.single.title, '已兑换 50 积分。');
   });
@@ -988,6 +1154,11 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   Future<void> saveThemePreference(AppThemePreference preference) async {
     themePreference = preference;
   }
+
+  @override
+  Future<void> saveGenerationQualityTier(
+    GenerationQualityTier qualityTier,
+  ) async {}
 }
 
 class _FakeCreditsRepository implements CreditsRepository {
@@ -1144,6 +1315,76 @@ class _FakeGenerationOriginalCacheCleaner
       failedCount: 0,
     );
   }
+}
+
+SubscriptionBillingStatus _subscriptionStatus({
+  int fullUsed = 0,
+  int fullReserved = 0,
+  int fullRemaining = 34,
+  int overflowRemaining = 20,
+  bool windowAvailable = true,
+  bool active = true,
+  bool stale = false,
+}) {
+  return SubscriptionBillingStatus(
+    billingEnvironment: 'SANDBOX',
+    subscription: active
+        ? SubscriptionAccess(
+            active: true,
+            tier: SubscriptionTier.plus,
+            productIdentifier: 'tessercam_plus_monthly',
+            willRenew: true,
+            accessEndIsFinal: false,
+            syncFreshness: stale
+                ? SubscriptionSyncFreshness.stale
+                : SubscriptionSyncFreshness.fresh,
+          )
+        : null,
+    window: active && windowAvailable
+        ? AllowanceWindow(
+            windowStart: DateTime.utc(2026, 9, 21),
+            windowEnd: DateTime.utc(2026, 9, 28),
+            nextResetAt: DateTime.utc(2026, 9, 28),
+            fullUsed: fullUsed,
+            fullReserved: fullReserved,
+            fullRemaining: fullRemaining,
+            overflowUsed: 0,
+            overflowReserved: 0,
+            overflowRemaining: overflowRemaining,
+          )
+        : null,
+    capabilities: const BillingCapabilities(
+      maxEnabled: true,
+      qualityTiers: <String>{'full', 'max'},
+    ),
+    plans: const <SubscriptionPlan>[],
+    qualityTiers: const <QualityTierCost>[],
+  );
+}
+
+class _FakeSubscriptionBillingRepository
+    implements SubscriptionBillingRepository {
+  const _FakeSubscriptionBillingRepository(this.status);
+
+  final SubscriptionBillingStatus status;
+
+  @override
+  Future<SubscriptionBillingStatus> fetchStatus() async => status;
+
+  @override
+  Future<SubscriptionBillingStatus> syncRevenueCatPurchases() async => status;
+}
+
+class _PendingSubscriptionBillingRepository
+    implements SubscriptionBillingRepository {
+  final Completer<SubscriptionBillingStatus> _status =
+      Completer<SubscriptionBillingStatus>();
+
+  @override
+  Future<SubscriptionBillingStatus> fetchStatus() => _status.future;
+
+  @override
+  Future<SubscriptionBillingStatus> syncRevenueCatPurchases() => _status.future;
 }
 
 class _FakeGenerationOriginalCacheStatsRepository

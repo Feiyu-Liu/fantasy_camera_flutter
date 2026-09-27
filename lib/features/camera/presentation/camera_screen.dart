@@ -8,8 +8,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:intl/intl.dart';
 
 import '../../../app/app_router.dart';
+import '../../../billing/domain/subscription_billing.dart';
+import '../../../billing/presentation/billing_providers.dart';
 import '../../../config/app_config.dart';
 import '../../../l10n/l10n.dart';
 import '../../../shared/camera/camera_controller.dart';
@@ -20,6 +23,7 @@ import '../../../settings/application/app_settings.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_theme.dart';
 import '../../backend_api/domain/credit_balance.dart';
+import '../../backend_api/domain/generation_task.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
 import '../../generation_submission/domain/generation_submission_job.dart';
@@ -136,6 +140,9 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
     final AsyncValue<CreditBalance> creditBalance = ref.watch(
       creditBalanceProvider,
     );
+    final AsyncValue<SubscriptionBillingStatus> subscriptionStatus = ref.watch(
+      subscriptionBillingStatusProvider,
+    );
     final GenerationSubmissionJob? latestGenerationJob = ref
         .watch(generationSubmissionControllerProvider)
         .latestJob;
@@ -164,7 +171,11 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
       trailingContent: _CameraTopRightActions(
         tokens: tokens,
         creditBalance: creditBalance,
+        subscriptionStatus: subscriptionStatus,
+        selectedQualityTier: appSettings.generationQualityTier,
         onCreditsPressed: _openCreditPurchase,
+        onSubscriptionPressed: _openSubscriptionPurchase,
+        onMaxPressed: _handleMaxPressed,
       ),
       message: _localizedMessage(cameraState.message),
       aspectRatioLabel: captureAspectRatio.label,
@@ -276,6 +287,32 @@ class _CameraScreenState extends ConsumerState<CameraScreen>
 
   Future<void> _openCreditPurchase() async {
     await _pushRouteWithPausedCamera(creditPurchaseRoute);
+  }
+
+  Future<void> _openSubscriptionPurchase() async {
+    await _pushRouteWithPausedCamera(subscriptionPurchaseRoute);
+  }
+
+  void _handleMaxPressed() {
+    final SubscriptionBillingStatus? status = ref
+        .read(subscriptionBillingStatusProvider)
+        .valueOrNull;
+    if (status?.capabilities.maxEnabled != true) {
+      unawaited(_openSubscriptionPurchase());
+      return;
+    }
+    final GenerationQualityTier current = ref
+        .read(appSettingsControllerProvider)
+        .generationQualityTier;
+    unawaited(
+      ref
+          .read(appSettingsControllerProvider.notifier)
+          .setGenerationQualityTier(
+            current == GenerationQualityTier.max
+                ? GenerationQualityTier.full
+                : GenerationQualityTier.max,
+          ),
+    );
   }
 
   Future<void> _pushRouteWithPausedCamera(String route) async {
@@ -657,25 +694,209 @@ class _CameraTopRightActions extends StatelessWidget {
   const _CameraTopRightActions({
     required this.tokens,
     required this.creditBalance,
+    required this.subscriptionStatus,
+    required this.selectedQualityTier,
     required this.onCreditsPressed,
+    required this.onSubscriptionPressed,
+    required this.onMaxPressed,
   });
 
   final CameraUiTokens tokens;
   final AsyncValue<CreditBalance> creditBalance;
+  final AsyncValue<SubscriptionBillingStatus> subscriptionStatus;
+  final GenerationQualityTier selectedQualityTier;
   final VoidCallback onCreditsPressed;
+  final VoidCallback onSubscriptionPressed;
+  final VoidCallback onMaxPressed;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: <Widget>[
         Expanded(
-          child: _CreditsBalanceBadge(
+          child: subscriptionStatus.valueOrNull?.isActive == true
+              ? _SubscriptionQuotaBadge(
+                  tokens: tokens,
+                  status: subscriptionStatus.valueOrNull!,
+                  onPressed: onSubscriptionPressed,
+                )
+              : _CreditsBalanceBadge(
+                  tokens: tokens,
+                  creditBalance: creditBalance,
+                  onPressed: onCreditsPressed,
+                ),
+        ),
+        Expanded(
+          child: _MaxQualityButton(
             tokens: tokens,
-            creditBalance: creditBalance,
-            onPressed: onCreditsPressed,
+            enabled:
+                subscriptionStatus.valueOrNull?.capabilities.maxEnabled == true,
+            selected:
+                selectedQualityTier == GenerationQualityTier.max &&
+                subscriptionStatus.valueOrNull?.capabilities.maxEnabled == true,
+            allowanceMultiplier: _maxAllowanceMultiplier(
+              subscriptionStatus.valueOrNull,
+            ),
+            onPressed: onMaxPressed,
           ),
         ),
       ],
+    );
+  }
+}
+
+int? _maxAllowanceMultiplier(SubscriptionBillingStatus? status) {
+  final int? full = status?.allowanceUnitsFor('full');
+  final int? max = status?.allowanceUnitsFor('max');
+  if (full == null || max == null || full <= 0 || max < full) {
+    return null;
+  }
+  return (max / full).ceil();
+}
+
+enum CameraQuotaPresentation { hidden, nearLimit, overflow, exhausted }
+
+CameraQuotaPresentation cameraQuotaPresentationFor(
+  SubscriptionBillingStatus status,
+) {
+  if (!status.isActive) {
+    return CameraQuotaPresentation.hidden;
+  }
+  final AllowanceWindow? window = status.window;
+  if (window == null ||
+      (window.fullRemaining <= 0 && window.overflowRemaining <= 0)) {
+    return CameraQuotaPresentation.exhausted;
+  }
+  if (window.fullRemaining <= 0) {
+    return CameraQuotaPresentation.overflow;
+  }
+  if (window.fullUsageFraction >= 0.8) {
+    return CameraQuotaPresentation.nearLimit;
+  }
+  return CameraQuotaPresentation.hidden;
+}
+
+class _SubscriptionQuotaBadge extends StatelessWidget {
+  const _SubscriptionQuotaBadge({
+    required this.tokens,
+    required this.status,
+    required this.onPressed,
+  });
+
+  final CameraUiTokens tokens;
+  final SubscriptionBillingStatus status;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final CameraQuotaPresentation presentation = cameraQuotaPresentationFor(
+      status,
+    );
+    if (presentation == CameraQuotaPresentation.hidden) {
+      return const SizedBox.shrink();
+    }
+    final String label = switch (presentation) {
+      CameraQuotaPresentation.nearLimit => context.l10n.cameraQuotaLow,
+      CameraQuotaPresentation.overflow => context.l10n.cameraQuotaOverflow,
+      CameraQuotaPresentation.exhausted => context.l10n.cameraQuotaReset(
+        status.window == null
+            ? '--'
+            : DateFormat.Md(
+                Localizations.localeOf(context).toLanguageTag(),
+              ).format(status.window!.nextResetAt.toLocal()),
+      ),
+      CameraQuotaPresentation.hidden => '',
+    };
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      onPressed: onPressed,
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textScaler: TextScaler.noScaling,
+        style: TextStyle(
+          color: tokens.primaryTextColor,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _MaxQualityButton extends StatelessWidget {
+  const _MaxQualityButton({
+    required this.tokens,
+    required this.enabled,
+    required this.selected,
+    required this.allowanceMultiplier,
+    required this.onPressed,
+  });
+
+  final CameraUiTokens tokens;
+  final bool enabled;
+  final bool selected;
+  final int? allowanceMultiplier;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      identifier: 'camera_max_quality_button',
+      button: true,
+      selected: selected,
+      label: enabled
+          ? context.l10n.cameraMaxQuality
+          : context.l10n.cameraMaxLocked,
+      child: CupertinoButton(
+        key: const ValueKey<String>('camera-max-quality-button'),
+        padding: EdgeInsets.zero,
+        minimumSize: Size.zero,
+        onPressed: onPressed,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          decoration: BoxDecoration(
+            color: selected ? tokens.primaryTextColor : const Color(0x00000000),
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                'MAX',
+                textScaler: TextScaler.noScaling,
+                style: TextStyle(
+                  color: selected
+                      ? tokens.backgroundColor
+                      : tokens.primaryTextColor,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+              if (enabled && allowanceMultiplier != null)
+                Text(
+                  '$allowanceMultiplier×',
+                  textScaler: TextScaler.noScaling,
+                  style: TextStyle(
+                    color: selected
+                        ? tokens.backgroundColor
+                        : tokens.primaryTextColor,
+                    fontSize: 7,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
+                  ),
+                )
+              else if (!enabled)
+                Icon(LucideIcons.lock, size: 7, color: tokens.primaryTextColor),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -689,6 +910,7 @@ class _CameraSettingsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
+      identifier: 'camera_settings_button',
       button: true,
       label: 'Settings',
       child: CupertinoButton(

@@ -7,6 +7,7 @@ class BillingProduct {
     required this.displayRank,
     required this.price,
     required this.packageIdentifier,
+    this.offeringIdentifier,
     this.displayNameKey = '',
     this.savingsPercent,
   });
@@ -16,6 +17,7 @@ class BillingProduct {
   final int displayRank;
   final String price;
   final String packageIdentifier;
+  final String? offeringIdentifier;
   final String displayNameKey;
   final int? savingsPercent;
 
@@ -28,6 +30,7 @@ class BillingProduct {
       displayRank: product.displayRank,
       price: price,
       packageIdentifier: packageIdentifier,
+      offeringIdentifier: offeringIdentifier,
     );
   }
 }

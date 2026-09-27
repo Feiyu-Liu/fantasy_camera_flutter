@@ -1,0 +1,71 @@
+appId: host.eunoia.tessercam
+name: Local subscription catalog and MAX gate
+env:
+  E2E_EMAIL: ${E2E_EMAIL}
+  E2E_PASSWORD: ${E2E_PASSWORD}
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    permissions:
+      camera: allow
+      photos: allow
+      notifications: deny
+
+- assertVisible: "TesserCam"
+- tapOn:
+    id: "auth_email_field"
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    id: "auth_password_field"
+- inputText: ${E2E_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: "auth_password_submit"
+
+- extendedWaitUntil:
+    visible:
+      id: "camera_settings_button"
+    timeout: 20000
+- takeScreenshot: "01_camera_signed_in"
+
+- tapOn:
+    id: "camera_settings_button"
+- scrollUntilVisible:
+    element:
+      id: "settings_manage_subscription_button"
+    direction: DOWN
+    speed: 60
+- tapOn:
+    id: "settings_manage_subscription_button"
+
+- extendedWaitUntil:
+    visible:
+      id: "subscription_plan_plus"
+    timeout: 30000
+- assertVisible:
+    id: "subscription_plan_mini"
+- assertVisible:
+    id: "subscription_plan_plus"
+    selected: true
+- assertVisible:
+    id: "subscription_plan_pro"
+- takeScreenshot: "02_subscription_catalog"
+
+- tapOn:
+    point: "9%,10%"
+- extendedWaitUntil:
+    visible:
+      id: "settings_manage_subscription_button"
+    timeout: 10000
+- tapOn:
+    point: "9%,10%"
+- assertVisible:
+    id: "camera_max_quality_button"
+- tapOn:
+    id: "camera_max_quality_button"
+- extendedWaitUntil:
+    visible:
+      id: "subscription_plan_plus"
+    timeout: 15000
+- takeScreenshot: "03_max_upgrade_gate"

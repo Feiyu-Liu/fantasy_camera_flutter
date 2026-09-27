@@ -1813,55 +1813,59 @@ class CameraPhotoGalleryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color? badgeColor = _galleryBadgeColor(badgeStatus);
-    return GestureDetector(
-      onTap: onPressed,
-      behavior: HitTestBehavior.opaque,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: <Widget>[
-          SmoothClipRRect(
-            borderRadius: AppCorners.controlBorderRadius,
-            smoothness: AppCorners.smoothness,
-            side: BorderSide(
-              color: tokens.primaryTextColor,
-              width: tokens.dividerWidth,
-            ),
-            child: SizedBox(
-              width: tokens.galleryButtonSize,
-              height: tokens.galleryButtonSize,
-              child: _RotatingCameraControl(
-                tokens: tokens,
-                turns: rotationTurns,
-                child: preview ?? CameraCheckerboardThumbnail(tokens: tokens),
+    return Semantics(
+      identifier: 'camera_gallery_button',
+      button: true,
+      child: GestureDetector(
+        onTap: onPressed,
+        behavior: HitTestBehavior.opaque,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: <Widget>[
+            SmoothClipRRect(
+              borderRadius: AppCorners.controlBorderRadius,
+              smoothness: AppCorners.smoothness,
+              side: BorderSide(
+                color: tokens.primaryTextColor,
+                width: tokens.dividerWidth,
               ),
-            ),
-          ),
-          if (badgeColor != null)
-            Positioned(
-              top: -2,
-              right: -2,
-              child: DecoratedBox(
-                key: const ValueKey<String>('camera-gallery-result-badge'),
-                decoration: BoxDecoration(
-                  color: badgeColor,
-                  shape: BoxShape.circle,
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(
-                      color: badgeColor.withValues(alpha: 0.62),
-                      blurRadius: 4,
-                      spreadRadius: 0.4,
-                    ),
-                    BoxShadow(
-                      color: badgeColor.withValues(alpha: 0.34),
-                      blurRadius: 7,
-                      spreadRadius: 1.2,
-                    ),
-                  ],
+              child: SizedBox(
+                width: tokens.galleryButtonSize,
+                height: tokens.galleryButtonSize,
+                child: _RotatingCameraControl(
+                  tokens: tokens,
+                  turns: rotationTurns,
+                  child: preview ?? CameraCheckerboardThumbnail(tokens: tokens),
                 ),
-                child: const SizedBox(width: 5, height: 5),
               ),
             ),
-        ],
+            if (badgeColor != null)
+              Positioned(
+                top: -2,
+                right: -2,
+                child: DecoratedBox(
+                  key: const ValueKey<String>('camera-gallery-result-badge'),
+                  decoration: BoxDecoration(
+                    color: badgeColor,
+                    shape: BoxShape.circle,
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: badgeColor.withValues(alpha: 0.62),
+                        blurRadius: 4,
+                        spreadRadius: 0.4,
+                      ),
+                      BoxShadow(
+                        color: badgeColor.withValues(alpha: 0.34),
+                        blurRadius: 7,
+                        spreadRadius: 1.2,
+                      ),
+                    ],
+                  ),
+                  child: const SizedBox(width: 5, height: 5),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

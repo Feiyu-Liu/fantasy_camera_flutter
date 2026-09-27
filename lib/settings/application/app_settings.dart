@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/camera/domain/camera_capture_aspect_ratio.dart';
+import '../../features/backend_api/domain/generation_task.dart';
 import '../../l10n/l10n.dart';
 
 const String confirmBeforeGenerationPreferenceKey =
@@ -12,6 +13,8 @@ const String cameraCaptureAspectRatioPreferenceKey =
     'settings.camera_capture_aspect_ratio';
 const String localePreferenceKey = 'settings.locale_preference';
 const String themePreferenceKey = 'settings.theme_preference';
+const String generationQualityTierPreferenceKey =
+    'settings.generation_quality_tier';
 
 enum AppLocalePreference {
   system,
@@ -101,6 +104,7 @@ class AppSettingsState {
     this.cameraCaptureAspectRatio = CameraCaptureAspectRatio.fourThree,
     this.localePreference = AppLocalePreference.system,
     this.themePreference = AppThemePreference.light,
+    this.generationQualityTier = GenerationQualityTier.full,
   });
 
   final bool confirmBeforeGenerationEnabled;
@@ -108,6 +112,7 @@ class AppSettingsState {
   final CameraCaptureAspectRatio cameraCaptureAspectRatio;
   final AppLocalePreference localePreference;
   final AppThemePreference themePreference;
+  final GenerationQualityTier generationQualityTier;
 
   AppSettingsState copyWith({
     bool? confirmBeforeGenerationEnabled,
@@ -115,6 +120,7 @@ class AppSettingsState {
     CameraCaptureAspectRatio? cameraCaptureAspectRatio,
     AppLocalePreference? localePreference,
     AppThemePreference? themePreference,
+    GenerationQualityTier? generationQualityTier,
   }) {
     return AppSettingsState(
       confirmBeforeGenerationEnabled:
@@ -125,6 +131,8 @@ class AppSettingsState {
           cameraCaptureAspectRatio ?? this.cameraCaptureAspectRatio,
       localePreference: localePreference ?? this.localePreference,
       themePreference: themePreference ?? this.themePreference,
+      generationQualityTier:
+          generationQualityTier ?? this.generationQualityTier,
     );
   }
 }
@@ -143,6 +151,8 @@ abstract interface class AppSettingsRepository {
   Future<void> saveLocalePreference(AppLocalePreference preference);
 
   Future<void> saveThemePreference(AppThemePreference preference);
+
+  Future<void> saveGenerationQualityTier(GenerationQualityTier qualityTier);
 }
 
 class SharedPreferencesAppSettingsRepository implements AppSettingsRepository {
@@ -164,6 +174,9 @@ class SharedPreferencesAppSettingsRepository implements AppSettingsRepository {
       ),
       themePreference: AppThemePreference.fromStorageValue(
         preferences.getString(themePreferenceKey),
+      ),
+      generationQualityTier: GenerationQualityTier.fromWire(
+        preferences.getString(generationQualityTierPreferenceKey) ?? 'full',
       ),
     );
   }
@@ -201,6 +214,17 @@ class SharedPreferencesAppSettingsRepository implements AppSettingsRepository {
   Future<void> saveThemePreference(AppThemePreference preference) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     await preferences.setString(themePreferenceKey, preference.storageValue);
+  }
+
+  @override
+  Future<void> saveGenerationQualityTier(
+    GenerationQualityTier qualityTier,
+  ) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      generationQualityTierPreferenceKey,
+      qualityTier.wireValue,
+    );
   }
 }
 
@@ -273,6 +297,15 @@ class AppSettingsController extends Notifier<AppSettingsState> {
     await ref
         .read(appSettingsRepositoryProvider)
         .saveThemePreference(preference);
+  }
+
+  Future<void> setGenerationQualityTier(
+    GenerationQualityTier qualityTier,
+  ) async {
+    state = state.copyWith(generationQualityTier: qualityTier);
+    await ref
+        .read(appSettingsRepositoryProvider)
+        .saveGenerationQualityTier(qualityTier);
   }
 
   Future<void> _load() async {

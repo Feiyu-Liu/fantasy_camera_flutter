@@ -7,9 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart' hide XFile;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../config/app_config.dart';
 import '../../../auth/presentation/auth_providers.dart';
+import '../../../billing/presentation/billing_providers.dart';
+import '../../../config/app_config.dart';
 import '../../backend_api/domain/credit_balance.dart';
+import '../../backend_api/domain/generation_task.dart';
 import '../../backend_api/domain/prompt_config.dart';
 import '../../backend_api/presentation/backend_api_providers.dart';
 import '../../camera/domain/camera_capture_aspect_ratio.dart';
@@ -261,6 +263,7 @@ final generationSubmissionControllerProvider =
         generationRecordRepositoryProvider,
         generationRecordsProvider,
         creditBalanceProvider,
+        subscriptionBillingStatusProvider,
       ],
     );
 
@@ -564,7 +567,7 @@ class GenerationSubmissionController
     final String? recordId = await _service.queueCapturedFile(
       file,
       captureAspectRatio: captureAspectRatio,
-      promptSelection: promptSelection,
+      promptSelection: await _withEffectiveQualityTier(promptSelection),
       cameraCaptureMetadataSnapshot: cameraCaptureMetadataSnapshot,
     );
     if (recordId != null) {
@@ -582,7 +585,7 @@ class GenerationSubmissionController
     final String recordId = await _service.queueGalleryFile(
       file,
       originalAssetId: originalAssetId,
-      promptSelection: promptSelection,
+      promptSelection: await _withEffectiveQualityTier(promptSelection),
     );
     _deletedJobIds.remove(recordId);
     await _refreshFromRepository();
@@ -593,7 +596,10 @@ class GenerationSubmissionController
     XFile file, {
     PromptSelectionSnapshot? promptSelection,
   }) async {
-    await _service.submitCapturedFile(file, promptSelection: promptSelection);
+    await _service.submitCapturedFile(
+      file,
+      promptSelection: await _withEffectiveQualityTier(promptSelection),
+    );
     await _refreshFromRepository();
   }
 
@@ -609,6 +615,10 @@ class GenerationSubmissionController
     if (balance != null && balance.balance >= requiredCredits) {
       return true;
     }
+    if (ref.read(subscriptionBillingStatusProvider).valueOrNull?.isActive ==
+        true) {
+      return true;
+    }
 
     try {
       await ref.read(creditBalanceProvider.notifier).refreshFromServer();
@@ -617,14 +627,20 @@ class GenerationSubmissionController
       return true;
     }
 
-    return balance == null || balance.balance >= requiredCredits;
+    return balance == null ||
+        balance.balance >= requiredCredits ||
+        ref.read(subscriptionBillingStatusProvider).valueOrNull?.isActive ==
+            true;
   }
 
   Future<void> updatePendingPromptSelection(
     String jobId,
     PromptSelectionSnapshot promptSelection,
   ) async {
-    await _service.updatePendingPromptSelection(jobId, promptSelection);
+    await _service.updatePendingPromptSelection(
+      jobId,
+      await _withEffectiveQualityTier(promptSelection),
+    );
     await _refreshFromRepository();
   }
 
@@ -691,7 +707,7 @@ class GenerationSubmissionController
     await _refreshFromRepository();
   }
 
-  void _refreshCreditBalanceForObservedJobChanges(
+  void _refreshBillingForObservedJobChanges(
     GenerationSubmissionState nextState,
   ) {
     bool shouldRefresh = false;
@@ -708,7 +724,29 @@ class GenerationSubmissionController
     }
     if (shouldRefresh) {
       unawaited(_refreshCreditBalance());
+      ref.invalidate(subscriptionBillingStatusProvider);
     }
+  }
+
+  Future<PromptSelectionSnapshot> _withEffectiveQualityTier(
+    PromptSelectionSnapshot? promptSelection,
+  ) async {
+    final PromptSelectionSnapshot snapshot =
+        promptSelection ?? PromptSelectionSnapshot.fallback;
+    if (snapshot.requestedQualityTier == GenerationQualityTier.full) {
+      return snapshot;
+    }
+    final bool maxEnabled =
+        ref
+            .read(subscriptionBillingStatusProvider)
+            .valueOrNull
+            ?.capabilities
+            .maxEnabled ==
+        true;
+    final GenerationQualityTier qualityTier = maxEnabled
+        ? GenerationQualityTier.max
+        : GenerationQualityTier.full;
+    return snapshot.copyWith(requestedQualityTier: qualityTier);
   }
 
   Future<void> _refreshFromRepository() async {
@@ -719,7 +757,7 @@ class GenerationSubmissionController
     final GenerationSubmissionState filteredNextState = _withoutDeletedJobs(
       nextState,
     );
-    _refreshCreditBalanceForObservedJobChanges(filteredNextState);
+    _refreshBillingForObservedJobChanges(filteredNextState);
     _lastPublishedState = filteredNextState;
     state = filteredNextState;
   }
@@ -728,7 +766,7 @@ class GenerationSubmissionController
     final GenerationSubmissionState nextState = _mergedWithCurrentState(
       await _service.stateForRecords(records),
     );
-    _refreshCreditBalanceForObservedJobChanges(nextState);
+    _refreshBillingForObservedJobChanges(nextState);
     _lastPublishedState = nextState;
     state = nextState;
   }

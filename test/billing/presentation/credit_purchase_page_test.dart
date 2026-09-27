@@ -167,12 +167,12 @@ void main() {
       ),
     );
 
-    expect(find.text('Mini'), findsOneWidget);
+    expect(find.text('Mini 积分包'), findsOneWidget);
     expect(find.text('6 积分'), findsOneWidget);
-    expect(find.text('Standard'), findsOneWidget);
+    expect(find.text('Standard 积分包'), findsOneWidget);
     expect(find.text('40 积分'), findsOneWidget);
     expect(find.text('节省 47%'), findsOneWidget);
-    expect(find.text('Pro'), findsOneWidget);
+    expect(find.text('Pro 积分包'), findsOneWidget);
     expect(find.text('100 积分'), findsOneWidget);
     expect(find.text('节省 55%'), findsOneWidget);
     expect(find.text('一次性积分包'), findsNothing);
@@ -272,7 +272,7 @@ void main() {
         await tester.pump();
       }
 
-      expect(find.text('Standard'), findsOneWidget);
+      expect(find.text('Standard 积分包'), findsOneWidget);
       expect(find.text('暂时无法加载商品信息，请检查网络后重试。'), findsNothing);
       expect(billingGateway.fetchCalls, 5);
     },

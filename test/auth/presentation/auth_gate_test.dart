@@ -808,6 +808,11 @@ class _FakeAppSettingsRepository implements AppSettingsRepository {
   Future<void> saveThemePreference(AppThemePreference preference) async {
     themePreference = preference;
   }
+
+  @override
+  Future<void> saveGenerationQualityTier(
+    GenerationQualityTier qualityTier,
+  ) async {}
 }
 
 class _SeededGenerationService {

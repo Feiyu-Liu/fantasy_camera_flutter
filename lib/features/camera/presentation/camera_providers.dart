@@ -8,6 +8,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/app_config.dart';
+import '../../../billing/presentation/billing_providers.dart';
+import '../../../features/backend_api/domain/generation_task.dart';
 import '../../../features/backend_api/domain/prompt_config.dart';
 import '../../../features/generation_submission/domain/capture_metadata.dart';
 import '../../../features/generation_submission/presentation/generation_submission_providers.dart';
@@ -63,6 +65,7 @@ final cameraStateProvider =
         generationSubmissionControllerProvider,
         promptSelectionControllerProvider,
         cameraLensMetadataReaderProvider,
+        subscriptionBillingStatusProvider,
       ],
     );
 
@@ -333,9 +336,23 @@ class CameraControllerNotifier extends AutoDisposeNotifier<CameraState> {
                 ? AVFoundationPhotoCropMode.square
                 : AVFoundationPhotoCropMode.none,
           );
-      final PromptSelectionSnapshot promptSelection = ref
+      final PromptSelectionSnapshot basePromptSelection = ref
           .read(promptSelectionControllerProvider)
           .snapshot;
+      final bool maxEnabled =
+          appSettings.generationQualityTier == GenerationQualityTier.max &&
+          ref
+                  .read(subscriptionBillingStatusProvider)
+                  .valueOrNull
+                  ?.capabilities
+                  .maxEnabled ==
+              true;
+      final PromptSelectionSnapshot promptSelection = basePromptSelection
+          .copyWith(
+            requestedQualityTier: maxEnabled
+                ? GenerationQualityTier.max
+                : GenerationQualityTier.full,
+          );
       final GenerationSubmissionController submissionController = ref.read(
         generationSubmissionControllerProvider.notifier,
       );

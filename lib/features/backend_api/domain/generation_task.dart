@@ -35,6 +35,20 @@ enum GenerationTaskStatus {
   }
 }
 
+enum GenerationQualityTier {
+  full,
+  max;
+
+  factory GenerationQualityTier.fromWire(String value) {
+    return GenerationQualityTier.values.firstWhere(
+      (GenerationQualityTier tier) => tier.name == value,
+      orElse: () => GenerationQualityTier.full,
+    );
+  }
+
+  String get wireValue => name;
+}
+
 class CreateGenerationTaskInput {
   const CreateGenerationTaskInput({
     required this.uploadSessionId,
@@ -44,6 +58,7 @@ class CreateGenerationTaskInput {
     this.appInputContractId,
     this.originDeviceId,
     this.captureMetadata,
+    this.qualityTier = GenerationQualityTier.full,
   });
 
   final String uploadSessionId;
@@ -53,6 +68,7 @@ class CreateGenerationTaskInput {
   final String? appInputContractId;
   final String? originDeviceId;
   final JsonObject? captureMetadata;
+  final GenerationQualityTier qualityTier;
 
   JsonObject toJson({bool includeUploadSessionId = true}) {
     final JsonObject requestUserInput = <String, Object?>{
@@ -64,6 +80,7 @@ class CreateGenerationTaskInput {
       if (includeUploadSessionId) 'uploadSessionId': uploadSessionId,
       'promptStyle': promptStyle,
       'captureMode': captureMode,
+      'qualityTier': qualityTier.wireValue,
       'userInput': requestUserInput,
       if (appInputContractId != null) 'appInputContractId': appInputContractId,
       if (originDeviceId != null) 'originDeviceId': originDeviceId,
@@ -76,20 +93,34 @@ class CreatedGenerationTask {
   const CreatedGenerationTask({
     required this.taskId,
     required this.status,
-    required this.creditReservationId,
     required this.costCredits,
+    this.creditReservationId,
+    this.allowanceReservationId,
+    this.billingSource,
+    this.chargedUnits,
+    this.qualityTier = GenerationQualityTier.full,
   });
 
   final String taskId;
   final GenerationTaskStatus status;
-  final String creditReservationId;
+  final String? creditReservationId;
+  final String? allowanceReservationId;
+  final String? billingSource;
+  final int? chargedUnits;
+  final GenerationQualityTier qualityTier;
   final int costCredits;
 
   factory CreatedGenerationTask.fromJson(JsonObject json) {
     return CreatedGenerationTask(
       taskId: _readString(json, 'taskId'),
       status: GenerationTaskStatus.fromWire(_readString(json, 'status')),
-      creditReservationId: _readString(json, 'creditReservationId'),
+      creditReservationId: json['creditReservationId'] as String?,
+      allowanceReservationId: json['allowanceReservationId'] as String?,
+      billingSource: json['billingSource'] as String?,
+      chargedUnits: _readOptionalInt(json, 'chargedUnits'),
+      qualityTier: GenerationQualityTier.fromWire(
+        json['qualityTier'] as String? ?? 'full',
+      ),
       costCredits: _readInt(json, 'costCredits'),
     );
   }
@@ -234,6 +265,20 @@ String _readString(JsonObject json, String key) {
 
 int _readInt(JsonObject json, String key) {
   final Object? value = json[key];
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  throw FormatException('Expected integer field "$key".');
+}
+
+int? _readOptionalInt(JsonObject json, String key) {
+  final Object? value = json[key];
+  if (value == null) {
+    return null;
+  }
   if (value is int) {
     return value;
   }

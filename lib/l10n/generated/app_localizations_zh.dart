@@ -430,10 +430,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsRedeemCodeSubtitle => '使用兑换码获取积分';
 
   @override
-  String get settingsManageSubscriptionTitle => '购买积分';
+  String get settingsManageSubscriptionTitle => '管理订阅';
 
   @override
-  String get settingsManageSubscriptionSubtitle => '积分包与恢复购买';
+  String get settingsManageSubscriptionSubtitle => '选择方案或恢复购买';
 
   @override
   String get settingsSectionInformation => '信息';
@@ -581,6 +581,126 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get billingLegalNote => '购买由 App Store 处理。继续购买即表示你同意使用条款与隐私政策。';
+
+  @override
+  String get subscriptionTitle => '订阅';
+
+  @override
+  String get subscriptionHeroTitle => '选择你的创作方案';
+
+  @override
+  String get subscriptionHeroSubtitle => '每 7 天刷新订阅额度，已有积分独立保留';
+
+  @override
+  String get subscriptionTierMini => 'Mini';
+
+  @override
+  String get subscriptionTierPlus => 'Plus';
+
+  @override
+  String get subscriptionTierPro => 'Pro';
+
+  @override
+  String subscriptionPhotosPerWindow(int count) {
+    return '每 7 天约 $count 张全画质照片';
+  }
+
+  @override
+  String get subscriptionMaxIncluded => '包含 MAX 画质';
+
+  @override
+  String get subscriptionMaxUnavailable => 'MAX 画质需 Plus 或 Pro';
+
+  @override
+  String get subscriptionCurrentPlan => '当前方案';
+
+  @override
+  String get subscriptionCurrentPlanButton => '当前方案';
+
+  @override
+  String get subscriptionPurchaseButton => '继续';
+
+  @override
+  String get subscriptionAutoRenewDisclosure =>
+      '按月自动续订。额度每 7 天重置且不累积，可随时在 App Store 设置中取消。';
+
+  @override
+  String get subscriptionSyncPending => '购买已完成，订阅权益仍在同步，请勿重复购买。';
+
+  @override
+  String get subscriptionProductsUnavailable => '暂时无法加载订阅方案。';
+
+  @override
+  String get purchaseModeSubscription => '订阅方案';
+
+  @override
+  String get purchaseModeCredits => '积分包';
+
+  @override
+  String toastSubscriptionPurchaseSuccess(String tier) {
+    return '已开通 $tier';
+  }
+
+  @override
+  String get toastSubscriptionPurchaseSuccessGeneric => '订阅已开通';
+
+  @override
+  String purchaseCreditPackName(String name) {
+    return '$name 积分包';
+  }
+
+  @override
+  String settingsAllowanceTitle(String tier) {
+    return '$tier · 7 天额度';
+  }
+
+  @override
+  String settingsAllowancePercent(int percent) {
+    return '已使用 $percent%';
+  }
+
+  @override
+  String settingsAllowanceReset(String date) {
+    return '$date 重置';
+  }
+
+  @override
+  String get settingsAllowanceOverflow => '额度用尽后将以标准画质继续';
+
+  @override
+  String get settingsAllowanceOverflowExhausted => '本窗口额度已用尽';
+
+  @override
+  String get settingsAllowanceInOverflow => '本窗口以标准画质继续';
+
+  @override
+  String get settingsAllowanceUnavailable => '当前额度暂不可用';
+
+  @override
+  String get settingsAllowanceSyncing => '订阅状态同步中';
+
+  @override
+  String get settingsAllowanceSubscribe => '选择订阅套餐';
+
+  @override
+  String get settingsAllowanceLoading => '加载中…';
+
+  @override
+  String get cameraQuotaLow => '将用尽';
+
+  @override
+  String get cameraQuotaOverflow => '降级';
+
+  @override
+  String cameraQuotaReset(String date) {
+    return '$date 重置';
+  }
+
+  @override
+  String get cameraMaxQuality => 'MAX 画质';
+
+  @override
+  String get cameraMaxLocked => 'MAX 画质需 Plus 或 Pro';
 
   @override
   String get toastCaptureProcessingFailed => '照片处理失败，请重新拍摄。';
@@ -1105,10 +1225,10 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get settingsRedeemCodeSubtitle => '使用兌換碼取得點數';
 
   @override
-  String get settingsManageSubscriptionTitle => '購買點數';
+  String get settingsManageSubscriptionTitle => '管理訂閱';
 
   @override
-  String get settingsManageSubscriptionSubtitle => '點數包與恢復購買';
+  String get settingsManageSubscriptionSubtitle => '選擇方案或恢復購買';
 
   @override
   String get settingsSectionInformation => '資訊';
@@ -1256,6 +1376,126 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get billingLegalNote => '購買由 App Store 處理。繼續即表示你同意使用條款與隱私權政策。';
+
+  @override
+  String get subscriptionTitle => '訂閱';
+
+  @override
+  String get subscriptionHeroTitle => '選擇你的創作方案';
+
+  @override
+  String get subscriptionHeroSubtitle => '每 7 天刷新訂閱額度，既有點數獨立保留';
+
+  @override
+  String get subscriptionTierMini => 'Mini';
+
+  @override
+  String get subscriptionTierPlus => 'Plus';
+
+  @override
+  String get subscriptionTierPro => 'Pro';
+
+  @override
+  String subscriptionPhotosPerWindow(int count) {
+    return '每 7 天約 $count 張全畫質照片';
+  }
+
+  @override
+  String get subscriptionMaxIncluded => '包含 MAX 畫質';
+
+  @override
+  String get subscriptionMaxUnavailable => 'MAX 畫質需 Plus 或 Pro';
+
+  @override
+  String get subscriptionCurrentPlan => '目前方案';
+
+  @override
+  String get subscriptionCurrentPlanButton => '目前方案';
+
+  @override
+  String get subscriptionPurchaseButton => '繼續';
+
+  @override
+  String get subscriptionAutoRenewDisclosure =>
+      '按月自動續訂。額度每 7 天重置且不累積，可隨時在 App Store 設定中取消。';
+
+  @override
+  String get subscriptionSyncPending => '購買已完成，訂閱權益仍在同步，請勿重複購買。';
+
+  @override
+  String get subscriptionProductsUnavailable => '暫時無法載入訂閱方案。';
+
+  @override
+  String get purchaseModeSubscription => '訂閱方案';
+
+  @override
+  String get purchaseModeCredits => '點數包';
+
+  @override
+  String toastSubscriptionPurchaseSuccess(String tier) {
+    return '已開通 $tier';
+  }
+
+  @override
+  String get toastSubscriptionPurchaseSuccessGeneric => '訂閱已開通';
+
+  @override
+  String purchaseCreditPackName(String name) {
+    return '$name 點數包';
+  }
+
+  @override
+  String settingsAllowanceTitle(String tier) {
+    return '$tier · 7 天額度';
+  }
+
+  @override
+  String settingsAllowancePercent(int percent) {
+    return '已使用 $percent%';
+  }
+
+  @override
+  String settingsAllowanceReset(String date) {
+    return '$date 重置';
+  }
+
+  @override
+  String get settingsAllowanceOverflow => '額度用盡後將以標準畫質繼續';
+
+  @override
+  String get settingsAllowanceOverflowExhausted => '本視窗額度已用盡';
+
+  @override
+  String get settingsAllowanceInOverflow => '本視窗以標準畫質繼續';
+
+  @override
+  String get settingsAllowanceUnavailable => '目前額度暫不可用';
+
+  @override
+  String get settingsAllowanceSyncing => '訂閱狀態同步中';
+
+  @override
+  String get settingsAllowanceSubscribe => '選擇訂閱方案';
+
+  @override
+  String get settingsAllowanceLoading => '載入中…';
+
+  @override
+  String get cameraQuotaLow => '將用盡';
+
+  @override
+  String get cameraQuotaOverflow => '降級';
+
+  @override
+  String cameraQuotaReset(String date) {
+    return '$date 重置';
+  }
+
+  @override
+  String get cameraMaxQuality => 'MAX 畫質';
+
+  @override
+  String get cameraMaxLocked => 'MAX 畫質需 Plus 或 Pro';
 
   @override
   String get toastCaptureProcessingFailed => '照片處理失敗，請重新拍攝。';

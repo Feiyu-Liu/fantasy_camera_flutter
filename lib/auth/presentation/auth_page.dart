@@ -682,56 +682,60 @@ class _EditorialSubmitButton extends StatelessWidget {
     final AppLocalizations l10n = context.l10n;
     final Color accentYellow = AppThemeColors.of(context).accentYellow;
     final AppThemeColors colors = AppThemeColors.of(context);
-    return CupertinoButton(
-      key: const ValueKey<String>('auth_password_submit'),
-      onPressed: onPressed,
-      minimumSize: Size.zero,
-      padding: EdgeInsets.zero,
-      child: DecoratedBox(
-        decoration: AppCorners.controlDecoration(
-          color: onPressed == null
-              ? colors.controlFillDisabled
-              : colors.textPrimary,
-        ),
-        child: SizedBox(
-          height: 52,
-          child: Center(
-            child: isSubmitting
-                ? const CupertinoActivityIndicator(color: AppColors.white)
-                : Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        Flexible(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              (isSignUp
-                                      ? l10n.authCreateAccountButton
-                                      : l10n.authSignInButton)
-                                  .toUpperCase(),
-                              maxLines: 1,
-                              softWrap: false,
-                              style: TextStyle(
-                                color: colors.inverseText,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.6,
-                                height: 1,
+    return Semantics(
+      identifier: 'auth_password_submit',
+      button: true,
+      child: CupertinoButton(
+        key: const ValueKey<String>('auth_password_submit'),
+        onPressed: onPressed,
+        minimumSize: Size.zero,
+        padding: EdgeInsets.zero,
+        child: DecoratedBox(
+          decoration: AppCorners.controlDecoration(
+            color: onPressed == null
+                ? colors.controlFillDisabled
+                : colors.textPrimary,
+          ),
+          child: SizedBox(
+            height: 52,
+            child: Center(
+              child: isSubmitting
+                  ? const CupertinoActivityIndicator(color: AppColors.white)
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                (isSignUp
+                                        ? l10n.authCreateAccountButton
+                                        : l10n.authSignInButton)
+                                    .toUpperCase(),
+                                maxLines: 1,
+                                softWrap: false,
+                                style: TextStyle(
+                                  color: colors.inverseText,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.6,
+                                  height: 1,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Icon(
-                          LucideIcons.arrowRight,
-                          color: accentYellow,
-                          size: 18,
-                        ),
-                      ],
+                          const SizedBox(width: 10),
+                          Icon(
+                            LucideIcons.arrowRight,
+                            color: accentYellow,
+                            size: 18,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+            ),
           ),
         ),
       ),
@@ -1141,35 +1145,41 @@ class _EditorialAuthTextField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        CupertinoTextField(
-          controller: controller,
-          enabled: enabled,
-          obscureText: obscureText,
-          keyboardType: keyboardType,
-          textInputAction: textInputAction,
-          autofillHints: autofillHints,
-          onChanged: onChanged,
-          onSubmitted: onSubmitted,
-          placeholder: placeholder,
-          placeholderStyle: TextStyle(
-            color: colors.textMuted,
-            fontSize: 17,
-            fontWeight: FontWeight.w400,
-            letterSpacing: 0,
-          ),
-          style: TextStyle(
-            color: colors.textPrimary,
-            fontSize: 17,
-            fontWeight: FontWeight.w400,
-            letterSpacing: 0,
-            height: 1.25,
-          ),
-          cursorColor: colors.textPrimary,
-          padding: const EdgeInsets.fromLTRB(0, 0, 0, 13),
-          decoration: BoxDecoration(
-            color: colors.background,
-            border: Border(
-              bottom: BorderSide(color: colors.border, width: 0.8),
+        Semantics(
+          identifier: key is ValueKey<String>
+              ? (key! as ValueKey<String>).value
+              : null,
+          textField: true,
+          child: CupertinoTextField(
+            controller: controller,
+            enabled: enabled,
+            obscureText: obscureText,
+            keyboardType: keyboardType,
+            textInputAction: textInputAction,
+            autofillHints: autofillHints,
+            onChanged: onChanged,
+            onSubmitted: onSubmitted,
+            placeholder: placeholder,
+            placeholderStyle: TextStyle(
+              color: colors.textMuted,
+              fontSize: 17,
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0,
+            ),
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0,
+              height: 1.25,
+            ),
+            cursorColor: colors.textPrimary,
+            padding: const EdgeInsets.fromLTRB(0, 0, 0, 13),
+            decoration: BoxDecoration(
+              color: colors.background,
+              border: Border(
+                bottom: BorderSide(color: colors.border, width: 0.8),
+              ),
             ),
           ),
         ),

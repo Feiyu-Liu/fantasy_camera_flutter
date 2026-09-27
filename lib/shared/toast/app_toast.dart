@@ -298,6 +298,21 @@ class AppToastService {
     );
   }
 
+  void showSubscriptionPurchaseSuccess(
+    AppLocalizations localizations,
+    String? tierName,
+  ) {
+    show(
+      AppToastMessage(
+        type: AppToastType.success,
+        title: tierName == null
+            ? localizations.toastSubscriptionPurchaseSuccessGeneric
+            : localizations.toastSubscriptionPurchaseSuccess(tierName),
+        dedupeKey: 'billing.subscription.purchase.success',
+      ),
+    );
+  }
+
   void showRestorePurchaseFailure(AppLocalizations localizations) {
     show(
       AppToastMessage(

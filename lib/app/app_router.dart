@@ -11,6 +11,7 @@ const String appHomeRoute = '/';
 const String generationGalleryRoute = '/generation-gallery';
 const String settingsRoute = '/settings';
 const String creditPurchaseRoute = '/credits/purchase';
+const String subscriptionPurchaseRoute = '/subscription';
 
 String generationGalleryRouteForTask(String taskId) {
   return Uri(
@@ -49,6 +50,14 @@ GoRouter createAppRouter() {
         path: creditPurchaseRoute,
         pageBuilder: (BuildContext context, GoRouterState state) {
           return const CupertinoPage<void>(child: CreditPurchasePage());
+        },
+      ),
+      GoRoute(
+        path: subscriptionPurchaseRoute,
+        pageBuilder: (BuildContext context, GoRouterState state) {
+          return const CupertinoPage<void>(
+            child: CreditPurchasePage(initialMode: PurchaseMode.subscription),
+          );
         },
       ),
     ],
